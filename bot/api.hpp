@@ -1,11 +1,10 @@
 #include <string>
 #include <cpr/cpr.h>
+#include <iostream>
+#include "../token"
 // #include "json.hpp"
 
-const std::string request_url = "https://lichess.org";
-const std::string TOKEN = "";
-
-int __send_request(std::string url, std::string method);
+int __send_request(std::string, std::string); /// TODO: json
 
 namespace API {
 	/**
@@ -16,7 +15,7 @@ namespace API {
 	 * @param draw Whether the player is offering a draw
 	 * @return int The status code of the request
 	 */
-	int move(std::string game_id, std::string move, bool draw);
+	int move(std::string, std::string, bool=false);
 
 	/**
 	 * @brief Send a chat message to the server
@@ -26,14 +25,14 @@ namespace API {
 	 * @param message The message to send
 	 * @return int The status code of the request
 	 */
-	int chat(std::string game_id, int room, std::string message);
+	int chat(std::string, int, std::string);
 
 	/**
 	 * @brief Send a resign request to the server
 	 * @param game_id The ID of the game
 	 * @return int The status code of the request
 	 */
-	int resign(std::string game_id);
+	int resign(std::string);
 
 	// fuck we're gonna need json
 	/**
@@ -52,8 +51,8 @@ namespace API {
 	 * @param variant The variant to play (so far, only standard is supported)
 	 * @return int The status code of the request
 	 */
-	int send_challenge(std::string username, bool rated, int time, int increment, 
-		std::string color="random", std::string variant="standard"
+	int send_challenge(std::string, bool, int, int, 
+		std::string="random", std::string="standard"
 	);
 
 	/**
@@ -61,7 +60,7 @@ namespace API {
 	 * @param challenge_id The ID of the challenge
 	 * @return int The status code of the request
 	 */
-	int accept_challenge(std::string challenge_id);
+	int accept_challenge(std::string);
 
 
 }

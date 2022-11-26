@@ -32,5 +32,5 @@
 *.app
 
 
-token.txt
+token
 .vscode/
