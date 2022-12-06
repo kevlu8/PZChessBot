@@ -1,25 +1,26 @@
-#include <string>
+#include "../token"
+#include "json.hpp"
 #include <cpr/cpr.h>
 #include <iostream>
-#include "../token"
-// #include "json.hpp"
+#include <string>
+using json = nlohmann::json;
 
 int __send_request(std::string, std::string); /// TODO: json
 
 namespace API {
 	/**
 	 * @brief Send a move to the server
-	 * 
+	 *
 	 * @param game_id The ID of the game
 	 * @param move The move to send in UCI format (e.g. e2e4)
 	 * @param draw Whether the player is offering a draw
 	 * @return int The status code of the request
 	 */
-	int move(std::string, std::string, bool=false);
+	int move(std::string, std::string, bool = false);
 
 	/**
 	 * @brief Send a chat message to the server
-	 * 
+	 *
 	 * @param game_id The ID of the game
 	 * @param room The room to send the message to (0 for player, 1 for spectator)
 	 * @param message The message to send
@@ -34,12 +35,11 @@ namespace API {
 	 */
 	int resign(std::string);
 
-	// fuck we're gonna need json
 	/**
 	 * @brief Get challenges from the server
 	 * @return json JSON object containing the challenges
 	 */
-	// json get_challenges();
+	json get_challenges();
 
 	/**
 	 * @brief Send a challenge to the server
@@ -51,9 +51,7 @@ namespace API {
 	 * @param variant The variant to play (so far, only standard is supported)
 	 * @return int The status code of the request
 	 */
-	int send_challenge(std::string, bool, int, int, 
-		std::string="random", std::string="standard"
-	);
+	int send_challenge(std::string, bool, int, int, std::string = "random", std::string = "standard");
 
 	/**
 	 * @brief Accept a challenge from the server
@@ -62,5 +60,29 @@ namespace API {
 	 */
 	int accept_challenge(std::string);
 
+	class Events {
+	private:
+		bool running = true;
+		bool callback(std::string, intptr_t);
+		std::string residual;
+		std::vector<json> events;
+		cpr::AsyncResponse request;
 
+	public:
+		/**
+		 * @brief Construct a new Events object
+		 */
+		Events();
+
+		/**
+		 * @brief Destroy the Events object
+		 */
+		~Events();
+
+		/**
+		 * @brief Get the events from the server
+		 * @return std::vector<json> A vector of JSON objects containing the events
+		 */
+		std::vector<json> get_events();
+	};
 }
