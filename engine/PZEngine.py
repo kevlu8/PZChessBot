@@ -5,13 +5,12 @@ import torch.nn.functional as F
 
 class Insert():
     def __call__(self, x: torch.Tensor):
-        # concatenate with a tensor of shape (5,) with active color, castling rights, last move, halfmove clock, fullmove number
+        # concatenate with a tensor of shape (4,) with active color, castling rights, last move, halfmove clock
         # active color w = 1 b = 0
         # castling right is represented bitwise in the order KQkq
         # for example Kkq would be 0b1011 = 11
         # last move is the last move made represented in ICCF numeric notation
         # the halfmove clock is the number of halfmoves since the last capture or pawn advance
-        # the fullmove number is the number of full moves. It starts at 1, and is incremented after Black's move.
         return torch.cat(x, self.metadata)
 
 
