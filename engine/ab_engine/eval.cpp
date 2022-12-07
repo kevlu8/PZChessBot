@@ -58,7 +58,7 @@ int eval(const char *board, const char *metadata, const std::string prev) {
 		}
 	}
 
-	std::cout << "material: " << material << '\n';
+	// std::cout << "material: " << material << '\n';
 
 	// Mobility
 	// count number of legal moves for each side (unless in check, where we count the number of legal moves if we weren't in check)
@@ -72,8 +72,8 @@ int eval(const char *board, const char *metadata, const std::string prev) {
 	mobility -= b_legal_moves * 10;
 	free(meta);
 
-	std::cout << "white legal moves: " << w_legal_moves << '\n';
-	std::cout << "black legal moves: " << b_legal_moves << '\n';
+	// std::cout << "white legal moves: " << w_legal_moves << '\n';
+	// std::cout << "black legal moves: " << b_legal_moves << '\n';
 
 	// King safety
 	// count material worth of attackers and defenders on squares around the king (do not count kings)
@@ -85,8 +85,10 @@ int eval(const char *board, const char *metadata, const std::string prev) {
 	int w_king_pos = -1;
 	int b_king_pos = -1;
 	for (int i = 0; i < 64; i++) {
-		if (board[i] == 6) w_king_pos = i;
-		if (board[i] == 12) b_king_pos = i;
+		if (board[i] == 6)
+			w_king_pos = i;
+		if (board[i] == 12)
+			b_king_pos = i;
 	}
 	// first check for mate
 	if (check_mate(board, w_king_pos, b_control)) {
@@ -97,7 +99,8 @@ int eval(const char *board, const char *metadata, const std::string prev) {
 	}
 	for (int y = -2; y < 3; y++) {
 		for (int x = -2; x < 3; x++) {
-			if (x == 0 && y == 0) continue;
+			if (x == 0 && y == 0)
+				continue;
 			int coeff = powf(2, 4 - abs(x) - abs(y));
 			// if adding the x doesnt overflow the row and adding the y doesnt overflow the column
 			if (w_king_pos >= -x && w_king_pos + x < 8 && w_king_pos + y * 8 < 8 && w_king_pos >= -y * 8) {
@@ -107,27 +110,27 @@ int eval(const char *board, const char *metadata, const std::string prev) {
 				king_safety += (w_control[b_king_pos + x + y * 8] - b_control[b_king_pos + x + y * 8]) * coeff;
 			}
 		}
-		std::cout << std::endl;
+		// std::cout << std::endl;
 	}
 	king_safety = king_safety * 100 / 84;
 
-	std::cout << "white control: " << '\n';
-	for (int i = 0; i < 64; i++) {
-		std::cout << std::setw(3) << (int)w_control[(7 - i / 8) * 8 + i % 8];
-		if (i % 8 == 7) {
-			std::cout << '\n';
-		}
-	}
-	
-	std::cout << "black control: " << '\n';
-	for (int i = 0; i < 64; i++) {
-		std::cout << std::setw(3) << (int)b_control[(7 - i / 8) * 8 + i % 8];
-		if (i % 8 == 7) {
-			std::cout << '\n';
-		}
-	}
+	// std::cout << "white control: " << '\n';
+	// for (int i = 0; i < 64; i++) {
+	// 	std::cout << std::setw(3) << (int)w_control[(7 - i / 8) * 8 + i % 8];
+	// 	if (i % 8 == 7) {
+	// 		std::cout << '\n';
+	// 	}
+	// }
 
-	std::cout << "king safety: " << king_safety << '\n';
+	// std::cout << "black control: " << '\n';
+	// for (int i = 0; i < 64; i++) {
+	// 	std::cout << std::setw(3) << (int)b_control[(7 - i / 8) * 8 + i % 8];
+	// 	if (i % 8 == 7) {
+	// 		std::cout << '\n';
+	// 	}
+	// }
+
+	// std::cout << "king safety: " << king_safety << '\n';
 
 	/*
 		Pawn structure

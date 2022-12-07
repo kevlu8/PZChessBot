@@ -1,9 +1,8 @@
 #include "moves.hpp"
+#include <cmath>
+#include <iomanip>
 #include <string.h>
 #include <string>
-#include <cmath>
-
-#include <iomanip>
 
 /**
  * @brief Evaluate the current position

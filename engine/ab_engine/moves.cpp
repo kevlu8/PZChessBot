@@ -611,7 +611,9 @@ bool check_mate(const char *position, const int king, const char *control) {
 	return false;
 }
 
-bool is_check(const char *position, const bool turn, const char *control) {
+bool is_check(const char *position, const bool turn) {
+	char control[64];
+	controlled_squares(position, !turn, control, false);
 	int king;
 	if (turn) {
 		king = 6;
