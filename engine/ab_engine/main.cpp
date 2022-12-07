@@ -8,14 +8,37 @@ int main() {
 	char meta[3];
 	char temp[2];
 	std::string fen;
-	std::cin >> fen;
+	std::getline(std::cin, fen);
 
 	parse_fen(fen, board, meta, temp);
-
-	std::vector<std::string> moves = find_legal_moves(board, "0000", 0, meta);
-	for (std::string s : moves) {
-		std::cout << s << '\n';
+	std::cout << "board: " << '\n';
+	for (int i = 0; i < 64; i++) {
+		std::cout << std::setw(3) << (int)board[(7 - i / 8) * 8 + i % 8];
+		if (i % 8 == 7) {
+			std::cout << '\n';
+		}
 	}
+	std::cout << std::endl;
+	// std::cout << "turn: " << (int)meta[0] << '\n';
+
+	// std::vector<std::string> moves = find_legal_moves(board, "0000", meta);
+	// for (std::string s : moves) {
+	// 	std::cout << s << '\n';
+	// }
 	// std::cout << eval(board, meta, temp, "0000") << '\n';
+	std::string move = "128390";
+	while (move != "") {
+		std::getline(std::cin, move);
+		make_move(move, "0000", board, meta);
+		std::cout << "board: " << '\n';
+		for (int i = 0; i < 64; i++) {
+			std::cout << std::setw(3) << (int)board[(7 - i / 8) * 8 + i % 8];
+			if (i % 8 == 7) {
+				std::cout << '\n';
+			}
+		}
+		serialize_fen(board, meta, temp, fen);
+		std::cout << fen << std::endl;
+	}
 	return 0;
 }

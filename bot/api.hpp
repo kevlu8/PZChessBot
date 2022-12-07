@@ -5,7 +5,7 @@
 #include <string>
 using json = nlohmann::json;
 
-int __send_request(std::string, std::string); /// TODO: json
+int __send_request(std::string, std::string);
 
 namespace API {
 	/**

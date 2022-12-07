@@ -1,6 +1,6 @@
 #include "eval.hpp"
 
-int eval(const char *board, const char *metadata, const char *extra_metadata, std::string prev) {
+int eval(const char *board, const char *metadata, const std::string prev) {
 	// metadata[0] = 1 for white, 0 for black
 	// metadata[1] = castling rights
 	// metadata[2] = halfmove clock
@@ -58,18 +58,78 @@ int eval(const char *board, const char *metadata, const char *extra_metadata, st
 		}
 	}
 
+	std::cout << "material: " << material << '\n';
+
 	// Mobility
 	// count number of legal moves for each side (unless in check, where we count the number of legal moves if we weren't in check)
-	// subtract black from white
-	mobility += find_legal_moves(board, prev, 1, metadata).size();
-	mobility -= find_legal_moves(board, prev, 0, metadata).size();
+	char *meta = (char *)malloc(3 * sizeof(char));
+	memcpy(meta, metadata, 3);
+	meta[0] = 1;
+	int w_legal_moves = find_legal_moves(board, prev, meta).size();
+	meta[0] = 0;
+	int b_legal_moves = find_legal_moves(board, prev, meta).size();
+	mobility += w_legal_moves * 10;
+	mobility -= b_legal_moves * 10;
+	free(meta);
+
+	std::cout << "white legal moves: " << w_legal_moves << '\n';
+	std::cout << "black legal moves: " << b_legal_moves << '\n';
+
+	// King safety
+	// count material worth of attackers and defenders on squares around the king (do not count kings)
+	// weighted on a bell curve (closer to king is more important)
+	char w_control[64];
+	char b_control[64];
+	controlled_squares(board, true, w_control, true);
+	controlled_squares(board, false, b_control, true);
+	int w_king_pos = -1;
+	int b_king_pos = -1;
+	for (int i = 0; i < 64; i++) {
+		if (board[i] == 6) w_king_pos = i;
+		if (board[i] == 12) b_king_pos = i;
+	}
+	// first check for mate
+	if (check_mate(board, w_king_pos, b_control)) {
+		return INT32_MIN;
+	}
+	if (check_mate(board, b_king_pos, w_control)) {
+		return INT32_MAX;
+	}
+	for (int y = -2; y < 3; y++) {
+		for (int x = -2; x < 3; x++) {
+			if (x == 0 && y == 0) continue;
+			int coeff = powf(2, 4 - abs(x) - abs(y));
+			// if adding the x doesnt overflow the row and adding the y doesnt overflow the column
+			if (w_king_pos >= -x && w_king_pos + x < 8 && w_king_pos + y * 8 < 8 && w_king_pos >= -y * 8) {
+				king_safety += (w_control[w_king_pos + x + y * 8] - b_control[w_king_pos + x + y * 8]) * coeff;
+			}
+			if (b_king_pos >= -x && b_king_pos + x < 8 && b_king_pos + y * 8 < 8 && b_king_pos >= -y * 8) {
+				king_safety += (w_control[b_king_pos + x + y * 8] - b_control[b_king_pos + x + y * 8]) * coeff;
+			}
+		}
+		std::cout << std::endl;
+	}
+	king_safety = king_safety * 100 / 84;
+
+	std::cout << "white control: " << '\n';
+	for (int i = 0; i < 64; i++) {
+		std::cout << std::setw(3) << (int)w_control[(7 - i / 8) * 8 + i % 8];
+		if (i % 8 == 7) {
+			std::cout << '\n';
+		}
+	}
+	
+	std::cout << "black control: " << '\n';
+	for (int i = 0; i < 64; i++) {
+		std::cout << std::setw(3) << (int)b_control[(7 - i / 8) * 8 + i % 8];
+		if (i % 8 == 7) {
+			std::cout << '\n';
+		}
+	}
+
+	std::cout << "king safety: " << king_safety << '\n';
 
 	/*
-
-		King safety
-		count material worth of attackers and defenders on these squares (do not count kings)
-		weighted on a bell curve (closer to king is more important)
-
 		Pawn structure
 		judge isolated pawns (their safety and potential exposure to attack)
 			no pawns on the surrounding files
@@ -84,5 +144,6 @@ int eval(const char *board, const char *metadata, const char *extra_metadata, st
 			subtract black from white
 	*/
 
-	return (mobility);
+	return (material + mobility + king_safety) / 3;
+	// weight in order:  material, king safety, mobility, space, pawn structure
 }

@@ -1,4 +1,5 @@
 #include "fen.hpp"
+#include <iostream>
 
 void parse_fen(const std::string fen, char *board, char *metadata, char *extra_metadata) {
 	memset(board, 0, 64);
@@ -26,7 +27,7 @@ void parse_fen(const std::string fen, char *board, char *metadata, char *extra_m
 		}
 	}
 	currIdx++;
-	metadata[0] = fen[currIdx] == 'w';
+	metadata[0] = (fen[currIdx] == 'w');
 	currIdx += 2;
 	if (fen[currIdx] == '-') {
 		metadata[1] = 0;
@@ -87,7 +88,7 @@ void serialize_fen(const char *board, const char *metadata, const char *extra_me
 				} else {
 					fen += char_to_fen[board[i * 8 + j] - 6] + 32;
 				}
-			}
+			} 
 		}
 		if (empty > 0) {
 			fen += empty + '0';
