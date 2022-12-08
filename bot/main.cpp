@@ -1,25 +1,27 @@
 #include "api.hpp"
-#include <thread>
+#include <pthread.h>
 #include <unistd.h>
 #include <unordered_map>
 #include <vector>
 
 // create a list of threads
 // each thread will be a game
-std::unordered_map<std::string, std::thread> games;
+std::unordered_map<std::string, pthread_t> games;
 
 // loop that handles game events and plays the game
 void play(std::string game_id, bool color) {
-	// connect to the game
-	API api(game_id, color);
-	while (true) {
-	}
+	// connect to the game stream
+	API::Game game(game_id);
+
 }
 
 // general event handler to dispatch jobs
 void handle_event(json event) {
 	if (event["type"] == "gameStart") {
-		std::thread t(play, event["game"]["gameId"], event["game"]["color"] == "white");
+		void *args = malloc(9);
+		args[0] = &event["game"]["gameId"];
+		args[]
+		pthread_t t = pthread_create(&t, NULL, play_helper, (void *)&event["game"]["gameId"], event["game"]["color"] == "white");
 		games[event["game"]["gameId"]] = t;
 	}
 }

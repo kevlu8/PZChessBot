@@ -8,7 +8,7 @@
  * @param metadata The metadata for the current position.
  * @param prev The previous move.
  * @param turn The side to move.
- * @return The first element is the best move, the second is the evaluation of the position.
+ * @return A vector of pairs: the first element is the best move, the second is the evaluation of the position.
  */
 
-std::pair<std::string, int> ab_search(const char *, int, const char *, std::string, const bool);
+std::vector<std::pair<std::string, int>> ab_search(const char *, int, const char *, std::string, const bool);

@@ -63,7 +63,7 @@ namespace API {
 	class Events {
 	private:
 		bool running = true;
-		bool callback(std::string, intptr_t);
+		bool callback(std::string);
 		std::string residual;
 		std::vector<json> events;
 		cpr::AsyncResponse request;
@@ -78,6 +78,33 @@ namespace API {
 		 * @brief Destroy the Events object
 		 */
 		~Events();
+
+		/**
+		 * @brief Get the events from the server
+		 * @return std::vector<json> A vector of JSON objects containing the events
+		 */
+		std::vector<json> get_events();
+	};
+
+	class Game {
+	private:
+		bool running = true;
+		bool callback(std::string);
+		std::string residual;
+		std::vector<json> events;
+		cpr::AsyncResponse request;
+	
+	public:
+		/**
+		 * @brief Construct a new Game object
+		 * @param game_id The ID of the game
+		 */
+		Game(std::string);
+
+		/**
+		 * @brief Destroy the Game object
+		 */
+		~Game();
 
 		/**
 		 * @brief Get the events from the server

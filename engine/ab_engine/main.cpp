@@ -41,9 +41,12 @@ int main() {
 	// 	serialize_fen(board, meta, temp, fen);
 	// 	std::cout << fen << std::endl;
 	// }
-	int depth;
-	std::cin >> depth;
-	std::pair<std::string, int> best = ab_search(board, depth, meta, "0000", meta[0]);
-	std::cout << best.first << ' ' << best.second << std::endl;
+	// int depth;
+	// std::cin >> depth;
+	// std::vector<std::pair<std::string, int>> best = ab_search(board, depth, meta, "0000", meta[0]);
+	// for (auto move : best) {
+	// 	std::cout << move.first << ' ' << move.second << std::endl;
+	// }
+	std::cout << eval(board, meta, "0000") << std::endl;
 	return 0;
 }

@@ -58,8 +58,6 @@ int eval(const char *board, const char *metadata, const std::string prev) {
 		}
 	}
 
-	// std::cout << "material: " << material << '\n';
-
 	// Mobility
 	// count number of legal moves for each side (unless in check, where we count the number of legal moves if we weren't in check)
 	char *meta = (char *)malloc(3 * sizeof(char));
@@ -71,9 +69,6 @@ int eval(const char *board, const char *metadata, const std::string prev) {
 	mobility += w_legal_moves * 10;
 	mobility -= b_legal_moves * 10;
 	free(meta);
-
-	// std::cout << "white legal moves: " << w_legal_moves << '\n';
-	// std::cout << "black legal moves: " << b_legal_moves << '\n';
 
 	// King safety
 	// count material worth of attackers and defenders on squares around the king (do not count kings)
@@ -87,15 +82,15 @@ int eval(const char *board, const char *metadata, const std::string prev) {
 	for (int i = 0; i < 64; i++) {
 		if (board[i] == 6)
 			w_king_pos = i;
-		if (board[i] == 12)
+		else if (board[i] == 12)
 			b_king_pos = i;
 	}
 	// first check for mate
-	if (check_mate(board, w_king_pos, b_control)) {
-		return INT32_MIN;
+	if (check_mate(board, w_king_pos, prev, metadata)) {
+		return -1e9;
 	}
-	if (check_mate(board, b_king_pos, w_control)) {
-		return INT32_MAX;
+	if (check_mate(board, b_king_pos, prev, metadata)) {
+		return 1e9;
 	}
 	for (int y = -2; y < 3; y++) {
 		for (int x = -2; x < 3; x++) {
@@ -147,6 +142,7 @@ int eval(const char *board, const char *metadata, const std::string prev) {
 			subtract black from white
 	*/
 
+	// return material;
 	return (material + mobility + king_safety) / 3;
 	// weight in order:  material, king safety, mobility, space, pawn structure
 }

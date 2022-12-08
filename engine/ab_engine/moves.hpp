@@ -30,10 +30,22 @@ std::vector<std::string> find_legal_moves(const char *, const std::string, const
  *
  * @param position The current position.
  * @param king The location of the king.
- * @param control The array of number of attackers for each square.
+ * @param prev The previous move.
+ * @param metadata The metadata for the current position.
  * @return True if the king is mated, false otherwise.
  */
-bool check_mate(const char *, const int, const char *);
+bool check_mate(const char *, const int, const std::string, const char *);
+
+/**
+ * @brief Check to see if the king is mated
+ *
+ * @param position The current position.
+ * @param side The side to check for.
+ * @param prev The previous move.
+ * @param metadata The metadata for the current position.
+ * @return True if the king is mated, false otherwise.
+ */
+bool check_mate(const char *, const bool, const std::string, const char *);
 
 /**
  * @brief Check to see if the king is in check
