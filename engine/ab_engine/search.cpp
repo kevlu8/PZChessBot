@@ -9,7 +9,7 @@ std::vector<std::pair<std::string, int>> __recurse(int depth, int maxdepth, cons
 	if (turn) {
 		int best = -1e9 - 5;
 		for (std::string curr : moves) {
-			// if (curr == "g3a3" && depth == 1 && prevmove == "f8a8") {
+			// if (curr == "a6a7") {
 			// 	std::cout << "h5f7" << '\n';
 			// }
 			memcpy(newboard, board, 64);
@@ -28,8 +28,9 @@ std::vector<std::pair<std::string, int>> __recurse(int depth, int maxdepth, cons
 				continue;
 			if (check_mate(newboard, !turn, prevmove, newmeta))
 				return {{curr, target > 0 ? 1e9 : -1e9}};
+			int aeval = eval(newboard, newmeta, curr);
 			if (depth == maxdepth) {
-				move = {{curr, eval(newboard, newmeta, curr)}};
+				move = {{curr, aeval}};
 			} else {
 				move = __recurse(depth + 1, maxdepth, newboard, curr, newmeta, !turn, -target, alpha, beta);
 				move.insert(move.begin(), {curr, move[0].second});
@@ -39,7 +40,8 @@ std::vector<std::pair<std::string, int>> __recurse(int depth, int maxdepth, cons
 			}
 			if (abs(move[0].second - target) < abs(bestmove[0].second - target))
 				bestmove = move;
-			// put in right place later
+			best = std::max(best, aeval);
+			alpha = std::max(alpha, best);
 			if (beta <= alpha) 
 				break;
 		}
@@ -63,20 +65,22 @@ std::vector<std::pair<std::string, int>> __recurse(int depth, int maxdepth, cons
 			// std::cout << '\n';
 			if (is_check(newboard, turn))
 				continue;
+			int beval = eval(newboard, newmeta, curr);
 			if (check_mate(newboard, !turn, prevmove, newmeta))
 				return {{curr, target > 0 ? 1e9 : -1e9}};
 			if (depth == maxdepth) {
-				move = {{curr, eval(newboard, newmeta, curr)}};
+				move = {{curr, beval}};
 			} else {
 				move = __recurse(depth + 1, maxdepth, newboard, curr, newmeta, !turn, -target, alpha, beta);
 				move.insert(move.begin(), {curr, move[0].second});
-				if (move[0].second == (turn ? 1e9 : -1e9)) {
-					return move;
-				}
+				// if (move[0].second == (turn ? 1e9 : -1e9)) {
+				// 	return move;
+				// }
 			}
 			if (abs(move[0].second - target) < abs(bestmove[0].second - target))
 				bestmove = move;
-			// put in right place later
+			best = std::min(best, beval);
+			beta = std::min(beta, best);
 			if (beta <= alpha) 
 				break;
 		}

@@ -127,6 +127,32 @@ int eval(const char *board, const char *metadata, const std::string prev) {
 
 	// std::cout << "king safety: " << king_safety << '\n';
 
+	// Piece heatmaps
+	// where do pieces like to be?
+	int pawn_heatmap[64] = {
+	//  a  b  c  d  e  f  g  h
+		0, 0, 0, 0, 0, 0, 0, 0, // 1
+		1, 2, 2, 1, 1, 2, 2, 1, // 2
+		2, 2, 2, 3, 2, 1, 2, 3, // 3
+		1, 2, 4, 5, 5, 4, 1, 2, // 4
+		1, 1, 2, 4, 4, 1, 1, 1, // 5
+		2, 2, 2, 2, 2, 2, 2, 2, // 6
+		6, 6, 6, 6, 6, 6, 6, 6, // 7
+		9, 9, 9, 9, 9, 9, 9, 9 // 8
+	}; // invert for black (heatmap[64 - i])
+
+	int knight_heatmap[64] = {
+	//  a  b  c  d  e  f  g  h
+		1, 1, 1, 1, 1, 1, 1, 1, 
+		2, 1, 1, 4, 4, 2, 1, 2,
+		2, 2, 5, 3, 3, 5, 3, 2, 
+		1, 1, 4, 5, 5, 4, 1, 1, 
+		1, 3, 4, 5, 5, 4, 3, 1, 
+		2, 2, 2, 2, 2, 2, 2, 2, // 6
+		1, 1, 3, 1, 1, 3, 1, 1, // 7
+		1, 1, 1, 1, 1, 1, 1, 1 // 8
+	};
+
 	/*
 		Pawn structure
 		judge isolated pawns (their safety and potential exposure to attack)
@@ -143,6 +169,6 @@ int eval(const char *board, const char *metadata, const std::string prev) {
 	*/
 
 	// return material;
-	return (material + mobility + king_safety) / 3;
+	return (2 * material + mobility + 1.5 * king_safety) / 4.5;
 	// weight in order:  material, king safety, mobility, space, pawn structure
 }

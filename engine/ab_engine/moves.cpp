@@ -149,7 +149,7 @@ void controlled_squares(const char *position, const bool side, char *controlled,
 			bishop_control(position, i, side, controlled, material ? 9 : 1);
 			rook_control(position, i, side, controlled, material ? 9 : 1);
 		} else if (position[i] == 6 || position[i] == 12) {
-			// king_control(i, controlled, material ? 0 : 1);
+			king_control(i, controlled, material ? 0 : 1);
 		}
 	}
 }
@@ -173,6 +173,16 @@ void pawn_moves(const char *position, const bool side, const int i, const std::s
 		} else if (i / 8 != 6) {
 			if (position[i + 8] == 0) {
 				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8) + (char)(i / 8 + 2 + '0');
+				moves.push_back(move);
+				move = "";
+			}
+			if (i % 8 && is_enemy(position[i + 7], side)) {
+				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8 - 1) + (char)(i / 8 + 2 + '0');
+				moves.push_back(move);
+				move = "";
+			}
+			if (i % 8 != 7 && is_enemy(position[i + 9], side)) {
+				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8 + 1) + (char)(i / 8 + 2 + '0');
 				moves.push_back(move);
 				move = "";
 			}
@@ -200,7 +210,7 @@ void pawn_moves(const char *position, const bool side, const int i, const std::s
 			}
 		}
 	} else {
-		if (i / 8 == 6) { // seventh rank
+		if (i / 8 + 1 == 7) { // seventh rank
 			if (position[i - 8] == 0) {
 				// push back in uci
 				move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8) + '6';
@@ -214,7 +224,17 @@ void pawn_moves(const char *position, const bool side, const int i, const std::s
 			}
 		} else if (i / 8 != 1) {
 			if (position[i - 8] == 0) {
-				move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8) + std::to_string(i / 8 + 2);
+				move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8) + std::to_string(i / 8);
+				moves.push_back(move);
+				move = "";
+			}
+			if (i % 8 && is_enemy(position[i - 9], side)) {
+				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8 - 1) + (char)(i / 8 + '0');
+				moves.push_back(move);
+				move = "";
+			}
+			if (i % 8 != 7 && is_enemy(position[i - 7], side)) {
+				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8 + 1) + (char)(i / 8 + '0');
 				moves.push_back(move);
 				move = "";
 			}

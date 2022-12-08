@@ -22,11 +22,11 @@ int main() {
 	// std::cout << std::endl;
 	// // std::cout << "turn: " << (int)meta[0] << '\n';
 
-	// // std::vector<std::string> moves = find_legal_moves(board, "0000", meta);
-	// // for (std::string s : moves) {
-	// // 	std::cout << s << '\n';
-	// // }
-	// // std::cout << eval(board, meta, temp, "0000") << '\n';
+	// std::vector<std::string> moves = find_legal_moves(board, "0000", meta);
+	// for (std::string s : moves) {
+	// 	std::cout << s << '\n';
+	// }
+	// std::cout << eval(board, meta, temp, "0000") << '\n';
 	// std::string move = "128390";
 	// while (move != "") {
 	// 	std::getline(std::cin, move);
@@ -41,12 +41,12 @@ int main() {
 	// 	serialize_fen(board, meta, temp, fen);
 	// 	std::cout << fen << std::endl;
 	// }
-	// int depth;
-	// std::cin >> depth;
-	// std::vector<std::pair<std::string, int>> best = ab_search(board, depth, meta, "0000", meta[0]);
-	// for (auto move : best) {
-	// 	std::cout << move.first << ' ' << move.second << std::endl;
-	// }
-	std::cout << eval(board, meta, "0000") << std::endl;
+	int depth;
+	std::cin >> depth;
+	std::vector<std::pair<std::string, int>> best = ab_search(board, depth, meta, "0000", meta[0]);
+	for (auto move : best) {
+		std::cout << move.first << ' ' << move.second << std::endl;
+	}
+	// std::cout << eval(board, meta, "0000") << std::endl;
 	return 0;
 }

@@ -81,9 +81,10 @@ namespace API {
 
 		/**
 		 * @brief Get the events from the server
-		 * @return std::vector<json> A vector of JSON objects containing the events
+		 *
+		 * @param out A vector of JSON objects containing the events
 		 */
-		std::vector<json> get_events();
+		void get_events(std::vector<json> &);
 	};
 
 	class Game {
@@ -108,8 +109,9 @@ namespace API {
 
 		/**
 		 * @brief Get the events from the server
-		 * @return std::vector<json> A vector of JSON objects containing the events
+		 *
+		 * @param out A vector of JSON objects containing the events
 		 */
-		std::vector<json> get_events();
+		void get_events(std::vector<json> &);
 	};
 }

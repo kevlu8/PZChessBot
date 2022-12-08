@@ -6,9 +6,15 @@ int __send_request(std::string url, std::string method) { /// TODO: json
 	if (method == "GET") {
 		cpr::Response r = cpr::Get(cpr::Url{url}, cpr::Bearer{TOKEN});
 		/// TODO: set response (r.text to json)
+		if (r.status_code != 200) {
+			std::cerr << method << ' ' << url << ' ' << r.text << std::endl;
+		}
 		return r.status_code;
 	} else {
 		cpr::Response r = cpr::Post(cpr::Url{url}, cpr::Bearer{TOKEN});
+		if (r.status_code != 200) {
+			std::cerr << method << ' ' << url << ' ' << r.text << std::endl;
+		}
 		return r.status_code;
 	}
 }
@@ -16,9 +22,15 @@ int __send_request(std::string url, std::string method) { /// TODO: json
 int __send_request(std::string url, std::string method, cpr::Response &r) {
 	if (method == "GET") {
 		r = cpr::Get(cpr::Url{url}, cpr::Bearer{TOKEN});
+		if (r.status_code != 200) {
+			std::cerr << method << ' ' << url << ' ' << r.text << std::endl;
+		}
 		return r.status_code;
 	} else {
 		r = cpr::Post(cpr::Url{url}, cpr::Bearer{TOKEN});
+		if (r.status_code != 200) {
+			std::cerr << method << ' ' << url << ' ' << r.text << std::endl;
+		}
 		return r.status_code;
 	}
 }
@@ -66,7 +78,7 @@ int API::send_challenge(std::string username, bool rated, int time, int incremen
 }
 
 int API::accept_challenge(std::string challenge_id) {
-	std::string url = REQUEST_URL + "/api/bot/challenge/" + challenge_id + "/accept";
+	std::string url = REQUEST_URL + "/api/challenge/" + challenge_id + "/accept";
 	return __send_request(url, "POST");
 }
 
@@ -87,10 +99,12 @@ bool API::Events::callback(std::string header) {
 	for (int i = 0; i < s.length(); i++) {
 		if (s[i] == '\n') {
 			try {
-				j = json::parse(s.substr(0, i));
+				if (s.substr(0, i) != "\n") {
+					j = json::parse(s.substr(0, i));
+					events.push_back(j);
+				}
 				residual = s.substr(i + 1);
 				s = residual;
-				events.push_back(j);
 			} catch (json::parse_error &e) {
 				// TODO: handle error
 			}
@@ -99,15 +113,15 @@ bool API::Events::callback(std::string header) {
 	return running;
 }
 
-std::vector<json> API::Events::get_events() {
-	std::vector<json> copy{events};
+void API::Events::get_events(std::vector<json> &out) {
+	out = events;
 	events.clear();
-	return copy;
 }
 
 API::Game::Game(std::string game_id) {
+	std::cout << "gameid: " << game_id << std::endl;
 	// make a request to the stream endpoint
-	request = cpr::GetAsync(cpr::Url{REQUEST_URL + "/api/board/game/stream/" + game_id}, cpr::Bearer{TOKEN}, cpr::WriteCallback{[this](std::string response, intptr_t userdata){return this->callback(response);}});
+	request = cpr::GetAsync(cpr::Url{REQUEST_URL + "/api/bot/game/stream/" + game_id}, cpr::Bearer{TOKEN}, cpr::WriteCallback{[this](std::string response, intptr_t userdata){return this->callback(response);}});
 }
 
 API::Game::~Game() {
@@ -122,10 +136,12 @@ bool API::Game::callback(std::string header) {
 	for (int i = 0; i < s.length(); i++) {
 		if (s[i] == '\n') {
 			try {
-				j = json::parse(s.substr(0, i));
+				if (s.substr(0, i) != "\n") {
+					j = json::parse(s.substr(0, i));
+					events.push_back(j);
+				}
 				residual = s.substr(i + 1);
 				s = residual;
-				events.push_back(j);
 			} catch (json::parse_error &e) {
 				// TODO: handle error
 			}
@@ -134,8 +150,7 @@ bool API::Game::callback(std::string header) {
 	return running;
 }
 
-std::vector<json> API::Game::get_events() {
-	std::vector<json> copy{events};
+void API::Game::get_events(std::vector<json> &out) {
+	out = events;
 	events.clear();
-	return copy;
 }
