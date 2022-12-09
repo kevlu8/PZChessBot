@@ -1,6 +1,6 @@
 #include "eval.hpp"
 
-int eval(const char *board, const char *metadata, const std::string prev) {
+int eval(const char *board, const char *metadata, const std::string prev) noexcept {
 	// metadata[0] = 1 for white, 0 for black
 	// metadata[1] = castling rights
 	// metadata[2] = halfmove clock
@@ -58,18 +58,6 @@ int eval(const char *board, const char *metadata, const std::string prev) {
 		}
 	}
 
-	// Mobility
-	// count number of legal moves for each side (unless in check, where we count the number of legal moves if we weren't in check)
-	char *meta = (char *)malloc(3 * sizeof(char));
-	memcpy(meta, metadata, 3);
-	meta[0] = 1;
-	int w_legal_moves = find_legal_moves(board, prev, meta).size();
-	meta[0] = 0;
-	int b_legal_moves = find_legal_moves(board, prev, meta).size();
-	mobility += w_legal_moves * 10;
-	mobility -= b_legal_moves * 10;
-	free(meta);
-
 	// King safety
 	// count material worth of attackers and defenders on squares around the king (do not count kings)
 	// weighted on a bell curve (closer to king is more important)
@@ -109,23 +97,10 @@ int eval(const char *board, const char *metadata, const std::string prev) {
 	}
 	king_safety = king_safety * 100 / 84;
 
-	// std::cout << "white control: " << '\n';
-	// for (int i = 0; i < 64; i++) {
-	// 	std::cout << std::setw(3) << (int)w_control[(7 - i / 8) * 8 + i % 8];
-	// 	if (i % 8 == 7) {
-	// 		std::cout << '\n';
-	// 	}
-	// }
-
-	// std::cout << "black control: " << '\n';
-	// for (int i = 0; i < 64; i++) {
-	// 	std::cout << std::setw(3) << (int)b_control[(7 - i / 8) * 8 + i % 8];
-	// 	if (i % 8 == 7) {
-	// 		std::cout << '\n';
-	// 	}
-	// }
-
-	// std::cout << "king safety: " << king_safety << '\n';
+	// Mobility
+	// count number of squares controlled by each side
+	for (int i = 0; i < 64; i++) 
+		mobility += w_control[i] - b_control[i];
 
 	// Piece heatmaps
 	// where do pieces like to be?
@@ -153,6 +128,34 @@ int eval(const char *board, const char *metadata, const std::string prev) {
 		1, 1, 1, 1, 1, 1, 1, 1 // 8
 	};
 
+	int bishop_heatmap[64] = {
+	//  a  b  c  d  e  f  g  h
+		1, 1, 1, 1, 1, 1, 1, 1,
+		1, 2, 1, 2, 2, 1, 2, 1,
+		2, 2, 
+	};
+
+	int rook_heatmap[64] = {
+	//  a  b  c  d  e  f  g  h
+	};
+
+	int queen_heatmap[64] = {
+	//  a  b  c  d  e  f  g  h
+	};
+
+	int king_heatmap[64] = {
+	//  a  b  c  d  e  f  g  h
+		2, 4, 5, 2, 3, 2, 5, 4, // 1
+		2, 2, 2, 1, 1, 1, 2, 2, // 2
+		1, 1, 1, 1, 1, 1, 1, 1, // 3
+		1, 1, 1, 1, 1, 1, 1, 1, // 4
+		1, 1, 1, 1, 1, 1, 1, 1, // 5
+		1, 1, 1, 1, 1, 1, 1, 1, // 6
+		1, 1, 1, 1, 1, 1, 1, 1, // 7
+		1, 1, 1, 1, 1, 1, 1, 1 // 8
+	};
+
+
 	/*
 		Pawn structure
 		judge isolated pawns (their safety and potential exposure to attack)
@@ -168,7 +171,6 @@ int eval(const char *board, const char *metadata, const std::string prev) {
 			subtract black from white
 	*/
 
-	// return material;
-	return (2 * material + mobility + 1.5 * king_safety) / 4.5;
+	return (material + mobility + king_safety) / 3;
 	// weight in order:  material, king safety, mobility, space, pawn structure
 }

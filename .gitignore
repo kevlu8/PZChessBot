@@ -34,3 +34,4 @@
 token
 .vscode/
 build/
+CMakeFiles/

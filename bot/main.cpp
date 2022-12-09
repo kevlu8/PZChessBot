@@ -85,7 +85,15 @@ void play(std::string game_id, bool color) {
 						std::cout << "our turn" << std::endl;
 						prev = move;
 						move = ab_search(board, 4, metadata, prev, color)[0].first;
+						std::cout << "best move: " << move << std::endl;
 						make_move(move, prev, board, metadata);
+						// for (int i = 0; i < 64; i++) {
+						// 	std::cout << std::setw(3) << (int)board[i];
+						// 	if (i % 8 == 7) {
+						// 		std::cout << '\n';
+						// 	}
+						// }
+						// std::cout << '\n';
 						API::move(game_id, move);
 						nummoves++;
 					}
@@ -116,7 +124,6 @@ void handle_event(json event) {
 		memcpy(args, to_string(event["game"]["gameId"]).substr(1, len).c_str(), len);
 		args[len] = 0;
 		args[len + 1] = event["game"]["color"] == "white";
-		// play_helper(args);
 		pthread_t t = pthread_create(&t, NULL, play_helper, args);
 		games[event["game"]["gameId"]] = t;
 	} else {

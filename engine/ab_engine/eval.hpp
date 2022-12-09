@@ -12,4 +12,4 @@
  * @param prev The previous move
  * @return Eval of current position in centipawns from White's perspective
  */
-int eval(const char *, const char *, const std::string);
+int eval(const char *, const char *, const std::string) noexcept;

@@ -13,7 +13,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -Wall -Wextra -pedantic -Wno-comment")
 
-add_executable(pzchessbot bot/*.cpp engine/*.cpp engine/ab_engine/*.cpp)
+add_executable(pzchessbot bot/api.cpp bot/main.cpp engine/fen.cpp engine/ab_engine/eval.cpp engine/ab_engine/moves.cpp engine/ab_engine/search.cpp)
 
 target_link_libraries(pzchessbot cpr)
 

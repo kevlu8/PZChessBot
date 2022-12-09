@@ -140,7 +140,7 @@ void king_control(const int i, char *controlled, const int material) {
 	}
 }
 
-void controlled_squares(const char *position, const bool side, char *controlled, const bool material) {
+void controlled_squares(const char *position, const bool side, char *controlled, const bool material) noexcept {
 	std::fill(controlled, controlled + 64, 0);
 	for (int i = 0; i < 64; i++) {
 		if (position[i] == 0 || is_enemy(position[i], side))
@@ -595,7 +595,7 @@ void king_moves(const char *position, const bool side, const int i, const char c
 	}
 }
 
-std::vector<std::string> find_legal_moves(const char *position, const std::string prev, const char *metadata) {
+std::vector<std::string> find_legal_moves(const char *position, const std::string prev, const char *metadata) noexcept {
 	const bool side = metadata[0];
 	std::vector<std::string> moves;
 	std::vector<std::string> temp;
@@ -654,7 +654,7 @@ std::vector<std::string> find_legal_moves(const char *position, const std::strin
 	return moves;
 }
 
-bool check_mate(const char *position, const int king, const std::string prev, const char *metadata) {
+bool check_mate(const char *position, const int king, const std::string prev, const char *metadata) noexcept {
 	if (!is_check(position, position[king] == 6))
 		return false;
 	std::vector<std::string> legal_moves = find_legal_moves(position, prev, metadata);
@@ -670,7 +670,7 @@ bool check_mate(const char *position, const int king, const std::string prev, co
 	return true;
 }
 
-bool check_mate(const char *position, const bool side, const std::string prev, const char *metadata) {
+bool check_mate(const char *position, const bool side, const std::string prev, const char *metadata) noexcept {
 	for (int i = 0; i < 64; i++) {
 		if (position[i] == 0)
 			continue;
@@ -686,7 +686,7 @@ bool check_mate(const char *position, const bool side, const std::string prev, c
 	}
 }
 
-bool is_check(const char *position, const bool side) {
+bool is_check(const char *position, const bool side) noexcept {
 	char control[64];
 	controlled_squares(position, !side, control, false);
 	int king;
@@ -704,7 +704,7 @@ bool is_check(const char *position, const bool side) {
 	return false;
 }
 
-void make_move(const std::string move, const std::string prev, char *board, char *meta) {
+void make_move(const std::string move, const std::string prev, char *board, char *meta) noexcept {
 	if (move.size() == 5) { // promotion
 		board[move[0] - 'a' + (move[1] - '1') * 8] = 0;
 		if (move[4] == 'q') {

@@ -11,4 +11,4 @@
  * @return A vector of pairs: the first element is the best move, the second is the evaluation of the position.
  */
 
-std::vector<std::pair<std::string, int>> ab_search(const char *, int, const char *, std::string, const bool);
+std::vector<std::pair<std::string, int>> ab_search(const char *, int, const char *, std::string, const bool) noexcept;
