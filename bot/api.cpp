@@ -5,7 +5,7 @@
 int __send_request(std::string url, std::string method) { /// TODO: json
 	if (method == "GET") {
 		cpr::Response r = cpr::Get(cpr::Url{url}, cpr::Bearer{TOKEN});
-		/// TODO: set response (r.text to json)
+		// TODO: set response (r.text to json)
 		if (r.status_code != 200) {
 			std::cerr << method << ' ' << url << ' ' << r.text << std::endl;
 		}
@@ -84,7 +84,7 @@ int API::accept_challenge(std::string challenge_id) {
 
 API::Events::Events() {
 	// make a request to the stream endpoint
-	request = cpr::GetAsync(cpr::Url{REQUEST_URL + "/api/stream/event"}, cpr::Bearer{TOKEN}, cpr::WriteCallback{[this](std::string response, intptr_t userdata){return this->callback(response);}});
+	request = cpr::GetAsync(cpr::Url{REQUEST_URL + "/api/stream/event"}, cpr::Bearer{TOKEN}, cpr::WriteCallback{[this](std::string response, intptr_t userdata) { return this->callback(response); }});
 }
 
 API::Events::~Events() {
@@ -121,7 +121,7 @@ void API::Events::get_events(std::vector<json> &out) {
 API::Game::Game(std::string game_id) {
 	std::cout << "gameid: " << game_id << std::endl;
 	// make a request to the stream endpoint
-	request = cpr::GetAsync(cpr::Url{REQUEST_URL + "/api/bot/game/stream/" + game_id}, cpr::Bearer{TOKEN}, cpr::WriteCallback{[this](std::string response, intptr_t userdata){return this->callback(response);}});
+	request = cpr::GetAsync(cpr::Url{REQUEST_URL + "/api/bot/game/stream/" + game_id}, cpr::Bearer{TOKEN}, cpr::WriteCallback{[this](std::string response, intptr_t userdata) { return this->callback(response); }});
 }
 
 API::Game::~Game() {

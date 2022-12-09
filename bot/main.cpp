@@ -1,7 +1,7 @@
-#include "api.hpp"
-#include "../engine/fen.hpp"
 #include "../engine/ab_engine/moves.hpp"
 #include "../engine/ab_engine/search.hpp"
+#include "../engine/fen.hpp"
+#include "api.hpp"
 #include <pthread.h>
 #include <unistd.h>
 #include <unordered_map>
@@ -13,13 +13,13 @@ std::unordered_map<std::string, pthread_t> games;
 
 // loop that handles game events and plays the game
 void play(std::string game_id, bool color) {
-	std::cout << "playing" << std::endl;
+	std::cout << "playing as " << (color ? "white" : "black") << std::endl;
 	std::string moves = "";
 	int nummoves = 0;
 	char board[64];
 	char metadata[3];
 	char extra[2];
-	memset(extra + 1, 0, 69);
+	memset(extra, 0, 69);
 	// connect to the game stream
 	API::Game game(game_id);
 	// main loop
@@ -27,38 +27,73 @@ void play(std::string game_id, bool color) {
 	while (true) {
 		game.get_events(events);
 		for (json event : events) {
-			std::cout << event << std::endl;
+			std::cout << "play: " << event << std::endl;
 			// if the event type is gameFull
 			if (event["type"] == "gameFull") {
 				// load the fen into the board
-				if (event["initialFen"] != "startpos")
+				if (event["initialFen"] != "startpos") {
 					parse_fen(event["initialFen"], board, metadata, extra);
-				else
-					parse_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1", board, metadata, extra);
+				} else {
+					parse_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", board, metadata, extra);
+				}
 				event = event["state"];
+				std::string history = event["moves"];
+				moves = history;
+				while (history.size()) {
+					std::string move = history.substr(0, history.find(' '));
+					history = history.substr(history.find(' ') + 1);
+					make_move(move, "", board, metadata);
+					nummoves++;
+				}
 			}
 			if (event["type"] == "gameState") {
-				if (nummoves == 0 && color) {
-					// get the move
-					std::string move = ab_search(board, 4, metadata, "0000", true)[0].first;
-					// send the move
+				if (nummoves % 2 != color) {
+					std::cout << "our turn" << std::endl;
+					std::string prev;
+					if (moves.size())
+						prev = moves.substr(moves.find_last_of(' ') + 1);
+					else
+						prev = "0000";
+					std::string move = ab_search(board, 4, metadata, prev, color)[0].first;
+					make_move(move, prev, board, metadata);
 					API::move(game_id, move);
-					// add the move to the list of moves
-					moves = move;
-				}
-				// if it's our turn
-				else if (nummoves % 2 != color) {
-					// get the move
-					std::string move = ab_search(board, 4, metadata, moves[moves.size() - 5] == ' ' ? moves.substr(moves.size() - 4, 4) : moves.substr(moves.size() - 5, 5), color)[0].first;
-					// send the move
-					API::move(game_id, move);
-					// add the move to the list of moves
-					moves += " " + move;
+					if (moves.size())
+						moves += " " + move;
+					else
+						moves = move;
+					nummoves++;
 				} else {
-					moves = event["moves"];
+					std::cout << "their turn" << std::endl;
+					std::string history = to_string(event["moves"]).substr(1, to_string(event["moves"]).size() - 2);
+					if (history.size() != moves.size()) {
+						std::string move, prev;
+						if (moves.size()) {
+							if (moves.size() > 4) {
+								move = history.substr(moves.size() + 1);
+								prev = moves[moves.size() - 5] == ' ' ? moves.substr(moves.size() - 4) : moves.substr(moves.size() - 5);
+							} else {
+								move = history.substr(moves.size() + 1);
+								prev = moves;
+							}
+						} else {
+							move = history;
+							prev = "0000";
+						}
+						moves = history;
+						nummoves++;
+						make_move(move, prev, board, metadata);
+						std::cout << "our turn" << std::endl;
+						prev = move;
+						move = ab_search(board, 4, metadata, prev, color)[0].first;
+						make_move(move, prev, board, metadata);
+						API::move(game_id, move);
+						nummoves++;
+					}
 				}
 			}
 		}
+		// sleep for 1ms to prevent cpu usage
+		usleep(1000);
 	}
 }
 
@@ -81,30 +116,32 @@ void handle_event(json event) {
 		memcpy(args, to_string(event["game"]["gameId"]).substr(1, len).c_str(), len);
 		args[len] = 0;
 		args[len + 1] = event["game"]["color"] == "white";
+		// play_helper(args);
 		pthread_t t = pthread_create(&t, NULL, play_helper, args);
 		games[event["game"]["gameId"]] = t;
 	} else {
-		// std::cout << event << std::endl; 
+		std::cout << event << std::endl;
 	}
 }
 
 int main() {
 	// connect to the event stream
 	API::Events listener;
+	// get challenges
+	json challenges = API::get_challenges()["in"];
+	// for each challenge make a thread to handle it
+	for (auto challenge : challenges) {
+		// accept the challenge
+		API::accept_challenge(challenge["id"]);
+	}
 	// main loop
 	while (true) {
-		// get challenges
-		json challenges = API::get_challenges()["in"];
-		// for each challenge make a thread to handle it
-		for (auto challenge : challenges) {
-			// accept the challenge
-			API::accept_challenge(challenge["id"]);
-		}
 		// poll for incoming events
 		std::vector<json> events;
 		listener.get_events(events);
 		// handle them
 		for (auto event : events) {
+			std::cout << event << std::endl;
 			handle_event(event);
 		}
 		// sleep for 1ms to prevent cpu usage

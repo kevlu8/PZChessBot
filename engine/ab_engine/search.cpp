@@ -42,7 +42,7 @@ std::vector<std::pair<std::string, int>> __recurse(int depth, int maxdepth, cons
 				bestmove = move;
 			best = std::max(best, aeval);
 			alpha = std::max(alpha, best);
-			if (beta <= alpha) 
+			if (beta <= alpha)
 				break;
 		}
 	} else {
@@ -81,7 +81,7 @@ std::vector<std::pair<std::string, int>> __recurse(int depth, int maxdepth, cons
 				bestmove = move;
 			best = std::min(best, beval);
 			beta = std::min(beta, best);
-			if (beta <= alpha) 
+			if (beta <= alpha)
 				break;
 		}
 	}

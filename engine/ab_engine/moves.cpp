@@ -111,23 +111,31 @@ void rook_control(const char *position, const int i, const bool side, char *cont
 	}
 }
 
+void print(const char *position) {
+	for (int i = 0; i < 64; i++) {
+		std::cout << (int)position[i] << ' ';
+		if (i % 8 == 7)
+			std::cout << std::endl;
+	}
+}
+
 void king_control(const int i, char *controlled, const int material) {
-	if ((i - 1) / 8 == i / 8) // if going left doesnt fall off the edge
+	if (i % 8 != 0) // if going left doesnt fall off the edge
 		controlled[i - 1] += material;
-	if ((i + 1) / 8 == i / 8) // if going right doesnt fall off the edge
+	if (i % 8 != 7) // if going right doesnt fall off the edge
 		controlled[i + 1] += material;
 	if (i / 8 != 0) { // if you can go down
 		controlled[i - 8] += material; // go down
-		if ((i - 9) / 8 == i / 8 - 1) // if going down and left doesnt fall off the edge
+		if (i % 8 != 0) // if going down and left doesnt fall off the edge
 			controlled[i - 9] += material;
-		if ((i - 7) / 8 == i / 8 - 1) // if going down and right doesnt fall off the edge
+		if (i % 8 != 7) // if going down and right doesnt fall off the edge
 			controlled[i - 7] += material;
 	}
 	if (i / 8 != 7) { // if you can go up
 		controlled[i + 8]++;
-		if ((i + 7) / 8 == i / 8 + 1) // if going up and left doesnt fall off the edge
+		if (i % 8 != 0) // if going up and left doesnt fall off the edge
 			controlled[i + 7] += material;
-		if ((i + 9) / 8 == i / 8 + 1) // if going up and right doesnt fall off the edge
+		if (i % 8 != 7) // if going up and right doesnt fall off the edge
 			controlled[i + 9] += material;
 	}
 }
@@ -149,7 +157,7 @@ void controlled_squares(const char *position, const bool side, char *controlled,
 			bishop_control(position, i, side, controlled, material ? 9 : 1);
 			rook_control(position, i, side, controlled, material ? 9 : 1);
 		} else if (position[i] == 6 || position[i] == 12) {
-			king_control(i, controlled, material ? 0 : 1);
+			// king_control(i, controlled, material ? 0 : 1);
 		}
 	}
 }
@@ -169,6 +177,16 @@ void pawn_moves(const char *position, const bool side, const int i, const std::s
 					moves.push_back(move);
 					move = "";
 				}
+			}
+			if (i % 8 && is_enemy(position[i + 7], side)) {
+				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8 - 1) + (char)(i / 8 + 2 + '0');
+				moves.push_back(move);
+				move = "";
+			}
+			if (i % 8 != 7 && is_enemy(position[i + 9], side)) {
+				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8 + 1) + (char)(i / 8 + 2 + '0');
+				moves.push_back(move);
+				move = "";
 			}
 		} else if (i / 8 != 6) {
 			if (position[i + 8] == 0) {
@@ -221,6 +239,16 @@ void pawn_moves(const char *position, const bool side, const int i, const std::s
 					moves.push_back(move);
 					move = "";
 				}
+			}
+			if (i % 8 && is_enemy(position[i - 9], side)) {
+				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8 - 1) + (char)(i / 8 + '0');
+				moves.push_back(move);
+				move = "";
+			}
+			if (i % 8 != 7 && is_enemy(position[i - 7], side)) {
+				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8 + 1) + (char)(i / 8 + '0');
+				moves.push_back(move);
+				move = "";
 			}
 		} else if (i / 8 != 1) {
 			if (position[i - 8] == 0) {
