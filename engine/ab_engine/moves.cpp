@@ -21,7 +21,6 @@ void pawn_control(const bool side, const int i, char *controlled, const int mate
 }
 
 void knight_control(const int i, char *controlled, const int material) {
-	int m = material ? 3 : 1;
 	if (i / 8 != 0) {
 		if (i % 8 > 1)
 			controlled[i - 10] += material;
@@ -80,7 +79,6 @@ void bishop_control(const char *position, const int i, const bool side, char *co
 }
 
 void rook_control(const char *position, const int i, const bool side, char *controlled, const int material) {
-	int m = material ? 5 : 1;
 	int j = i;
 	while (j / 8 != 0) {
 		j -= 8;

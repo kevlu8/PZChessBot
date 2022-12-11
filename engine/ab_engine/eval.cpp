@@ -6,7 +6,7 @@ int eval(const char *board, const char *metadata, const std::string prev) noexce
 	// metadata[2] = halfmove clock
 	// extra_metadata[0] = en passant square
 	// extra_metadata[1] = fullmove number
-	int material = 0, mobility = 0, king_safety = 0, pawn_structure = 0, space = 0;
+	int material = 0, mobility = 0, king_safety = 0, pawn_structure = 0, space = 0, position = 0;
 
 	// Material
 	// each element in the board array will be a number from 0 to 12
@@ -65,6 +65,14 @@ int eval(const char *board, const char *metadata, const std::string prev) noexce
 	char b_control[64];
 	controlled_squares(board, true, w_control, true);
 	controlled_squares(board, false, b_control, true);
+	// std::cout << "w_control: " << '\n';
+	// for (int i = 0; i < 64; i++) {
+	// 	std::cout << std::setw(3) << (int)w_control[(7 - i / 8) * 8 + i % 8];
+	// 	if (i % 8 == 7) {
+	// 		std::cout << '\n';
+	// 	}
+	// }
+	// std::cout << std::endl;
 	int w_king_pos = -1;
 	int b_king_pos = -1;
 	for (int i = 0; i < 64; i++) {
@@ -86,10 +94,10 @@ int eval(const char *board, const char *metadata, const std::string prev) noexce
 				continue;
 			int coeff = powf(2, 4 - abs(x) - abs(y));
 			// if adding the x doesnt overflow the row and adding the y doesnt overflow the column
-			if (w_king_pos >= -x && w_king_pos + x < 8 && w_king_pos + y * 8 < 8 && w_king_pos >= -y * 8) {
+			if ((w_king_pos % 8) >= -x && (w_king_pos % 8) + x < 8 && (w_king_pos / 8) + y < 8 && (w_king_pos / 8) >= -y) {
 				king_safety += (w_control[w_king_pos + x + y * 8] - b_control[w_king_pos + x + y * 8]) * coeff;
 			}
-			if (b_king_pos >= -x && b_king_pos + x < 8 && b_king_pos + y * 8 < 8 && b_king_pos >= -y * 8) {
+			if ((b_king_pos % 8) >= -x && (b_king_pos % 8) + x < 8 && (b_king_pos / 8) + y < 8 && (b_king_pos / 8) >= -y) {
 				king_safety += (w_control[b_king_pos + x + y * 8] - b_control[b_king_pos + x + y * 8]) * coeff;
 			}
 		}
@@ -97,6 +105,8 @@ int eval(const char *board, const char *metadata, const std::string prev) noexce
 	}
 	king_safety = king_safety * 100 / 84;
 
+	controlled_squares(board, true, w_control, false);
+	controlled_squares(board, false, b_control, false);
 	// Mobility
 	// count number of squares controlled by each side
 	for (int i = 0; i < 64; i++) 
@@ -108,39 +118,60 @@ int eval(const char *board, const char *metadata, const std::string prev) noexce
 	//  a  b  c  d  e  f  g  h
 		0, 0, 0, 0, 0, 0, 0, 0, // 1
 		1, 2, 2, 1, 1, 2, 2, 1, // 2
-		2, 2, 2, 3, 2, 1, 2, 3, // 3
-		1, 2, 4, 5, 5, 4, 1, 2, // 4
-		1, 1, 2, 4, 4, 1, 1, 1, // 5
+		1, 2, 3, 5, 5, 1, 2, 3, // 3
+		1, 2, 4, 8, 8, 4, 1, 2, // 4
+		1, 1, 2, 5, 5, 1, 1, 1, // 5
 		2, 2, 2, 2, 2, 2, 2, 2, // 6
 		6, 6, 6, 6, 6, 6, 6, 6, // 7
-		9, 9, 9, 9, 9, 9, 9, 9 // 8
-	}; // invert for black (heatmap[64 - i])
+		9, 9, 9, 9, 9, 9, 9, 9, // 8
+	}; // invert for black (heatmap[ - i])
 
 	int knight_heatmap[64] = {
 	//  a  b  c  d  e  f  g  h
-		1, 1, 1, 1, 1, 1, 1, 1, 
-		2, 1, 1, 4, 4, 2, 1, 2,
-		2, 2, 5, 3, 3, 5, 3, 2, 
-		1, 1, 4, 5, 5, 4, 1, 1, 
-		1, 3, 4, 5, 5, 4, 3, 1, 
+		1, 1, 1, 1, 1, 1, 1, 1, // 1
+		2, 1, 1, 4, 4, 2, 1, 2, // 2
+		2, 2, 5, 3, 3, 5, 3, 2, // 3
+		1, 1, 4, 5, 5, 4, 1, 1, // 4
+		1, 3, 4, 5, 5, 4, 3, 1, // 5
 		2, 2, 2, 2, 2, 2, 2, 2, // 6
 		1, 1, 3, 1, 1, 3, 1, 1, // 7
-		1, 1, 1, 1, 1, 1, 1, 1 // 8
+		1, 1, 1, 1, 1, 1, 1, 1, // 8
 	};
 
 	int bishop_heatmap[64] = {
 	//  a  b  c  d  e  f  g  h
-		1, 1, 1, 1, 1, 1, 1, 1,
-		1, 2, 1, 2, 2, 1, 2, 1,
-		2, 2, 
+		1, 1, 1, 1, 1, 1, 1, 1, // 1
+		1, 4, 1, 3, 3, 1, 4, 1, // 2
+		2, 2, 1, 1, 1, 1, 2, 2, // 3
+		1, 1, 5, 1, 1, 1, 1, 2, // 4
+		1, 4, 1, 1, 1, 1, 5, 1, // 5
+		1, 1, 1, 1, 1, 1, 1, 1, // 6
+		1, 2, 1, 1, 1, 1, 2, 1, // 7
+		1, 1, 1, 1, 1, 1, 1, 1, // 8
 	};
 
 	int rook_heatmap[64] = {
 	//  a  b  c  d  e  f  g  h
+		1, 1, 4, 5, 5, 3, 1, 3, // 1
+		1, 1, 1, 1, 1, 1, 1, 1, // 2
+		1, 1, 1, 1, 1, 1, 1, 1, // 3
+		1, 1, 1, 1, 1, 1, 1, 1, // 4
+		1, 1, 1, 1, 1, 1, 1, 1, // 5
+		1, 1, 1, 1, 1, 1, 1, 1, // 6
+		5, 5, 5, 5, 5, 5, 5, 5, // 7
+		3, 3, 3, 3, 3, 3, 3, 3, // 8
 	};
 
 	int queen_heatmap[64] = {
 	//  a  b  c  d  e  f  g  h
+		1, 1, 1, 5, 1, 1, 1, 1, // 1
+		1, 1, 7, 1, 1, 1, 1, 1, // 2
+		1, 7, 1, 1, 1, 3, 1, 1, // 3
+		1, 1, 1, 1, 1, 1, 1, 1, // 4
+		1, 1, 1, 1, 1, 1, 1, 1, // 5
+		1, 1, 1, 1, 1, 1, 1, 1, // 6
+		1, 1, 1, 1, 1, 1, 1, 1, // 7
+		1, 1, 1, 1, 1, 1, 1, 1, // 8
 	};
 
 	int king_heatmap[64] = {
@@ -152,9 +183,48 @@ int eval(const char *board, const char *metadata, const std::string prev) noexce
 		1, 1, 1, 1, 1, 1, 1, 1, // 5
 		1, 1, 1, 1, 1, 1, 1, 1, // 6
 		1, 1, 1, 1, 1, 1, 1, 1, // 7
-		1, 1, 1, 1, 1, 1, 1, 1 // 8
+		1, 1, 1, 1, 1, 1, 1, 1, // 8
 	};
 
+	for (int i = 0; i < 64; i++) {
+		if (board[i] == 1) {
+			position += pawn_heatmap[i];
+		}
+		else if (board[i] == 2) {
+			position += knight_heatmap[i];
+		}
+		else if (board[i] == 3) {
+			position += bishop_heatmap[i];
+		}
+		else if (board[i] == 4) {
+			position += rook_heatmap[i];
+		}
+		else if (board[i] == 5) {
+			position += queen_heatmap[i];
+		}
+		else if (board[i] == 6) {
+			position += king_heatmap[i];
+		}
+		else if (board[i] == 7) {
+			position -= pawn_heatmap[56 - i + (i % 8) * 2];
+		}
+		else if (board[i] == 8) {
+			position -= knight_heatmap[56 - i + (i % 8) * 2];
+		}
+		else if (board[i] == 9) {
+			position -= bishop_heatmap[56 - i + (i % 8) * 2];
+		}
+		else if (board[i] == 10) {
+			position -= rook_heatmap[56 - i + (i % 8) * 2];
+		}
+		else if (board[i] == 11) {
+			position -= queen_heatmap[56 - i + (i % 8) * 2];
+		}
+		else if (board[i] == 12) {
+			position -= king_heatmap[56 - i + (i % 8) * 2];
+		}
+	}
+	position *= 10;
 
 	/*
 		Pawn structure
@@ -171,6 +241,7 @@ int eval(const char *board, const char *metadata, const std::string prev) noexce
 			subtract black from white
 	*/
 
-	return (material + mobility + king_safety) / 3;
-	// weight in order:  material, king safety, mobility, space, pawn structure
+	return ((4 * material) + (mobility) + (king_safety) + (4 * position)) / 10;
+	// weight in order:  material, position, king safety, mobility, space, pawn structure
+	return 0;
 }

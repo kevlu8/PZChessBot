@@ -2,32 +2,20 @@
 
 std::vector<std::pair<std::string, int>> __recurse(int depth, int maxdepth, const char *board, const std::string prevmove, const char *metadata, const bool turn, const int target, int alpha = -1e9 - 5, int beta = 1e9 + 5) noexcept {
 	std::vector<std::string> moves = find_legal_moves(board, prevmove, metadata);
-	std::vector<std::pair<std::string, int>> bestmove = {{"resign", target > 0 ? -1e9 - 5 : 1e9 + 5}};
+	std::vector<std::pair<std::string, int>> bestmove = {{"resign", target > 0 ? -1e9 : 1e9}};
 	std::vector<std::pair<std::string, int>> move;
 	char newboard[64];
 	char newmeta[3];
 	if (turn) {
 		int best = -1e9 - 5;
 		for (std::string curr : moves) {
-			// if (curr == "a6a7") {
-			// 	std::cout << "h5f7" << '\n';
-			// }
 			memcpy(newboard, board, 64);
 			memcpy(newmeta, metadata, 3);
 			make_move(curr, prevmove, newboard, newmeta);
-
-			// std::cout << "move: "<< curr << '\n';
-			// for (int i = 0; i < 64; i++) {
-			// 	std::cout << std::setw(3) << (int)newboard[(7 - i / 8) * 8 + i % 8];
-			// 	if (i % 8 == 7) {
-			// 		std::cout << '\n';
-			// 	}
-			// }
-			// std::cout << '\n';
 			if (is_check(newboard, turn))
 				continue;
 			if (check_mate(newboard, !turn, prevmove, newmeta))
-				return {{curr, target > 0 ? 1e9 : -1e9}};
+				return {{curr, target > 0 ? 1e9 + 5 : -1e9 - 5}};
 			int aeval = eval(newboard, newmeta, curr);
 			if (depth == maxdepth) {
 				move = {{curr, aeval}};
@@ -40,7 +28,7 @@ std::vector<std::pair<std::string, int>> __recurse(int depth, int maxdepth, cons
 			}
 			if (abs(move[0].second - target) < abs(bestmove[0].second - target))
 				bestmove = move;
-			best = std::max(best, aeval);
+			best = std::max(best, move[0].second);
 			alpha = std::max(alpha, best);
 			if (beta <= alpha)
 				break;
@@ -48,21 +36,9 @@ std::vector<std::pair<std::string, int>> __recurse(int depth, int maxdepth, cons
 	} else {
 		int best = 1e9 + 5;
 		for (std::string curr : moves) {
-			// if (curr == "g3a3" && depth == 1 && prevmove == "f8a8") {
-			// 	std::cout << "h5f7" << '\n';
-			// }
 			memcpy(newboard, board, 64);
 			memcpy(newmeta, metadata, 3);
 			make_move(curr, prevmove, newboard, newmeta);
-
-			// std::cout << "move: "<< curr << '\n';
-			// for (int i = 0; i < 64; i++) {
-			// 	std::cout << std::setw(3) << (int)newboard[(7 - i / 8) * 8 + i % 8];
-			// 	if (i % 8 == 7) {
-			// 		std::cout << '\n';
-			// 	}
-			// }
-			// std::cout << '\n';
 			if (is_check(newboard, turn))
 				continue;
 			if (check_mate(newboard, !turn, prevmove, newmeta))
@@ -78,8 +54,8 @@ std::vector<std::pair<std::string, int>> __recurse(int depth, int maxdepth, cons
 				// }
 			}
 			if (abs(move[0].second - target) < abs(bestmove[0].second - target))
-				bestmove = move;
-			best = std::min(best, beval);
+				bestmove = move; // if move has better eval than bestmove, replace bestmove with move
+			best = std::min(best, move[0].second);
 			beta = std::min(beta, best);
 			if (beta <= alpha)
 				break;

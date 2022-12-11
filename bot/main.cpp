@@ -14,8 +14,12 @@ std::unordered_map<std::string, pthread_t> games;
 // loop that handles game events and plays the game
 void play(std::string game_id, bool color) {
 	std::cout << "playing as " << (color ? "white" : "black") << std::endl;
-	std::string moves = "";
+	std::vector<std::string> moves;
 	int nummoves = 0;
+	char original_board[64];
+	char original_metadata[3];
+	char original_extra[2];
+	parse_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", original_board, original_metadata, original_extra);
 	char board[64];
 	char metadata[3];
 	char extra[2];
@@ -28,77 +32,44 @@ void play(std::string game_id, bool color) {
 		game.get_events(events);
 		for (json event : events) {
 			std::cout << "play: " << event << std::endl;
-			// if the event type is gameFull
+			if (event["type"] == "chatLine" || event["type"] == "opponentGone")
+				continue;
+			if (event["type"] == "gameFinish") {
+				return;
+			}
 			if (event["type"] == "gameFull") {
-				// load the fen into the board
-				if (event["initialFen"] != "startpos") {
-					parse_fen(event["initialFen"], board, metadata, extra);
-				} else {
-					parse_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", board, metadata, extra);
-				}
 				event = event["state"];
-				std::string history = event["moves"];
-				moves = history;
-				while (history.size()) {
-					std::string move = history.substr(0, history.find(' '));
-					history = history.substr(history.find(' ') + 1);
-					make_move(move, "", board, metadata);
-					nummoves++;
-				}
 			}
-			if (event["type"] == "gameState") {
-				if (nummoves % 2 != color) {
-					std::cout << "our turn" << std::endl;
-					std::string prev;
-					if (moves.size())
-						prev = moves.substr(moves.find_last_of(' ') + 1);
-					else
-						prev = "0000";
-					std::string move = ab_search(board, 4, metadata, prev, color)[0].first;
+			memcpy(board, original_board, 64);
+			memcpy(metadata, original_metadata, 3);
+			memcpy(extra, original_extra, 2);
+			// split the moves into an array of moves and in the process update the internal board
+			std::string moves_str = event["moves"];
+			std::string move, prev = "0000";
+			for (int i = 0; i < moves_str.size(); i++) {
+				if (moves_str[i] == ' ') {
+					moves.push_back(move);
 					make_move(move, prev, board, metadata);
-					API::move(game_id, move);
-					if (moves.size())
-						moves += " " + move;
-					else
-						moves = move;
-					nummoves++;
+					prev = move;
+					move = "";
 				} else {
-					std::cout << "their turn" << std::endl;
-					std::string history = to_string(event["moves"]).substr(1, to_string(event["moves"]).size() - 2);
-					if (history.size() != moves.size()) {
-						std::string move, prev;
-						if (moves.size()) {
-							if (moves.size() > 4) {
-								move = history.substr(moves.size() + 1);
-								prev = moves[moves.size() - 5] == ' ' ? moves.substr(moves.size() - 4) : moves.substr(moves.size() - 5);
-							} else {
-								move = history.substr(moves.size() + 1);
-								prev = moves;
-							}
-						} else {
-							move = history;
-							prev = "0000";
-						}
-						moves = history;
-						nummoves++;
-						make_move(move, prev, board, metadata);
-						std::cout << "our turn" << std::endl;
-						prev = move;
-						move = ab_search(board, 4, metadata, prev, color)[0].first;
-						std::cout << "best move: " << move << std::endl;
-						make_move(move, prev, board, metadata);
-						// for (int i = 0; i < 64; i++) {
-						// 	std::cout << std::setw(3) << (int)board[i];
-						// 	if (i % 8 == 7) {
-						// 		std::cout << '\n';
-						// 	}
-						// }
-						// std::cout << '\n';
-						API::move(game_id, move);
-						nummoves++;
-					}
+					move += moves_str[i];
 				}
 			}
+			if (move != "") {
+				moves.push_back(move);
+				make_move(move, prev, board, metadata);
+				prev = move;
+			}
+			// if its our turn
+			if (moves.size() % 2 != color) {
+				move = ab_search(board, 5, metadata, prev, color)[0].first;
+				if (move == "resign")
+					API::resign(game_id);
+				else
+					API::move(game_id, move);
+			}
+			moves.clear();
 		}
 		// sleep for 1ms to prevent cpu usage
 		usleep(1000);
