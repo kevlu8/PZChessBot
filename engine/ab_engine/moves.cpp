@@ -109,14 +109,6 @@ void rook_control(const char *position, const int i, const bool side, char *cont
 	}
 }
 
-void print(const char *position) {
-	for (int i = 0; i < 64; i++) {
-		std::cout << (int)position[i] << ' ';
-		if (i % 8 == 7)
-			std::cout << std::endl;
-	}
-}
-
 void king_control(const int i, char *controlled, const int material) {
 	if (i % 8 != 0) // if going left doesnt fall off the edge
 		controlled[i - 1] += material;
@@ -155,12 +147,12 @@ void controlled_squares(const char *position, const bool side, char *controlled,
 			bishop_control(position, i, side, controlled, material ? 9 : 1);
 			rook_control(position, i, side, controlled, material ? 9 : 1);
 		} else if (position[i] == 6 || position[i] == 12) {
-			// king_control(i, controlled, material ? 0 : 1);
+			king_control(i, controlled, material ? 0 : 1);
 		}
 	}
 }
 
-void pawn_moves(const char *position, const bool side, const int i, const std::string prev, std::vector<std::string> &moves) {
+void pawn_moves(const char *position, const bool side, const int i, const std::string prev, std::vector<std::string> *moves) {
 	std::string move = "";
 
 	if (side) {
@@ -168,60 +160,88 @@ void pawn_moves(const char *position, const bool side, const int i, const std::s
 			if (position[i + 8] == 0) {
 				// push back in uci
 				move = move + ((char)('a' + i % 8)) + '2' + (char)('a' + i % 8) + '3';
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 				if (position[i + 16] == 0) {
 					move = move + ((char)('a' + i % 8)) + '2' + (char)('a' + i % 8) + '4';
-					moves.push_back(move);
+					moves->push_back(move);
 					move = "";
 				}
 			}
 			if (i % 8 && is_enemy(position[i + 7], side)) {
 				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8 - 1) + (char)(i / 8 + 2 + '0');
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 			if (i % 8 != 7 && is_enemy(position[i + 9], side)) {
 				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8 + 1) + (char)(i / 8 + 2 + '0');
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 		} else if (i / 8 != 6) {
 			if (position[i + 8] == 0) {
 				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8) + (char)(i / 8 + 2 + '0');
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 			if (i % 8 && is_enemy(position[i + 7], side)) {
 				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8 - 1) + (char)(i / 8 + 2 + '0');
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 			if (i % 8 != 7 && is_enemy(position[i + 9], side)) {
 				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8 + 1) + (char)(i / 8 + 2 + '0');
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 		} else {
 			if (position[i + 8] == 0) {
 				move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8) + '8' + 'q';
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 				move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8) + '8' + 'r';
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 				move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8) + '8' + 'b';
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 				move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8) + '8' + 'n';
-				moves.push_back(move);
+				moves->push_back(move);
+				move = "";
+			}
+			if (i % 8 != 0 && is_enemy(position[i + 7], side)) { // i just added this
+				move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8 - 1) + '8' + 'q';
+				moves->push_back(move);
+				move = "";
+				move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8 - 1) + '8' + 'r';
+				moves->push_back(move);
+				move = "";
+				move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8 - 1) + '8' + 'b';
+				moves->push_back(move);
+				move = "";
+				move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8 - 1) + '8' + 'n';
+				moves->push_back(move);
+				move = "";
+			}
+			if (i % 8 != 7 && is_enemy(position[i + 7], side)) { // i just added this
+				move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8 + 1) + '8' + 'q';
+				moves->push_back(move);
+				move = "";
+				move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8 + 1) + '8' + 'r';
+				moves->push_back(move);
+				move = "";
+				move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8 + 1) + '8' + 'b';
+				moves->push_back(move);
+				move = "";
+				move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8 + 1) + '8' + 'n';
+				moves->push_back(move);
 				move = "";
 			}
 		}
 		if (i / 8 == 4 && prev[3] == '5' && prev[1] == '7') { // en passant
 			if (abs(prev[2] - 'a' - i % 8) == 1) {
 				move = move + ((char)('a' + i % 8)) + '5' + prev[0] + '6';
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 		}
@@ -230,67 +250,67 @@ void pawn_moves(const char *position, const bool side, const int i, const std::s
 			if (position[i - 8] == 0) {
 				// push back in uci
 				move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8) + '6';
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 				if (position[i - 16] == 0) {
 					move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8) + '5';
-					moves.push_back(move);
+					moves->push_back(move);
 					move = "";
 				}
 			}
 			if (i % 8 && is_enemy(position[i - 9], side)) {
 				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8 - 1) + (char)(i / 8 + '0');
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 			if (i % 8 != 7 && is_enemy(position[i - 7], side)) {
 				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8 + 1) + (char)(i / 8 + '0');
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 		} else if (i / 8 != 1) {
 			if (position[i - 8] == 0) {
 				move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8) + std::to_string(i / 8);
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 			if (i % 8 && is_enemy(position[i - 9], side)) {
 				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8 - 1) + (char)(i / 8 + '0');
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 			if (i % 8 != 7 && is_enemy(position[i - 7], side)) {
 				move = move + ((char)('a' + i % 8)) + (char)(i / 8 + 1 + '0') + (char)('a' + i % 8 + 1) + (char)(i / 8 + '0');
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 		} else {
 			if (position[i - 8] == 0) {
 				move = move + ((char)('a' + i % 8)) + '2' + (char)('a' + i % 8) + '1' + 'q';
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 				move = move + ((char)('a' + i % 8)) + '2' + (char)('a' + i % 8) + '1' + 'r';
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 				move = move + ((char)('a' + i % 8)) + '2' + (char)('a' + i % 8) + '1' + 'b';
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 				move = move + ((char)('a' + i % 8)) + '2' + (char)('a' + i % 8) + '1' + 'n';
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 		}
 		if (i / 8 == 3 && prev[3] == '4' && prev[1] == '2') { // en passant
 			if (abs(prev[2] - 'a' - i % 8) == 1) {
 				move = move + ((char)('a' + i % 8)) + '4' + prev[0] + '3';
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 		}
 	}
 }
 
-void knight_moves(const char *position, const bool side, const int i, std::vector<std::string> &moves) {
+void knight_moves(const char *position, const bool side, const int i, std::vector<std::string> *moves) {
 	// man i hate knights
 	std::string move;
 
@@ -298,14 +318,14 @@ void knight_moves(const char *position, const bool side, const int i, std::vecto
 		if (i / 8 >= 2) { // can move 2 down
 			if (position[i - 17] == 0 || is_enemy(position[i - 17], side)) {
 				move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 - 1) + std::to_string(i / 8 - 1);
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 		}
 		if (i / 8 <= 5) { // can move 2 up
 			if (position[i + 15] == 0 || is_enemy(position[i + 15], side)) {
 				move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 - 1) + std::to_string(i / 8 + 3);
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 		}
@@ -313,14 +333,14 @@ void knight_moves(const char *position, const bool side, const int i, std::vecto
 			if (i / 8 >= 1) { // can move 1 down
 				if (position[i - 10] == 0 || is_enemy(position[i - 10], side)) {
 					move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 - 2) + std::to_string(i / 8);
-					moves.push_back(move);
+					moves->push_back(move);
 					move = "";
 				}
 			}
 			if (i / 8 <= 6) { // can move 1 up
 				if (position[i + 6] == 0 || is_enemy(position[i + 6], side)) {
 					move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 - 2) + std::to_string(i / 8 + 2);
-					moves.push_back(move);
+					moves->push_back(move);
 					move = "";
 				}
 			}
@@ -330,14 +350,14 @@ void knight_moves(const char *position, const bool side, const int i, std::vecto
 		if (i / 8 >= 2) { // can move 2 down
 			if (position[i - 15] == 0 || is_enemy(position[i - 15], side)) {
 				move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 + 1) + std::to_string(i / 8 - 1);
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 		}
 		if (i / 8 <= 5) { // can move 2 up
 			if (position[i + 17] == 0 || is_enemy(position[i + 17], side)) {
 				move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 + 1) + std::to_string(i / 8 + 3);
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 		}
@@ -345,14 +365,14 @@ void knight_moves(const char *position, const bool side, const int i, std::vecto
 			if (i / 8 >= 1) { // can move 1 down
 				if (position[i - 6] == 0 || is_enemy(position[i - 6], side)) {
 					move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 + 2) + std::to_string(i / 8);
-					moves.push_back(move);
+					moves->push_back(move);
 					move = "";
 				}
 			}
 			if (i / 8 <= 6) { // can move 1 up
 				if (position[i + 10] == 0 || is_enemy(position[i + 10], side)) {
 					move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 + 2) + std::to_string(i / 8 + 2);
-					moves.push_back(move);
+					moves->push_back(move);
 					move = "";
 				}
 			}
@@ -360,17 +380,17 @@ void knight_moves(const char *position, const bool side, const int i, std::vecto
 	}
 }
 
-void bishop_moves(const char *position, const bool side, const int i, std::vector<std::string> &moves) {
+void bishop_moves(const char *position, const bool side, const int i, std::vector<std::string> *moves) {
 	std::string move;
 
 	for (int j = 1; j <= std::min(i % 8, i / 8); j++) {
 		if (position[i - 9 * j] == 0) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 - j) + std::to_string(i / 8 + 1 - j);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 		} else if (is_enemy(position[i - 9 * j], side)) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 - j) + std::to_string(i / 8 + 1 - j);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 			break;
 		} else {
@@ -380,27 +400,25 @@ void bishop_moves(const char *position, const bool side, const int i, std::vecto
 	for (int j = 1; j <= std::min(7 - i % 8, i / 8); j++) {
 		if (position[i - 7 * j] == 0) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 + j) + std::to_string(i / 8 + 1 - j);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 		} else if (is_enemy(position[i - 7 * j], side)) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 + j) + std::to_string(i / 8 + 1 - j);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 			break;
 		} else {
 			break;
 		}
-		if (side) {
-		}
 	}
 	for (int j = 1; j <= std::min(7 - i % 8, 7 - i / 8); j++) {
 		if (position[i + 9 * j] == 0) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 + j) + std::to_string(i / 8 + 1 + j);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 		} else if (is_enemy(position[i + 9 * j], side)) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 + j) + std::to_string(i / 8 + 1 + j);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 			break;
 		} else {
@@ -410,11 +428,11 @@ void bishop_moves(const char *position, const bool side, const int i, std::vecto
 	for (int j = 1; j <= std::min(i % 8, 7 - i / 8); j++) {
 		if (position[i + 7 * j] == 0) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 - j) + std::to_string(i / 8 + 1 + j);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 		} else if (is_enemy(position[i + 7 * j], side)) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 - j) + std::to_string(i / 8 + 1 + j);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 			break;
 		} else {
@@ -423,17 +441,17 @@ void bishop_moves(const char *position, const bool side, const int i, std::vecto
 	}
 }
 
-void rook_moves(const char *position, const bool side, const int i, std::vector<std::string> &moves) {
+void rook_moves(const char *position, const bool side, const int i, std::vector<std::string> *moves) {
 	std::string move;
 
 	for (int j = 1; j <= i % 8; j++) {
 		if (position[i - j] == 0) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 - j) + std::to_string(i / 8 + 1);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 		} else if (is_enemy(position[i - 1 * j], side)) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 - j) + std::to_string(i / 8 + 1);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 			break;
 		} else {
@@ -443,11 +461,11 @@ void rook_moves(const char *position, const bool side, const int i, std::vector<
 	for (int j = 1; j <= 7 - i % 8; j++) {
 		if (position[i + j] == 0) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 + j) + std::to_string(i / 8 + 1);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 		} else if (is_enemy(position[i + 1 * j], side)) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 + j) + std::to_string(i / 8 + 1);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 			break;
 		} else {
@@ -457,11 +475,11 @@ void rook_moves(const char *position, const bool side, const int i, std::vector<
 	for (int j = 1; j <= i / 8; j++) {
 		if (position[i - 8 * j] == 0) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8) + std::to_string(i / 8 + 1 - j);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 		} else if (is_enemy(position[i - 8 * j], side)) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8) + std::to_string(i / 8 + 1 - j);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 			break;
 		} else {
@@ -471,11 +489,11 @@ void rook_moves(const char *position, const bool side, const int i, std::vector<
 	for (int j = 1; j <= 7 - i / 8; j++) {
 		if (position[i + 8 * j] == 0) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8) + std::to_string(i / 8 + 1 + j);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 		} else if (is_enemy(position[i + 8 * j], side)) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8) + std::to_string(i / 8 + 1 + j);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 			break;
 		} else {
@@ -484,7 +502,7 @@ void rook_moves(const char *position, const bool side, const int i, std::vector<
 	}
 }
 
-void king_moves(const char *position, const bool side, const int i, const char castling, std::vector<std::string> &moves) {
+void king_moves(const char *position, const bool side, const int i, const char castling, std::vector<std::string> *moves) {
 	std::string move = "";
 	// can't move into check
 	// can't take a piece that is defended
@@ -492,25 +510,26 @@ void king_moves(const char *position, const bool side, const int i, const char c
 	// can't castle if king or rook has moved
 
 	char controlled[64];
-	controlled_squares(position, !side, controlled, false);
+	controlled_squares(position, !side, controlled, false); 
+	/// TODO: remove controlled_squares call and use a precomputed array
 
 	if (i % 8) { // there is space on the left
 		if ((position[i - 1] == 0 || is_enemy(position[i - 1], side)) && controlled[i - 1] == 0) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 - 1) + std::to_string(i / 8 + 1);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 		}
 		if (i / 8 > 0) { // there is space on the bottom
 			if ((position[i - 9] == 0 || is_enemy(position[i - 9], side)) && controlled[i - 9] == 0) {
 				move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 - 1) + std::to_string(i / 8);
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 		}
 		if (i / 8 < 7) { // there is space on the top
 			if ((position[i + 7] == 0 || is_enemy(position[i + 7], side)) && controlled[i + 7] == 0) {
 				move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 - 1) + std::to_string(i / 8 + 2);
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 		}
@@ -518,20 +537,20 @@ void king_moves(const char *position, const bool side, const int i, const char c
 	if (i % 8 < 7) { // if there is space on the right
 		if ((position[i + 1] == 0 || is_enemy(position[i + 1], side)) && controlled[i + 1] == 0) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 + 1) + std::to_string(i / 8 + 1);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 		}
 		if (i / 8 > 0) { // there is space on the bottom
 			if ((position[i - 7] == 0 || is_enemy(position[i - 7], side)) && controlled[i - 7] == 0) {
 				move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 + 1) + std::to_string(i / 8);
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 		}
 		if (i / 8 < 7) { // there is space on the top
 			if ((position[i + 9] == 0 || is_enemy(position[i + 9], side)) && controlled[i + 9] == 0) {
 				move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8 + 1) + std::to_string(i / 8 + 2);
-				moves.push_back(move);
+				moves->push_back(move);
 				move = "";
 			}
 		}
@@ -539,14 +558,14 @@ void king_moves(const char *position, const bool side, const int i, const char c
 	if (i / 8 > 0) { // if there is space on the bottom
 		if ((position[i - 8] == 0 || is_enemy(position[i - 8], side)) && controlled[i - 8] == 0) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8) + std::to_string(i / 8);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 		}
 	}
 	if (i / 8 < 7) { // if there is space on the top
 		if ((position[i + 8] == 0 || is_enemy(position[i + 8], side)) && controlled[i + 8] == 0) {
 			move = move + ((char)('a' + i % 8)) + std::to_string(i / 8 + 1) + (char)('a' + i % 8) + std::to_string(i / 8 + 2);
-			moves.push_back(move);
+			moves->push_back(move);
 			move = "";
 		}
 	}
@@ -557,7 +576,7 @@ void king_moves(const char *position, const bool side, const int i, const char c
 			if (position[7] == 4) { // rook is still there
 				if (controlled[4] + controlled[5] + controlled[6] + position[4] + position[5] + position[6] == 0) { // not moving through check or other pieces
 					move = "e1g1";
-					moves.push_back(move);
+					moves->push_back(move);
 					move = "";
 				}
 			}
@@ -566,7 +585,7 @@ void king_moves(const char *position, const bool side, const int i, const char c
 			if (position[0] == 4) { // rook is still there
 				if (controlled[4] + controlled[3] + controlled[2] + position[4] + position[3] + position[2] == 0) { // not moving through check or other pieces
 					move = "e1c1";
-					moves.push_back(move);
+					moves->push_back(move);
 					move = "";
 				}
 			}
@@ -576,7 +595,7 @@ void king_moves(const char *position, const bool side, const int i, const char c
 			if (position[63] == 10) { // rook is still there
 				if (controlled[60] + controlled[61] + controlled[62] + position[60] + position[61] + position[62] == 0) { // not moving through check or other pieces
 					move = "e8g8";
-					moves.push_back(move);
+					moves->push_back(move);
 					move = "";
 				}
 			}
@@ -585,7 +604,7 @@ void king_moves(const char *position, const bool side, const int i, const char c
 			if (position[56] == 10) { // rook is still there
 				if (controlled[60] + controlled[59] + controlled[58] + position[60] + position[59] + position[58] == 0) { // not moving through check or other pieces
 					move = "e8c8";
-					moves.push_back(move);
+					moves->push_back(move);
 					move = "";
 				}
 			}
@@ -593,11 +612,11 @@ void king_moves(const char *position, const bool side, const int i, const char c
 	}
 }
 
-std::vector<std::string> find_legal_moves(const char *position, const std::string prev, const char *metadata) noexcept {
+std::vector<std::string> *find_legal_moves(const char *position, const std::string prev, const char *metadata) noexcept {
 	const bool side = metadata[0];
-	std::vector<std::string> moves;
+	std::vector<std::string> *moves = new std::vector<std::string>;
 	std::vector<std::string> temp;
-	moves.reserve(300);
+	moves->reserve(300);
 
 	for (int i = 0; i < 64; i++) {
 		if (position[i] == 0)
@@ -652,41 +671,13 @@ std::vector<std::string> find_legal_moves(const char *position, const std::strin
 	return moves;
 }
 
-bool check_mate(const char *position, const int king, const std::string prev, const char *metadata) noexcept {
-	if (!is_check(position, position[king] == 6))
-		return false;
-	std::vector<std::string> legal_moves = find_legal_moves(position, prev, metadata);
-	for (std::string move : legal_moves) {
-		char new_position[64];
-		char new_metadata[3];
-		memcpy(new_position, position, 64);
-		memcpy(new_metadata, metadata, 3);
-		make_move(move, prev, new_position, new_metadata);
-		if (!is_check(new_position, position[king] == 6))
-			return false;
-	}
-	return true;
+inline bool is_check(const char *position, const int king, const char *control) noexcept {
+	if (control[king])
+		return true;
+	return false;
 }
 
-bool check_mate(const char *position, const bool side, const std::string prev, const char *metadata) noexcept {
-	for (int i = 0; i < 64; i++) {
-		if (position[i] == 0)
-			continue;
-		if (side) {
-			if (position[i] == 6) {
-				return check_mate(position, i, prev, metadata);
-			}
-		} else {
-			if (position[i] == 12) {
-				return check_mate(position, i, prev, metadata);
-			}
-		}
-	}
-}
-
-bool is_check(const char *position, const bool side) noexcept {
-	char control[64];
-	controlled_squares(position, !side, control, false);
+bool is_check(const char *position, const bool side, const char *control) noexcept {
 	int king;
 	if (side) {
 		king = 6;
@@ -694,12 +685,17 @@ bool is_check(const char *position, const bool side) noexcept {
 		king = 12;
 	}
 	for (int i = 0; i < 64; i++) {
-		if (position[i] == king) {
-			if (control[i])
-				return true;
+		if (position[i] == king) { // eval gets the position of the king too
+			return is_check(position, i, control);
 		}
 	}
 	return false;
+}
+
+bool is_check(const char *position, const bool side) noexcept {
+	char control[64];
+	controlled_squares(position, !side, control, false);
+	return is_check(position, side, control);
 }
 
 void make_move(const std::string move, const std::string prev, char *board, char *meta) noexcept {

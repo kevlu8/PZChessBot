@@ -63,7 +63,7 @@ void play(std::string game_id, bool color) {
 			}
 			// if its our turn
 			if (moves.size() % 2 != color) {
-				move = ab_search(board, 5, metadata, prev, color)[0].first;
+				move = ab_search(board, 4, metadata, prev, color);
 				if (move == "resign")
 					API::resign(game_id);
 				else

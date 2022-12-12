@@ -1,69 +1,78 @@
 #include "search.hpp"
 
-std::vector<std::pair<std::string, int>> __recurse(int depth, int maxdepth, const char *board, const std::string prevmove, const char *metadata, const bool turn, const int target, int alpha = -1e9 - 5, int beta = 1e9 + 5) noexcept {
-	std::vector<std::string> moves = find_legal_moves(board, prevmove, metadata);
-	std::vector<std::pair<std::string, int>> bestmove = {{"resign", target > 0 ? -1e9 : 1e9}};
-	std::vector<std::pair<std::string, int>> move;
+std::pair<std::string, int> *__recurse(int depth, int maxdepth, const char *board, const std::string prevmove, const char *metadata, const bool turn, int alpha = -1e9 - 5, int beta = 1e9 + 5) noexcept {
+	std::vector<std::string> *moves = find_legal_moves(board, prevmove, metadata);
+	// std::pair<std::string, int> *bestmove = (std::pair<std::string, int> *)malloc(sizeof(std::pair<std::string, int>));
+	std::pair<std::string, int> *bestmove = new std::pair<std::string, int>;
+	bestmove->first = "resign";
+	bestmove->second = turn ? -1e9 : 1e9;
+	std::pair<std::string, int> *move;
 	char newboard[64];
 	char newmeta[3];
+	char w_control[64];
+	char b_control[64];
 	if (turn) {
-		int best = -1e9 - 5;
-		for (std::string curr : moves) {
+		for (const std::string curr : *moves) {
 			memcpy(newboard, board, 64);
 			memcpy(newmeta, metadata, 3);
 			make_move(curr, prevmove, newboard, newmeta);
-			if (is_check(newboard, turn))
+			controlled_squares(newboard, true, w_control, false);
+			controlled_squares(newboard, false, b_control, false);
+			if (is_check(newboard, turn, b_control))
 				continue;
-			if (check_mate(newboard, !turn, prevmove, newmeta))
-				return {{curr, target > 0 ? 1e9 + 5 : -1e9 - 5}};
-			int aeval = eval(newboard, newmeta, curr);
+			int aeval = eval(newboard, newmeta, curr, w_control, b_control);
 			if (depth == maxdepth) {
-				move = {{curr, aeval}};
+				move = new std::pair<std::string, int>;
+				move->first = curr;
+				move->second = aeval;
 			} else {
-				move = __recurse(depth + 1, maxdepth, newboard, curr, newmeta, !turn, -target, alpha, beta);
-				move.insert(move.begin(), {curr, move[0].second});
-				if (move[0].second == (turn ? 1e9 : -1e9)) {
-					return move;
-				}
+				move = __recurse(depth + 1, maxdepth, newboard, curr, newmeta, !turn, alpha, beta);
+				move->first = curr;
 			}
-			if (abs(move[0].second - target) < abs(bestmove[0].second - target))
-				bestmove = move;
-			best = std::max(best, move[0].second);
-			alpha = std::max(alpha, best);
+			if (move->second > bestmove->second) {
+				bestmove->first = move->first;
+				bestmove->second = move->second;
+			}
+			free(move);
+			alpha = std::max(alpha, move->second);
 			if (beta <= alpha)
 				break;
 		}
 	} else {
-		int best = 1e9 + 5;
-		for (std::string curr : moves) {
+		for (const std::string curr : *moves) {
 			memcpy(newboard, board, 64);
 			memcpy(newmeta, metadata, 3);
 			make_move(curr, prevmove, newboard, newmeta);
-			if (is_check(newboard, turn))
+			controlled_squares(newboard, true, w_control, false);
+			controlled_squares(newboard, false, b_control, false);
+			if (is_check(newboard, turn, w_control))
 				continue;
-			if (check_mate(newboard, !turn, prevmove, newmeta))
-				return {{curr, target > 0 ? 1e9 : -1e9}};
-			int beval = eval(newboard, newmeta, curr);
+			int beval = eval(newboard, newmeta, curr, w_control, b_control);
 			if (depth == maxdepth) {
-				move = {{curr, beval}};
+				move = new std::pair<std::string, int>;
+				move->first = curr;
+				move->second = beval;
 			} else {
-				move = __recurse(depth + 1, maxdepth, newboard, curr, newmeta, !turn, -target, alpha, beta);
-				move.insert(move.begin(), {curr, move[0].second});
-				// if (move[0].second == (turn ? 1e9 : -1e9)) {
-				// 	return move;
-				// }
+				move = __recurse(depth + 1, maxdepth, newboard, curr, newmeta, !turn, alpha, beta);
+				move->first = curr;
 			}
-			if (abs(move[0].second - target) < abs(bestmove[0].second - target))
-				bestmove = move; // if move has better eval than bestmove, replace bestmove with move
-			best = std::min(best, move[0].second);
-			beta = std::min(beta, best);
+			if (move->second <= bestmove->second) {
+				bestmove->first = move->first;
+				bestmove->second = move->second;
+			}
+			free(move);
+			alpha = std::max(alpha, move->second);
 			if (beta <= alpha)
 				break;
 		}
 	}
+	free(moves);
 	return bestmove;
 }
 
-std::vector<std::pair<std::string, int>> ab_search(const char *position, const int depth, const char *metadata, const std::string prev, const bool turn) noexcept {
-	return __recurse(1, depth, position, prev, metadata, turn, turn ? 1e9 + 10 : -1e9 - 10);
+const std::string &ab_search(const char *position, const int depth, const char *metadata, const std::string prev, const bool turn) noexcept {
+	std::pair<std::string, int> *ret = __recurse(1, depth, position, prev, metadata, turn);
+	std::string &ans = *new std::string(ret->first);
+	delete ret;
+	return ans;
 }

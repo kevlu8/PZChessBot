@@ -1,4 +1,5 @@
 #include "eval.hpp"
+#include <unordered_map>
 
 /**
  * @brief Calculate the best move for the current position as well as an evaluation of the position.
@@ -8,7 +9,7 @@
  * @param metadata The metadata for the current position.
  * @param prev The previous move.
  * @param turn The side to move.
- * @return A vector of pairs: the first element is the best move, the second is the evaluation of the position.
+ * @return The best move, in UCI format
  */
 
-std::vector<std::pair<std::string, int>> ab_search(const char *, int, const char *, std::string, const bool) noexcept;
+const std::string &ab_search(const char *, int, const char *, std::string, const bool) noexcept;
