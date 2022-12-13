@@ -1,7 +1,6 @@
 #pragma once
 
 #include "eval.hpp"
-#include <unordered_map>
 
 #include <iostream>
 

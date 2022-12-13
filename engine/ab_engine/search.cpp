@@ -4,7 +4,6 @@ int count = 0;
 std::pair<std::string, int> *__recurse(int depth, int maxdepth, const char *board, const std::string prevmove, const char *metadata, const bool turn, int alpha = -1e9 - 5, int beta = 1e9 + 5) noexcept {
 	std::vector<std::string> *moves = find_legal_moves(board, prevmove, metadata);
 	count++;
-	// std::pair<std::string, int> *bestmove = (std::pair<std::string, int> *)malloc(sizeof(std::pair<std::string, int>));
 	std::pair<std::string, int> *bestmove = new std::pair<std::string, int>;
 	bestmove->first = "resign";
 	bestmove->second = turn ? -1e9 : 1e9;

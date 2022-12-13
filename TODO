@@ -2,5 +2,5 @@
 - Opening book
 - Endgame tablebase (e.g. Syzygy)
 - Reduce number calls to controlled_squares (curr. 400k)
-- Reduce number calls to is_enemy (curr. 20M)
-	- Although is_enemy is constant time (close to 10 instr), getting called 20M times means that it still takes up around 10% of total program execution time
+- Move ordering
+	- Consider captures and promotions and checks

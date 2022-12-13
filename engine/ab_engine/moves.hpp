@@ -23,7 +23,7 @@ void controlled_squares(const char *, const bool, char *, const bool) noexcept;
  * @param metadata The metadata for the current position.
  * @return A vector of strings, where each string is a legal move
  */
-std::vector<std::string> *find_legal_moves(const char *, const std::string, const char *) noexcept;
+std::vector<std::string> *find_legal_moves(const char *, const std::string &, const char *) noexcept;
 
 /**
  * @brief Check to see if the king is in check
@@ -42,4 +42,4 @@ inline bool is_check(const char *control, int king_pos) noexcept { return contro
  * @param newboard The new board after the move is made.
  * @param newmeta The new metadata after the move is made.
  */
-void make_move(const std::string, const std::string, char *, char *) noexcept;
+void make_move(const std::string &, const std::string &, char *, char *) noexcept;

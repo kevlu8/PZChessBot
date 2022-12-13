@@ -2,7 +2,7 @@
 
 // Piece heatmaps
 // where do pieces like to be?
-const int pawn_heatmap[64] = {
+constexpr int pawn_heatmap[64] = {
 //  a  b  c  d  e  f  g  h
 	0, 0, 0, 0, 0, 0, 0, 0, // 1
 	5, 10, 10, -20, -20, 10, 10, 5, // 2
@@ -12,9 +12,9 @@ const int pawn_heatmap[64] = {
 	10, 10, 20, 30, 30, 20, 10, 10, // 6
 	50, 50, 50, 50, 50, 50, 50, 50, // 7
 	0, 0, 0, 0, 0, 0, 0, 0, // 8
-}; // invert for black (heatmap[56 - i + i % 8])
+}; 
 
-const int knight_heatmap[64] = {
+constexpr int knight_heatmap[64] = {
 //  a  b  c  d  e  f  g  h
 	-50,-40,-30,-30,-30,-30,-40,-50, // 1
 	-40,-20,  0,  5,  5,  0,-20,-40, // 2
@@ -26,7 +26,7 @@ const int knight_heatmap[64] = {
 	-50,-40,-30,-30,-30,-30,-40,-50, // 8
 };
 
-const int bishop_heatmap[64] = {
+constexpr int bishop_heatmap[64] = {
 //  a  b  c  d  e  f  g  h
 	-20,-10,-10,-10,-10,-10,-10,-20, // 1
 	-10,  5,  0,  0,  0,  0,  5,-10, // 2
@@ -38,7 +38,7 @@ const int bishop_heatmap[64] = {
 	-20,-10,-10,-10,-10,-10,-10,-20, // 8
 };
 
-const int rook_heatmap[64] = {
+constexpr int rook_heatmap[64] = {
 //  a  b  c  d  e  f  g  h
 	0,  0,  0,  5,  5,  0,  0,  0, // 1
 	-5,  0,  0,  0,  0,  0,  0, -5, // 2
@@ -50,7 +50,7 @@ const int rook_heatmap[64] = {
 	0,  0,  0,  0,  0,  0,  0,  0, // 8
 };
 
-const int queen_heatmap[64] = {
+constexpr int queen_heatmap[64] = {
 //  a  b  c  d  e  f  g  h
 	-20,-10,-10, -5, -5,-10,-10,-20, // 1
 	-10,  0,  5,  0,  0,  0,  0,-10, // 2
@@ -62,7 +62,7 @@ const int queen_heatmap[64] = {
 	-20,-10,-10, -5, -5,-10,-10,-20, // 8
 };
 
-const int king_heatmap[64] = {
+constexpr int king_heatmap[64] = {
 //  a  b  c  d  e  f  g  h
 	20, 30, 10,  0,  0, 10, 30, 20, // 1
 	20, 20,  0,  0,  0,  0, 20, 20, // 2

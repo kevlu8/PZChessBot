@@ -137,24 +137,38 @@ void controlled_squares(const char *position, const bool side, char *controlled,
 			continue;
 		if (is_enemy(position[i], side))
 			continue;
-		if (position[i] == 1 || position[i] == 7) {
+
+		switch (position[i]) {
+		case 1:
+		case 7:
 			pawn_control(side, i, controlled, material ? 1 : 1);
-		} else if (position[i] == 2 || position[i] == 8) {
+			break;
+		case 2:
+		case 8:
 			knight_control(i, controlled, material ? 3 : 1);
-		} else if (position[i] == 3 || position[i] == 9) {
+			break;
+		case 3:
+		case 9:
 			bishop_control(position, i, side, controlled, material ? 3 : 1);
-		} else if (position[i] == 4 || position[i] == 10) {
+			break;
+		case 4:
+		case 10:
 			rook_control(position, i, side, controlled, material ? 5 : 1);
-		} else if (position[i] == 5 || position[i] == 11) {
+			break;
+		case 5:
+		case 11:
 			bishop_control(position, i, side, controlled, material ? 9 : 1);
 			rook_control(position, i, side, controlled, material ? 9 : 1);
-		} else if (position[i] == 6 || position[i] == 12) {
+			break;
+		case 6:
+		case 12:
 			king_control(i, controlled, material ? 0 : 1);
+			break;
 		}
 	}
 }
 
-void pawn_moves(const char *position, const bool side, const int i, const std::string prev, std::vector<std::string> *moves) {
+void pawn_moves(const char *position, const bool side, const int i, const std::string &prev, std::vector<std::string> *moves) noexcept {
 	std::string move = "";
 
 	if (side) {
@@ -340,7 +354,7 @@ void pawn_moves(const char *position, const bool side, const int i, const std::s
 	}
 }
 
-void knight_moves(const char *position, const bool side, const int i, std::vector<std::string> *moves) {
+void knight_moves(const char *position, const bool side, const int i, std::vector<std::string> *moves) noexcept {
 	// man i hate knights
 	std::string move;
 
@@ -410,7 +424,7 @@ void knight_moves(const char *position, const bool side, const int i, std::vecto
 	}
 }
 
-void bishop_moves(const char *position, const bool side, const int i, std::vector<std::string> *moves) {
+void bishop_moves(const char *position, const bool side, const int i, std::vector<std::string> *moves) noexcept {
 	std::string move;
 
 	for (int j = 1; j <= std::min(i % 8, i / 8); j++) {
@@ -471,7 +485,7 @@ void bishop_moves(const char *position, const bool side, const int i, std::vecto
 	}
 }
 
-void rook_moves(const char *position, const bool side, const int i, std::vector<std::string> *moves) {
+void rook_moves(const char *position, const bool side, const int i, std::vector<std::string> *moves) noexcept {
 	std::string move;
 
 	for (int j = 1; j <= i % 8; j++) {
@@ -532,7 +546,7 @@ void rook_moves(const char *position, const bool side, const int i, std::vector<
 	}
 }
 
-void king_moves(const char *position, const bool side, const int i, const char castling, std::vector<std::string> *moves) {
+void king_moves(const char *position, const bool side, const int i, const char castling, std::vector<std::string> *moves) noexcept {
 	std::string move = "";
 	// can't move into check
 	// can't take a piece that is defended
@@ -641,7 +655,7 @@ void king_moves(const char *position, const bool side, const int i, const char c
 	}
 }
 
-std::vector<std::string> *find_legal_moves(const char *position, const std::string prev, const char *metadata) noexcept {
+std::vector<std::string> *find_legal_moves(const char *position, const std::string &prev, const char *metadata) noexcept {
 	std::vector<std::string> *moves = new std::vector<std::string>;
 	moves->reserve(300);
 
@@ -698,7 +712,7 @@ std::vector<std::string> *find_legal_moves(const char *position, const std::stri
 	return moves;
 }
 
-void make_move(const std::string move, const std::string prev, char *board, char *meta) noexcept {
+void make_move(const std::string &move, const std::string &prev, char *board, char *meta) noexcept {
 	if (move.size() == 5) { // promotion
 		board[move[0] - 'a' + (move[1] - '1') * 8] = 0;
 		if (move[4] == 'q') {
