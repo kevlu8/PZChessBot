@@ -133,7 +133,9 @@ void king_control(const int i, char *controlled, const int material) {
 void controlled_squares(const char *position, const bool side, char *controlled, const bool material) noexcept {
 	std::fill(controlled, controlled + 64, 0);
 	for (int i = 0; i < 64; i++) {
-		if (position[i] == 0 || is_enemy(position[i], side))
+		if (position[i] == 0)
+			continue;
+		if (is_enemy(position[i], side))
 			continue;
 		if (position[i] == 1 || position[i] == 7) {
 			pawn_control(side, i, controlled, material ? 1 : 1);
@@ -209,7 +211,7 @@ void pawn_moves(const char *position, const bool side, const int i, const std::s
 				moves->push_back(move);
 				move = "";
 			}
-			if (i % 8 != 0 && is_enemy(position[i + 7], side)) { // i just added this
+			if (i % 8 != 0 && is_enemy(position[i + 7], side)) {
 				move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8 - 1) + '8' + 'q';
 				moves->push_back(move);
 				move = "";
@@ -223,7 +225,7 @@ void pawn_moves(const char *position, const bool side, const int i, const std::s
 				moves->push_back(move);
 				move = "";
 			}
-			if (i % 8 != 7 && is_enemy(position[i + 7], side)) { // i just added this
+			if (i % 8 != 7 && is_enemy(position[i + 7], side)) {
 				move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8 + 1) + '8' + 'q';
 				moves->push_back(move);
 				move = "";
@@ -296,6 +298,34 @@ void pawn_moves(const char *position, const bool side, const int i, const std::s
 				moves->push_back(move);
 				move = "";
 				move = move + ((char)('a' + i % 8)) + '2' + (char)('a' + i % 8) + '1' + 'n';
+				moves->push_back(move);
+				move = "";
+			}
+			if (i % 8 && is_enemy(position[i - 9], side)) {
+				move = move + ((char)('a' + i % 8)) + '2' + (char)('a' + i % 8 - 1) + '1' + 'q';
+				moves->push_back(move);
+				move = "";
+				move = move + ((char)('a' + i % 8)) + '2' + (char)('a' + i % 8 - 1) + '1' + 'r';
+				moves->push_back(move);
+				move = "";
+				move = move + ((char)('a' + i % 8)) + '2' + (char)('a' + i % 8 - 1) + '1' + 'b';
+				moves->push_back(move);
+				move = "";
+				move = move + ((char)('a' + i % 8)) + '2' + (char)('a' + i % 8 - 1) + '1' + 'n';
+				moves->push_back(move);
+				move = "";
+			}
+			if (i % 8 != 7 && is_enemy(position[i - 7], side)) {
+				move = move + ((char)('a' + i % 8)) + '2' + (char)('a' + i % 8 + 1) + '1' + 'q';
+				moves->push_back(move);
+				move = "";
+				move = move + ((char)('a' + i % 8)) + '2' + (char)('a' + i % 8 + 1) + '1' + 'r';
+				moves->push_back(move);
+				move = "";
+				move = move + ((char)('a' + i % 8)) + '2' + (char)('a' + i % 8 + 1) + '1' + 'b';
+				moves->push_back(move);
+				move = "";
+				move = move + ((char)('a' + i % 8)) + '2' + (char)('a' + i % 8 + 1) + '1' + 'n';
 				moves->push_back(move);
 				move = "";
 			}
@@ -511,7 +541,6 @@ void king_moves(const char *position, const bool side, const int i, const char c
 
 	char controlled[64];
 	controlled_squares(position, !side, controlled, false); 
-	/// TODO: remove controlled_squares call and use a precomputed array
 
 	if (i % 8) { // there is space on the left
 		if ((position[i - 1] == 0 || is_enemy(position[i - 1], side)) && controlled[i - 1] == 0) {
@@ -613,9 +642,7 @@ void king_moves(const char *position, const bool side, const int i, const char c
 }
 
 std::vector<std::string> *find_legal_moves(const char *position, const std::string prev, const char *metadata) noexcept {
-	const bool side = metadata[0];
 	std::vector<std::string> *moves = new std::vector<std::string>;
-	std::vector<std::string> temp;
 	moves->reserve(300);
 
 	for (int i = 0; i < 64; i++) {
@@ -635,67 +662,40 @@ std::vector<std::string> *find_legal_moves(const char *position, const std::stri
 		// 10 = black rook
 		// 11 = black queen
 		// 12 = black king
-		std::string move;
-		if (side) {
+
+		if (metadata[0]) {
 			if (position[i] == 1) {
-				pawn_moves(position, side, i, prev, moves);
+				pawn_moves(position, metadata[0], i, prev, moves);
 			} else if (position[i] == 2) {
-				knight_moves(position, side, i, moves);
+				knight_moves(position, metadata[0], i, moves);
 			} else if (position[i] == 3) {
-				bishop_moves(position, side, i, moves);
+				bishop_moves(position, metadata[0], i, moves);
 			} else if (position[i] == 4) {
-				rook_moves(position, side, i, moves);
+				rook_moves(position, metadata[0], i, moves);
 			} else if (position[i] == 5) {
-				bishop_moves(position, side, i, moves);
-				rook_moves(position, side, i, moves);
+				bishop_moves(position, metadata[0], i, moves);
+				rook_moves(position, metadata[0], i, moves);
 			} else if (position[i] == 6) {
-				king_moves(position, side, i, metadata[1], moves);
+				king_moves(position, metadata[0], i, metadata[1], moves);
 			}
 		} else {
 			if (position[i] == 7) {
-				pawn_moves(position, side, i, prev, moves);
+				pawn_moves(position, metadata[0], i, prev, moves);
 			} else if (position[i] == 8) {
-				knight_moves(position, side, i, moves);
+				knight_moves(position, metadata[0], i, moves);
 			} else if (position[i] == 9) {
-				bishop_moves(position, side, i, moves);
+				bishop_moves(position, metadata[0], i, moves);
 			} else if (position[i] == 10) {
-				rook_moves(position, side, i, moves);
+				rook_moves(position, metadata[0], i, moves);
 			} else if (position[i] == 11) {
-				bishop_moves(position, side, i, moves);
-				rook_moves(position, side, i, moves);
+				bishop_moves(position, metadata[0], i, moves);
+				rook_moves(position, metadata[0], i, moves);
 			} else if (position[i] == 12) {
-				king_moves(position, side, i, metadata[1], moves);
+				king_moves(position, metadata[0], i, metadata[1], moves);
 			}
 		}
 	}
 	return moves;
-}
-
-inline bool is_check(const char *position, const int king, const char *control) noexcept {
-	if (control[king])
-		return true;
-	return false;
-}
-
-bool is_check(const char *position, const bool side, const char *control) noexcept {
-	int king;
-	if (side) {
-		king = 6;
-	} else {
-		king = 12;
-	}
-	for (int i = 0; i < 64; i++) {
-		if (position[i] == king) { // eval gets the position of the king too
-			return is_check(position, i, control);
-		}
-	}
-	return false;
-}
-
-bool is_check(const char *position, const bool side) noexcept {
-	char control[64];
-	controlled_squares(position, !side, control, false);
-	return is_check(position, side, control);
 }
 
 void make_move(const std::string move, const std::string prev, char *board, char *meta) noexcept {

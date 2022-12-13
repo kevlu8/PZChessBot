@@ -1,5 +1,9 @@
+#pragma once
+
 #include "eval.hpp"
 #include <unordered_map>
+
+#include <iostream>
 
 /**
  * @brief Calculate the best move for the current position as well as an evaluation of the position.

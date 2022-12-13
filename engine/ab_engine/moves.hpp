@@ -1,9 +1,9 @@
+#pragma once
+
 #include <cstring>
 #include <string>
 #include <utility>
 #include <vector>
-
-#include <iostream>
 
 /**
  * @brief Get the number of attackers for each square.
@@ -28,31 +28,11 @@ std::vector<std::string> *find_legal_moves(const char *, const std::string, cons
 /**
  * @brief Check to see if the king is in check
  *
- * @param position The current position.
- * @param turn The side to check for.
+ * @param control The array of number of attackers for each square.
+ * @param king_pos The position of the king.
  * @return True if the king is in check, false otherwise.
  */
-bool is_check(const char *, const bool) noexcept;
-
-/**
- * @brief Check to see if the king is in check
- *
- * @param position The current position.
- * @param turn The side to check for.
- * @param control The array of controlled squares.
- * @return True if the king is in check, false otherwise.
- */
-bool is_check(const char *, const bool, const char *) noexcept;
-
-/**
- * @brief Check to see if the king is in check
- *
- * @param position The current position.
- * @param king The location of the king.
- * @param control The array of controlled squares.
- * @return True if the king is in check, false otherwise.
- */
-bool is_check(const char *, const int, const char *) noexcept;
+inline bool is_check(const char *control, int king_pos) noexcept { return control[king_pos]; }
 
 /**
  * @brief Make a move on the board.

@@ -1,6 +1,80 @@
 #include "eval.hpp"
 
-int eval(const char *board, const char *metadata, const std::string prev, const char *w_control, const char *b_control) noexcept {
+// Piece heatmaps
+// where do pieces like to be?
+const int pawn_heatmap[64] = {
+//  a  b  c  d  e  f  g  h
+	0, 0, 0, 0, 0, 0, 0, 0, // 1
+	5, 10, 10, -20, -20, 10, 10, 5, // 2
+	5, -5, -10, 0, 0, -10, -5, 5, // 3
+	0, 0, 0, 20, 20, 0, 0, 0, // 4
+	5, 5, 10, 25, 25, 10, 5, 5, // 5
+	10, 10, 20, 30, 30, 20, 10, 10, // 6
+	50, 50, 50, 50, 50, 50, 50, 50, // 7
+	0, 0, 0, 0, 0, 0, 0, 0, // 8
+}; // invert for black (heatmap[56 - i + i % 8])
+
+const int knight_heatmap[64] = {
+//  a  b  c  d  e  f  g  h
+	-50,-40,-30,-30,-30,-30,-40,-50, // 1
+	-40,-20,  0,  5,  5,  0,-20,-40, // 2
+	-30,  5, 10, 15, 15, 10,  5,-30, // 3
+	-30,  0, 15, 20, 20, 15,  0,-30, // 4
+	-30,  5, 15, 20, 20, 15,  5,-30, // 5
+	-30,  0, 10, 15, 15, 10,  0,-30, // 6
+	-40,-20,  0,  0,  0,  0,-20,-40, // 7
+	-50,-40,-30,-30,-30,-30,-40,-50, // 8
+};
+
+const int bishop_heatmap[64] = {
+//  a  b  c  d  e  f  g  h
+	-20,-10,-10,-10,-10,-10,-10,-20, // 1
+	-10,  5,  0,  0,  0,  0,  5,-10, // 2
+	-10, 10, 10, 10, 10, 10, 10,-10, // 3
+	-10,  0, 10, 10, 10, 10,  0,-10, // 4
+	-10,  5,  5, 10, 10,  5,  5,-10, // 5
+	-10,  0,  5, 10, 10,  5,  0,-10, // 6
+	-10,  0,  0,  0,  0,  0,  0,-10, // 7
+	-20,-10,-10,-10,-10,-10,-10,-20, // 8
+};
+
+const int rook_heatmap[64] = {
+//  a  b  c  d  e  f  g  h
+	0,  0,  0,  5,  5,  0,  0,  0, // 1
+	-5,  0,  0,  0,  0,  0,  0, -5, // 2
+	-5,  0,  0,  0,  0,  0,  0, -5, // 3
+	-5,  0,  0,  0,  0,  0,  0, -5, // 4
+	-5,  0,  0,  0,  0,  0,  0, -5, // 5
+	-5,  0,  0,  0,  0,  0,  0, -5, // 6
+	-10,  0,  0,  0,  0,  0,  0, -10, // 7
+	0,  0,  0,  0,  0,  0,  0,  0, // 8
+};
+
+const int queen_heatmap[64] = {
+//  a  b  c  d  e  f  g  h
+	-20,-10,-10, -5, -5,-10,-10,-20, // 1
+	-10,  0,  5,  0,  0,  0,  0,-10, // 2
+	-10,  5,  5,  5,  5,  5,  0,-10, // 3
+	-5,  0,  5,  5,  5,  5,  0, -5, // 4
+	0,  0,  5,  5,  5,  5,  0, -5, // 5
+	-10,  0,  5,  5,  5,  5,  0,-10, // 6
+	-10,  0,  0,  0,  0,  0,  0,-10, // 7
+	-20,-10,-10, -5, -5,-10,-10,-20, // 8
+};
+
+const int king_heatmap[64] = {
+//  a  b  c  d  e  f  g  h
+	20, 30, 10,  0,  0, 10, 30, 20, // 1
+	20, 20,  0,  0,  0,  0, 20, 20, // 2
+	-10,-20,-20,-20,-20,-20,-20,-10, // 3
+	-20,-30,-30,-40,-40,-30,-30,-20, // 4
+	-30,-40,-40,-50,-50,-40,-40,-30, // 5
+	-30,-40,-40,-50,-50,-40,-40,-30, // 6
+	-30,-40,-40,-50,-50,-40,-40,-30, // 7
+	-30,-40,-40,-50,-50,-40,-40,-30, // 8
+};
+
+int eval(const char *board, const char *metadata, const std::string prev, const char *w_control, const char *b_control, int &w_king_pos, int &b_king_pos) noexcept {
 	// metadata[0] = 1 for white, 0 for black
 	// metadata[1] = castling rights
 	// metadata[2] = halfmove clock
@@ -8,85 +82,9 @@ int eval(const char *board, const char *metadata, const std::string prev, const 
 	// extra_metadata[1] = fullmove number
 	int material = 0, mobility = 0, king_safety = 0, pawn_structure = 0, space = 0, position = 0;
 
-	// Piece heatmaps
-	// where do pieces like to be?
-	int pawn_heatmap[64] = {
-	//  a  b  c  d  e  f  g  h
-		0, 0, 0, 0, 0, 0, 0, 0, // 1
-		5, 10, 10, -20, -20, 10, 10, 5, // 2
-		5, -5, -10, 0, 0, -10, -5, 5, // 3
-		0, 0, 0, 20, 20, 0, 0, 0, // 4
-		5, 5, 10, 25, 25, 10, 5, 5, // 5
-		10, 10, 20, 30, 30, 20, 10, 10, // 6
-		50, 50, 50, 50, 50, 50, 50, 50, // 7
-		0, 0, 0, 0, 0, 0, 0, 0, // 8
-	}; // invert for black (heatmap[56 - i + i % 8])
-
-	int knight_heatmap[64] = {
-	//  a  b  c  d  e  f  g  h
-		-50,-40,-30,-30,-30,-30,-40,-50, // 1
-		-40,-20,  0,  5,  5,  0,-20,-40, // 2
-		-30,  5, 10, 15, 15, 10,  5,-30, // 3
-		-30,  0, 15, 20, 20, 15,  0,-30, // 4
-		-30,  5, 15, 20, 20, 15,  5,-30, // 5
-		-30,  0, 10, 15, 15, 10,  0,-30, // 6
-		-40,-20,  0,  0,  0,  0,-20,-40, // 7
-		-50,-40,-30,-30,-30,-30,-40,-50, // 8
-	};
-
-	int bishop_heatmap[64] = {
-	//  a  b  c  d  e  f  g  h
-		-20,-10,-10,-10,-10,-10,-10,-20, // 1
-		-10,  5,  0,  0,  0,  0,  5,-10, // 2
-		-10, 10, 10, 10, 10, 10, 10,-10, // 3
-		-10,  0, 10, 10, 10, 10,  0,-10, // 4
-		-10,  5,  5, 10, 10,  5,  5,-10, // 5
-		-10,  0,  5, 10, 10,  5,  0,-10, // 6
-		-10,  0,  0,  0,  0,  0,  0,-10, // 7
-		-20,-10,-10,-10,-10,-10,-10,-20, // 8
-	};
-
-	int rook_heatmap[64] = {
-	//  a  b  c  d  e  f  g  h
-		0,  0,  0,  5,  5,  0,  0,  0, // 1
-		-5,  0,  0,  0,  0,  0,  0, -5, // 2
-		-5,  0,  0,  0,  0,  0,  0, -5, // 3
-		-5,  0,  0,  0,  0,  0,  0, -5, // 4
-		-5,  0,  0,  0,  0,  0,  0, -5, // 5
-		-5,  0,  0,  0,  0,  0,  0, -5, // 6
-		-10,  0,  0,  0,  0,  0,  0, -10, // 7
-		0,  0,  0,  0,  0,  0,  0,  0, // 8
-	};
-
-	int queen_heatmap[64] = {
-	//  a  b  c  d  e  f  g  h
-		-20,-10,-10, -5, -5,-10,-10,-20, // 1
-		-10,  0,  5,  0,  0,  0,  0,-10, // 2
-		-10,  5,  5,  5,  5,  5,  0,-10, // 3
-		-5,  0,  5,  5,  5,  5,  0, -5, // 4
-		0,  0,  5,  5,  5,  5,  0, -5, // 5
-		-10,  0,  5,  5,  5,  5,  0,-10, // 6
-		-10,  0,  0,  0,  0,  0,  0,-10, // 7
-		-20,-10,-10, -5, -5,-10,-10,-20, // 8
-	};
-
-	int king_heatmap[64] = {
-	//  a  b  c  d  e  f  g  h
-		20, 30, 10,  0,  0, 10, 30, 20, // 1
-		20, 20,  0,  0,  0,  0, 20, 20, // 2
-		-10,-20,-20,-20,-20,-20,-20,-10, // 3
-		-20,-30,-30,-40,-40,-30,-30,-20, // 4
-		-30,-40,-40,-50,-50,-40,-40,-30, // 5
-		-30,-40,-40,-50,-50,-40,-40,-30, // 6
-		-30,-40,-40,-50,-50,-40,-40,-30, // 7
-		-30,-40,-40,-50,-50,-40,-40,-30, // 8
-	};
-
 	// King safety
 	// count material worth of attackers and defenders on squares around the king (do not count kings)
 	// weighted on a bell curve (closer to king is more important)
-	int w_king_pos = -1;
-	int b_king_pos = -1;
 
 	// Material
 	// each element in the board array will be a number from 0 to 12
@@ -163,7 +161,7 @@ int eval(const char *board, const char *metadata, const std::string prev, const 
 		for (int x = -2; x < 3; x++) {
 			if (x == 0 && y == 0)
 				continue;
-			int coeff = powf(2, 4 - abs(x) - abs(y));
+			int coeff = 1 << (4 - abs(x) - abs(y));
 			// if adding the x doesnt overflow the row and adding the y doesnt overflow the column
 			if ((w_king_pos % 8) >= -x && (w_king_pos % 8) + x < 8 && (w_king_pos / 8) + y < 8 && (w_king_pos / 8) >= -y) {
 				king_safety += (w_control[w_king_pos + x + y * 8] - b_control[w_king_pos + x + y * 8]) * coeff;
@@ -173,7 +171,6 @@ int eval(const char *board, const char *metadata, const std::string prev, const 
 			}
 		}
 	}
-	king_safety = king_safety * 100 / 84;
 
 	/*
 		Pawn structure

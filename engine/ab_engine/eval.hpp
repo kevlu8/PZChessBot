@@ -1,6 +1,7 @@
+#pragma once
+
 #include "moves.hpp"
 #include <cmath>
-#include <iomanip>
 #include <string.h>
 #include <string>
 
@@ -12,6 +13,8 @@
  * @param prev The previous move
  * @param w_control
  * @param b_control
+ * @param w_king_pos
+ * @param b_king_pos
  * @return Eval of current position in centipawns from White's perspective
  */
-int eval(const char *, const char *, const std::string, const char *, const char *) noexcept;
+int eval(const char *, const char *, const std::string, const char *, const char *, int &, int &) noexcept;

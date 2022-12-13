@@ -1,3 +1,5 @@
+#pragma once
+
 #include "../token"
 #include "json.hpp"
 #include <cpr/cpr.h>

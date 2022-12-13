@@ -1,7 +1,9 @@
 #include "search.hpp"
+int count = 0;
 
 std::pair<std::string, int> *__recurse(int depth, int maxdepth, const char *board, const std::string prevmove, const char *metadata, const bool turn, int alpha = -1e9 - 5, int beta = 1e9 + 5) noexcept {
 	std::vector<std::string> *moves = find_legal_moves(board, prevmove, metadata);
+	count++;
 	// std::pair<std::string, int> *bestmove = (std::pair<std::string, int> *)malloc(sizeof(std::pair<std::string, int>));
 	std::pair<std::string, int> *bestmove = new std::pair<std::string, int>;
 	bestmove->first = "resign";
@@ -11,6 +13,8 @@ std::pair<std::string, int> *__recurse(int depth, int maxdepth, const char *boar
 	char newmeta[3];
 	char w_control[64];
 	char b_control[64];
+	int w_king_pos = -1;
+	int b_king_pos = -1;
 	if (turn) {
 		for (const std::string curr : *moves) {
 			memcpy(newboard, board, 64);
@@ -18,9 +22,9 @@ std::pair<std::string, int> *__recurse(int depth, int maxdepth, const char *boar
 			make_move(curr, prevmove, newboard, newmeta);
 			controlled_squares(newboard, true, w_control, false);
 			controlled_squares(newboard, false, b_control, false);
-			if (is_check(newboard, turn, b_control))
+			int aeval = eval(newboard, newmeta, curr, w_control, b_control, w_king_pos, b_king_pos);
+			if (is_check(b_control, w_king_pos))
 				continue;
-			int aeval = eval(newboard, newmeta, curr, w_control, b_control);
 			if (depth == maxdepth) {
 				move = new std::pair<std::string, int>;
 				move->first = curr;
@@ -33,8 +37,8 @@ std::pair<std::string, int> *__recurse(int depth, int maxdepth, const char *boar
 				bestmove->first = move->first;
 				bestmove->second = move->second;
 			}
-			free(move);
 			alpha = std::max(alpha, move->second);
+			delete move;
 			if (beta <= alpha)
 				break;
 		}
@@ -45,9 +49,9 @@ std::pair<std::string, int> *__recurse(int depth, int maxdepth, const char *boar
 			make_move(curr, prevmove, newboard, newmeta);
 			controlled_squares(newboard, true, w_control, false);
 			controlled_squares(newboard, false, b_control, false);
-			if (is_check(newboard, turn, w_control))
+			int beval = eval(newboard, newmeta, curr, w_control, b_control, w_king_pos, b_king_pos);
+			if (is_check(w_control, b_king_pos))
 				continue;
-			int beval = eval(newboard, newmeta, curr, w_control, b_control);
 			if (depth == maxdepth) {
 				move = new std::pair<std::string, int>;
 				move->first = curr;
@@ -60,13 +64,13 @@ std::pair<std::string, int> *__recurse(int depth, int maxdepth, const char *boar
 				bestmove->first = move->first;
 				bestmove->second = move->second;
 			}
-			free(move);
 			alpha = std::max(alpha, move->second);
+			delete move;
 			if (beta <= alpha)
 				break;
 		}
 	}
-	free(moves);
+	delete moves;
 	return bestmove;
 }
 
@@ -74,5 +78,6 @@ const std::string &ab_search(const char *position, const int depth, const char *
 	std::pair<std::string, int> *ret = __recurse(1, depth, position, prev, metadata, turn);
 	std::string &ans = *new std::string(ret->first);
 	delete ret;
+	std::cout << "explored " << count << " nodes\n";
 	return ans;
 }
