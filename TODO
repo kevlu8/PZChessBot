@@ -1,6 +1,15 @@
-- Hashtables
+- Hashtables (Zobrist hashing)
 - Opening book
 - Endgame tablebase (e.g. Syzygy)
-- Reduce number calls to controlled_squares (curr. 400k)
-- Move ordering
-	- Consider captures and promotions and checks
+- Make controlled_squares faster
+- Make pawn_moves faster
+- Perfts:
+	- 1: PASS 
+	- 2: FAIL (2)
+	- 3: FAIL (5)
+	- 4: FAIL (4)
+	- 5: FAIL (5)
+	- 6: FAIL (4)
+- Stop trying to play illegal moves (to Lichess)
+- Fix check detection
+- Decline variant challenges with correct reason

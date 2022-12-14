@@ -1,6 +1,10 @@
 #pragma once
 
 #include "eval.hpp"
+#include "zobrist"
+
+#include <set>
+#include <unordered_map>
 
 #include <iostream>
 
@@ -15,4 +19,4 @@
  * @return The best move, in UCI format
  */
 
-const std::string &ab_search(const char *, int, const char *, std::string, const bool) noexcept;
+const std::string ab_search(const char *, int, const char *, std::string, const bool) noexcept;

@@ -239,7 +239,7 @@ void pawn_moves(const char *position, const bool side, const int i, const std::s
 				moves->push_back(move);
 				move = "";
 			}
-			if (i % 8 != 7 && is_enemy(position[i + 7], side)) {
+			if (i % 8 != 7 && is_enemy(position[i + 9], side)) {
 				move = move + ((char)('a' + i % 8)) + '7' + (char)('a' + i % 8 + 1) + '8' + 'q';
 				moves->push_back(move);
 				move = "";
@@ -546,6 +546,17 @@ void rook_moves(const char *position, const bool side, const int i, std::vector<
 	}
 }
 
+template<typename T>
+void print_bits(T value) {
+	unsigned char* p = reinterpret_cast<unsigned char*>(&value);
+	for (std::size_t i = 0; i < sizeof(T); ++i) {
+		for (int j = 7; j >= 0; --j) {
+			std::cout << ((p[i] >> j) & 1);
+		}
+	}
+	std::cout << std::endl;
+}
+
 void king_moves(const char *position, const bool side, const int i, const char castling, std::vector<std::string> *moves) noexcept {
 	std::string move = "";
 	// can't move into check
@@ -617,7 +628,7 @@ void king_moves(const char *position, const bool side, const int i, const char c
 	if (side) {
 		if (castling & 0b1000) { // white kingside
 			if (position[7] == 4) { // rook is still there
-				if (controlled[4] + controlled[5] + controlled[6] + position[4] + position[5] + position[6] == 0) { // not moving through check or other pieces
+				if (controlled[4] + controlled[5] + controlled[6] + position[5] + position[6] == 0) { // not moving through check or other pieces
 					move = "e1g1";
 					moves->push_back(move);
 					move = "";
@@ -626,7 +637,7 @@ void king_moves(const char *position, const bool side, const int i, const char c
 		}
 		if (castling & 0b0100) { // white queenside
 			if (position[0] == 4) { // rook is still there
-				if (controlled[4] + controlled[3] + controlled[2] + position[4] + position[3] + position[2] == 0) { // not moving through check or other pieces
+				if (controlled[4] + controlled[3] + controlled[2] + position[3] + position[2] == 0) { // not moving through check or other pieces
 					move = "e1c1";
 					moves->push_back(move);
 					move = "";
@@ -636,7 +647,7 @@ void king_moves(const char *position, const bool side, const int i, const char c
 	} else {
 		if (castling & 0b0010) { // black kingside
 			if (position[63] == 10) { // rook is still there
-				if (controlled[60] + controlled[61] + controlled[62] + position[60] + position[61] + position[62] == 0) { // not moving through check or other pieces
+				if (controlled[60] + controlled[61] + controlled[62] + position[61] + position[62] == 0) { // not moving through check or other pieces
 					move = "e8g8";
 					moves->push_back(move);
 					move = "";
@@ -645,7 +656,7 @@ void king_moves(const char *position, const bool side, const int i, const char c
 		}
 		if (castling & 0b0001) { // black queenside
 			if (position[56] == 10) { // rook is still there
-				if (controlled[60] + controlled[59] + controlled[58] + position[60] + position[59] + position[58] == 0) { // not moving through check or other pieces
+				if (controlled[60] + controlled[59] + controlled[58] + position[59] + position[58] == 0) { // not moving through check or other pieces
 					move = "e8c8";
 					moves->push_back(move);
 					move = "";
@@ -741,11 +752,11 @@ void make_move(const std::string &move, const std::string &prev, char *board, ch
 			}
 		}
 	} else if (board[move[0] - 'a' + (move[1] - '1') * 8] == 1 || board[move[0] - 'a' + (move[1] - '1') * 8] == 7) { // a pawn
-		if (abs(prev[1] - prev[3]) == 2 && (board[prev[2] - 'a' + (move[3] - '1') * 8] == 1 || board[prev[2] - 'a' + (move[3] - '1') * 8] == 7)) { // previous move was also a pawn
-			if (abs(prev[0] - move[0]) == 1 && move[1] == prev[3]) { // en passant
+		if (abs(prev[1] - prev[3]) == 2 && (board[prev[0] - 'a' + (move[1] - '1') * 8] == 1 || board[prev[0] - 'a' + (move[1] - '1') * 8] == 7)) { // previous move was also a pawn
+			if (abs(prev[0] - move[0]) == 1 && prev[2] == move[2] && (prev[3] - prev[1]) / 2 == prev[3] - move[3]) { // en passant
 				board[move[0] - 'a' + (move[1] - '1') * 8] = 0;
 				board[move[0] - 'a' + (move[3] - '1') * 8] = board[prev[2] - 'a' + (move[3] - '1') * 8];
-				board[prev[2] - 'a' + (move[3] - '1') * 8] = 0;
+				board[prev[2] - 'a' + (prev[3] - '1') * 8] = 0;
 			} else {
 				board[move[2] - 'a' + (move[3] - '1') * 8] = board[move[0] - 'a' + (move[1] - '1') * 8];
 				board[move[0] - 'a' + (move[1] - '1') * 8] = 0;

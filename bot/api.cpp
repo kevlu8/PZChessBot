@@ -2,10 +2,9 @@
 
 #define REQUEST_URL (std::string) "https://lichess.org"
 
-int __send_request(std::string url, std::string method) { /// TODO: json
+int __send_request(std::string url, std::string method) {
 	if (method == "GET") {
 		cpr::Response r = cpr::Get(cpr::Url{url}, cpr::Bearer{TOKEN});
-		// TODO: set response (r.text to json)
 		if (r.status_code != 200) {
 			std::cerr << method << ' ' << url << ' ' << r.text << std::endl;
 		}
@@ -80,6 +79,12 @@ int API::send_challenge(std::string username, bool rated, int time, int incremen
 int API::accept_challenge(std::string challenge_id) {
 	std::string url = REQUEST_URL + "/api/challenge/" + challenge_id + "/accept";
 	return __send_request(url, "POST");
+}
+
+int API::decline_challenge(std::string challenge_id) {
+	std::string url = REQUEST_URL + "/api/challenge/" + challenge_id + "/decline";
+	cpr::Response r = cpr::Post(cpr::Url{url}, cpr::Bearer{TOKEN}, cpr::Body{"reason: \"variant\""}); /// TODO: fix this thing
+	return r.status_code;
 }
 
 API::Events::Events() {

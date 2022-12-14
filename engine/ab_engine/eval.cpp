@@ -5,12 +5,12 @@
 constexpr int pawn_heatmap[64] = {
 //  a  b  c  d  e  f  g  h
 	0, 0, 0, 0, 0, 0, 0, 0, // 1
-	5, 10, 10, -20, -20, 10, 10, 5, // 2
+	5, 10, 10, -40, -40, 10, 10, 5, // 2
 	5, -5, -10, 0, 0, -10, -5, 5, // 3
-	0, 0, 0, 20, 20, 0, 0, 0, // 4
-	5, 5, 10, 25, 25, 10, 5, 5, // 5
-	10, 10, 20, 30, 30, 20, 10, 10, // 6
-	50, 50, 50, 50, 50, 50, 50, 50, // 7
+	0, 0, 0, 30, 30, 0, 0, 0, // 4
+	5, 5, 10, 40, 40, 10, 5, 5, // 5
+	10, 10, 50, 60, 60, 50, 10, 10, // 6
+	80, 80, 80, 80, 80, 80, 80, 80, // 7
 	0, 0, 0, 0, 0, 0, 0, 0, // 8
 }; 
 
@@ -65,7 +65,7 @@ constexpr int queen_heatmap[64] = {
 constexpr int king_heatmap[64] = {
 //  a  b  c  d  e  f  g  h
 	20, 30, 10,  0,  0, 10, 30, 20, // 1
-	20, 20,  0,  0,  0,  0, 20, 20, // 2
+	20, 20,  -5,  -5,  -5,  -5, 20, 20, // 2
 	-10,-20,-20,-20,-20,-20,-20,-10, // 3
 	-20,-30,-30,-40,-40,-30,-30,-20, // 4
 	-30,-40,-40,-50,-50,-40,-40,-30, // 5
@@ -74,13 +74,14 @@ constexpr int king_heatmap[64] = {
 	-30,-40,-40,-50,-50,-40,-40,-30, // 8
 };
 
-int eval(const char *board, const char *metadata, const std::string prev, const char *w_control, const char *b_control, int &w_king_pos, int &b_king_pos) noexcept {
+int eval(const char *board, const char *w_control, const char *b_control, int *w_king_pos, int *b_king_pos) noexcept {
 	// metadata[0] = 1 for white, 0 for black
 	// metadata[1] = castling rights
 	// metadata[2] = halfmove clock
 	// extra_metadata[0] = en passant square
 	// extra_metadata[1] = fullmove number
 	int material = 0, mobility = 0, king_safety = 0, pawn_structure = 0, space = 0, position = 0;
+	int w_king, b_king;
 
 	// King safety
 	// count material worth of attackers and defenders on squares around the king (do not count kings)
@@ -127,7 +128,9 @@ int eval(const char *board, const char *metadata, const std::string prev, const 
 			position += queen_heatmap[i];
 			break;
 		case 6:
-			w_king_pos = i;
+			if (w_king_pos != nullptr)
+				*w_king_pos = i;
+			w_king = i;
 			position += king_heatmap[i];
 			break;
 		case 7:
@@ -151,7 +154,9 @@ int eval(const char *board, const char *metadata, const std::string prev, const 
 			position -= queen_heatmap[56 - i + (i % 8) * 2];
 			break;
 		case 12:
-			b_king_pos = i;
+			if (b_king_pos != nullptr)
+				*b_king_pos = i;
+			b_king = i;
 			position -= king_heatmap[56 - i + (i % 8) * 2];
 			break;
 		}
@@ -163,11 +168,11 @@ int eval(const char *board, const char *metadata, const std::string prev, const 
 				continue;
 			int coeff = 1 << (4 - abs(x) - abs(y));
 			// if adding the x doesnt overflow the row and adding the y doesnt overflow the column
-			if ((w_king_pos % 8) >= -x && (w_king_pos % 8) + x < 8 && (w_king_pos / 8) + y < 8 && (w_king_pos / 8) >= -y) {
-				king_safety += (w_control[w_king_pos + x + y * 8] - b_control[w_king_pos + x + y * 8]) * coeff;
+			if ((w_king % 8) >= -x && (w_king % 8) + x < 8 && (w_king / 8) + y < 8 && (w_king / 8) >= -y) {
+				king_safety += (w_control[w_king + x + y * 8] - b_control[w_king + x + y * 8]) * coeff;
 			}
-			if ((b_king_pos % 8) >= -x && (b_king_pos % 8) + x < 8 && (b_king_pos / 8) + y < 8 && (b_king_pos / 8) >= -y) {
-				king_safety += (w_control[b_king_pos + x + y * 8] - b_control[b_king_pos + x + y * 8]) * coeff;
+			if ((b_king % 8) >= -x && (b_king % 8) + x < 8 && (b_king / 8) + y < 8 && (b_king / 8) >= -y) {
+				king_safety += (w_control[b_king + x + y * 8] - b_control[b_king + x + y * 8]) * coeff;
 			}
 		}
 	}

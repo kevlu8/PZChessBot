@@ -62,6 +62,13 @@ namespace API {
 	 */
 	int accept_challenge(std::string);
 
+	/**
+	 * @brief Decline a challenge from the server
+	 * @param challenge_id The ID of the challenge
+	 * @return int The status code of the request
+	 */
+	int decline_challenge(std::string);
+
 	class Events {
 	private:
 		bool running = true;

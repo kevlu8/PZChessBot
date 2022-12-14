@@ -15,6 +15,7 @@ std::unordered_map<std::string, pthread_t> games;
 void play(std::string game_id, bool color) {
 	std::cout << "playing as " << (color ? "white" : "black") << std::endl;
 	std::vector<std::string> moves;
+	moves.reserve(512);
 	int nummoves = 0;
 	char original_board[64];
 	char original_metadata[3];
@@ -23,6 +24,7 @@ void play(std::string game_id, bool color) {
 	char board[64];
 	char metadata[3];
 	char extra[2];
+	std::string move, prev, moves_str;
 	memset(extra, 0, 69);
 	// connect to the game stream
 	API::Game game(game_id);
@@ -31,7 +33,7 @@ void play(std::string game_id, bool color) {
 	while (true) {
 		game.get_events(events);
 		for (json event : events) {
-			std::cout << "play: " << event << std::endl;
+			std::cout << "play: " << event << '\n';
 			if (event["type"] == "chatLine" || event["type"] == "opponentGone")
 				continue;
 			if (event["type"] == "gameFinish") {
@@ -44,8 +46,8 @@ void play(std::string game_id, bool color) {
 			memcpy(metadata, original_metadata, 3);
 			memcpy(extra, original_extra, 2);
 			// split the moves into an array of moves and in the process update the internal board
-			std::string moves_str = event["moves"];
-			std::string move, prev = "0000";
+			moves_str = event["moves"];
+			prev = "0000";
 			for (int i = 0; i < moves_str.size(); i++) {
 				if (moves_str[i] == ' ') {
 					moves.push_back(move);
@@ -63,7 +65,8 @@ void play(std::string game_id, bool color) {
 			}
 			// if its our turn
 			if (moves.size() % 2 != color) {
-				move = ab_search(board, 4, metadata, prev, color);
+				std::cout << "searching\n";
+				move = ab_search(board, 18, metadata, prev, color);
 				if (move == "resign")
 					API::resign(game_id);
 				else
@@ -87,7 +90,10 @@ void *play_helper(void *args) {
 // general event handler to dispatch jobs
 void handle_event(json event) {
 	if (event["type"] == "challenge") {
-		API::accept_challenge(event["challenge"]["id"]);
+		if (event["challenge"]["variant"]["short"] == "Std")
+			API::accept_challenge(event["challenge"]["id"]);
+		else 
+			API::decline_challenge(event["challenge"]["id"]);
 	} else if (event["type"] == "gameStart") {
 		std::cout << "game start" << std::endl;
 		int len = to_string(event["game"]["gameId"]).size() - 2;
@@ -110,7 +116,10 @@ int main() {
 	// for each challenge make a thread to handle it
 	for (auto challenge : challenges) {
 		// accept the challenge
-		API::accept_challenge(challenge["id"]);
+		if (challenge["variant"]["short"] == "Std")
+			API::accept_challenge(challenge["id"]);
+		else
+			API::decline_challenge(challenge["id"]);
 	}
 	// main loop
 	while (true) {

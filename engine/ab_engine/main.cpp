@@ -16,6 +16,10 @@ int main() {
 	std::cin >> depth;
 	std::string best = ab_search(board, depth, meta, "0000", meta[0]);
 	std::cout << best << std::endl;
-	// std::cout << eval(board, meta, "0000") << std::endl;
+	// char w_control[64], b_control[64];
+	// int tmp, tmp2;
+	// controlled_squares(board, true, w_control, false);
+	// controlled_squares(board, false, b_control, false);
+	// std::cout << eval(board, w_control, b_control, tmp, tmp2) << std::endl;
 	return 0;
 }

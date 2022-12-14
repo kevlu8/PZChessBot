@@ -5,6 +5,8 @@
 #include <utility>
 #include <vector>
 
+#include <iostream>
+
 /**
  * @brief Get the number of attackers for each square.
  *
