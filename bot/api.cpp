@@ -81,9 +81,9 @@ int API::accept_challenge(std::string challenge_id) {
 	return __send_request(url, "POST");
 }
 
-int API::decline_challenge(std::string challenge_id) {
+int API::decline_challenge(std::string challenge_id, std::string reason) {
 	std::string url = REQUEST_URL + "/api/challenge/" + challenge_id + "/decline";
-	cpr::Response r = cpr::Post(cpr::Url{url}, cpr::Bearer{TOKEN}, cpr::Body{"reason: \"variant\""}); /// TODO: fix this thing
+	cpr::Response r = cpr::Post(cpr::Url{url}, cpr::Bearer{TOKEN}, cpr::Body{"reason=" + reason});
 	return r.status_code;
 }
 

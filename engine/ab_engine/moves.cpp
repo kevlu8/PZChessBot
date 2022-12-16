@@ -546,17 +546,6 @@ void rook_moves(const char *position, const bool side, const int i, std::vector<
 	}
 }
 
-template<typename T>
-void print_bits(T value) {
-	unsigned char* p = reinterpret_cast<unsigned char*>(&value);
-	for (std::size_t i = 0; i < sizeof(T); ++i) {
-		for (int j = 7; j >= 0; --j) {
-			std::cout << ((p[i] >> j) & 1);
-		}
-	}
-	std::cout << std::endl;
-}
-
 void king_moves(const char *position, const bool side, const int i, const char castling, std::vector<std::string> *moves) noexcept {
 	std::string move = "";
 	// can't move into check
@@ -637,7 +626,7 @@ void king_moves(const char *position, const bool side, const int i, const char c
 		}
 		if (castling & 0b0100) { // white queenside
 			if (position[0] == 4) { // rook is still there
-				if (controlled[4] + controlled[3] + controlled[2] + position[3] + position[2] == 0) { // not moving through check or other pieces
+				if (controlled[4] + controlled[3] + controlled[2] + position[3] + position[2] + position[1] == 0) { // not moving through check or other pieces
 					move = "e1c1";
 					moves->push_back(move);
 					move = "";
@@ -656,7 +645,7 @@ void king_moves(const char *position, const bool side, const int i, const char c
 		}
 		if (castling & 0b0001) { // black queenside
 			if (position[56] == 10) { // rook is still there
-				if (controlled[60] + controlled[59] + controlled[58] + position[59] + position[58] == 0) { // not moving through check or other pieces
+				if (controlled[60] + controlled[59] + controlled[58] + position[59] + position[58] + position[57] == 0) { // not moving through check or other pieces
 					move = "e8c8";
 					moves->push_back(move);
 					move = "";

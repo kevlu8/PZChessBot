@@ -25,7 +25,9 @@ void play(std::string game_id, bool color) {
 	char metadata[3];
 	char extra[2];
 	std::string move, prev, moves_str;
-	memset(extra, 0, 69);
+	memset(extra, 0, 2);
+	memset(metadata, 0, 3);
+	memset(board, 0, 64);
 	// connect to the game stream
 	API::Game game(game_id);
 	// main loop
@@ -52,8 +54,9 @@ void play(std::string game_id, bool color) {
 				if (moves_str[i] == ' ') {
 					moves.push_back(move);
 					make_move(move, prev, board, metadata);
+					std::cout << move << ' ';
 					prev = move;
-					move = "";
+					move.clear();
 				} else {
 					move += moves_str[i];
 				}
@@ -61,18 +64,30 @@ void play(std::string game_id, bool color) {
 			if (move != "") {
 				moves.push_back(move);
 				make_move(move, prev, board, metadata);
+				std::cout << move << std::endl;
 				prev = move;
+				move.clear();
 			}
 			// if its our turn
 			if (moves.size() % 2 != color) {
-				std::cout << "searching\n";
-				move = ab_search(board, 18, metadata, prev, color);
+
+				// print board
+				for (int i = 0; i < 64; i++) {
+					if (i % 8 == 0)
+						std::cout << std::endl;
+					std::cout << std::setw(3) << (int)board[i];
+				}
+				std::cout << std::endl;
+
+				std::cout << (int)metadata[0] << ' ' << (int)metadata[1] << ' ' << (int)metadata[2] << "  " << prev << "  " << color << std::endl;
+				move = ab_search(board, 20, metadata, prev, color);
 				if (move == "resign")
 					API::resign(game_id);
 				else
 					API::move(game_id, move);
 			}
 			moves.clear();
+			move.clear();
 		}
 		// sleep for 1ms to prevent cpu usage
 		usleep(1000);
@@ -93,7 +108,7 @@ void handle_event(json event) {
 		if (event["challenge"]["variant"]["short"] == "Std")
 			API::accept_challenge(event["challenge"]["id"]);
 		else 
-			API::decline_challenge(event["challenge"]["id"]);
+			API::decline_challenge(event["challenge"]["id"], "variant");
 	} else if (event["type"] == "gameStart") {
 		std::cout << "game start" << std::endl;
 		int len = to_string(event["game"]["gameId"]).size() - 2;
@@ -119,7 +134,7 @@ int main() {
 		if (challenge["variant"]["short"] == "Std")
 			API::accept_challenge(challenge["id"]);
 		else
-			API::decline_challenge(challenge["id"]);
+			API::decline_challenge(challenge["id"], "variant");
 	}
 	// main loop
 	while (true) {

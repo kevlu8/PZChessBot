@@ -40,7 +40,7 @@ constexpr int bishop_heatmap[64] = {
 
 constexpr int rook_heatmap[64] = {
 //  a  b  c  d  e  f  g  h
-	0,  0,  0,  5,  5,  0,  0,  0, // 1
+	-10,  0,  0,  10,  10,  5,  0,  -10, // 1
 	-5,  0,  0,  0,  0,  0,  0, -5, // 2
 	-5,  0,  0,  0,  0,  0,  0, -5, // 3
 	-5,  0,  0,  0,  0,  0,  0, -5, // 4
@@ -64,7 +64,7 @@ constexpr int queen_heatmap[64] = {
 
 constexpr int king_heatmap[64] = {
 //  a  b  c  d  e  f  g  h
-	20, 30, 10,  0,  0, 10, 30, 20, // 1
+	20, 40, 30,  0,  0, 10, 40, 20, // 1
 	20, 20,  -5,  -5,  -5,  -5, 20, 20, // 2
 	-10,-20,-20,-20,-20,-20,-20,-10, // 3
 	-20,-30,-30,-40,-40,-30,-30,-20, // 4
@@ -80,7 +80,7 @@ int eval(const char *board, const char *w_control, const char *b_control, int *w
 	// metadata[2] = halfmove clock
 	// extra_metadata[0] = en passant square
 	// extra_metadata[1] = fullmove number
-	int material = 0, mobility = 0, king_safety = 0, pawn_structure = 0, space = 0, position = 0;
+	int material = 0, mobility = 0, king_safety = 0, pawn_structure = 0, position = 0;
 	int w_king, b_king;
 
 	// King safety
@@ -107,6 +107,8 @@ int eval(const char *board, const char *w_control, const char *b_control, int *w
 		// count number of squares controlled by each side
 		mobility += w_control[i] - b_control[i];
 		switch (board[i]) {
+		case 0:
+			continue;
 		case 1:
 			material += 100;
 			position += pawn_heatmap[i];
@@ -186,12 +188,8 @@ int eval(const char *board, const char *w_control, const char *b_control, int *w
 			a pair of pawns on the same file
 		judge passed pawns
 			a pawn that is not blocked by another pawn and there are no pawns on adjacent files in front of it
-
-		Space
-			count number of squares controlled by each side
-			subtract black from white
 	*/
 
 	return ((4 * material) + (mobility) + (2 * king_safety) + (3 * position)) / 10;
-	// weight in order:  material, position, king safety, mobility, space, pawn structure
+	// weight in order:  material, position, king safety, mobility, pawn structure
 }
