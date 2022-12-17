@@ -1,5 +1,7 @@
 #pragma once
 
+#include "board.hpp"
+
 #include <memory.h>
 #include <string>
 
@@ -15,11 +17,10 @@ const char char_to_fen[7] = {
  * @brief Parses a FEN string into a board and metadata.
  *
  * @param fen The FEN string to parse.
- * @param board The board to write to.
  * @param metadata The metadata to write to.
- * @param extra_metadata The extra metadata to write to.
+ * @return The board.
  */
-void parse_fen(const std::string, char *, char *, char *);
+Board &parse_fen(const std::string, char *);
 /**
  * @brief Serializes a board and metadata into a FEN string.
  *

@@ -1,10 +1,10 @@
 #include "fen.hpp"
 #include <iostream>
 
-void parse_fen(const std::string fen, char *board, char *metadata, char *extra_metadata) {
+Board &parse_fen(const std::string fen, char *metadata) {
+	char board[8][8];
 	memset(board, 0, 64);
-	memset(metadata, 0, 3);
-	memset(extra_metadata, 0, 2);
+	memset(metadata, 0, 5);
 	int currIdx = 0;
 	for (int i = 7; i >= 0; i--) {
 		for (int j = 0; j < 8; j++) {
@@ -52,10 +52,10 @@ void parse_fen(const std::string fen, char *board, char *metadata, char *extra_m
 	}
 	currIdx++;
 	if (fen[currIdx] == '-') {
-		extra_metadata[0] = 0;
+		metadata[3] = 0;
 		currIdx += 2;
 	} else {
-		extra_metadata[0] = (fen[currIdx] - 'a') * 10 + (fen[currIdx + 1] - '1');
+		metadata[3] = (fen[currIdx] - 'a') * 10 + (fen[currIdx + 1] - '1');
 		currIdx += 3;
 	}
 	if (fen[currIdx + 1] == ' ') {
@@ -66,12 +66,14 @@ void parse_fen(const std::string fen, char *board, char *metadata, char *extra_m
 		currIdx += 3;
 	}
 	while (currIdx < fen.size()) {
-		extra_metadata[1] = extra_metadata[1] * 10 + fen[currIdx] - '0';
+		metadata[4] = metadata[3] * 10 + fen[currIdx] - '0';
 		currIdx++;
 	}
+	Board outboard(board, metadata);
+	return outboard;
 }
 
-void serialize_fen(const char *board, const char *metadata, const char *extra_metadata, std::string &fen) {
+void serialize_fen(const char *board, const char *metadata, std::string &fen) {
 	fen = "";
 	int empty = 0;
 	for (int i = 7; i >= 0; i--) {

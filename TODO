@@ -12,3 +12,6 @@
 	- 6: FAIL (4)
 - Fix check detection
 - Fix stalemate detection
+- Rewrite everything
+	- Have the board keep track of things like king_pos and control
+	- Every time a move is made, we update these

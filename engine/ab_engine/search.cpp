@@ -26,8 +26,8 @@ void order_moves(const std::vector<std::string> *moves, const char *board, const
 	}
 }
 
-std::pair<std::string, int> *__recurse(int depth, int maxdepth, const char *board, const std::string prevmove, const char *metadata, const char *prev_w_control, const char *prev_b_control, const bool turn, int alpha = -1e9 - 5, int beta = 1e9 + 5) noexcept {
-	std::vector<std::string> *moves = find_legal_moves(board, prevmove, metadata);
+std::pair<std::string, int> *__recurse(int depth, int maxdepth, Board *board, int alpha = -1e9 - 5, int beta = 1e9 + 5) noexcept {
+	std::vector<const char *> *moves = find_legal_moves(board);
 	std::set<std::pair<int, std::string>> *ordered_moves = new std::set<std::pair<int, std::string>>;
 	order_moves(moves, board, prevmove, metadata, turn ? prev_w_control : prev_b_control, turn ? prev_b_control : prev_w_control, turn, ordered_moves);
 	// for (const std::pair<int, std::string> curr : *ordered_moves) {
@@ -38,41 +38,11 @@ std::pair<std::string, int> *__recurse(int depth, int maxdepth, const char *boar
 	bestmove->first = "resign";
 	bestmove->second = turn ? -1e9 : 1e9;
 	std::pair<std::string, int> *move;
-	char newboard[64], newmeta[3], w_control[64], b_control[64];
-	int w_king_pos = -1, b_king_pos = -1;
-	for (int i = 0; i < 64; i++) {
-		switch (board[i]) {
-			case 6:
-				w_king_pos = i;
-				break;
-			case 12:
-				b_king_pos = i;
-				break;
-			default:
-				continue;
-		}
-	}
-	unsigned int i = 1;
+	char newboard[64], newmeta[3];
+	int i = 1;
 	for (const std::pair<int, std::string> curr : *ordered_moves) {
 		memcpy(newboard, board, 64);
 		memcpy(newmeta, metadata, 3);
-		make_move(curr.second, prevmove, newboard, newmeta);
-		controlled_squares(newboard, true, w_control, false);
-		controlled_squares(newboard, false, b_control, false);
-		int ceval = curr.first * (turn ? -1 : 1);
-		// print control
-		// for (int i = 0; i < 64; i++) {
-		// 	if (i % 8 == 0)
-		// 		std::cout << std::endl;
-		// 	std::cout << (int)w_control[i] << " ";
-		// }
-		// std::cout << std::endl;
-		// for (int i = 0; i < 64; i++) {
-		// 	if (i % 8 == 0)
-		// 		std::cout << std::endl;
-		// 	std::cout << (int)b_control[i] << " ";
-		// }
-		// std::cout << std::endl;
 		if (is_check(turn ? b_control : w_control, turn ? w_king_pos : b_king_pos)) // broken
 			continue;
 		if (depth == maxdepth) {
@@ -81,7 +51,7 @@ std::pair<std::string, int> *__recurse(int depth, int maxdepth, const char *boar
 			move->first = curr.second;
 			move->second = ceval;
 		} else {
-			move = __recurse(depth + 1, std::max(depth + 1, maxdepth - 32 + __builtin_clz(i)), newboard, curr.second, newmeta, w_control, b_control, !turn, alpha, beta);
+			move = __recurse(depth + 1, std::max(depth + 1, maxdepth - 32 + __builtin_clz(i)), newboard, alpha, beta);
 			move->first = curr.second;
 		}
 		if (turn) {
@@ -111,12 +81,9 @@ std::pair<std::string, int> *__recurse(int depth, int maxdepth, const char *boar
 	return bestmove;
 }
 
-const std::string ab_search(const char *position, const int depth, const char *metadata, const std::string prev, const bool turn) noexcept {
-	char w_control[64], b_control[64];
-	controlled_squares(position, true, w_control, false);
-	controlled_squares(position, false, b_control, false);
+const std::string ab_search(Board *board, int depth) noexcept {
 	count = 0;
-	std::pair<std::string, int> *ret = __recurse(1, depth, position, prev, metadata, w_control, b_control, turn);
+	std::pair<std::string, int> *ret = __recurse(1, depth, board);
 	std::cout << "explored " << count << " nodes\n";
 	std::string ans = std::string(ret->first);
 	delete ret;
