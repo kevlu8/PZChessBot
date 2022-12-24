@@ -1,0 +1,145 @@
+#include "board.hpp"
+
+#define DIAGONAL 0x8040201008040201ULL
+
+extern inline int clzll(uint64_t);
+extern inline int ctzll(uint64_t);
+
+// bishop
+void Board::legal_moves(std::unordered_set<std::string> &out) {
+	for (char oi = 0; oi < 8; oi++) {
+		for (char oj = 0; oj < 8; oj++) {
+			if (data[oi][oj] != (meta[0] ? 4 : 10))
+				continue;
+			char i = oi;
+			char j = oj;
+			// southwest
+			while (i > 0 && j > 0) {
+				if (data[--i][--j] != 0) {
+					if ((data[i][j] - 6) * data[oi][oj] > 0)
+						out.insert(std::string{(char)(oi + 'a')} + (char)(oj + '1') + (char)(i + 'a') + (char)(j + '1'));
+					break;
+				} else {
+					out.insert(std::string{(char)(oi + 'a')} + (char)(oj + '1') + (char)(i + 'a') + (char)(j + '1'));
+				}
+			}
+			i = oi;
+			j = oj;
+			// southeast
+			while (i < 7 && j > 0) {
+				if (data[++i][--j] != 0) {
+					if ((data[i][j] - 6) * data[oi][oj] > 0)
+						out.insert(std::string{(char)(oi + 'a')} + (char)(oj + '1') + (char)(i + 'a') + (char)(j + '1'));
+					break;
+				} else {
+					out.insert(std::string{(char)(oi + 'a')} + (char)(oj + '1') + (char)(i + 'a') + (char)(j + '1'));
+				}
+			}
+			i = oi;
+			j = oj;
+			// northeast
+			while (i < 7 && j < 7) {
+				if (data[++i][++j] != 0) {
+					if ((data[i][j] - 6) * data[oi][oj] > 0)
+						out.insert(std::string{(char)(oi + 'a')} + (char)(oj + '1') + (char)(i + 'a') + (char)(j + '1'));
+					break;
+				} else {
+					out.insert(std::string{(char)(oi + 'a')} + (char)(oj + '1') + (char)(i + 'a') + (char)(j + '1'));
+				}
+			}
+			i = oi;
+			j = oj;
+			// northwest
+			while (i > 0 && j < 7) {
+				if (data[--i][++j] != 0) {
+					if ((data[i][j] - 6) * data[oi][oj] > 0)
+						out.insert(std::string{(char)(oi + 'a')} + (char)(oj + '1') + (char)(i + 'a') + (char)(j + '1'));
+					break;
+				} else {
+					out.insert(std::string{(char)(oi + 'a')} + (char)(oj + '1') + (char)(i + 'a') + (char)(j + '1'));
+				}
+			}
+		}
+	}
+}
+
+void print_bits(uint64_t bits) {
+	for (int j = 7; j >= 0; j--) {
+		for (int i = 0; i < 8; i++) {
+			std::cout << ((bits >> (j * 8 + i)) & 1) << ' ';
+		}
+		std::cout << std::endl;
+	}
+	std::cout << std::endl;
+}
+
+uint64_t rankMask(int sq) { return 0xffULL << (sq & 56); }
+
+uint64_t fileMask(int sq) { return 0x0101010101010101ULL << (sq & 7); }
+
+uint64_t diagonalMask(int sq) {
+	const uint64_t maindia = 0x8040201008040201ULL;
+	int diag = 8 * (sq & 7) - (sq & 56);
+	int nort = -diag & (diag >> 31);
+	int sout = diag & (-diag >> 31);
+	return (maindia >> sout) << nort;
+}
+
+uint64_t antiDiagMask(int sq) {
+	const uint64_t maindia = 0x0102040810204080ULL;
+	int diag = 56 - 8 * (sq & 7) - (sq & 56);
+	int nort = -diag & (diag >> 31);
+	int sout = diag & (-diag >> 31);
+	return (maindia >> sout) << nort;
+}
+
+void Board::bishop_moves(uint64_t pieces[], std::unordered_set<std::string> &out) {
+	uint64_t bishops = meta[0] ? pieces[3] : pieces[9];
+	uint64_t occupied = pieces[12] | pieces[13];
+	int base = meta[0] ? 6 : 0;
+	print_bits(bishops);
+	uint64_t diagray = diagonalMask(ctzll(bishops));
+	uint64_t antidiagray = antiDiagMask(ctzll(bishops));
+	uint64_t swray = diagray & ((1ULL << ctzll(bishops)) - 1);
+	swray &= ((1ULL << (clzll(swray & occupied) + 1)) - 1) << (63 - clzll(swray & occupied));
+	print_bits(swray);
+	uint64_t seray = antidiagray & ((1ULL << ctzll(bishops)) - 1);
+	seray &= ((1ULL << (clzll(seray & occupied) + 1)) - 1) << (63 - clzll(seray & occupied));
+	print_bits(seray);
+
+	uint64_t neray = diagray & ((1ULL << clzll(bishops)) - 1) << (64 - clzll(bishops));
+	neray &= (1ULL << (ctzll(neray & occupied) + 1)) - 1;
+	print_bits(neray);
+	uint64_t nwray = antidiagray & ((1ULL << clzll(bishops)) - 1) << (64 - clzll(bishops));
+	nwray &= (1ULL << (ctzll(nwray & occupied) + 1)) - 1;
+	print_bits(nwray);
+
+	uint64_t vision = swray | seray | neray | nwray;
+	print_bits(vision);
+}
+
+void Board::rook_moves(uint64_t pieces[], std::unordered_set<std::string> &out) {
+	uint64_t rooks = meta[0] ? pieces[2] : pieces[8];
+	uint64_t occupied = pieces[12] | pieces[13];
+	int base = meta[0] ? 6 : 0;
+	print_bits(rooks);
+	uint64_t rankray = rankMask(ctzll(rooks));
+	uint64_t fileray = fileMask(ctzll(rooks));
+	uint64_t swray = rankray & ((1ULL << ctzll(rooks)) - 1);
+	swray &= ((1ULL << (clzll(swray & occupied) + 1)) - 1) << (63 - clzll(swray & occupied));
+	print_bits(swray);
+	uint64_t seray = fileray & ((1ULL << ctzll(rooks)) - 1);
+	seray &= ((1ULL << (clzll(seray & occupied) + 1)) - 1) << (63 - clzll(seray & occupied));
+	print_bits(seray);
+
+	uint64_t neray = rankray & ((1ULL << clzll(rooks)) - 1) << (64 - clzll(rooks));
+	neray &= (1ULL << (ctzll(neray & occupied) + 1)) - 1;
+	print_bits(neray);
+	uint64_t nwray = fileray & ((1ULL << clzll(rooks)) - 1) << (64 - clzll(rooks));
+	nwray &= (1ULL << (ctzll(nwray & occupied) + 1)) - 1;
+	print_bits(nwray);
+
+	uint64_t vision = swray | seray | neray | nwray;
+	print_bits(vision);
+}
+

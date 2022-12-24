@@ -1,27 +1,25 @@
-#pragma once
+#include <iostream>
+#include <string.h>
+#include <string>
+#include <unordered_set>
+#include <utility>
 
-#include "zobrist"
-#include <memory.h>
-#include <stdlib.h>
+#define STARTING_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 class Board {
 private:
-	// prev is only used internally so you can use internal flags: e.g. h2g3pQ for pawn on h2 takes queen on g3
-	// prev format is like this "[move][piece on starting square][piece on ending square]"
-	// the move is in uci format (e.g. e2e4)
-	// the piece on starting square is the piece that was on the starting square before the move (capital letter for white, lowercase for black)
-	// the piece on ending square is the piece that was on the ending square before the move (capital letter for white, lowercase for black, - for empty)
-	char *prev, *prevmeta, board[8][8], *meta;
-	char w_control[8][8], b_control[8][8];
-	int w_king_pos = -1, b_king_pos = -1;
-
 public:
+	char data[8][8], meta[5], prevmeta[5];
+	char prev[7], prevprev[7]; // [move in uci notation][piece on destination square (e for en passant captures)] e.g. e5f6e
+	// uint64_t pieces[12] = {0};
+	void load_fen(const std::string &);
+
 	Board();
-	Board(char[8][8], const char *) noexcept;
-	~Board() noexcept;
-	void make_move(const char *, unsigned long long &) noexcept;
-	void unmake_move() noexcept;
-	int eval() noexcept;
-	inline bool is_check() { return (meta[0] ? b_control : w_control)[meta[0] ? b_king_pos : w_king_pos] != 0; };
-	bool is_checkmate() noexcept;
+	Board(const std::string &);
+
+	void print_board();
+	void make_move(const char *);
+	void unmake_move();
+	void legal_moves(std::unordered_set<std::string> &);
+	void bit_moves(uint64_t[], uint64_t, std::unordered_set<std::string> &);
 };
