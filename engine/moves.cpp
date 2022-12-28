@@ -155,29 +155,14 @@ U64 Board::black_pawn_control() {
 
 U64 Board::controlled_squares(const bool side) {
 	U64 control = 0;
-	U64 old = control;
 	control |= king_control(side);
-	// print_bits(control);
-	// print_bits(old ^ control);
-	old = control;
 	control |= rook_control(side);
-	// print_bits(control);
-	// print_bits(old ^ control);
-	old = control;
 	control |= bishop_control(side);
-	// print_bits(control);
-	// print_bits(old ^ control);
-	old = control;
 	control |= knight_control(side);
-	// print_bits(control);
-	// print_bits(old ^ control);
-	old = control;
 	if (side)
 		control |= white_pawn_control();
 	else
 		control |= black_pawn_control();
-	// print_bits(control);
-	// print_bits(old ^ control);
 	return control;
 }
 
@@ -212,9 +197,9 @@ void Board::king_moves(std::unordered_set<uint16_t> &out) {
 
 	// castling
 	if ((meta[1] >> (meta[0] * 2)) & 0b01 && (((pieces[6] | pieces[7]) >> (king - 3)) & 0b111) == 0 && ((controlled >> (king - 3)) & 0b1111) == 0) // queenside
-		out.insert(3772 ^ (3640 * meta[0]));
+		out.insert(0b0011111010111100 ^ (0b0000111000111000 * meta[0]));
 	if ((meta[1] >> (meta[0] * 2)) & 0b10 && (((pieces[6] | pieces[7]) >> (king + 1)) & 0b11) == 0 && ((controlled >> king) & 0b111) == 0) // kingside
-		out.insert(4028 ^ (3640 * meta[0]));
+		out.insert(0b0010111110111100 ^ (0b0000111000111000 * meta[0]));
 }
 
 void Board::rook_moves(std::unordered_set<uint16_t> &out) {
@@ -250,10 +235,15 @@ void Board::rook_moves(std::unordered_set<uint16_t> &out) {
 		// remove everything after the first square in the intersection of the ray and the occupied squares
 		north &= EXPANDLSB(north & occupied);
 
+		// the valid moves are the union of all the rays except the squares that are occupied by the same color
 		U64 moves = (west | south | east | north) & ~pieces[7 ^ meta[0]];
+		U64 captures = moves & pieces[6 ^ meta[0]];
+		moves ^= captures;
 
 		// TODO: optimize looping with lzcnt or tzcnt
 		for (int j = 0; j < 64; j++) {
+			if (BIT(j) & captures)
+				out.insert(i | (j << 6));
 			if (BIT(j) & moves)
 				out.insert(i | (j << 6));
 		}
@@ -295,9 +285,13 @@ void Board::bishop_moves(std::unordered_set<uint16_t> &out) {
 
 		// the valid moves are the union of all the rays except the squares that are occupied by the same color
 		U64 moves = (swray | seray | neray | nwray) & ~pieces[7 ^ meta[0]];
+		U64 captures = moves & pieces[6 ^ meta[0]];
+		moves ^= captures;
 
 		// TODO: optimize looping with lzcnt or tzcnt
 		for (int j = 0; j < 64; j++) {
+			if (BIT(j) & captures)
+				out.insert(i | (j << 6));
 			if (BIT(j) & moves)
 				out.insert(i | (j << 6));
 		}
@@ -334,9 +328,13 @@ void Board::knight_moves(std::unordered_set<uint16_t> &out) {
 
 		// remove the moves that are occupied by the same color
 		moves &= ~pieces[7 ^ meta[0]];
+		U64 captures = moves & pieces[6 ^ meta[0]];
+		moves ^= captures;
 
 		// TODO: optimize looping with lzcnt or tzcnt
 		for (int j = 0; j < 64; j++) {
+			if (BIT(j) & captures)
+				out.insert((__builtin_ctzll(knight)) | (j << 6) | (0b0100 << 12));
 			if (BIT(j) & moves)
 				out.insert((__builtin_ctzll(knight)) | (j << 6));
 		}
@@ -359,10 +357,10 @@ void Board::white_pawn_moves(std::unordered_set<uint16_t> &out) {
 	}
 	for (int i = 0; i < 64; i++) {
 		if (promote & BIT(i)) {
-			out.insert(i | ((i + 8) << 6) | (0b1100 << 12));
-			out.insert(i | ((i + 8) << 6) | (0b1101 << 12));
-			out.insert(i | ((i + 8) << 6) | (0b1110 << 12));
-			out.insert(i | ((i + 8) << 6) | (0b1111 << 12));
+			out.insert(i | ((i + 8) << 6) | (0b1000 << 12));
+			out.insert(i | ((i + 8) << 6) | (0b1001 << 12));
+			out.insert(i | ((i + 8) << 6) | (0b1010 << 12));
+			out.insert(i | ((i + 8) << 6) | (0b1011 << 12));
 		}
 	}
 	// double moves
@@ -371,7 +369,7 @@ void Board::white_pawn_moves(std::unordered_set<uint16_t> &out) {
 	// TODO: optimize looping with lzcnt or tzcnt
 	for (int i = 0; i < 64; i++) {
 		if (moves & BIT(i))
-			out.insert(i | ((i + 16) << 6));
+			out.insert(i | ((i + 16) << 6) | (0b0001 << 12));
 	}
 
 	// captures
@@ -398,7 +396,7 @@ void Board::white_pawn_moves(std::unordered_set<uint16_t> &out) {
 		// TODO: optimize looping with lzcnt or tzcnt
 		for (int j = 0; j < 64; j++) {
 			if (moves & BIT(j))
-				out.insert((__builtin_ctzll(pawn)) | (j << 6));
+				out.insert((__builtin_ctzll(pawn)) | (j << 6) | (0b0100 << 12) | ((j == meta[2]) << 12));
 			if (promote & BIT(j)) {
 				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1100 << 12));
 				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1101 << 12));
@@ -425,10 +423,10 @@ void Board::black_pawn_moves(std::unordered_set<uint16_t> &out) {
 	}
 	for (int i = 0; i < 64; i++) {
 		if (promote & BIT(i)) {
-			out.insert(i | ((i - 8) << 6) | (0b1100 << 12));
-			out.insert(i | ((i - 8) << 6) | (0b1101 << 12));
-			out.insert(i | ((i - 8) << 6) | (0b1110 << 12));
-			out.insert(i | ((i - 8) << 6) | (0b1111 << 12));
+			out.insert(i | ((i - 8) << 6) | (0b1000 << 12));
+			out.insert(i | ((i - 8) << 6) | (0b1001 << 12));
+			out.insert(i | ((i - 8) << 6) | (0b1010 << 12));
+			out.insert(i | ((i - 8) << 6) | (0b1011 << 12));
 		}
 	}
 	// double moves
@@ -437,7 +435,7 @@ void Board::black_pawn_moves(std::unordered_set<uint16_t> &out) {
 	// TODO: optimize looping with lzcnt or tzcnt
 	for (int i = 0; i < 64; i++) {
 		if (moves & BIT(i))
-			out.insert(i | ((i - 16) << 6));
+			out.insert(i | ((i - 16) << 6) | (0b0001 << 12));
 	}
 
 	// captures
@@ -464,7 +462,7 @@ void Board::black_pawn_moves(std::unordered_set<uint16_t> &out) {
 		// TODO: optimize looping with lzcnt or tzcnt
 		for (int j = 0; j < 64; j++) {
 			if (moves & BIT(j))
-				out.insert((__builtin_ctzll(pawn)) | (j << 6));
+				out.insert((__builtin_ctzll(pawn)) | (j << 6) | (0b0100 << 12) | ((j == meta[2]) << 12));
 			if (promote & BIT(j)) {
 				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1100 << 12));
 				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1101 << 12));

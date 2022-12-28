@@ -110,16 +110,16 @@ void Board::make_move(uint16_t move) {
 	prevprev = prev;
 	// save this move for undo
 	prev = move;
-	if ((pieces[6] | pieces[7]) & BIT(dst)) {
-		uint32_t dstpiece = 0;
-		for (int i = 0; i < 8; i++) {
-			if (pieces[i] & BIT(dst)) {
-				dstpiece = i;
-				break;
-			}
-		}
-		prev |= (dstpiece << 24);
+	uint8_t dstpiece = -1;
+	uint8_t srcpiece = -1;
+	for (int i = 0; i < 6; i++) {
+		if (pieces[i] & BIT(src))
+			srcpiece = i;
+		else if (pieces[i] & BIT(dst))
+			dstpiece = i;
 	}
+	prev |= (srcpiece << 16);
+	prev |= (dstpiece << 24);
 	// if piece captures reset halfmove clock
 	if (pieces[6 ^ meta[0]] & BIT(dst))
 		meta[3] = -1;
@@ -139,18 +139,16 @@ void Board::make_move(uint16_t move) {
 		// add promoted piece to player's pieces
 		pieces[7 ^ meta[0]] |= BIT(dst);
 	} else { // no promotion
-		if (dst == meta[2] && pieces[5] & BIT(src)) { // en passant
+		if (move >> 12 == 0b0101) { // en passant
 			// reset halfmove clock
 			meta[3] = -1;
-			// set prev to en passant
-			prev |= 0xff000000;
 			// pawn moves from src to dst
 			pieces[5] ^= BIT(src) | BIT(dst);
 			pieces[7 ^ meta[0]] ^= BIT(src) | BIT(dst);
 			// remove opponent pawn
-			pieces[5] ^= BITxy(dst & 7, src >> 3);
-			pieces[6 ^ meta[0]] ^= BITxy(dst & 7, src >> 3);
-		} else if (move == 0b0000000010000100) { // white queenside
+			pieces[5] ^= BIT(dst & 7 | src & 56);
+			pieces[6 ^ meta[0]] ^= BIT(dst & 7 | src & 56);
+		} else if (move == 0b0011000010000100) { // white queenside
 			// king moves from e1 to c1
 			pieces[0] ^= 20;
 			pieces[6] ^= 20;
@@ -159,7 +157,7 @@ void Board::make_move(uint16_t move) {
 			pieces[6] ^= 9;
 			// revoke castling rights
 			meta[1] &= 0b0011;
-		} else if (move == 0b0000000110000100) { // white kingside
+		} else if (move == 0b0010000110000100) { // white kingside
 			// king moves from e1 to g1
 			pieces[0] ^= 80;
 			pieces[6] ^= 80;
@@ -168,7 +166,7 @@ void Board::make_move(uint16_t move) {
 			pieces[6] ^= 160;
 			// revoke castling rights
 			meta[1] &= 0b0011;
-		} else if (move == 0b0000111010111100) { // black queenside
+		} else if (move == 0b0011111010111100) { // black queenside
 			// king moves from e8 to c8
 			pieces[0] ^= 1441151880758558720;
 			pieces[7] ^= 1441151880758558720;
@@ -177,7 +175,7 @@ void Board::make_move(uint16_t move) {
 			pieces[7] ^= 648518346341351424;
 			// revoke castling rights
 			meta[1] &= 0b1100;
-		} else if (move == 0b0000111110111100) { // black kingside
+		} else if (move == 0b0010111110111100) { // black kingside
 			// king moves from e8 to g8
 			pieces[0] ^= 5764607523034234880;
 			pieces[7] ^= 5764607523034234880;
@@ -214,13 +212,7 @@ void Board::make_move(uint16_t move) {
 			for (int i = 0; i < 8; i++)
 				pieces[i] &= ~BIT(dst);
 			// figure out what piece is moving
-			int piece = 0;
-			for (int i = 1; i < 6; i++) {
-				if (pieces[i] & BIT(src)) {
-					piece = i;
-					break;
-				}
-			}
+			int piece = (prev >> 16) & 0b111;
 			// piece moves from src to dst
 			pieces[piece] ^= BIT(src) | BIT(dst);
 			pieces[7 ^ meta[0]] ^= BIT(src) | BIT(dst);
@@ -232,6 +224,98 @@ void Board::make_move(uint16_t move) {
 	meta[2] = ep;
 }
 
+void Board::unmake_move() {
+	memcpy(meta, prevmeta, 5);
+	uint8_t src = prev & 0b111111;
+	uint8_t dst = (prev >> 6) & 0b111111;
+	uint16_t move = prev & 0xffff;
+	if (prev & 0x8000) { // promotion
+		// remove promoted piece
+		pieces[((prev >> 12) & 0b11) + 1] ^= BIT(dst);
+		pieces[7 ^ meta[0]] ^= BIT(dst);
+		// put the pawn back
+		pieces[5] ^= BIT(src);
+		pieces[7 ^ meta[0]] ^= BIT(src);
+		// put the captured piece back
+		if (prev >> 24 != 0xff) {
+			pieces[prev >> 24] ^= BIT(dst);
+			pieces[6 ^ meta[0]] ^= BIT(dst);
+		}
+	} else { // no promotion
+		if ((prev >> 12) & 0b1111 == 0b0101) { // en passant
+			// put the pawn back
+			pieces[5] ^= BIT(src) | BIT(dst);
+			pieces[7 ^ meta[0]] ^= BIT(src) | BIT(dst);
+			// put the captured pawn back
+			pieces[5] ^= BIT(dst & 7 | src & 56);
+			pieces[6 ^ meta[0]] ^= BIT(dst & 7 | src & 56);
+		} else if (move == 0b0011000010000100) { // white queenside
+			// king moves from c1 to e1
+			pieces[0] ^= 20;
+			pieces[6] ^= 20;
+			// rook moves from d1 to ai
+			pieces[2] ^= 9;
+			pieces[6] ^= 9;
+		} else if (move == 0b0010000110000100) { // white kingside
+			// king moves from g1 to e1
+			pieces[0] ^= 80;
+			pieces[6] ^= 80;
+			// rook moves from f1 to h1
+			pieces[2] ^= 160;
+			pieces[6] ^= 160;
+		} else if (move == 0b0011111010111100) { // black queenside
+			// king moves from c8 to e8
+			pieces[0] ^= 1441151880758558720;
+			pieces[7] ^= 1441151880758558720;
+			// rook moves from d8 to a8
+			pieces[2] ^= 648518346341351424;
+			pieces[7] ^= 648518346341351424;
+		} else if (move == 0b0010111110111100) { // black kingside
+			// king moves from g8 to e8
+			pieces[0] ^= 5764607523034234880;
+			pieces[7] ^= 5764607523034234880;
+			// rook moves from f8 to h8
+			pieces[2] ^= 5764607523034234880;
+			pieces[7] ^= 5764607523034234880;
+		} else {
+			// figure out what piece moved
+			int piece = (prev >> 16) & 0b111;
+			// move piece back
+			pieces[piece] ^= BIT(src) | BIT(dst);
+			pieces[7 ^ meta[0]] ^= BIT(src) | BIT(dst);
+			// replace the captured piece
+			if (prev >> 24 != 0xff) {
+				pieces[prev >> 24] ^= BIT(dst);
+				pieces[6 ^ meta[0]] ^= BIT(dst);
+			}
+		}
+	}
+}
+
 inline bool Board::in_check(const bool side) { return pieces[0] & pieces[7 ^ side] & controlled_squares(!side); }
 
-U64 zobrist_hash() {}
+int Board::eval() {
+	int material, mobility, king_safety, control;
+	material = mobility = king_safety = control = 0;
+
+	// material
+	for (int i = 0; i < 6; i++)
+		material += _popcnt64(pieces[i]) * piece_values[i] * (meta[0] ? -1 : 1);
+
+	// mobility
+	// count the number of legal moves for each piece
+
+	// king safety
+	// count control around king and also sliding piece attack chances
+
+	// control
+	// count control over the board
+
+	// return (material + mobility + king_safety + control) / 4;
+	return material;
+}
+
+U64 Board::zobrist_hash() {
+	U64 hash = 0;
+	return hash;
+}
