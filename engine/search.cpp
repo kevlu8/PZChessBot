@@ -2,8 +2,7 @@
 
 #define INF (1e9 + 100)
 
-unsigned long long total;
-unsigned long long count = 0;
+unsigned long long count = 0, total = 0;
 
 // 1e9 + 100 is the number that should be used as default values, they are never achievable naturally (unless maxdepth exceeds 99)
 // 1e9 should be used in the case of a checkmate
@@ -45,9 +44,9 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, const int target, 
 					tmp2.insert(serialize_move(m));
 				for (auto &m : tmp2)
 					std::cout << m << std::endl;
-				total += count;
-				count = 0;
 			}
+			total += count;
+			count = 0;
 		}
 		b.unmake_move();
 		if (b.side())
