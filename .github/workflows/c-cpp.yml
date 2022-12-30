@@ -13,20 +13,14 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Build Boost
-      id: boost
-      uses: egor-tensin/build-boost@v1
+    - name: Install boost
+      uses: MarkusJx/install-boost@v2.4.1
+      id: install-boost
       with:
-        version: 1.71.0
-        libraries: process
-        platform: x64
-        configuration: Release
-
-    - name: Show paths
-      run: |
-        printf 'Boost has been unpacked to: %s\n' '${{ steps.boost.outputs.root }}'
-        printf 'Libraries can be found here: %s\n' '${{ steps.boost.outputs.librarydir }}'
-      shell: bash
+          boost_version: 1.81.0
+          boost_install_dir: /home/runner/boost
+          toolset: gcc
+          arch: x64
     - name: compile engine
       run: cd engine && g++ *.cpp -O3 -mbmi -m64 -mlzcnt
     - name: compile test binary
