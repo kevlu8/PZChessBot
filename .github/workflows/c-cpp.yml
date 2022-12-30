@@ -22,7 +22,7 @@ jobs:
           toolset: gcc
           arch: aarch64
     - name: list boost dir
-      run: ls /home/runner/boost/boost/boost-1.81.0-ubuntu-20.04-gcc-static+shared-aarch64
+      run: ls /home/runner/boost/boost/boost/
     - name: compile engine
       run: cd engine && g++ *.cpp -O3 -mbmi -m64 -mlzcnt
     - name: compile test binary
