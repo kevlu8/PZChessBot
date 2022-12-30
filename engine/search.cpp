@@ -35,15 +35,15 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, const int target, 
 				bestmove.first += ((bestmove.first >> 30) & 0b10) - 1; // decrease magnitude of positions that take longer to get to (this should hopefully make the engine prefer faster mates while stalling out getting mated)
 				if (abs(move.first - target) < abs(bestmove.first - target))
 					bestmove = move;
-				b.print_board();
-				std::cout << serialize_move(move.second) << ": " << count << std::endl;
+				// b.print_board();
+				// std::cout << serialize_move(move.second) << ": " << count << std::endl;
 				std::unordered_set<uint16_t> tmp;
 				std::set<std::string> tmp2;
 				b.legal_moves(tmp);
 				for (auto &m : tmp)
 					tmp2.insert(serialize_move(m));
-				for (auto &m : tmp2)
-					std::cout << m << std::endl;
+				// for (auto &m : tmp2)
+				// 	std::cout << m << std::endl;
 			}
 			total += count;
 			count = 0;
@@ -61,6 +61,7 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, const int target, 
 }
 
 uint16_t ab_search(Board &b, const int depth) {
+	total = 0;
 	uint16_t ans = __recurse(b, depth, ((b.side() << 1) - 1) * INF, -INF, INF).second;
 	std::cout << total << std::endl;
 	return ans;
