@@ -22,7 +22,7 @@ jobs:
           toolset: gcc
           arch: aarch64
     - name: list boost dir
-      run: ls /home/runner/boost/boost/boost/
+      run: ls /home/runner/boost/boost/boost/include
     - name: compile engine
       run: cd engine && g++ *.cpp -O3 -mbmi -m64 -mlzcnt
     - name: compile test binary
