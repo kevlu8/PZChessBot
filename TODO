@@ -1,17 +1,7 @@
 - Hashtables (Zobrist hashing)
 - Opening book
 - Endgame tablebase (e.g. Syzygy)
-- Make controlled_squares faster
-- Make pawn_moves faster
-- Perfts:
-	- 1: PASS 
-	- 2: FAIL (2)
-	- 3: FAIL (5)
-	- 4: FAIL (4)
-	- 5: FAIL (5)
-	- 6: FAIL (4)
-- Fix check detection
+- Perfts
 - Fix stalemate detection
-- Rewrite everything
-	- Have the board keep track of things like king_pos and control
-	- Every time a move is made, we update these
+- Unmake_move probably not working
+- Rewrite testing framework to not use boost
