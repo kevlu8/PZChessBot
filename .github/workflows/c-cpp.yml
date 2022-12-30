@@ -21,11 +21,9 @@ jobs:
           boost_install_dir: /home/runner/boost
           toolset: gcc
           arch: aarch64
-    - name: list boost dir
-      run: ls /home/runner/boost/boost/boost/include/boost/
     - name: compile engine
       run: cd engine && g++ *.cpp -O3 -mbmi -m64 -mlzcnt
     - name: compile test binary
-      run: cd test && g++ main.cpp -O3
+      run: cd test && g++ main.cpp -O3 -L/home/runner/boost/boost/boost/include/
     - name: test
       run: ./test/a.out
