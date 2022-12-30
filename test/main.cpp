@@ -64,13 +64,14 @@ int main() {
 	for (auto &test : tests) {
 		std::string line;
 		std::getline(StdOut, line);
-		std::cout << "Test: " << i << std::endl;
-		std::cout << line << std::endl;
 		if (line != test.second) {
-			std::cout << "Failed" << std::endl;
+			std::cout << "Failed test " << i << " - ";
+			std::cout << "Got: " << line << " - ";
+			std::cout << "Expected: " << test.second << std::endl;
 			return 1;
 		} else {
-			std::cout << "Passed" << std::endl;
+			std::cout << "Passed test " << i << " - ";
+			std::cout << "Got: " << line << std::endl;
 		}
 		i++;
 	}
