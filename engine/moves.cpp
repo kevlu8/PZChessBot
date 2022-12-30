@@ -379,9 +379,9 @@ void Board::white_pawn_moves(std::unordered_set<uint16_t> &out) {
 			continue;
 		moves = 0;
 		// take west
-		moves |= (pawn & C64(0x7f7f7f7f7f7f7f00)) << 7;
+		moves |= (pawn & C64(0x00fefefefefefe00)) << 7;
 		// take east
-		moves |= (pawn & C64(0xfefefefefefefe00)) << 9;
+		moves |= (pawn & C64(0x007f7f7f7f7f7f00)) << 9;
 		// remove the moves that are not enemy pieces
 		moves &= pieces[7];
 		promote = moves & C64(0xff00000000000000);
@@ -389,9 +389,9 @@ void Board::white_pawn_moves(std::unordered_set<uint16_t> &out) {
 		moves &= C64(0x0000ffffffffff00);
 
 		// en passant west
-		moves |= ((pawn & C64(0x0000007f00000000)) << 7) & BIT(meta[2]);
+		moves |= ((pawn & C64(0x000000fe00000000)) << 7) & BIT(meta[2]);
 		// en passant east
-		moves |= ((pawn & C64(0x000000fe00000000)) << 9) & BIT(meta[2]);
+		moves |= ((pawn & C64(0x0000007f00000000)) << 9) & BIT(meta[2]);
 
 		// TODO: optimize looping with lzcnt or tzcnt
 		for (int j = 0; j < 64; j++) {
@@ -445,9 +445,9 @@ void Board::black_pawn_moves(std::unordered_set<uint16_t> &out) {
 			continue;
 		moves = 0;
 		// take west
-		moves |= (pawn & C64(0x7f7f7f7f7f7f7f00)) >> 9;
+		moves |= (pawn & C64(0x00fefefefefefe00)) >> 9;
 		// take east
-		moves |= (pawn & C64(0xfefefefefefefe00)) >> 7;
+		moves |= (pawn & C64(0x007f7f7f7f7f7f00)) >> 7;
 		// remove the moves that are not enemy pieces
 		moves &= pieces[6];
 		promote = moves & C64(0x00000000000000ff);
@@ -455,9 +455,9 @@ void Board::black_pawn_moves(std::unordered_set<uint16_t> &out) {
 		moves &= C64(0x00ffffffffff0000);
 
 		// en passant west
-		moves |= ((pawn & C64(0x000000007f000000)) >> 9) & BIT(meta[2]);
+		moves |= ((pawn & C64(0x00000000fe000000)) >> 9) & BIT(meta[2]);
 		// en passant east
-		moves |= ((pawn & C64(0x00000000fe000000)) >> 7) & BIT(meta[2]);
+		moves |= ((pawn & C64(0x000000007f000000)) >> 7) & BIT(meta[2]);
 
 		// TODO: optimize looping with lzcnt or tzcnt
 		for (int j = 0; j < 64; j++) {

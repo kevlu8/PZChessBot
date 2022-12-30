@@ -1,12 +1,20 @@
 #include "bitboard.hpp"
 
 Board::Board() {
+	meta_hist.reserve(100);
+	move_hist.reserve(100);
 	memset(pieces, 0, 8 * 8);
+	meta = new uint8_t[5];
+	memset(meta, 0, 5);
 	load_fen(STARTPOS);
 }
 
 Board::Board(const std::string &fen) {
+	meta_hist.reserve(100);
+	move_hist.reserve(100);
 	memset(pieces, 0, 8 * 8);
+	meta = new uint8_t[5];
+	memset(meta, 0, 5);
 	load_fen(fen);
 }
 
@@ -105,11 +113,11 @@ void Board::make_move(uint16_t move) {
 	int src = move & 0b111111;
 	int dst = (move >> 6) & 0b111111;
 	// save previous board metadata
-	memcpy(prevmeta, meta, 5);
-	// save previous move
-	prevprev = prev;
-	// save this move for undo
-	prev = move;
+	meta_hist.push_back(meta);
+	meta = new uint8_t[5];
+	memcpy(meta, meta_hist.back(), 5);
+	// save move for undo
+	uint32_t prev = move;
 	uint8_t dstpiece = -1;
 	uint8_t srcpiece = -1;
 	for (int i = 0; i < 6; i++) {
@@ -120,6 +128,7 @@ void Board::make_move(uint16_t move) {
 	}
 	prev |= (srcpiece << 16);
 	prev |= (dstpiece << 24);
+	move_hist.push_back(prev);
 	// if piece captures reset halfmove clock
 	if (pieces[6 ^ meta[0]] & BIT(dst))
 		meta[3] = -1;
@@ -225,7 +234,13 @@ void Board::make_move(uint16_t move) {
 }
 
 void Board::unmake_move() {
-	memcpy(meta, prevmeta, 5);
+	// restore previous metadata
+	delete[] meta;
+	meta = meta_hist.back();
+	meta_hist.pop_back();
+	// get previous move
+	uint32_t prev = move_hist.back();
+	move_hist.pop_back();
 	uint8_t src = prev & 0b111111;
 	uint8_t dst = (prev >> 6) & 0b111111;
 	uint16_t move = prev & 0xffff;
@@ -292,7 +307,7 @@ void Board::unmake_move() {
 	}
 }
 
-inline bool Board::in_check(const bool side) { return pieces[0] & pieces[7 ^ side] & controlled_squares(!side); }
+bool Board::in_check(const bool side) { return pieces[0] & pieces[7 ^ side] & controlled_squares(!side); }
 
 int Board::eval() {
 	int material, mobility, king_safety, control;
@@ -300,7 +315,7 @@ int Board::eval() {
 
 	// material
 	for (int i = 0; i < 6; i++)
-		material += _popcnt64(pieces[i]) * piece_values[i] * (meta[0] ? -1 : 1);
+		material += (_popcnt64(pieces[i] & pieces[6]) - _popcnt64(pieces[i] & pieces[7])) * piece_values[i];
 
 	// mobility
 	// count the number of legal moves for each piece
@@ -318,4 +333,16 @@ int Board::eval() {
 U64 Board::zobrist_hash() {
 	U64 hash = 0;
 	return hash;
+}
+
+std::string serialize_move(uint16_t move) {
+	std::string str = "";
+	str += (char)('a' + (move & 7));
+	str += (char)('1' + ((move >> 3) & 7));
+	str += (char)('a' + ((move >> 6) & 7));
+	str += (char)('1' + ((move >> 9) & 7));
+	if (move & 0b1000000000000000) { // promotion
+		str += piece_to_fen[((move >> 12) & 0b11) + 1] + 32;
+	}
+	return str;
 }

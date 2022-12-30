@@ -1,9 +1,11 @@
 #pragma once
 
 #include <iostream>
+#include <set>
 #include <string.h>
 #include <string>
 #include <unordered_set>
+#include <vector>
 #include <x86intrin.h>
 
 #include "zobrist"
@@ -22,15 +24,16 @@
 
 constexpr int fen_to_piece[] = {3, -1, -1, -1, -1, -1, -1, -1, -1, 0, -1, -1, 4, -1, 5, 1, 2};
 constexpr char piece_to_fen[] = {'K', 'Q', 'R', 'B', 'N', 'P'};
-constexpr int piece_values[] = {0, 100, 320, 330, 500, 900, 20000};
+constexpr int piece_values[] = {20000, 900, 500, 330, 320, 100};
 
 void print_bits(U64);
 
 class Board {
 private:
 	U64 pieces[8]; // kings, queens, rooks, bishops, knights, pawns, all white, all black
-	uint8_t meta[5], prevmeta[5]; // 0: side to move, 1: castling rights, 2: ep square, 3: halfmove clock, 4: fullmove number
-	uint32_t prev, prevprev; // previous move, previous previous move [6 bits src][6 bits dst][2 bits miscellaneous][1 bit capture flag][1 bit promotion flag][1 piece that moved][1 byte piece on dest]
+	uint8_t *meta; // 0: side to move, 1: castling rights, 2: ep square, 3: halfmove clock, 4: fullmove number
+	std::vector<uint8_t *> meta_hist;
+	std::vector<uint32_t> move_hist; // previous moves [6 bits src][6 bits dst][2 bits miscellaneous][1 bit capture flag][1 bit promotion flag][1 piece that moved][1 byte piece on dest]
 	void load_fen(const std::string &); // load a fen string
 
 	U64 king_control(const bool);
@@ -47,8 +50,6 @@ private:
 	void white_pawn_moves(std::unordered_set<uint16_t> &);
 	void black_pawn_moves(std::unordered_set<uint16_t> &);
 
-	bool in_check(const bool);
-
 public:
 	Board(); // default constructor
 	Board(const std::string &);
@@ -57,7 +58,9 @@ public:
 	void make_move(uint16_t);
 	void unmake_move();
 	void legal_moves(std::unordered_set<uint16_t> &);
-	bool side() const { return meta[0]; }
+	inline constexpr bool side() const { return meta[0]; }
+
+	bool in_check(const bool);
 
 	U64 controlled_squares(const bool side);
 
@@ -65,3 +68,5 @@ public:
 
 	U64 zobrist_hash();
 };
+
+std::string serialize_move(uint16_t);
