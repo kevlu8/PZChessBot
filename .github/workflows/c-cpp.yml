@@ -1,0 +1,21 @@
+name: Perft checks
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: compile engine
+      run: cd engine && g++ *.cpp -O3
+    - name: compile test binary
+      run: cd ../test && g++ main.cpp -O3
+    - name: test
+      run: ./a.out
