@@ -23,8 +23,8 @@ jobs:
           arch: aarch64
     - name: list boost dir
       run: ls /home/runner/boost
-    - name: list boost include dir
-      run: ls /home/runner/boost/include
+    - name: list boost boost dir
+      run: ls /home/runner/boost/boost
     - name: compile engine
       run: cd engine && g++ *.cpp -O3 -mbmi -m64 -mlzcnt
     - name: compile test binary
