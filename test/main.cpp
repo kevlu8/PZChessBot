@@ -53,7 +53,7 @@ int main() {
 	signal(SIGPIPE, handler);
 	bp::ipstream StdOut;
 	bp::opstream StdIn;
-	bp::child MyProcess = bp::child("/home/runner/PZChessBot/engine/a.out", bp::std_out > StdOut, bp::std_in < StdIn);
+	bp::child MyProcess = bp::child("./engine/a.out", bp::std_out > StdOut, bp::std_in < StdIn);
 
 	for (auto &test : tests) {
 		StdIn << test.first << std::endl;
