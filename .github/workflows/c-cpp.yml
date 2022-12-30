@@ -20,7 +20,7 @@ jobs:
           boost_version: 1.81.0
           boost_install_dir: /home/runner/boost
           toolset: gcc
-          arch: x64
+          arch: aarch64
     - name: compile engine
       run: cd engine && g++ *.cpp -O3 -mbmi -m64 -mlzcnt
     - name: compile test binary
