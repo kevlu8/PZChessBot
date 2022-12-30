@@ -24,6 +24,6 @@ jobs:
     - name: compile engine
       run: cd engine && g++ *.cpp -O3 -mbmi -m64 -mlzcnt
     - name: compile test binary
-      run: cd test && g++ main.cpp -O3 -L/home/runner/boost/boost/boost/include/
+      run: cd test && g++ main.cpp -O3 -I/home/runner/boost/boost/boost/include/
     - name: test
       run: ./test/a.out
