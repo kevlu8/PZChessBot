@@ -70,7 +70,6 @@ void play(std::string game_id, bool color) {
 			}
 			// if its our turn
 			if (moves.size() % 2 != color) {
-
 				// print board
 				for (int i = 0; i < 64; i++) {
 					if (i % 8 == 0)
@@ -107,7 +106,7 @@ void handle_event(json event) {
 	if (event["type"] == "challenge") {
 		if (event["challenge"]["variant"]["short"] == "Std")
 			API::accept_challenge(event["challenge"]["id"]);
-		else 
+		else
 			API::decline_challenge(event["challenge"]["id"], "variant");
 	} else if (event["type"] == "gameStart") {
 		std::cout << "game start" << std::endl;

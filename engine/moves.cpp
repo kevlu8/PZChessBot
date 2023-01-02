@@ -187,12 +187,17 @@ void Board::king_moves(std::unordered_set<uint16_t> &out) {
 	// remove the squares that are occupied by the same side
 	moves &= ~pieces[7 ^ meta[0]];
 
+	U64 captures = moves & pieces[6 ^ meta[0]];
+	// remove the captures from the moves
+	moves ^= captures;
+
 	king = __builtin_ctzll(king);
 	// TODO: optimize looping with lzcnt or tzcnt
 	for (int i = 0; i < 64; i++) {
-		if (!(moves & BIT(i)))
-			continue;
-		out.insert(king | (i << 6));
+		if (captures & BIT(i))
+			out.insert(king | (i << 6) | (0b0100 << 12));
+		if (moves & BIT(i))
+			out.insert(king | (i << 6));
 	}
 
 	// castling
@@ -243,7 +248,7 @@ void Board::rook_moves(std::unordered_set<uint16_t> &out) {
 		// TODO: optimize looping with lzcnt or tzcnt
 		for (int j = 0; j < 64; j++) {
 			if (BIT(j) & captures)
-				out.insert(i | (j << 6));
+				out.insert(i | (j << 6) | (0b0100 << 12));
 			if (BIT(j) & moves)
 				out.insert(i | (j << 6));
 		}
@@ -291,7 +296,7 @@ void Board::bishop_moves(std::unordered_set<uint16_t> &out) {
 		// TODO: optimize looping with lzcnt or tzcnt
 		for (int j = 0; j < 64; j++) {
 			if (BIT(j) & captures)
-				out.insert(i | (j << 6));
+				out.insert(i | (j << 6) | (0b0100 << 12));
 			if (BIT(j) & moves)
 				out.insert(i | (j << 6));
 		}

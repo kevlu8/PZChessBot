@@ -2,7 +2,7 @@
 
 #define INF (1e9 + 100)
 
-unsigned long long count = 0, total = 0;
+unsigned long long count = 0, total = 0, checks = 0;
 
 // 1e9 + 100 is the number that should be used as default values, they are never achievable naturally (unless maxdepth exceeds 99)
 // 1e9 should be used in the case of a checkmate
@@ -32,21 +32,27 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, const int target, 
 				bestmove = std::max(bestmove, {move.first, move.second});
 			} else {
 				bestmove = std::max(bestmove, __recurse(b, depth - 1, -target, -beta, -alpha));
-				bestmove.first += ((bestmove.first >> 30) & 0b10) - 1; // decrease magnitude of positions that take longer to get to (this should hopefully make the engine prefer faster mates while stalling out getting mated)
+				bestmove.first += ((bestmove.first >> 30) & 0b10) - 1; // decrease magnitude of positions that take longer to get to (this should hopefully make the engine prefer faster results while stalling out getting into bad positions)
 				if (abs(move.first - target) < abs(bestmove.first - target))
 					bestmove = move;
-				// b.print_board();
-				// std::cout << serialize_move(move.second) << ": " << count << std::endl;
+				b.print_board();
+				std::cout << serialize_move(move.second) << ": " << count << std::endl;
 				std::unordered_set<uint16_t> tmp;
 				std::set<std::string> tmp2;
 				b.legal_moves(tmp);
-				for (auto &m : tmp)
-					tmp2.insert(serialize_move(m));
-				// for (auto &m : tmp2)
-				// 	std::cout << m << std::endl;
+				for (auto &m : tmp) {
+					b.make_move(m);
+					if (!b.in_check(!b.side()))
+						tmp2.insert(serialize_move(m));
+					b.unmake_move();
+				}
+				for (auto &m : tmp2)
+					std::cout << m << std::endl;
+				total += count;
+				count = 0;
 			}
-			total += count;
-			count = 0;
+		} else {
+			checks++;
 		}
 		b.unmake_move();
 		if (b.side())
@@ -63,6 +69,6 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, const int target, 
 uint16_t ab_search(Board &b, const int depth) {
 	total = 0;
 	uint16_t ans = __recurse(b, depth, ((b.side() << 1) - 1) * INF, -INF, INF).second;
-	std::cout << total << std::endl;
+	std::cout << total << ' ' << checks << std::endl;
 	return ans;
 }

@@ -4,4 +4,3 @@
 - Perfts
 - Fix stalemate detection
 - Unmake_move probably not working
-- Rewrite testing framework to not use boost

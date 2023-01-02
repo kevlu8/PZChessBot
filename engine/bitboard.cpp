@@ -109,6 +109,8 @@ void Board::print_board() {
 }
 
 void Board::make_move(uint16_t move) {
+	// if (move == 0b0100101110011100)
+	// 	std::cout << "point\n";
 	uint8_t ep = -1;
 	int src = move & 0b111111;
 	int dst = (move >> 6) & 0b111111;
