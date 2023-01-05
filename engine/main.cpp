@@ -13,9 +13,10 @@ int main() {
 			break;
 		depth = std::stoi(tmp);
 		Board board(fen);
-		// board.print_board();
-		// std::cout << std::endl;
-		// std::cout << serialize_move(ab_search(board, depth)) << std::endl;
+		if (PRINTBOARD) {
+			board.print_board();
+			std::cout << std::endl;
+		}
 		ab_search(board, depth);
 	}
 	return 0;

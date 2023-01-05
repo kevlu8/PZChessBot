@@ -31,32 +31,48 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 					bestmove = move;
 				else if (move.first == bestmove.first && move.second > bestmove.second)
 					bestmove = move;
+				if (PRINT) {
+					if (depth == d) {
+						if (PRINTBOARD)
+							b.print_board();
+						std::cout << stringify_move(move.second) << ": 1" << std::endl;
+					}
+				}
 			} else {
-				// b.print_board();
-				// std::cout << serialize_move(move.second) << ": " << count << std::endl;
-				// std::unordered_set<uint16_t> tmp;
-				// std::set<std::string> tmp2;
-				// b.legal_moves(tmp);
-				// for (auto &m : tmp) {
-				// 	b.make_move(m);
-				// 	if (!b.in_check(!b.side()))
-				// 		tmp2.insert(serialize_move(m));
-				// 	b.unmake_move();
-				// }
-				// for (auto &m : tmp2)
-				// 	std::cout << m << std::endl;
-				prev.push_back(move.second);
 				int tmp = -__recurse(b, depth - 1, alpha, beta).first - 1;
+				if (PRINT) {
+					if (depth == d) {
+						if (PRINTBOARD) {
+							b.print_board();
+							std::cout << stringify_move(move.second) << ": " << count << std::endl;
+							std::unordered_set<uint16_t> tmpmoves;
+							std::set<std::string> tmp2;
+							b.legal_moves(tmpmoves);
+							for (auto &m : tmpmoves) {
+								b.make_move(m);
+								b.controlled_squares(b.side());
+								if (!b.in_check(!b.side()))
+									tmp2.insert(stringify_move(m));
+								b.unmake_move();
+							}
+							for (auto &m : tmp2)
+								std::cout << m << std::endl;
+						} else {
+							std::cout << stringify_move(move.second) << ": " << count << std::endl;
+						}
+					}
+				}
 				tmp += ((tmp >> 30) & 0b10) - 1; // decrease magnitude of positions that take longer to get to (this should hopefully make the engine prefer faster results while stalling out getting into bad positions)
-				prev.pop_back();
 				if (tmp > bestmove.first) {
 					bestmove = {tmp, move.second};
 				} else if (tmp == bestmove.first && move.second > bestmove.second) {
 					bestmove = {tmp, move.second};
 				}
+				if (!PRINT) {
+					total += count;
+					count = 0;
+				}
 			}
-			total += count;
-			count = 0;
 			b.unmake_move();
 			if (b.side())
 				alpha = std::max(alpha, bestmove.first);
@@ -78,11 +94,13 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 }
 
 uint16_t ab_search(Board &b, const int depth) {
+	d = depth;
 	total = 0;
+	count = 0;
 	std::pair<int, uint16_t> ans = __recurse(b, depth, -INF, INF);
 	total += count;
 	// std::cout << "Total nodes: " << total << std::endl;
 	// std::cout << "eval: " << ans.first << std::endl;
-  std::cout << total << std::endl;
+	std::cout << total << std::endl;
 	return ans.second;
 }
