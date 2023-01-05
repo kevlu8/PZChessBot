@@ -73,4 +73,4 @@ public:
 	U64 zobrist_hash();
 };
 
-std::string serialize_move(uint16_t);
+std::string stringify_move(uint16_t);

@@ -354,7 +354,7 @@ U64 Board::zobrist_hash() {
 	return hash;
 }
 
-std::string serialize_move(uint16_t move) {
+std::string stringify_move(uint16_t move) {
 	std::string str = "";
 	str += (char)('a' + (move & 7));
 	str += (char)('1' + ((move >> 3) & 7));
