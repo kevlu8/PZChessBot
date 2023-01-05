@@ -145,12 +145,12 @@ U64 Board::knight_control(const bool side) {
 
 U64 Board::white_pawn_control() {
 	U64 pawns = pieces[5] & pieces[6];
-	return ((pawns & C64(0x7f7f7f7f7f7f7f7f)) << 7) | ((pawns & C64(0xfefefefefefefefe)) << 9);
+	return ((pawns & C64(0x00fefefefefefe00)) << 7) | ((pawns & C64(0x007f7f7f7f7f7f00)) << 9);
 }
 
 U64 Board::black_pawn_control() {
 	U64 pawns = pieces[5] & pieces[7];
-	return ((pawns & C64(0x7f7f7f7f7f7f7f7f)) >> 9) | ((pawns & C64(0xfefefefefefefefe)) >> 7);
+	return ((pawns & C64(0x00fefefefefefe00)) >> 9) | ((pawns & C64(0x007f7f7f7f7f7f00)) >> 7);
 }
 
 void Board::controlled_squares(const bool side) {
@@ -171,6 +171,8 @@ void Board::controlled_squares(const bool side) {
 void Board::king_moves(std::unordered_set<uint16_t> &out) {
 	// get the right king
 	U64 king = pieces[0] & pieces[7 ^ meta[0]];
+
+	controlled_squares(!meta[0]);
 
 	U64 moves = king;
 	// move west one
@@ -199,7 +201,7 @@ void Board::king_moves(std::unordered_set<uint16_t> &out) {
 	}
 
 	// castling
-	if ((meta[1] >> (meta[0] * 2)) & 0b01 && (((pieces[6] | pieces[7]) >> (king - 3)) & 0b111) == 0 && ((control[!meta[0]] >> (king - 3)) & 0b1111) == 0) // queenside
+	if ((meta[1] >> (meta[0] * 2)) & 0b01 && (((pieces[6] | pieces[7]) >> (king - 3)) & 0b111) == 0 && ((control[!meta[0]] >> (king - 2)) & 0b111) == 0) // queenside
 		out.insert(0b0011111010111100 ^ (0b0000111000111000 * meta[0]));
 	if ((meta[1] >> (meta[0] * 2)) & 0b10 && (((pieces[6] | pieces[7]) >> (king + 1)) & 0b11) == 0 && ((control[!meta[0]] >> king) & 0b111) == 0) // kingside
 		out.insert(0b0010111110111100 ^ (0b0000111000111000 * meta[0]));
@@ -389,7 +391,7 @@ void Board::white_pawn_moves(std::unordered_set<uint16_t> &out) {
 		moves &= pieces[7];
 		promote = moves & C64(0xff00000000000000);
 		// remove duplicates caused by promotion
-		moves &= C64(0x0000ffffffffff00);
+		moves &= C64(0x00ffffffffff0000);
 
 		// en passant west
 		moves |= ((pawn & C64(0x000000fe00000000)) << 7) & BIT(meta[2]);
@@ -455,7 +457,7 @@ void Board::black_pawn_moves(std::unordered_set<uint16_t> &out) {
 		moves &= pieces[6];
 		promote = moves & C64(0x00000000000000ff);
 		// remove duplicates caused by promotion
-		moves &= C64(0x00ffffffffff0000);
+		moves &= C64(0x0000ffffffffff00);
 
 		// en passant west
 		moves |= ((pawn & C64(0x00000000fe000000)) >> 9) & BIT(meta[2]);

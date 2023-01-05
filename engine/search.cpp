@@ -3,13 +3,16 @@
 #define INF (1e9 + 100)
 
 unsigned long long count = 0, total = 0, checks = 0;
+int d;
 
 // 1e9 + 100 is the number that should be used as default values, they are never achievable naturally (unless maxdepth exceeds 99)
 // 1e9 should be used in the case of a checkmate
 
-std::vector<uint16_t> prev{0};
-
 std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int beta) {
+	if (depth == 0) {
+		total = 1;
+		return {b.eval(), 0};
+	}
 	std::unordered_set<uint16_t> moves;
 	b.legal_moves(moves);
 	std::priority_queue<std::pair<int, uint16_t>> orderedmoves;
