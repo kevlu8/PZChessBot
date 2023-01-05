@@ -96,7 +96,7 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 	return bestmove;
 }
 
-uint16_t ab_search(Board &b, const int depth) {
+std::pair<int, uint16_t> ab_search(Board &b, const int depth) {
 	d = depth;
 	total = 0;
 	count = 0;
@@ -105,5 +105,5 @@ uint16_t ab_search(Board &b, const int depth) {
 	// std::cout << "Total nodes: " << total << std::endl;
 	// std::cout << "eval: " << ans.first << std::endl;
 	std::cout << total << std::endl;
-	return ans.second;
+	return ans;
 }
