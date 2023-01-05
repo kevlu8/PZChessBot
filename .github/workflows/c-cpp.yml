@@ -1,29 +1,35 @@
 name: Perft checks
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    push:
+        branches: ["main"]
+    pull_request:
+        branches: ["main"]
 
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v3
-    - name: Install boost
-      uses: MarkusJx/install-boost@v2.4.1
-      id: install-boost
-      with:
-          boost_version: 1.81.0
-          boost_install_dir: /home/runner/boost
-          toolset: gcc
-          arch: aarch64
-    - name: compile engine
-      run: cd engine && g++ *.cpp -O3 -mbmi -m64 -mlzcnt
-    - name: compile test binary
-      run: cd test && g++ main.cpp -O3 -I/home/runner/boost/boost/boost/include/
-    - name: test
-      run: ./test/a.out
+    perfts:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v3
+            - name: Install boost
+              uses: MarkusJx/install-boost@v2.4.1
+              id: install-boost
+              with:
+                  boost_version: 1.81.0
+                  boost_install_dir: /home/runner/boost
+                  toolset: gcc
+                  arch: aarch64
+            - name: compile engine
+              run: cd engine && g++ *.cpp -O3 -mbmi -m64 -mlzcnt
+            - name: compile test binary
+              run: cd test && g++ perfts.cpp -O3 -I/home/runner/boost/boost/boost/include/ -o perfts.out
+            - name: test
+              run: ./test/perfts
+    positions:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v3
+            - name: compile test binary
+              run: cd test && g++ search.cpp ../engine/!(main).cpp -O3 -mbmi -m64 -mlzcnt -o search.out
+            - name: test
+              run: ./test/search

@@ -104,6 +104,7 @@ std::pair<int, uint16_t> ab_search(Board &b, const int depth) {
 	total += count;
 	// std::cout << "Total nodes: " << total << std::endl;
 	// std::cout << "eval: " << ans.first << std::endl;
-	std::cout << total << std::endl;
 	return ans;
 }
+
+static inline const unsigned long long nodes() { return total; }

@@ -27,8 +27,10 @@ int main() {
 			std::pair<int, uint16_t> res = ab_search(board, depth);
 			std::cout << "eval: " << res.first << std::endl;
 			std::cout << "move: " << stringify_move(res.second) << std::endl;
-		} else
+		} else {
 			ab_search(board, depth);
+			std::cout << nodes() << std::endl;
+		}
 	}
 	return 0;
 }
