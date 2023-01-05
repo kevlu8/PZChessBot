@@ -81,8 +81,8 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 				alpha = std::max(alpha, bestmove.first);
 			else
 				beta = std::min(beta, bestmove.first);
-			// if (beta <= alpha)
-			// 	break;
+			if (beta <= alpha)
+				break;
 		} else
 			b.unmake_move();
 	}
