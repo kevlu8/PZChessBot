@@ -355,6 +355,8 @@ U64 Board::zobrist_hash() {
 }
 
 std::string stringify_move(uint16_t move) {
+	if (move == 0)
+		return "0000";
 	std::string str = "";
 	str += (char)('a' + (move & 7));
 	str += (char)('1' + ((move >> 3) & 7));
