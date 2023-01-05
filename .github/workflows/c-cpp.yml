@@ -1,4 +1,4 @@
-name: Perft checks
+name: Searching checks
 
 on:
     push:
