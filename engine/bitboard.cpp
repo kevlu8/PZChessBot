@@ -91,15 +91,20 @@ void Board::print_board() {
 	for (int j = 7; j >= 0; j--) {
 		for (int i = 0; i < 8; i++) {
 			if ((pieces[6] | pieces[7]) & BITxy(i, j)) {
-				bool found = false;
+				int found = -1;
+				bool dup = false;
 				for (int k = 0; k < 6; k++) {
 					if (pieces[k] & BITxy(i, j)) {
-						std::cout << (char)(piece_to_fen[k] + (!!(pieces[7] & BITxy(i, j)) << 5)) << ' ';
-						found = true;
-						break;
+						if (found != -1)
+							dup = true;
+						found = k;
 					}
 				}
-				if (!found)
+				if (dup)
+					std::cout << "\U0001f595";
+				else if (found != -1)
+					std::cout << (char)(piece_to_fen[found] + (!!(pieces[7] & BITxy(i, j)) << 5)) << ' ';
+				else
 					std::cout << "? ";
 			} else
 				std::cout << ". ";
@@ -109,8 +114,12 @@ void Board::print_board() {
 }
 
 void Board::make_move(uint16_t move) {
-	// if (move == 0b0100101110011100)
-	// 	std::cout << "point\n";
+	if (move == 0) {
+		std::cout << "null move\n";
+		return;
+	}
+	for (int i = 0; i < 8; i++)
+		pos_hist.push_back(pieces[i]);
 	uint8_t ep = -1;
 	int src = move & 0b111111;
 	int dst = (move >> 6) & 0b111111;
@@ -125,14 +134,14 @@ void Board::make_move(uint16_t move) {
 	for (int i = 0; i < 6; i++) {
 		if (pieces[i] & BIT(src))
 			srcpiece = i;
-		else if (pieces[i] & BIT(dst))
+		if (pieces[i] & BIT(dst))
 			dstpiece = i;
 	}
 	prev |= (srcpiece << 16);
 	prev |= (dstpiece << 24);
 	move_hist.push_back(prev);
 	// if piece captures reset halfmove clock
-	if (pieces[6 ^ meta[0]] & BIT(dst))
+	if (move & (0b0100 << 12))
 		meta[3] = -1;
 	if (move & 0x8000) { // promotion
 		// reset halfmove clock
@@ -191,13 +200,16 @@ void Board::make_move(uint16_t move) {
 			pieces[0] ^= 5764607523034234880;
 			pieces[7] ^= 5764607523034234880;
 			// rook moves from h8 to f8
-			pieces[2] ^= 5764607523034234880;
-			pieces[7] ^= 5764607523034234880;
+			pieces[2] ^= 11529215046068469760;
+			pieces[7] ^= 11529215046068469760;
 			// revoke castling rights
 			meta[1] &= 0b1100;
 		} else if (pieces[0] & BIT(src)) { // king move
 			// remove castling rights
-			meta[1] ^= 3 << (meta[0] * 3);
+			meta[1] &= 0b1100 >> (meta[0] * 2);
+			// clear destination square
+			for (int i = 0; i < 8; i++)
+				pieces[i] &= ~BIT(dst);
 			pieces[0] ^= BIT(src) | BIT(dst);
 			pieces[7 ^ meta[0]] ^= BIT(src) | BIT(dst);
 		} else {
@@ -259,7 +271,7 @@ void Board::unmake_move() {
 			pieces[6 ^ meta[0]] ^= BIT(dst);
 		}
 	} else { // no promotion
-		if ((prev >> 12) & 0b1111 == 0b0101) { // en passant
+		if (((prev >> 12) & 0b1111) == 0b0101) { // en passant
 			// put the pawn back
 			pieces[5] ^= BIT(src) | BIT(dst);
 			pieces[7 ^ meta[0]] ^= BIT(src) | BIT(dst);
@@ -292,8 +304,8 @@ void Board::unmake_move() {
 			pieces[0] ^= 5764607523034234880;
 			pieces[7] ^= 5764607523034234880;
 			// rook moves from f8 to h8
-			pieces[2] ^= 5764607523034234880;
-			pieces[7] ^= 5764607523034234880;
+			pieces[2] ^= 11529215046068469760;
+			pieces[7] ^= 11529215046068469760;
 		} else {
 			// figure out what piece moved
 			int piece = (prev >> 16) & 0b111;
@@ -307,9 +319,14 @@ void Board::unmake_move() {
 			}
 		}
 	}
+	for (int i = 7; i >= 0; i--) {
+		if (pos_hist.back() != pieces[i])
+			throw std::runtime_error("position mismatch");
+		pos_hist.pop_back();
+	}
 }
 
-bool Board::in_check(const bool side) { return pieces[0] & pieces[7 ^ side] & controlled_squares(!side); }
+bool Board::in_check(const bool side) { return pieces[0] & pieces[7 ^ side] & control[!side]; }
 
 int Board::eval() {
 	int material, mobility, king_safety, control;

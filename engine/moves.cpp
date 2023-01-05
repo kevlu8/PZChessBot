@@ -43,7 +43,7 @@ U64 Board::king_control(const bool side) {
 	// move south one
 	king |= (king & C64(0xffffffffffffff00)) >> 8;
 	// remove the king
-	king &= ~pieces[0];
+	king ^= pieces[0] & pieces[7 ^ side];
 
 	return king;
 }
@@ -153,24 +153,24 @@ U64 Board::black_pawn_control() {
 	return ((pawns & C64(0x7f7f7f7f7f7f7f7f)) >> 9) | ((pawns & C64(0xfefefefefefefefe)) >> 7);
 }
 
-U64 Board::controlled_squares(const bool side) {
+void Board::controlled_squares(const bool side) {
 	U64 control = 0;
 	control |= king_control(side);
 	control |= rook_control(side);
 	control |= bishop_control(side);
 	control |= knight_control(side);
-	if (side)
+	if (side) {
 		control |= white_pawn_control();
-	else
+		this->control[side] = control;
+	} else {
 		control |= black_pawn_control();
-	return control;
+		this->control[side] = control;
+	}
 }
 
 void Board::king_moves(std::unordered_set<uint16_t> &out) {
 	// get the right king
 	U64 king = pieces[0] & pieces[7 ^ meta[0]];
-	// get the squares controlled by the opponents
-	U64 controlled = controlled_squares(!meta[0]);
 
 	U64 moves = king;
 	// move west one
@@ -182,8 +182,6 @@ void Board::king_moves(std::unordered_set<uint16_t> &out) {
 	// move south one
 	moves |= (moves & C64(0xffffffffffffff00)) >> 8;
 
-	// remove the squares controlled by the opponent
-	moves &= ~controlled;
 	// remove the squares that are occupied by the same side
 	moves &= ~pieces[7 ^ meta[0]];
 
@@ -201,9 +199,9 @@ void Board::king_moves(std::unordered_set<uint16_t> &out) {
 	}
 
 	// castling
-	if ((meta[1] >> (meta[0] * 2)) & 0b01 && (((pieces[6] | pieces[7]) >> (king - 3)) & 0b111) == 0 && ((controlled >> (king - 3)) & 0b1111) == 0) // queenside
+	if ((meta[1] >> (meta[0] * 2)) & 0b01 && (((pieces[6] | pieces[7]) >> (king - 3)) & 0b111) == 0 && ((control[!meta[0]] >> (king - 3)) & 0b1111) == 0) // queenside
 		out.insert(0b0011111010111100 ^ (0b0000111000111000 * meta[0]));
-	if ((meta[1] >> (meta[0] * 2)) & 0b10 && (((pieces[6] | pieces[7]) >> (king + 1)) & 0b11) == 0 && ((controlled >> king) & 0b111) == 0) // kingside
+	if ((meta[1] >> (meta[0] * 2)) & 0b10 && (((pieces[6] | pieces[7]) >> (king + 1)) & 0b11) == 0 && ((control[!meta[0]] >> king) & 0b111) == 0) // kingside
 		out.insert(0b0010111110111100 ^ (0b0000111000111000 * meta[0]));
 }
 
@@ -401,7 +399,7 @@ void Board::white_pawn_moves(std::unordered_set<uint16_t> &out) {
 		// TODO: optimize looping with lzcnt or tzcnt
 		for (int j = 0; j < 64; j++) {
 			if (moves & BIT(j))
-				out.insert((__builtin_ctzll(pawn)) | (j << 6) | (0b0100 << 12) | ((j == meta[2]) << 12));
+				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b0100 << 12) | ((j == meta[2]) << 12));
 			if (promote & BIT(j)) {
 				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1100 << 12));
 				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1101 << 12));
@@ -467,7 +465,7 @@ void Board::black_pawn_moves(std::unordered_set<uint16_t> &out) {
 		// TODO: optimize looping with lzcnt or tzcnt
 		for (int j = 0; j < 64; j++) {
 			if (moves & BIT(j))
-				out.insert((__builtin_ctzll(pawn)) | (j << 6) | (0b0100 << 12) | ((j == meta[2]) << 12));
+				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b0100 << 12) | ((j == meta[2]) << 12));
 			if (promote & BIT(j)) {
 				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1100 << 12));
 				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1101 << 12));

@@ -1,9 +1,9 @@
 #include <boost/process.hpp>
 #include <csignal>
 #include <iostream>
+#include <math.h>
 #include <unordered_map>
 #include <utility>
-#include <math.h>
 
 void handler(int signum) {
 	std::cout << "Child died" << std::endl;
@@ -84,6 +84,8 @@ int main() {
 			std::cout << "Passed test " << ceil((float)i / 5) << '.' << (((i % 5) == 0) ? 5 : (i % 5)) << " - ";
 			std::cout << "Got: " << line << std::endl;
 		}
+		if (i % 5 == 0)
+			std::cout << std::endl;
 	}
 	return failed;
 }

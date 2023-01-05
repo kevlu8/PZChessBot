@@ -36,6 +36,10 @@ private:
 	std::vector<uint32_t> move_hist; // previous moves [6 bits src][6 bits dst][2 bits miscellaneous][1 bit capture flag][1 bit promotion flag][1 piece that moved][1 byte piece on dest]
 	void load_fen(const std::string &); // load a fen string
 
+	std::vector<U64> pos_hist;
+
+	U64 control[2]; // black, white
+
 	U64 king_control(const bool);
 	U64 rook_control(const bool);
 	U64 bishop_control(const bool);
@@ -62,7 +66,7 @@ public:
 
 	bool in_check(const bool);
 
-	U64 controlled_squares(const bool side);
+	void controlled_squares(const bool side);
 
 	int eval();
 
