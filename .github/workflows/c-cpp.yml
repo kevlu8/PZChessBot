@@ -12,7 +12,7 @@ jobs:
         steps:
             - uses: actions/checkout@v3
             - name: compile test binary
-              run: bash -c "g++ test/perfts.cpp $(find engine/!(main).cpp | tr '\n' ' ') -O3 -mbmi -m64 -mlzcnt -o test/perfts.out -DPERFT"
+              run: cd test && g++ perfts.cpp ../engine/bitboard.cpp ../engine/moves.cpp ../engine/search.cpp -O3 -mbmi -m64 -mlzcnt -fPIC -DPERFT -o perfts.out
             - name: test
               run: ./test/perfts.out
     positions:
@@ -20,6 +20,6 @@ jobs:
         steps:
             - uses: actions/checkout@v3
             - name: compile test binary
-              run: bash -c "g++ test/search.cpp $(find engine/!(main).cpp | tr '\n' ' ') -O3 -mbmi -m64 -mlzcnt -o test/search.out -DPERFT"
+              run: cd test && g++ search.cpp ../engine/bitboard.cpp ../engine/moves.cpp ../engine/search.cpp -O3 -mbmi -m64 -mlzcnt -fPIC -o search.out
             - name: test
               run: ./test/search.out
