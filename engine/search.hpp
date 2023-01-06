@@ -1,6 +1,12 @@
 #include "bitboard.hpp"
 #include <queue>
 
+#ifdef PERFT
+static const constexpr bool NOPRUNE = true;
+#else
+static const constexpr bool NOPRUNE = false;
+#endif
+
 #ifdef DEBUG_PERFT
 static const constexpr bool PRINT = true;
 #ifdef DEBUG_MOVES
@@ -22,4 +28,4 @@ std::pair<int, uint16_t> ab_search(Board &, const int);
  *
  * @return The number of nodes in the last search
  */
-static inline const unsigned long long nodes();
+const unsigned long long nodes();

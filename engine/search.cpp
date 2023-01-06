@@ -29,7 +29,10 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 		b.controlled_squares(b.side());
 		if (!b.in_check(!b.side())) {
 			if (depth == 1) {
-				count++;
+				if (PRINT)
+					count++;
+				else
+					total++;
 				if (move.first > bestmove.first)
 					bestmove = move;
 				else if (move.first == bestmove.first && move.second > bestmove.second)
@@ -63,6 +66,8 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 						} else {
 							std::cout << stringify_move(move.second) << ": " << count << std::endl;
 						}
+						total += count;
+						count = 0;
 					}
 				}
 				tmp += ((tmp >> 30) & 0b10) - 1; // decrease magnitude of positions that take longer to get to (this should hopefully make the engine prefer faster results while stalling out getting into bad positions)
@@ -71,18 +76,16 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 				} else if (tmp == bestmove.first && move.second > bestmove.second) {
 					bestmove = {tmp, move.second};
 				}
-				if (!PRINT) {
-					total += count;
-					count = 0;
-				}
 			}
 			b.unmake_move();
 			if (b.side())
 				alpha = std::max(alpha, bestmove.first);
 			else
 				beta = std::min(beta, bestmove.first);
-			if (beta <= alpha)
-				break;
+			if (!NOPRUNE) {
+				if (beta <= alpha)
+					break;
+			}
 		} else
 			b.unmake_move();
 	}
@@ -107,4 +110,4 @@ std::pair<int, uint16_t> ab_search(Board &b, const int depth) {
 	return ans;
 }
 
-static inline const unsigned long long nodes() { return total; }
+const unsigned long long nodes() { return total; }
