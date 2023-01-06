@@ -1,5 +1,7 @@
 #include "../engine/search.hpp"
 
+bool failed = false;
+
 std::vector<std::pair<std::string, std::string>> tests = {
 	{"r2q1b1r/3k1ppp/4p3/3pPN2/3n4/5N2/3B1PPP/R2QK2R b KQ - 0 16\n5", "a8a1"}, // fork
 	{"4qrk1/rb4b1/p1npp3/2p3R1/1p2P2Q/P2P3P/1PP3P1/R1B3K1 w - - 3 20\n5", "g5g7"}, // skewer
@@ -21,7 +23,10 @@ int main() {
 			std::cout << "Passed test " << i << " - Got: " << stringify_move(res.second) << std::endl;
 		} else {
 			std::cout << "Failed test " << i << " - Got: " << stringify_move(res.second) << " - Expected: " << test.second << std::endl;
+			failed = true;
 		}
 		i++;
+		delete board;
 	}
+	return failed;
 }

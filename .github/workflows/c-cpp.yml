@@ -22,7 +22,7 @@ jobs:
             - name: compile engine
               run: cd engine && g++ *.cpp -O3 -mbmi -m64 -mlzcnt
             - name: compile test binary
-              run: cd test && g++ perfts.cpp -O3 -I/home/runner/boost/boost/boost/include/ -o perfts.out
+              run: cd test && g++ perfts.cpp ../engine/!(main).cpp -O3 -mbmi -m64 -mlzcnt -o perfts.out -DPERFT
             - name: test
               run: ./test/perfts
     positions:
