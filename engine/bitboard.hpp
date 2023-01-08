@@ -17,8 +17,8 @@
 #define BITxy(x, y) (C64(1) << xyx(x, y))
 #define LSONES(x) (((C64(1) << (x)) - 1) - ((x) == 64))
 #define MSONES(x) ((C64(-1) << (64 - (x))) + ((x) == 0))
-#define EXPANDLSB(x) LSONES(__builtin_ia32_tzcnt_u64(x) + 1 - ((x) == 0))
-#define EXPANDMSB(x) MSONES(__builtin_ia32_lzcnt_u64(x) + 1 - ((x) == 0))
+#define EXPANDLSB(x) LSONES(_tzcnt_u64(x) + 1 - ((x) == 0))
+#define EXPANDMSB(x) MSONES(_lzcnt_u64(x) + 1 - ((x) == 0))
 
 #define STARTPOS "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
