@@ -36,3 +36,5 @@ token
 build/
 CMakeFiles/
 callgrind*
+in*
+!in*.*

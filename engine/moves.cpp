@@ -54,10 +54,8 @@ U64 Board::rook_control(const bool side) {
 	// get a set of all occupied squares
 	U64 occupied = pieces[6] | pieces[7];
 	U64 control = 0;
-	// TODO: optimize looping with lzcnt or tzcnt
-	for (int i = 0; i < 64; i++) {
-		if (!(rooks & BIT(i)))
-			continue;
+	while (rooks) {
+		uint8_t i = __builtin_ctzll(rooks);
 		// get the rank and file masks
 		U64 rankray = rankMask(i);
 		U64 fileray = fileMask(i);
@@ -81,20 +79,20 @@ U64 Board::rook_control(const bool side) {
 		U64 north = fileray & MSONES(63 - i);
 		// remove everything after the first square in the intersection of the ray and the occupied squares
 		control |= north & EXPANDLSB(north & occupied);
+
+		rooks &= rooks - 1;
 	}
 	return control;
 }
 
 U64 Board::bishop_control(const bool side) {
-	// get the right set of rooks (and queens)
-	U64 rooks = (pieces[3] | pieces[1]) & pieces[7 ^ side];
+	// get the right set of bishops (and queens)
+	U64 bishops = (pieces[3] | pieces[1]) & pieces[7 ^ side];
 	// get a set of all occupied squares
 	U64 occupied = pieces[6] | pieces[7];
 	U64 control = 0;
-	// TODO: optimize looping with lzcnt or tzcnt
-	for (int i = 0; i < 64; i++) {
-		if (!(rooks & BIT(i)))
-			continue;
+	while (bishops) {
+		uint8_t i = __builtin_ctzll(bishops);
 		// get the rank and file masks
 		U64 diagray = diagonalMask(i);
 		U64 antidiagray = antiDiagMask(i);
@@ -118,6 +116,8 @@ U64 Board::bishop_control(const bool side) {
 		U64 northwest = antidiagray & MSONES(63 - i);
 		// remove everything after the first square in the intersection of the ray and the occupied squares
 		control |= northwest & EXPANDLSB(northwest & occupied);
+
+		bishops &= bishops - 1;
 	}
 	return control;
 }
@@ -192,12 +192,13 @@ void Board::king_moves(std::unordered_set<uint16_t> &out) {
 	moves ^= captures;
 
 	king = __builtin_ctzll(king);
-	// TODO: optimize looping with lzcnt or tzcnt
-	for (int i = 0; i < 64; i++) {
-		if (captures & BIT(i))
-			out.insert(king | (i << 6) | (0b0100 << 12));
-		if (moves & BIT(i))
-			out.insert(king | (i << 6));
+	while (captures) {
+		out.insert(king | (__builtin_ctzll(captures) << 6) | (0b0100 << 12));
+		captures &= captures - 1;
+	}
+	while (moves) {
+		out.insert(king | (__builtin_ctzll(moves) << 6));
+		moves &= moves - 1;
 	}
 
 	// castling
@@ -212,10 +213,8 @@ void Board::rook_moves(std::unordered_set<uint16_t> &out) {
 	U64 rooks = (pieces[2] | pieces[1]) & pieces[7 ^ meta[0]];
 	// get a set of all occupied squares
 	U64 occupied = pieces[6] | pieces[7];
-	// TODO: optimize looping with lzcnt or tzcnt
-	for (int i = 0; i < 64; i++) {
-		if (!(rooks & BIT(i)))
-			continue;
+	while (rooks) {
+		uint8_t i = __builtin_ctzll(rooks);
 		// get the rank and file masks
 		U64 rankray = rankMask(i);
 		U64 fileray = fileMask(i);
@@ -245,12 +244,15 @@ void Board::rook_moves(std::unordered_set<uint16_t> &out) {
 		U64 captures = moves & pieces[6 ^ meta[0]];
 		moves ^= captures;
 
-		// TODO: optimize looping with lzcnt or tzcnt
-		for (int j = 0; j < 64; j++) {
-			if (BIT(j) & captures)
-				out.insert(i | (j << 6) | (0b0100 << 12));
-			if (BIT(j) & moves)
-				out.insert(i | (j << 6));
+		rooks &= rooks - 1;
+
+		while (captures) {
+			out.insert(i | (__builtin_ctzll(captures) << 6) | (0b0100 << 12));
+			captures &= captures - 1;
+		}
+		while (moves) {
+			out.insert(i | (__builtin_ctzll(moves) << 6));
+			moves &= moves - 1;
 		}
 	}
 }
@@ -260,10 +262,8 @@ void Board::bishop_moves(std::unordered_set<uint16_t> &out) {
 	U64 bishops = (pieces[3] | pieces[1]) & pieces[7 ^ meta[0]];
 	// get a set of all occupied squares
 	U64 occupied = pieces[6] | pieces[7];
-	// TODO: optimize looping with lzcnt or tzcnt
-	for (int i = 0; i < 64; i++) {
-		if (!(bishops & BIT(i)))
-			continue;
+	while (bishops) {
+		uint8_t i = __builtin_ctzll(bishops);
 		// get the diagonal and antidiagonal masks
 		U64 diagray = diagonalMask(i);
 		U64 antidiagray = antiDiagMask(i);
@@ -293,12 +293,15 @@ void Board::bishop_moves(std::unordered_set<uint16_t> &out) {
 		U64 captures = moves & pieces[6 ^ meta[0]];
 		moves ^= captures;
 
-		// TODO: optimize looping with lzcnt or tzcnt
-		for (int j = 0; j < 64; j++) {
-			if (BIT(j) & captures)
-				out.insert(i | (j << 6) | (0b0100 << 12));
-			if (BIT(j) & moves)
-				out.insert(i | (j << 6));
+		bishops &= bishops - 1;
+
+		while (captures) {
+			out.insert(i | (__builtin_ctzll(captures) << 6) | (0b0100 << 12));
+			captures &= captures - 1;
+		}
+		while (moves) {
+			out.insert(i | (__builtin_ctzll(moves) << 6));
+			moves &= moves - 1;
 		}
 	}
 }
@@ -306,10 +309,8 @@ void Board::bishop_moves(std::unordered_set<uint16_t> &out) {
 void Board::knight_moves(std::unordered_set<uint16_t> &out) {
 	// get the right set of knights
 	U64 knights = pieces[4] & pieces[7 ^ meta[0]];
-	// TODO: optimize looping with lzcnt or tzcnt
-	for (U64 knight = 1; knight != 0; knight <<= 1) {
-		if (!(knights & knight))
-			continue;
+	while (knights) {
+		U64 knight = knights & -knights;
 		U64 moves = 0;
 
 		// TODO: optimize the following using parallel prefixes
@@ -336,12 +337,15 @@ void Board::knight_moves(std::unordered_set<uint16_t> &out) {
 		U64 captures = moves & pieces[6 ^ meta[0]];
 		moves ^= captures;
 
-		// TODO: optimize looping with lzcnt or tzcnt
-		for (int j = 0; j < 64; j++) {
-			if (BIT(j) & captures)
-				out.insert((__builtin_ctzll(knight)) | (j << 6) | (0b0100 << 12));
-			if (BIT(j) & moves)
-				out.insert((__builtin_ctzll(knight)) | (j << 6));
+		knights ^= knight;
+
+		while (captures) {
+			out.insert(__builtin_ctzll(knight) | (__builtin_ctzll(captures) << 6) | (0b0100 << 12));
+			captures &= captures - 1;
+		}
+		while (moves) {
+			out.insert(__builtin_ctzll(knight) | (__builtin_ctzll(moves) << 6));
+			moves &= moves - 1;
 		}
 	}
 }
@@ -355,33 +359,30 @@ void Board::white_pawn_moves(std::unordered_set<uint16_t> &out) {
 	U64 promote = moves & C64(0x00ff000000000000);
 	// remove duplicates caused by promotion
 	moves &= C64(0x0000ffffffffff00);
-	// TODO: optimize looping with lzcnt or tzcnt
-	for (int i = 0; i < 64; i++) {
-		if (moves & BIT(i))
-			out.insert(i | ((i + 8) << 6));
+	while (moves) {
+		uint8_t i = __builtin_ctzll(moves);
+		out.insert(i | ((i + 8) << 6));
+		moves &= moves - 1;
 	}
-	for (int i = 0; i < 64; i++) {
-		if (promote & BIT(i)) {
-			out.insert(i | ((i + 8) << 6) | (0b1000 << 12));
-			out.insert(i | ((i + 8) << 6) | (0b1001 << 12));
-			out.insert(i | ((i + 8) << 6) | (0b1010 << 12));
-			out.insert(i | ((i + 8) << 6) | (0b1011 << 12));
-		}
+	while (promote) {
+		uint8_t i = __builtin_ctzll(promote);
+		out.insert(i | ((i + 8) << 6) | (0b1000 << 12));
+		out.insert(i | ((i + 8) << 6) | (0b1001 << 12));
+		out.insert(i | ((i + 8) << 6) | (0b1010 << 12));
+		out.insert(i | ((i + 8) << 6) | (0b1011 << 12));
+		promote &= promote - 1;
 	}
 	// double moves
-	moves &= C64(0x000000000000ff00);
+	moves = pawns & (~(pieces[6] | pieces[7]) >> 8) & C64(0x000000000000ff00);
 	moves &= ~(pieces[6] | pieces[7]) >> 16;
-	// TODO: optimize looping with lzcnt or tzcnt
-	for (int i = 0; i < 64; i++) {
-		if (moves & BIT(i))
-			out.insert(i | ((i + 16) << 6) | (0b0001 << 12));
+	while (moves) {
+		uint8_t i = __builtin_ctzll(moves);
+		out.insert(i | ((i + 16) << 6) | (0b0001 << 12));
+		moves &= moves - 1;
 	}
-
 	// captures
-	// TODO: optimize looping with lzcnt or tzcnt
-	for (U64 pawn = 1; pawn != 0; pawn <<= 1) {
-		if (!(pawns & pawn))
-			continue;
+	while (pawns) {
+		U64 pawn = pawns & -pawns;
 		moves = 0;
 		// take west
 		moves |= (pawn & C64(0x00fefefefefefe00)) << 7;
@@ -398,16 +399,19 @@ void Board::white_pawn_moves(std::unordered_set<uint16_t> &out) {
 		// en passant east
 		moves |= ((pawn & C64(0x0000007f00000000)) << 9) & BIT(meta[2]);
 
-		// TODO: optimize looping with lzcnt or tzcnt
-		for (int j = 0; j < 64; j++) {
-			if (moves & BIT(j))
-				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b0100 << 12) | ((j == meta[2]) << 12));
-			if (promote & BIT(j)) {
-				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1100 << 12));
-				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1101 << 12));
-				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1110 << 12));
-				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1111 << 12));
-			}
+		pawns &= pawns - 1;
+
+		while (moves) {
+			uint8_t j = __builtin_ctzll(moves);
+			out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b0100 << 12) | ((j == meta[2]) << 12));
+			moves &= moves - 1;
+		}
+		while (promote) {
+			uint8_t j = __builtin_ctzll(promote);
+			out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1100 << 12));
+			out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1101 << 12));
+			out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1110 << 12));
+			out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1111 << 12));
 		}
 	}
 }
@@ -417,37 +421,34 @@ void Board::black_pawn_moves(std::unordered_set<uint16_t> &out) {
 	U64 pawns = pieces[5] & pieces[7];
 
 	// normal moves
-	U64 moves = pawns & ~(pieces[6] | pieces[7]) << 8;
+	U64 moves = pawns & (~(pieces[6] | pieces[7]) << 8);
 	U64 promote = moves & C64(0x000000000000ff00);
 	// remove duplicates caused by promotion
 	moves &= C64(0x00ffffffffff0000);
-	// TODO: optimize looping with lzcnt or tzcnt
-	for (int i = 0; i < 64; i++) {
-		if (moves & BIT(i))
-			out.insert(i | ((i - 8) << 6));
+	while (moves) {
+		uint8_t i = __builtin_ctzll(moves);
+		out.insert(i | ((i - 8) << 6));
+		moves &= moves - 1;
 	}
-	for (int i = 0; i < 64; i++) {
-		if (promote & BIT(i)) {
-			out.insert(i | ((i - 8) << 6) | (0b1000 << 12));
-			out.insert(i | ((i - 8) << 6) | (0b1001 << 12));
-			out.insert(i | ((i - 8) << 6) | (0b1010 << 12));
-			out.insert(i | ((i - 8) << 6) | (0b1011 << 12));
-		}
+	while (promote) {
+		uint8_t i = __builtin_ctzll(promote);
+		out.insert(i | ((i - 8) << 6) | (0b1000 << 12));
+		out.insert(i | ((i - 8) << 6) | (0b1001 << 12));
+		out.insert(i | ((i - 8) << 6) | (0b1010 << 12));
+		out.insert(i | ((i - 8) << 6) | (0b1011 << 12));
+		promote &= promote - 1;
 	}
 	// double moves
-	moves &= C64(0x00ff000000000000);
+	moves = pawns & (~(pieces[6] | pieces[7]) << 8) & C64(0x00ff000000000000);
 	moves &= ~(pieces[6] | pieces[7]) << 16;
-	// TODO: optimize looping with lzcnt or tzcnt
-	for (int i = 0; i < 64; i++) {
-		if (moves & BIT(i))
-			out.insert(i | ((i - 16) << 6) | (0b0001 << 12));
+	while (moves) {
+		uint8_t i = __builtin_ctzll(moves);
+		out.insert(i | ((i - 16) << 6) | (0b0001 << 12));
+		moves &= moves - 1;
 	}
-
 	// captures
-	// TODO: optimize looping with lzcnt or tzcnt
-	for (U64 pawn = 1; pawn != 0; pawn <<= 1) {
-		if (!(pawns & pawn))
-			continue;
+	while (pawns) {
+		U64 pawn = pawns & -pawns;
 		moves = 0;
 		// take west
 		moves |= (pawn & C64(0x00fefefefefefe00)) >> 9;
@@ -464,16 +465,19 @@ void Board::black_pawn_moves(std::unordered_set<uint16_t> &out) {
 		// en passant east
 		moves |= ((pawn & C64(0x000000007f000000)) >> 7) & BIT(meta[2]);
 
-		// TODO: optimize looping with lzcnt or tzcnt
-		for (int j = 0; j < 64; j++) {
-			if (moves & BIT(j))
-				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b0100 << 12) | ((j == meta[2]) << 12));
-			if (promote & BIT(j)) {
-				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1100 << 12));
-				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1101 << 12));
-				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1110 << 12));
-				out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1111 << 12));
-			}
+		pawns &= pawns - 1;
+
+		while (moves) {
+			uint8_t j = __builtin_ctzll(moves);
+			out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b0100 << 12) | ((j == meta[2]) << 12));
+			moves &= moves - 1;
+		}
+		while (promote) {
+			uint8_t j = __builtin_ctzll(promote);
+			out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1100 << 12));
+			out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1101 << 12));
+			out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1110 << 12));
+			out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1111 << 12));
 		}
 	}
 }
