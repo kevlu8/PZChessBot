@@ -412,6 +412,7 @@ void Board::white_pawn_moves(std::unordered_set<uint16_t> &out) {
 			out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1101 << 12));
 			out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1110 << 12));
 			out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1111 << 12));
+			promote &= promote - 1;
 		}
 	}
 }
@@ -478,6 +479,7 @@ void Board::black_pawn_moves(std::unordered_set<uint16_t> &out) {
 			out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1101 << 12));
 			out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1110 << 12));
 			out.insert(__builtin_ctzll(pawn) | (j << 6) | (0b1111 << 12));
+			promote &= promote - 1;
 		}
 	}
 }
