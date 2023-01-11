@@ -1,6 +1,6 @@
 #include "bitboard.hpp"
 
-#ifdef DEBUG_PERFT
+#ifdef PERFT
 Board::eval() { return 0; }
 #endif
 
