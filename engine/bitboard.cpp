@@ -1,5 +1,9 @@
 #include "bitboard.hpp"
 
+#ifdef DEBUG_PERFT
+Board::eval() { return 0; }
+#endif
+
 Board::Board() {
 	meta_hist.reserve(100);
 	move_hist.reserve(100);
