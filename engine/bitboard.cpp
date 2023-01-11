@@ -1,7 +1,7 @@
 #include "bitboard.hpp"
 
 #ifdef PERFT
-Board::eval() { return 0; }
+int Board::eval() { return 0; }
 #endif
 
 Board::Board() {
