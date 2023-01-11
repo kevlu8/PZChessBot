@@ -328,27 +328,6 @@ void Board::unmake_move() {
 
 bool Board::in_check(const bool side) { return pieces[0] & pieces[7 ^ side] & control[!side]; }
 
-int Board::eval() {
-	int material, mobility, king_safety, control;
-	material = mobility = king_safety = control = 0;
-
-	// material
-	for (int i = 0; i < 6; i++)
-		material += (_popcnt64(pieces[i] & pieces[6]) - _popcnt64(pieces[i] & pieces[7])) * piece_values[i];
-
-	// mobility
-	// count the number of legal moves for each piece
-
-	// king safety
-	// count control around king and also sliding piece attack chances
-
-	// control
-	// count control over the board
-
-	// return (material + mobility + king_safety + control) / 4;
-	return material;
-}
-
 U64 Board::zobrist_hash() {
 	U64 hash = 0;
 	return hash;
@@ -357,6 +336,8 @@ U64 Board::zobrist_hash() {
 std::string stringify_move(uint16_t move) {
 	if (move == 0)
 		return "0000";
+	if (move == -1)
+		return "----";
 	std::string str = "";
 	str += (char)('a' + (move & 7));
 	str += (char)('1' + ((move >> 3) & 7));

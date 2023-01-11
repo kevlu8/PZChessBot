@@ -11,7 +11,7 @@ int d;
 std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int beta) {
 	if (depth == 0) {
 		total = 1;
-		return {b.eval(), 0};
+		return {((b.side() << 1) - 1) * b.eval(), 0};
 	}
 	std::unordered_set<uint16_t> moves;
 	b.legal_moves(moves);
@@ -45,7 +45,7 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 					}
 				}
 			} else {
-				int tmp = -__recurse(b, depth - 1, alpha, beta).first - 1;
+				int tmp = -__recurse(b, depth - 1, alpha, beta).first - 1; // decrease magnitude of positions that take longer to get to (this should hopefully make the engine prefer faster results while stalling out getting into bad positions)
 				if (PRINT) {
 					if (depth == d) {
 						if (PRINTBOARD) {
@@ -70,7 +70,6 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 						count = 0;
 					}
 				}
-				tmp += ((tmp >> 30) & 0b10) - 1; // decrease magnitude of positions that take longer to get to (this should hopefully make the engine prefer faster results while stalling out getting into bad positions)
 				if (tmp > bestmove.first) {
 					bestmove = {tmp, move.second};
 				} else if (tmp == bestmove.first && move.second > bestmove.second) {
@@ -81,7 +80,7 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 			if (b.side())
 				alpha = std::max(alpha, bestmove.first);
 			else
-				beta = std::min(beta, bestmove.first);
+				beta = std::min(beta, -bestmove.first);
 			if (!NOPRUNE) {
 				if (beta <= alpha)
 					break;
@@ -93,8 +92,10 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 		b.controlled_squares(!b.side());
 		if (b.in_check(b.side()))
 			bestmove.first = -1e9;
-		else
+		else {
 			bestmove.first = 0;
+			bestmove.second = -1;
+		}
 	}
 	return bestmove;
 }
@@ -107,6 +108,8 @@ std::pair<int, uint16_t> ab_search(Board &b, const int depth) {
 	total += count;
 	// std::cout << "Total nodes: " << total << std::endl;
 	// std::cout << "eval: " << ans.first << std::endl;
+	if (!b.side())
+		ans.first = -ans.first;
 	return ans;
 }
 
