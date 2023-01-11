@@ -20,6 +20,6 @@ jobs:
         steps:
             - uses: actions/checkout@v3
             - name: compile test binary
-              run: cd test && g++ search.cpp ../engine/bitboard.cpp ../engine/moves.cpp ../engine/search.cpp -O3 -mbmi -m64 -mlzcnt -fPIC -o search.out
+              run: cd test && g++ search.cpp ../engine/bitboard.cpp ../engine/moves.cpp ../engine/search.cpp ../engine/eval.cpp -O3 -mbmi -m64 -mlzcnt -fPIC -o search.out
             - name: test
               run: ./test/search.out
