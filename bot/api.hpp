@@ -104,7 +104,7 @@ namespace API {
 		std::string residual;
 		std::vector<json> events;
 		cpr::AsyncResponse request;
-	
+
 	public:
 		/**
 		 * @brief Construct a new Game object

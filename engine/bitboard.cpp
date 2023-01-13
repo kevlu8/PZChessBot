@@ -119,7 +119,11 @@ void Board::print_board() {
 
 void Board::make_move(uint16_t move) {
 	if (move == 0) {
-		std::cout << "null move\n";
+		std::cout << "checkmate\n";
+		return;
+	}
+	if (move == 0xffff) {
+		std::cout << "stalemate\n";
 		return;
 	}
 	for (int i = 0; i < 8; i++)
@@ -324,8 +328,11 @@ void Board::unmake_move() {
 		}
 	}
 	for (int i = 7; i >= 0; i--) {
-		if (pos_hist.back() != pieces[i])
+		if (pos_hist.back() != pieces[i]) {
+			std::cout << move << ' ' << (int)meta[0] << ' ' << (int)meta[1] << ' ' << (int)meta[2] << ' ' << (int)meta[3] << ' ' << (int)meta[4] << std::endl;
+			print_board();
 			throw std::runtime_error("position mismatch");
+		}
 		pos_hist.pop_back();
 	}
 }
@@ -340,7 +347,7 @@ U64 Board::zobrist_hash() {
 std::string stringify_move(uint16_t move) {
 	if (move == 0)
 		return "0000";
-	if (move == -1)
+	if (move == 0xffff)
 		return "----";
 	std::string str = "";
 	str += (char)('a' + (move & 7));
@@ -351,4 +358,37 @@ std::string stringify_move(uint16_t move) {
 		str += piece_to_fen[((move >> 12) & 0b11) + 1] + 32;
 	}
 	return str;
+}
+
+uint16_t parse_move(Board &b, std::string str) {
+	if (str == "e1c1")
+		return 0b0011000010000100;
+	if (str == "e1g1")
+		return 0b0010000110000100;
+	if (str == "e8c8")
+		return 0b0011111010111100;
+	if (str == "e8g8")
+		return 0b0010111110111100;
+	if (str == "0000")
+		return 0;
+	if (str == "----")
+		return 0;
+	uint16_t move = 0;
+	char src = str[0] - 'a' + (str[1] - '1') * 8;
+	char dst = str[2] - 'a' + (str[3] - '1') * 8;
+	if (b.occupied() & BIT(dst)) // set capture flag if capture
+		move |= 0b0100 << 12;
+	if (str.size() == 5) { // promotion
+		move |= 0b1000 << 12;
+		move |= (fen_to_piece[str[4] - 'b'] - 1) << 12;
+	}
+	if (b.pawns() & BIT(src)) { // pawn move
+		if (abs(src - dst) == 16) // set double push flag if double push
+			move |= 0b0001 << 12;
+		if ((src & 0b111) != (dst & 0b111) && !(b.occupied() & BIT(dst))) { // set en passant flag if en passant
+			// if (b.pawns() & BIT(dst & 7 | src & 56))
+			move |= 0b0101 << 12;
+		}
+	}
+	return move | src | (dst << 6);
 }

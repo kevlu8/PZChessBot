@@ -9,11 +9,11 @@ set(CMAKE_CXX_STANDARD 20)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20")
 
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_RELEASE} -march=native -m64 -O3 -std=c++20")
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -Wall -Wextra -pedantic -Wno-comment")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} -g -Wall -Wextra -pedantic -Wno-comment")
 
-add_executable(pzchessbot bot/api.cpp bot/main.cpp engine/fen.cpp engine/ab_engine/eval.cpp engine/ab_engine/moves.cpp engine/ab_engine/search.cpp)
+add_executable(pzchessbot bot/api.cpp bot/main.cpp engine/bitboard.cpp engine/eval.cpp engine/moves.cpp engine/search.cpp)
 
 target_link_libraries(pzchessbot cpr)
 

@@ -9,7 +9,7 @@ int d;
 // 1e9 should be used in the case of a checkmate
 
 std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int beta) {
-	if (depth == 0) {
+	if (depth <= 0) {
 		total = 1;
 		return {((b.side() << 1) - 1) * b.eval(), 0};
 	}
@@ -22,6 +22,7 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 		b.unmake_move();
 	}
 	std::pair<int, uint16_t> move, bestmove = {-INF, 0};
+	int i = 0;
 	while (!orderedmoves.empty()) {
 		move = orderedmoves.top();
 		orderedmoves.pop();
@@ -45,7 +46,7 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 					}
 				}
 			} else {
-				int tmp = -__recurse(b, depth - 1, alpha, beta).first - 1; // decrease magnitude of positions that take longer to get to (this should hopefully make the engine prefer faster results while stalling out getting into bad positions)
+				int tmp = -__recurse(b, depth - 1 - (i != 0) * __tzcnt_u32(i), alpha, beta).first - 1; // decrease magnitude of positions that take longer to get to (this should hopefully make the engine prefer faster results while stalling out getting into bad positions)
 				if (PRINT) {
 					if (depth == d) {
 						if (PRINTBOARD) {
@@ -87,6 +88,7 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 			}
 		} else
 			b.unmake_move();
+		i++;
 	}
 	if (bestmove.second == 0) {
 		b.controlled_squares(!b.side());

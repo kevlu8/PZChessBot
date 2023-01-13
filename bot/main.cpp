@@ -1,6 +1,5 @@
-#include "../engine/ab_engine/moves.hpp"
-#include "../engine/ab_engine/search.hpp"
-#include "../engine/fen.hpp"
+#include "../engine/bitboard.hpp"
+#include "../engine/search.hpp"
 #include "api.hpp"
 #include <pthread.h>
 #include <unistd.h>
@@ -14,20 +13,10 @@ std::unordered_map<std::string, pthread_t> games;
 // loop that handles game events and plays the game
 void play(std::string game_id, bool color) {
 	std::cout << "playing as " << (color ? "white" : "black") << std::endl;
+	Board board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 	std::vector<std::string> moves;
 	moves.reserve(512);
-	int nummoves = 0;
-	char original_board[64];
-	char original_metadata[3];
-	char original_extra[2];
-	parse_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", original_board, original_metadata, original_extra);
-	char board[64];
-	char metadata[3];
-	char extra[2];
-	std::string move, prev, moves_str;
-	memset(extra, 0, 2);
-	memset(metadata, 0, 3);
-	memset(board, 0, 64);
+	std::string moves_str, move;
 	// connect to the game stream
 	API::Game game(game_id);
 	// main loop
@@ -38,24 +27,16 @@ void play(std::string game_id, bool color) {
 			std::cout << "play: " << event << '\n';
 			if (event["type"] == "chatLine" || event["type"] == "opponentGone")
 				continue;
-			if (event["type"] == "gameFinish") {
+			if (event["type"] == "gameFinish")
 				return;
-			}
-			if (event["type"] == "gameFull") {
+			if (event["type"] == "gameFull")
 				event = event["state"];
-			}
-			memcpy(board, original_board, 64);
-			memcpy(metadata, original_metadata, 3);
-			memcpy(extra, original_extra, 2);
 			// split the moves into an array of moves and in the process update the internal board
 			moves_str = event["moves"];
-			prev = "0000";
 			for (int i = 0; i < moves_str.size(); i++) {
 				if (moves_str[i] == ' ') {
 					moves.push_back(move);
-					make_move(move, prev, board, metadata);
-					std::cout << move << ' ';
-					prev = move;
+					board.make_move(parse_move(board, move));
 					move.clear();
 				} else {
 					move += moves_str[i];
@@ -63,24 +44,13 @@ void play(std::string game_id, bool color) {
 			}
 			if (move != "") {
 				moves.push_back(move);
-				make_move(move, prev, board, metadata);
-				std::cout << move << std::endl;
-				prev = move;
+				board.make_move(parse_move(board, move));
 				move.clear();
 			}
 			// if its our turn
 			if (moves.size() % 2 != color) {
-				// print board
-				for (int i = 0; i < 64; i++) {
-					if (i % 8 == 0)
-						std::cout << std::endl;
-					std::cout << std::setw(3) << (int)board[i];
-				}
-				std::cout << std::endl;
-
-				std::cout << (int)metadata[0] << ' ' << (int)metadata[1] << ' ' << (int)metadata[2] << "  " << prev << "  " << color << std::endl;
-				move = ab_search(board, 20, metadata, prev, color);
-				if (move == "resign")
+				move = stringify_move(ab_search(board, 7).second);
+				if (move == "----")
 					API::resign(game_id);
 				else
 					API::move(game_id, move);

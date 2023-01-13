@@ -8,6 +8,20 @@ static const constexpr bool RESULT = false;
 #endif
 
 int main() {
+	// std::string fen, move;
+	// std::getline(std::cin, fen);
+	// Board board(fen);
+	// while (true) {
+	// 	board.print_board();
+	// 	std::cin >> move;
+	// 	if (move == "quit")
+	// 		break;
+	// 	board.make_move(parse_move(board, move));
+	// 	board.print_board();
+	// 	uint16_t thing = ab_search(board, 7).second;
+	// 	board.make_move(thing);
+	// 	std::cout << stringify_move(thing) << std::endl;
+	// }
 	// search
 	std::string fen;
 	std::string tmp;

@@ -63,6 +63,13 @@ public:
 	void unmake_move();
 	void legal_moves(std::unordered_set<uint16_t> &);
 	inline constexpr bool side() const { return meta[0]; }
+	inline constexpr U64 occupied() const { return pieces[6] | pieces[7]; }
+	inline constexpr U64 kings() const { return pieces[0]; }
+	inline constexpr U64 queens() const { return pieces[1]; }
+	inline constexpr U64 rooks() const { return pieces[2]; }
+	inline constexpr U64 bishops() const { return pieces[3]; }
+	inline constexpr U64 knights() const { return pieces[4]; }
+	inline constexpr U64 pawns() const { return pieces[5]; }
 
 	bool in_check(const bool);
 
@@ -74,3 +81,4 @@ public:
 };
 
 std::string stringify_move(uint16_t);
+uint16_t parse_move(Board &, std::string);
