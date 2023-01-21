@@ -88,6 +88,8 @@ int API::decline_challenge(std::string challenge_id, std::string reason) {
 }
 
 API::Events::Events() {
+	head = nullptr;
+	tail = head;
 	// make a request to the stream endpoint
 	request = cpr::GetAsync(cpr::Url{REQUEST_URL + "/api/stream/event"}, cpr::Bearer{TOKEN}, cpr::WriteCallback{[this](std::string response, intptr_t userdata) { return this->callback(response); }});
 }
@@ -106,7 +108,13 @@ bool API::Events::callback(std::string header) {
 			try {
 				if (s.substr(0, i) != "\n") {
 					j = json::parse(s.substr(0, i));
-					events.push_back(j);
+					if (head == nullptr) {
+						head = new ListNode{new json(j), nullptr, nullptr};
+						tail = head;
+					} else {
+						tail->next = new ListNode{new json(j), nullptr, tail};
+						tail = tail->next;
+					}
 				}
 				residual = s.substr(i + 1);
 				s = residual;
@@ -118,13 +126,22 @@ bool API::Events::callback(std::string header) {
 	return running;
 }
 
-void API::Events::get_events(std::vector<json> &out) {
-	out = events;
-	events.clear();
+void API::Events::get_events(ListNode **first, ListNode **second) {
+	if (*first == nullptr) {
+		*first = head;
+		*second = tail;
+	} else {
+		(*second)->next = head;
+		*second = tail;
+	}
+	head = nullptr;
+	tail = head;
 }
 
 API::Game::Game(std::string game_id) {
 	std::cout << "gameid: " << game_id << std::endl;
+	head = nullptr;
+	tail = head;
 	// make a request to the stream endpoint
 	request = cpr::GetAsync(cpr::Url{REQUEST_URL + "/api/bot/game/stream/" + game_id}, cpr::Bearer{TOKEN}, cpr::WriteCallback{[this](std::string response, intptr_t userdata) { return this->callback(response); }});
 }
@@ -143,7 +160,13 @@ bool API::Game::callback(std::string header) {
 			try {
 				if (s.substr(0, i) != "\n") {
 					j = json::parse(s.substr(0, i));
-					events.push_back(j);
+					if (head == nullptr) {
+						head = new ListNode{new json(j), nullptr, nullptr};
+						tail = head;
+					} else {
+						tail->next = new ListNode{new json(j), nullptr, tail};
+						tail = tail->next;
+					}
 				}
 				residual = s.substr(i + 1);
 				s = residual;
@@ -155,7 +178,14 @@ bool API::Game::callback(std::string header) {
 	return running;
 }
 
-void API::Game::get_events(std::vector<json> &out) {
-	out = events;
-	events.clear();
+void API::Game::get_events(ListNode **first, ListNode **second) {
+	if (*first == nullptr) {
+		*first = head;
+		*second = tail;
+	} else {
+		(*second)->next = head;
+		*second = tail;
+	}
+	head = nullptr;
+	tail = head;
 }

@@ -34,7 +34,6 @@ private:
 	uint8_t *meta; // 0: side to move, 1: castling rights, 2: ep square, 3: halfmove clock, 4: fullmove number
 	std::vector<uint8_t *> meta_hist;
 	std::vector<uint32_t> move_hist; // previous moves [6 bits src][6 bits dst][2 bits miscellaneous][1 bit capture flag][1 bit promotion flag][1 piece that moved][1 byte piece on dest]
-	void load_fen(const std::string &); // load a fen string
 
 	std::vector<U64> pos_hist;
 
@@ -57,19 +56,20 @@ private:
 public:
 	Board(); // default constructor
 	Board(const std::string &);
+	void load_fen(const std::string &); // load a fen string
 	void print_board();
 	// [6 bits src][6 bits dst][2 bits miscellaneous][1 bit capture flag][1 bit promotion flag]
 	void make_move(uint16_t);
 	void unmake_move();
 	void legal_moves(std::unordered_set<uint16_t> &);
-	inline constexpr bool side() const { return meta[0]; }
-	inline constexpr U64 occupied() const { return pieces[6] | pieces[7]; }
-	inline constexpr U64 kings() const { return pieces[0]; }
-	inline constexpr U64 queens() const { return pieces[1]; }
-	inline constexpr U64 rooks() const { return pieces[2]; }
-	inline constexpr U64 bishops() const { return pieces[3]; }
-	inline constexpr U64 knights() const { return pieces[4]; }
-	inline constexpr U64 pawns() const { return pieces[5]; }
+	const inline constexpr bool side() const { return meta[0]; }
+	const inline constexpr U64 occupied() const { return pieces[6] | pieces[7]; }
+	const inline constexpr U64 kings() const { return pieces[0]; }
+	const inline constexpr U64 queens() const { return pieces[1]; }
+	const inline constexpr U64 rooks() const { return pieces[2]; }
+	const inline constexpr U64 bishops() const { return pieces[3]; }
+	const inline constexpr U64 knights() const { return pieces[4]; }
+	const inline constexpr U64 pawns() const { return pieces[5]; }
 
 	bool in_check(const bool);
 

@@ -23,6 +23,12 @@ Board::Board(const std::string &fen) {
 }
 
 void Board::load_fen(const std::string &fen) {
+	if (fen == "startpos") {
+		load_fen(STARTPOS);
+		return;
+	}
+	memset(pieces, 0, 8 * 8);
+	memset(meta, 0, 5);
 	int currIdx = 0;
 	for (int j = 7; j >= 0; j--) {
 		for (int i = 0; i < 8; i++) {
@@ -329,7 +335,7 @@ void Board::unmake_move() {
 	}
 	for (int i = 7; i >= 0; i--) {
 		if (pos_hist.back() != pieces[i]) {
-			std::cout << move << ' ' << (int)meta[0] << ' ' << (int)meta[1] << ' ' << (int)meta[2] << ' ' << (int)meta[3] << ' ' << (int)meta[4] << std::endl;
+			std::cout << prev << ' ' << (int)meta[0] << ' ' << (int)meta[1] << ' ' << (int)meta[2] << ' ' << (int)meta[3] << ' ' << (int)meta[4] << std::endl;
 			print_board();
 			throw std::runtime_error("position mismatch");
 		}
@@ -361,13 +367,14 @@ std::string stringify_move(uint16_t move) {
 }
 
 uint16_t parse_move(Board &b, std::string str) {
-	if (str == "e1c1")
+	std::cout << "parsing move: " << str << std::endl;
+	if (str == "e1c1" && (b.kings() & BIT(4)))
 		return 0b0011000010000100;
-	if (str == "e1g1")
+	if (str == "e1g1" && (b.kings() & BIT(4)))
 		return 0b0010000110000100;
-	if (str == "e8c8")
+	if (str == "e8c8" && (b.kings() & BIT(60)))
 		return 0b0011111010111100;
-	if (str == "e8g8")
+	if (str == "e8g8" && (b.kings() & BIT(60)))
 		return 0b0010111110111100;
 	if (str == "0000")
 		return 0;

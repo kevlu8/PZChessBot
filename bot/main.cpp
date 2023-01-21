@@ -11,62 +11,91 @@
 std::unordered_map<std::string, pthread_t> games;
 
 // loop that handles game events and plays the game
-void play(std::string game_id, bool color) {
+void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 	std::cout << "playing as " << (color ? "white" : "black") << std::endl;
 	Board board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-	std::vector<std::string> moves;
-	moves.reserve(512);
+	std::vector<std::string> moves, prev_moves;
 	std::string moves_str, move;
 	// connect to the game stream
 	API::Game game(game_id);
+	std::cout << "connected to game " << game_id << std::endl;
 	// main loop
-	std::vector<json> events;
+	ListNode *head = new ListNode{initialEvent, nullptr, nullptr};
+	ListNode *tail = head;
 	while (true) {
-		game.get_events(events);
-		for (json event : events) {
+		moves_str = "";
+		game.get_events(&head, &tail);
+		while (head != nullptr) {
+			json event = *head->val;
+			delete head->val;
+			if (head->next != nullptr) {
+				head = head->next;
+				delete head->prev;
+				head->prev = nullptr;
+			} else {
+				delete head;
+				head = nullptr;
+			}
 			std::cout << "play: " << event << '\n';
 			if (event["type"] == "chatLine" || event["type"] == "opponentGone")
 				continue;
-			if (event["type"] == "gameFinish")
-				return;
-			if (event["type"] == "gameFull")
+			else if (event["type"] == "gameFinish")
+				break;
+			else if (event["type"] == "gameFull") {
+				board.load_fen(event["initialFen"]);
 				event = event["state"];
-			// split the moves into an array of moves and in the process update the internal board
-			moves_str = event["moves"];
-			for (int i = 0; i < moves_str.size(); i++) {
-				if (moves_str[i] == ' ') {
+			} else if (event["type"] == "gameStart") {
+				if (event["game"]["hasMoved"] != "")
+					continue;
+				std::cout << "game start packet" << std::endl;
+				if (!event["game"]["isMyTurn"])
+					continue;
+				moves_str = "null";
+			}
+			// split the moves into an array of moves
+			if (moves_str == "") {
+				moves_str = event["moves"];
+				for (int i = 0; i < moves_str.size(); i++) {
+					if (moves_str[i] == ' ') {
+						moves.push_back(move);
+						move.clear();
+					} else {
+						move += moves_str[i];
+					}
+				}
+				if (move != "") {
 					moves.push_back(move);
-					board.make_move(parse_move(board, move));
 					move.clear();
-				} else {
-					move += moves_str[i];
+				}
+				if (moves.size() != prev_moves.size()) {
+					for (int i = prev_moves.size(); i < moves.size(); i++)
+						board.make_move(parse_move(board, moves[i]));
+					prev_moves = moves;
 				}
 			}
-			if (move != "") {
-				moves.push_back(move);
-				board.make_move(parse_move(board, move));
-				move.clear();
-			}
 			// if its our turn
+			std::cout << "color: " << color << " moves.size(): " << moves.size() << std::endl;
 			if (moves.size() % 2 != color) {
-				move = stringify_move(ab_search(board, 7).second);
-				if (move == "----")
-					API::resign(game_id);
-				else
+				std::cout << "thinking" << std::endl;
+				move = stringify_move(ab_search(board, depth).second);
+				if (move != "----" && move != "0000")
 					API::move(game_id, move);
+				else
+					break;
 			}
 			moves.clear();
 			move.clear();
 		}
+		tail = head;
 		// sleep for 1ms to prevent cpu usage
 		usleep(1000);
 	}
+	delete initialEvent;
 }
 
 void *play_helper(void *args) {
-	std::cout << "helper" << std::endl;
 	char *game_id = (char *)args;
-	play(game_id, ((char *)args)[strlen(game_id) + 1]);
+	play(game_id, ((char *)args)[strlen(game_id) + 2], ((char *)args)[strlen(game_id) + 1], *(json **)(args + strlen(game_id) + 3));
 	free(args);
 	return NULL;
 }
@@ -74,17 +103,26 @@ void *play_helper(void *args) {
 // general event handler to dispatch jobs
 void handle_event(json event) {
 	if (event["type"] == "challenge") {
-		if (event["challenge"]["variant"]["short"] == "Std")
+		if (event["challenge"]["variant"]["short"] == "Std" || event["challenge"]["challenger"]["id"] == "wdotmathree")
 			API::accept_challenge(event["challenge"]["id"]);
 		else
-			API::decline_challenge(event["challenge"]["id"], "variant");
+			API::decline_challenge(event["challenge"]["id"], "standard");
 	} else if (event["type"] == "gameStart") {
 		std::cout << "game start" << std::endl;
 		int len = to_string(event["game"]["gameId"]).size() - 2;
-		char *args = (char *)malloc(len + 2);
+		char *args = (char *)malloc(len + 2 + sizeof(void *));
 		memcpy(args, to_string(event["game"]["gameId"]).substr(1, len).c_str(), len);
 		args[len] = 0;
-		args[len + 1] = event["game"]["color"] == "white";
+		if (event["game"]["speed"] == "bullet")
+			args[len + 1] = 10;
+		else if (event["game"]["speed"] == "blitz")
+			args[len + 1] = 11;
+		else if (event["game"]["speed"] == "rapid")
+			args[len + 1] = 12;
+		else
+			args[len + 1] = 13;
+		args[len + 2] = event["game"]["color"] == "white";
+		*(json **)(args + len + 3) = new json(event);
 		pthread_t t = pthread_create(&t, NULL, play_helper, args);
 		games[event["game"]["gameId"]] = t;
 	} else {
@@ -108,13 +146,25 @@ int main() {
 	// main loop
 	while (true) {
 		// poll for incoming events
-		std::vector<json> events;
-		listener.get_events(events);
+		ListNode *head = nullptr;
+		ListNode *tail = nullptr;
+		listener.get_events(&head, &tail);
 		// handle them
-		for (auto event : events) {
+		while (head != nullptr) {
+			json event = *head->val;
+			delete head->val;
+			if (head->next != nullptr) {
+				head = head->next;
+				delete head->prev;
+				head->prev = nullptr;
+			} else {
+				delete head;
+				head = nullptr;
+			}
 			std::cout << event << std::endl;
 			handle_event(event);
 		}
+		tail = head;
 		// sleep for 1ms to prevent cpu usage
 		usleep(1000);
 	}

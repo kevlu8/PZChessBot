@@ -2,25 +2,34 @@
 
 #define INF (1e9 + 100)
 
-unsigned long long count = 0, total = 0, checks = 0;
-int d;
+unsigned long long count = 0, checks = 0;
 
 // 1e9 + 100 is the number that should be used as default values, they are never achievable naturally (unless maxdepth exceeds 99)
 // 1e9 should be used in the case of a checkmate
 
 std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int beta) {
-	if (depth <= 0) {
-		total = 1;
-		return {((b.side() << 1) - 1) * b.eval(), 0};
-	}
+	if (!QUIESCENCE)
+		if (depth <= 0) {
+			count++;
+			return {((b.side() << 1) - 1) * b.eval(), 0};
+		}
+	uint8_t loud = 0;
 	std::unordered_set<uint16_t> moves;
 	b.legal_moves(moves);
 	std::priority_queue<std::pair<int, uint16_t>> orderedmoves;
 	for (auto &m : moves) {
+		if (depth <= 0 && QUIESCENCE && m >> 14 == 0)
+			continue;
 		b.make_move(m);
 		orderedmoves.push({((b.side() << 1) - 1) * -b.eval(), m});
 		b.unmake_move();
+		loud |= m >> 14;
 	}
+	if (QUIESCENCE)
+		if (depth <= 0 && !loud) {
+			count++;
+			return {((b.side() << 1) - 1) * b.eval(), 0};
+		}
 	std::pair<int, uint16_t> move, bestmove = {-INF, 0};
 	int i = 0;
 	while (!orderedmoves.empty()) {
@@ -29,53 +38,15 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 		b.make_move(move.second);
 		b.controlled_squares(b.side());
 		if (!b.in_check(!b.side())) {
-			if (depth == 1) {
-				if (PRINT)
-					count++;
-				else
-					total++;
-				if (move.first > bestmove.first)
-					bestmove = move;
-				else if (move.first == bestmove.first && move.second > bestmove.second)
-					bestmove = move;
-				if (PRINT) {
-					if (depth == d) {
-						if (PRINTBOARD)
-							b.print_board();
-						std::cout << stringify_move(move.second) << ": 1" << std::endl;
-					}
-				}
-			} else {
-				int tmp = -__recurse(b, depth - 1 - (i != 0) * __tzcnt_u32(i), alpha, beta).first - 1; // decrease magnitude of positions that take longer to get to (this should hopefully make the engine prefer faster results while stalling out getting into bad positions)
-				if (PRINT) {
-					if (depth == d) {
-						if (PRINTBOARD) {
-							b.print_board();
-							std::cout << stringify_move(move.second) << ": " << count << std::endl;
-							std::unordered_set<uint16_t> tmpmoves;
-							std::set<std::string> tmp2;
-							b.legal_moves(tmpmoves);
-							for (auto &m : tmpmoves) {
-								b.make_move(m);
-								b.controlled_squares(b.side());
-								if (!b.in_check(!b.side()))
-									tmp2.insert(stringify_move(m));
-								b.unmake_move();
-							}
-							for (auto &m : tmp2)
-								std::cout << m << std::endl;
-						} else {
-							std::cout << stringify_move(move.second) << ": " << count << std::endl;
-						}
-						total += count;
-						count = 0;
-					}
-				}
-				if (tmp > bestmove.first) {
-					bestmove = {tmp, move.second};
-				} else if (tmp == bestmove.first && move.second > bestmove.second) {
-					bestmove = {tmp, move.second};
-				}
+			int tmp;
+			if (NOPRUNE /* || _popcnt64(b.occupied()) < 10*/)
+				tmp = -__recurse(b, depth - 1, alpha, beta).first;
+			else
+				tmp = -__recurse(b, depth - 33 + _lzcnt_u32(i), alpha, beta).first - 1; // decrease magnitude of positions that take longer to get to (this should hopefully make the engine prefer faster results while stalling out getting into bad positions)
+			if (tmp > bestmove.first) {
+				bestmove = {tmp, move.second};
+			} else if (tmp == bestmove.first && move.second > bestmove.second) {
+				bestmove = {tmp, move.second};
 			}
 			b.unmake_move();
 			if (b.side())
@@ -103,16 +74,11 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 }
 
 std::pair<int, uint16_t> ab_search(Board &b, const int depth) {
-	d = depth;
-	total = 0;
 	count = 0;
 	std::pair<int, uint16_t> ans = __recurse(b, depth, -INF, INF);
-	total += count;
-	// std::cout << "Total nodes: " << total << std::endl;
-	// std::cout << "eval: " << ans.first << std::endl;
 	if (!b.side())
 		ans.first = -ans.first;
 	return ans;
 }
 
-const unsigned long long nodes() { return total; }
+const unsigned long long nodes() { return count; }

@@ -3,20 +3,14 @@
 
 #ifdef PERFT
 static const constexpr bool NOPRUNE = true;
+static const constexpr bool QUIESCENCE = false;
 #else
 static const constexpr bool NOPRUNE = false;
-#endif
-
-#ifdef DEBUG_PERFT
-static const constexpr bool PRINT = true;
-#ifdef DEBUG_MOVES
-static const constexpr bool PRINTBOARD = true;
+#ifndef NOQUIESCENCE
+static const constexpr bool QUIESCENCE = true;
 #else
-static const constexpr bool PRINTBOARD = false;
+static const constexpr bool QUIESCENCE = false;
 #endif
-#else
-static const constexpr bool PRINT = false;
-static const constexpr bool PRINTBOARD = false;
 #endif
 
 std::pair<int, uint16_t> __recurse(Board &, const int, int, int);

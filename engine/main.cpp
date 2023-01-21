@@ -1,12 +1,6 @@
 #include "bitboard.hpp"
 #include "search.hpp"
 
-#ifdef SEARCH_RESULT
-static const constexpr bool RESULT = true;
-#else
-static const constexpr bool RESULT = false;
-#endif
-
 int main() {
 	// std::string fen, move;
 	// std::getline(std::cin, fen);
@@ -33,18 +27,10 @@ int main() {
 			break;
 		depth = std::stoi(tmp);
 		Board board(fen);
-		if (PRINTBOARD) {
-			board.print_board();
-			std::cout << std::endl;
-		}
-		if (RESULT) {
-			std::pair<int, uint16_t> res = ab_search(board, depth);
-			std::cout << "eval: " << res.first << std::endl;
-			std::cout << "move: " << stringify_move(res.second) << std::endl;
-		} else {
-			ab_search(board, depth);
-			std::cout << nodes() << std::endl;
-		}
+		std::pair<int, uint16_t> res = ab_search(board, depth);
+		std::cout << "eval: " << res.first << std::endl;
+		std::cout << "move: " << stringify_move(res.second) << std::endl;
+		std::cout << "nodes: " << nodes() << std::endl << std::endl;
 	}
 	return 0;
 }

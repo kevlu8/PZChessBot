@@ -77,6 +77,8 @@ constexpr int king_heatmap[64] = {
 constexpr const int *heatmaps[] = {king_heatmap, queen_heatmap, rook_heatmap, bishop_heatmap, knight_heatmap, pawn_heatmap};
 
 int Board::eval() {
+	if (meta[3] == 100)
+		return 0;
 	int material, positioning, mobility, king_safety, controlledsquares;
 	material = positioning = mobility = king_safety = controlledsquares = 0;
 

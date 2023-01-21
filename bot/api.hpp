@@ -7,6 +7,11 @@
 #include <string>
 using json = nlohmann::json;
 
+typedef struct ListNode {
+	json *val;
+	struct ListNode *next, *prev;
+} ListNode;
+
 int __send_request(std::string, std::string);
 
 namespace API {
@@ -75,7 +80,7 @@ namespace API {
 		bool running = true;
 		bool callback(std::string);
 		std::string residual;
-		std::vector<json> events;
+		ListNode *head, *tail;
 		cpr::AsyncResponse request;
 
 	public:
@@ -94,7 +99,7 @@ namespace API {
 		 *
 		 * @param out A vector of JSON objects containing the events
 		 */
-		void get_events(std::vector<json> &);
+		void get_events(ListNode **, ListNode **);
 	};
 
 	class Game {
@@ -102,7 +107,7 @@ namespace API {
 		bool running = true;
 		bool callback(std::string);
 		std::string residual;
-		std::vector<json> events;
+		ListNode *head, *tail;
 		cpr::AsyncResponse request;
 
 	public:
@@ -122,6 +127,6 @@ namespace API {
 		 *
 		 * @param out A vector of JSON objects containing the events
 		 */
-		void get_events(std::vector<json> &);
+		void get_events(ListNode **, ListNode **);
 	};
 }
