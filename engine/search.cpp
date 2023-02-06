@@ -13,23 +13,25 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 			count++;
 			return {((b.side() << 1) - 1) * b.eval(), 0};
 		}
-	uint8_t loud = 0;
+	bool quiet = true;
 	std::unordered_set<uint16_t> moves;
 	b.legal_moves(moves);
 	std::priority_queue<std::pair<int, uint16_t>> orderedmoves;
 	for (auto &m : moves) {
+		// ignore quiet moves
 		if (depth <= 0 && QUIESCENCE && m >> 14 == 0)
 			continue;
 		b.make_move(m);
 		orderedmoves.push({((b.side() << 1) - 1) * -b.eval(), m});
 		b.unmake_move();
-		loud |= m >> 14;
+		quiet = false;
 	}
-	if (QUIESCENCE)
-		if (depth <= 0 && !loud) {
+	if (QUIESCENCE) {
+		if (depth <= 0 && quiet) {
 			count++;
 			return {((b.side() << 1) - 1) * b.eval(), 0};
 		}
+	}
 	std::pair<int, uint16_t> move, bestmove = {-INF, 0};
 	int i = 0;
 	while (!orderedmoves.empty()) {
@@ -39,10 +41,11 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 		b.controlled_squares(b.side());
 		if (!b.in_check(!b.side())) {
 			int tmp;
-			if (NOPRUNE /* || _popcnt64(b.occupied()) < 10*/)
+			if (NOPRUNE || _popcnt64(b.occupied()) <= 7)
 				tmp = -__recurse(b, depth - 1, alpha, beta).first;
 			else
-				tmp = -__recurse(b, depth - 33 + _lzcnt_u32(i), alpha, beta).first - 1; // decrease magnitude of positions that take longer to get to (this should hopefully make the engine prefer faster results while stalling out getting into bad positions)
+				tmp = -__recurse(b, depth - 33 + _lzcnt_u32(i), alpha, beta).first;
+			tmp += ((tmp >> 30) & 0b10) - 1; // decrease magnitude of positions that take longer to get to (this should hopefully make the engine prefer faster results while stalling out getting into bad positions)
 			if (tmp > bestmove.first) {
 				bestmove = {tmp, move.second};
 			} else if (tmp == bestmove.first && move.second > bestmove.second) {
@@ -57,9 +60,9 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 				if (beta <= alpha)
 					break;
 			}
+			i++;
 		} else
 			b.unmake_move();
-		i++;
 	}
 	if (bestmove.second == 0) {
 		b.controlled_squares(!b.side());

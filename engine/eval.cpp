@@ -74,7 +74,19 @@ constexpr int king_heatmap[64] = {
 	-30, -40, -40, -50, -50, -40, -40, -30, // 8
 };
 
-constexpr const int *heatmaps[] = {king_heatmap, queen_heatmap, rook_heatmap, bishop_heatmap, knight_heatmap, pawn_heatmap};
+constexpr int endgame_heatmap[64] = {
+	//  a  b  c  d  e  f  g  h
+	1, 2,  4,  8,  8,  4,  2,  1, // 1
+	2, 4,  8,  16, 16, 8,  4,  2, // 2
+	4, 8,  16, 32, 32, 16, 8,  4, // 3
+	8, 16, 32, 64, 64, 32, 16, 8, // 4
+	8, 16, 32, 64, 64, 32, 16, 8, // 5
+	4, 8,  16, 32, 32, 16, 8,  4, // 6
+	2, 4,  8,  16, 16, 8,  4,  2, // 7
+	1, 2,  4,  8,  8,  4,  2,  1, // 8
+};
+
+constexpr const int *heatmaps[] = {nullptr, queen_heatmap, rook_heatmap, bishop_heatmap, knight_heatmap, pawn_heatmap};
 
 int Board::eval() {
 	if (meta[3] == 100)
@@ -82,7 +94,7 @@ int Board::eval() {
 	int material, positioning, mobility, king_safety, controlledsquares;
 	material = positioning = mobility = king_safety = controlledsquares = 0;
 
-	for (int i = 0; i < 6; i++) {
+	for (int i = 1; i < 6; i++) {
 		// material
 		material += (_popcnt64(pieces[i] & pieces[6]) - _popcnt64(pieces[i] & pieces[7])) * piece_values[i];
 		// positioning
@@ -98,7 +110,14 @@ int Board::eval() {
 		}
 	}
 
-	return ((4 * material) + (3 * positioning)) / 7;
+	// decide if endgame
+	if (_popcnt64(pieces[6] | pieces[7]) < 10) {
+		positioning += 2 * ((_popcnt64(pieces[7]) * endgame_heatmap[__builtin_ctzll(pieces[0] & pieces[6])]) - (_popcnt64(pieces[6]) * endgame_heatmap[__builtin_ctzll(pieces[0] & pieces[7])])) / _popcnt64(pieces[6] | pieces[7]);
+	} else {
+		positioning += king_heatmap[__builtin_ctzll(pieces[0] & pieces[6])] - king_heatmap[0b111000 - (__builtin_ctzll(pieces[0] & pieces[7]) & 0b111000) | (__builtin_ctzll(pieces[0] & pieces[7]) & 0b111)];
+	}
+
+	return ((3 * material) + (positioning)) / 4;
 
 	// // mobility
 	// // count the number of pseudolegal moves for each side

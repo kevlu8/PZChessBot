@@ -2,14 +2,14 @@
 #include <queue>
 
 #ifdef PERFT
-static const constexpr bool NOPRUNE = true;
-static const constexpr bool QUIESCENCE = false;
+#define NOPRUNE true
+#define QUIESCENCE false
 #else
-static const constexpr bool NOPRUNE = false;
+#define NOPRUNE false
 #ifndef NOQUIESCENCE
-static const constexpr bool QUIESCENCE = true;
+#define QUIESCENCE true
 #else
-static const constexpr bool QUIESCENCE = false;
+#define QUIESCENCE false
 #endif
 #endif
 
