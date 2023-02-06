@@ -111,7 +111,7 @@ int Board::eval() {
 	}
 
 	// decide if endgame
-	if (_popcnt64(pieces[6] | pieces[7]) < 10) {
+	if (_popcnt64(pieces[6] | pieces[7]) <= 7) {
 		positioning += 2 * ((_popcnt64(pieces[7]) * endgame_heatmap[__builtin_ctzll(pieces[0] & pieces[6])]) - (_popcnt64(pieces[6]) * endgame_heatmap[__builtin_ctzll(pieces[0] & pieces[7])])) / _popcnt64(pieces[6] | pieces[7]);
 	} else {
 		positioning += king_heatmap[__builtin_ctzll(pieces[0] & pieces[6])] - king_heatmap[0b111000 - (__builtin_ctzll(pieces[0] & pieces[7]) & 0b111000) | (__builtin_ctzll(pieces[0] & pieces[7]) & 0b111)];

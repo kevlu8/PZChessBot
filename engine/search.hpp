@@ -13,9 +13,9 @@
 #endif
 #endif
 
-std::pair<int, uint16_t> __recurse(Board &, const int, int, int);
+std::pair<int, uint16_t> __recurse(Board &, const int, int, int, std::deque<std::pair<int, uint16_t>> **);
 
-std::pair<int, uint16_t> ab_search(Board &, const int);
+std::pair<int, uint16_t> ab_search(Board &, const int /*, std::deque<std::pair<int, uint16_t>> ***/);
 
 /**
  * @brief Returns the number of nodes in the last search

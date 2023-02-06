@@ -103,10 +103,14 @@ void *play_helper(void *args) {
 // general event handler to dispatch jobs
 void handle_event(json event) {
 	if (event["type"] == "challenge") {
-		if (event["challenge"]["variant"]["short"] == "Std" || event["challenge"]["challenger"]["id"] == "wdotmathree")
-			API::accept_challenge(event["challenge"]["id"]);
+		if (event["challenge"]["challenger"]["id"] != "wdotmathree")
+			API::decline_challenge(event["challenge"]["id"], "generic");
 		else
-			API::decline_challenge(event["challenge"]["id"], "standard");
+			API::accept_challenge(event["challenge"]["id"]);
+		// if (event["challenge"]["variant"]["short"] == "Std" || event["challenge"]["challenger"]["id"] == "wdotmathree")
+		// 	API::accept_challenge(event["challenge"]["id"]);
+		// else
+		// 	API::decline_challenge(event["challenge"]["id"], "standard");
 	} else if (event["type"] == "gameStart") {
 		std::cout << "game start" << std::endl;
 		int len = to_string(event["game"]["gameId"]).size() - 2;
@@ -114,13 +118,13 @@ void handle_event(json event) {
 		memcpy(args, to_string(event["game"]["gameId"]).substr(1, len).c_str(), len);
 		args[len] = 0;
 		if (event["game"]["speed"] == "bullet")
-			args[len + 1] = 10;
+			args[len + 1] = 9;
 		else if (event["game"]["speed"] == "blitz")
-			args[len + 1] = 11;
+			args[len + 1] = 10;
 		else if (event["game"]["speed"] == "rapid")
-			args[len + 1] = 12;
+			args[len + 1] = 11;
 		else
-			args[len + 1] = 13;
+			args[len + 1] = 12;
 		args[len + 2] = event["game"]["color"] == "white";
 		*(json **)(args + len + 3) = new json(event);
 		pthread_t t = pthread_create(&t, NULL, play_helper, args);
