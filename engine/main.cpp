@@ -7,14 +7,14 @@ int main() {
 	// Board board(fen);
 	// while (true) {
 	// 	board.print_board();
+	// 	std::cout << board.hash << ' ' << (bool)board.meta[0] << ' ' << (int)board.meta[1] << ' ' << (int)board.meta[3] << std::endl;
 	// 	std::cin >> move;
 	// 	if (move == "quit")
 	// 		break;
-	// 	board.make_move(parse_move(board, move));
-	// 	board.print_board();
-	// 	uint16_t thing = ab_search(board, 7).second;
-	// 	board.make_move(thing);
-	// 	std::cout << stringify_move(thing) << std::endl;
+	// 	if (move == "u")
+	// 		board.unmake_move();
+	// 	else
+	// 		board.make_move(parse_move(board, move));
 	// }
 	// search
 	std::string fen;
@@ -27,7 +27,6 @@ int main() {
 			break;
 		depth = std::stoi(tmp);
 		Board board(fen);
-		std::deque<std::pair<int, uint16_t>> *line = new std::deque<std::pair<int, uint16_t>>;
 		std::pair<int, uint16_t> res = ab_search(board, depth);
 		std::cout << "move: " << stringify_move(res.second) << std::endl;
 		std::cout << "eval: " << res.first << std::endl;

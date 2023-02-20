@@ -6,3 +6,11 @@ Meta elements:
 2: ply count
 3: ep square
 4: fullmove clock
+
+Zobrist values:
+[
+    board (64x8)
+    ep square (64)
+    castling (4)
+    turn (1)
+]

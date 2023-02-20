@@ -3,6 +3,7 @@
 #define INF (1e9 + 100)
 
 unsigned long long count = 0, checks = 0;
+std::unordered_map<U64, std::pair<std::pair<int, uint16_t>, int>> hashtable;
 
 // 1e9 + 100 is the number that should be used as default values, they are never achievable naturally (unless maxdepth exceeds 99)
 // 1e9 should be used in the case of a checkmate
@@ -12,6 +13,29 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 #else
 std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int beta) {
 #endif
+	uint16_t banned = -1;
+	if (hashtable.find(b.currhash()) != hashtable.end()) {
+		std::pair<std::pair<int, uint16_t>, int> res = hashtable[b.currhash()];
+		std::pair<int, uint16_t> move = {((b.side() << 1) - 1) * res.first.first, res.first.second};
+		// check for threefold repetition
+		b.make_move(move.second);
+		if (b.threefold()) {
+			// threefold repetition
+			// if (move.first < 0) {
+			// 	// go through with it if current position is bad
+			// 	b.unmake_move();
+			// 	return {0, move.second};
+			// } else {
+			// else we ban this move
+			banned = move.second;
+			// }
+		}
+		b.unmake_move();
+		// use if existing depth is greater
+		if (res.second >= depth && banned == 0xffff) {
+			return move;
+		}
+	}
 	if (!QUIESCENCE)
 		if (depth <= 0) {
 			count++;
@@ -20,6 +44,7 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 			delete *line;
 			*line = new std::deque<std::pair<int, uint16_t>>{};
 #endif
+			hashtable[b.currhash()] = {{((b.side() << 1) - 1) * move.first, move.second}, depth};
 			return move;
 		}
 	bool quiet = true;
@@ -30,8 +55,8 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 		// ignore quiet moves
 		if (depth <= 0 && (m >> 14) == 0)
 			continue;
-		if (depth <= 0)
-			std::cout << "";
+		if (m == banned)
+			continue;
 		b.make_move(m);
 		orderedmoves.push({((b.side() << 1) - 1) * -b.eval(), m});
 		b.unmake_move();
@@ -45,6 +70,7 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 			delete *line;
 			*line = new std::deque<std::pair<int, uint16_t>>{};
 #endif
+			hashtable[b.currhash()] = {{((b.side() << 1) - 1) * move.first, move.second}, depth};
 			return move;
 		}
 	}
@@ -57,8 +83,10 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 		b.controlled_squares(b.side());
 		if (!b.in_check(!b.side())) {
 			int tmp;
+#ifdef PRINTLINE
 			std::deque<std::pair<int, uint16_t>> *tmpline = new std::deque<std::pair<int, uint16_t>>;
-			if (NOPRUNE || _popcnt64(b.occupied()) <= 7)
+#endif
+			if (true || _popcnt64(b.occupied()) <= 7)
 #ifdef PRINTLINE
 				tmp = -__recurse(b, depth - 1, alpha, beta, &tmpline).first;
 #else
@@ -108,6 +136,7 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 			bestmove.second = -1;
 		}
 	}
+	hashtable[b.currhash()] = {{((b.side() << 1) - 1) * bestmove.first, move.second}, depth};
 	return bestmove;
 }
 

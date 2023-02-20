@@ -4,6 +4,7 @@
 #include <set>
 #include <string.h>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 #include <x86intrin.h>
@@ -35,8 +36,9 @@ private:
 	std::vector<uint8_t *> meta_hist;
 	std::vector<uint32_t> move_hist; // previous moves [6 bits src][6 bits dst][2 bits miscellaneous][1 bit capture flag][1 bit promotion flag][1 piece that moved][1 byte piece on dest]
 
-	std::vector<U64> pos_hist;
+	std::unordered_map<U64, int> pos_hist;
 
+	U64 hash;
 	U64 control[2]; // black, white
 
 	U64 king_control(const bool);
@@ -52,6 +54,8 @@ private:
 	void knight_moves(std::unordered_set<uint16_t> &);
 	void white_pawn_moves(std::unordered_set<uint16_t> &);
 	void black_pawn_moves(std::unordered_set<uint16_t> &);
+
+	U64 zobrist_hash();
 
 public:
 	Board(); // default constructor
@@ -77,7 +81,11 @@ public:
 
 	int eval();
 
-	U64 zobrist_hash();
+	const inline constexpr U64 currhash() const { return hash; };
+
+	// const inline constexpr bool threefold() const { return pos_hist[(const U64)hash] >= 3; }
+
+	const inline bool threefold() { return (pos_hist[hash] >= 3); }
 };
 
 std::string stringify_move(uint16_t);

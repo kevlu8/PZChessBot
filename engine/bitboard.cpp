@@ -74,15 +74,15 @@ void Board::load_fen(const std::string &fen) {
 	}
 	currIdx++;
 	if (fen[currIdx] == '-') {
-		meta[2] = -1;
+		meta[3] = -1;
 		currIdx += 2;
 	} else {
-		meta[2] = xyx(fen[currIdx] - 'a', fen[currIdx + 1] - '1');
+		meta[3] = xyx(fen[currIdx] - 'a', fen[currIdx + 1] - '1');
 		currIdx += 3;
 	}
-	meta[3] = 0;
+	meta[2] = 0;
 	while (fen[currIdx] != ' ') {
-		meta[3] = meta[3] * 10 + fen[currIdx] - '0';
+		meta[2] = meta[3] * 10 + fen[currIdx] - '0';
 		currIdx++;
 	}
 	currIdx++;
@@ -91,6 +91,7 @@ void Board::load_fen(const std::string &fen) {
 		meta[4] = meta[4] * 10 + fen[currIdx] - '0';
 		currIdx++;
 	}
+	hash = zobrist_hash();
 }
 
 void Board::print_board() {
@@ -120,17 +121,7 @@ void Board::print_board() {
 }
 
 void Board::make_move(uint16_t move) {
-	if (move == 0) {
-		std::cout << "checkmate\n";
-		return;
-	}
-	if (move == 0xffff) {
-		std::cout << "stalemate\n";
-		return;
-	}
-	for (int i = 0; i < 8; i++)
-		pos_hist.push_back(pieces[i]);
-	uint8_t ep = -1;
+	uint8_t ep = 0xff;
 	int src = move & 0b111111;
 	int dst = (move >> 6) & 0b111111;
 	// save previous board metadata
@@ -150,92 +141,175 @@ void Board::make_move(uint16_t move) {
 	prev |= (srcpiece << 16);
 	prev |= (dstpiece << 24);
 	move_hist.push_back(prev);
+	if (move == 0) {
+		// std::cout << "checkmate\n";
+		meta[0] = !meta[0];
+		hash ^= zobrist[580];
+		return;
+	}
+	if (move == 0xffff) {
+		// std::cout << "stalemate\n";
+		meta[0] = !meta[0];
+		hash ^= zobrist[580];
+		return;
+	}
 	// if piece captures reset halfmove clock
 	if (move & (0b0100 << 12))
-		meta[3] = -1;
+		meta[2] = -1;
 	if (move & 0x8000) { // promotion
 		// reset halfmove clock
-		meta[3] = -1;
+		meta[2] = -1;
 		int piece = (move >> 12) & 0b11;
 		// clear promotion square
 		for (int i = 0; i < 8; i++)
-			pieces[i] &= ~BIT(dst);
+			if (pieces[i] & BIT(dst)) {
+				pieces[i] ^= BIT(dst);
+				hash ^= zobrist[dst * 8 + i];
+			}
 		// remove pawn from source square
 		pieces[5] &= ~BIT(src);
+		hash ^= zobrist[src * 8 + 5];
 		// remove pawn from player's pieces
 		pieces[7 ^ meta[0]] &= ~BIT(src);
+		hash ^= zobrist[src * 8 + (7 ^ meta[0])];
 		// add promoted piece to destination square
 		pieces[piece + 1] |= BIT(dst);
+		hash ^= zobrist[dst * 8 + piece + 1];
 		// add promoted piece to player's pieces
 		pieces[7 ^ meta[0]] |= BIT(dst);
+		hash ^= zobrist[dst * 8 + (7 ^ meta[0])];
 	} else { // no promotion
 		if (move >> 12 == 0b0101) { // en passant
 			// reset halfmove clock
-			meta[3] = -1;
+			meta[2] = -1;
 			// pawn moves from src to dst
 			pieces[5] ^= BIT(src) | BIT(dst);
+			hash ^= zobrist[src * 8 + 5];
+			hash ^= zobrist[dst * 8 + 5];
 			pieces[7 ^ meta[0]] ^= BIT(src) | BIT(dst);
+			hash ^= zobrist[src * 8 + (7 ^ meta[0])];
+			hash ^= zobrist[dst * 8 + (7 ^ meta[0])];
 			// remove opponent pawn
-			pieces[5] ^= BIT(dst & 7 | src & 56);
+			pieces[5] ^= BIT((dst & 7) | (src & 56));
+			hash ^= zobrist[((dst & 7) | (src & 56)) * 8 + 5];
 			pieces[6 ^ meta[0]] ^= BIT(dst & 7 | src & 56);
+			hash ^= zobrist[(dst & 7 | src & 56) * 8 + (6 ^ meta[0])];
 		} else if (move == 0b0011000010000100) { // white queenside
 			// king moves from e1 to c1
 			pieces[0] ^= 20;
+			hash ^= zobrist[32] ^ zobrist[16];
 			pieces[6] ^= 20;
+			hash ^= zobrist[38] ^ zobrist[22];
 			// rook moves from a1 to d1
 			pieces[2] ^= 9;
+			hash ^= zobrist[2] ^ zobrist[26];
 			pieces[6] ^= 9;
+			hash ^= zobrist[6] ^ zobrist[30];
 			// revoke castling rights
+			if (meta[1] & 0b1000)
+				hash ^= zobrist[576];
+			if (meta[1] & 0b0100)
+				hash ^= zobrist[577];
 			meta[1] &= 0b0011;
 		} else if (move == 0b0010000110000100) { // white kingside
 			// king moves from e1 to g1
 			pieces[0] ^= 80;
+			hash ^= zobrist[32] ^ zobrist[48];
 			pieces[6] ^= 80;
+			hash ^= zobrist[38] ^ zobrist[54];
 			// rook moves from h1 to f1
 			pieces[2] ^= 160;
+			hash ^= zobrist[58] ^ zobrist[42];
 			pieces[6] ^= 160;
+			hash ^= zobrist[62] ^ zobrist[48];
 			// revoke castling rights
+			if (meta[1 & 0b1000])
+				hash ^= zobrist[576];
+			if (meta[1] & 0b0100)
+				hash ^= zobrist[577];
 			meta[1] &= 0b0011;
 		} else if (move == 0b0011111010111100) { // black queenside
 			// king moves from e8 to c8
 			pieces[0] ^= 1441151880758558720;
+			hash ^= zobrist[480] ^ zobrist[464];
 			pieces[7] ^= 1441151880758558720;
+			hash ^= zobrist[487] ^ zobrist[471];
 			// rook moves from a8 to d8
 			pieces[2] ^= 648518346341351424;
+			hash ^= zobrist[450] ^ zobrist[474];
 			pieces[7] ^= 648518346341351424;
+			hash ^= zobrist[455] ^ zobrist[479];
 			// revoke castling rights
+			if (meta[1] & 0b0010)
+				hash ^= zobrist[578];
+			if (meta[1] & 0b0001)
+				hash ^= zobrist[579];
 			meta[1] &= 0b1100;
 		} else if (move == 0b0010111110111100) { // black kingside
 			// king moves from e8 to g8
 			pieces[0] ^= 5764607523034234880;
+			hash ^= zobrist[480] ^ zobrist[496];
 			pieces[7] ^= 5764607523034234880;
+			hash ^= zobrist[487] ^ zobrist[503];
 			// rook moves from h8 to f8
 			pieces[2] ^= 11529215046068469760;
+			hash ^= zobrist[506] ^ zobrist[490];
 			pieces[7] ^= 11529215046068469760;
+			hash ^= zobrist[511] ^ zobrist[495];
 			// revoke castling rights
+			if (meta[1] & 0b0010)
+				hash ^= zobrist[578];
+			if (meta[1] & 0b0001)
+				hash ^= zobrist[579];
 			meta[1] &= 0b1100;
 		} else if (pieces[0] & BIT(src)) { // king move
 			// remove castling rights
-			meta[1] &= 0b1100 >> (meta[0] * 2);
+			if (meta[0]) {
+				if (meta[1] & 0b1000)
+					hash ^= zobrist[576];
+				if (meta[1] & 0b0100)
+					hash ^= zobrist[577];
+				meta[1] &= 0b0011;
+			} else {
+				if (meta[1] & 0b0010)
+					hash ^= zobrist[578];
+				if (meta[1] & 0b0001)
+					hash ^= zobrist[579];
+				meta[1] &= 0b1100;
+			}
 			// clear destination square
 			for (int i = 0; i < 8; i++)
-				pieces[i] &= ~BIT(dst);
+				if (pieces[i] & BIT(dst)) {
+					pieces[i] ^= BIT(dst);
+					hash ^= zobrist[dst * 8 + i];
+				}
+			// move king
 			pieces[0] ^= BIT(src) | BIT(dst);
+			hash ^= zobrist[src * 8] ^ zobrist[dst * 8];
 			pieces[7 ^ meta[0]] ^= BIT(src) | BIT(dst);
+			hash ^= zobrist[src * 8 + (7 ^ meta[0])] ^ zobrist[dst * 8 + (7 ^ meta[0])];
 		} else {
 			// rooks moves or is taken = no castle
 			if (src == 0 || dst == 0) { // white queen rook
+				if (meta[1] & 0b0100)
+					hash ^= zobrist[577];
 				meta[1] &= 0b1011;
 			} else if (src == 7 || dst == 7) { // white king rook
+				if (meta[1] & 0b1000)
+					hash ^= zobrist[576];
 				meta[1] &= 0b0111;
 			} else if (src == 56 || dst == 56) { // black queen rook
+				if (meta[1] & 0b0001)
+					hash ^= zobrist[579];
 				meta[1] &= 0b1110;
 			} else if (src == 63 || dst == 63) { // black king rook
+				if (meta[1] & 0b0010)
+					hash ^= zobrist[578];
 				meta[1] &= 0b1101;
 			}
 			// pawn move = reset halfmove clock
 			if (pieces[5] & BIT(src)) {
-				meta[3] = -1;
+				meta[2] = -1;
 				if (pieces[5] & BIT(src) && abs(src - dst) == 16) { // double pawn move
 					// set en passant square
 					ep = (src + dst) >> 1;
@@ -243,99 +317,168 @@ void Board::make_move(uint16_t move) {
 			}
 			// clear destination square
 			for (int i = 0; i < 8; i++)
-				pieces[i] &= ~BIT(dst);
+				if (pieces[i] & BIT(dst)) {
+					pieces[i] ^= BIT(dst);
+					hash ^= zobrist[dst * 8 + i];
+				}
 			// figure out what piece is moving
 			int piece = (prev >> 16) & 0b111;
 			// piece moves from src to dst
 			pieces[piece] ^= BIT(src) | BIT(dst);
+			hash ^= zobrist[src * 8 + piece] ^ zobrist[dst * 8 + piece];
 			pieces[7 ^ meta[0]] ^= BIT(src) | BIT(dst);
+			hash ^= zobrist[src * 8 + (7 ^ meta[0])] ^ zobrist[dst * 8 + (7 ^ meta[0])];
 		}
 	}
 	meta[0] = !meta[0];
+	hash ^= zobrist[580];
 	meta[3]++;
 	meta[4] += meta[0];
-	meta[2] = ep;
+	meta[3] = ep;
+	if (ep != 0xff)
+		hash ^= zobrist[ep + 512];
+	// update position history
+	if (pos_hist.find(hash) != pos_hist.end()) {
+		pos_hist[hash]++;
+	} else {
+		pos_hist[hash] = 1;
+	}
 }
 
 void Board::unmake_move() {
+	uint32_t prev = move_hist.back();
 	// restore previous metadata
-	delete[] meta;
+	uint8_t *oldmeta = meta;
 	meta = meta_hist.back();
 	meta_hist.pop_back();
+	if (oldmeta[0] != meta[0])
+		hash ^= zobrist[580];
+	if ((oldmeta[1] ^ meta[1]) & 0b1000)
+		hash ^= zobrist[576];
+	if ((oldmeta[1] ^ meta[1]) & 0b0100)
+		hash ^= zobrist[577];
+	if ((oldmeta[1] ^ meta[1]) & 0b0010)
+		hash ^= zobrist[578];
+	if ((oldmeta[1] ^ meta[1]) & 0b0001)
+		hash ^= zobrist[579];
+	if (oldmeta[3] != meta[3]) {
+		if (meta[3] == 0xff)
+			hash ^= zobrist[oldmeta[3] + 512];
+		else if (oldmeta[3] == 0xff)
+			hash ^= zobrist[meta[3] + 512];
+		else
+			hash ^= zobrist[oldmeta[3] + 512] ^ zobrist[meta[3] + 512];
+	}
+	delete[] oldmeta;
 	// get previous move
-	uint32_t prev = move_hist.back();
 	move_hist.pop_back();
 	uint8_t src = prev & 0b111111;
 	uint8_t dst = (prev >> 6) & 0b111111;
 	uint16_t move = prev & 0xffff;
+	if (move == 0 || move == 0xffff) {
+		if (pos_hist[hash] == 1) {
+			pos_hist.erase(hash);
+		} else {
+			pos_hist[hash]--;
+		}
+		return;
+	}
 	if (prev & 0x8000) { // promotion
 		// remove promoted piece
 		pieces[((prev >> 12) & 0b11) + 1] ^= BIT(dst);
+		hash ^= zobrist[dst * 8 + ((prev >> 12) & 0b11) + 1];
 		pieces[7 ^ meta[0]] ^= BIT(dst);
+		hash ^= zobrist[dst * (7 ^ meta[0])];
 		// put the pawn back
 		pieces[5] ^= BIT(src);
+		hash ^= zobrist[src * 8 + 5];
 		pieces[7 ^ meta[0]] ^= BIT(src);
+		hash ^= zobrist[src * 8 + (7 ^ meta[0])];
 		// put the captured piece back
 		if (prev >> 24 != 0xff) {
 			pieces[prev >> 24] ^= BIT(dst);
+			hash ^= zobrist[dst * 8 + (prev >> 24)];
 			pieces[6 ^ meta[0]] ^= BIT(dst);
+			hash ^= zobrist[dst * 8 + (6 ^ meta[0])];
 		}
 	} else { // no promotion
 		if (((prev >> 12) & 0b1111) == 0b0101) { // en passant
 			// put the pawn back
 			pieces[5] ^= BIT(src) | BIT(dst);
+			hash ^= zobrist[src * 8 + 5] ^ zobrist[dst * 8 + 5];
 			pieces[7 ^ meta[0]] ^= BIT(src) | BIT(dst);
+			hash ^= zobrist[src * 8 + (7 ^ meta[0])] ^ zobrist[dst * 8 + (7 ^ meta[0])];
 			// put the captured pawn back
 			pieces[5] ^= BIT(dst & 7 | src & 56);
+			hash ^= zobrist[(dst & 7 | src & 56) * 8 + 5];
 			pieces[6 ^ meta[0]] ^= BIT(dst & 7 | src & 56);
+			hash ^= zobrist[(dst & 7 | src & 56) * 8 + (6 ^ meta[0])];
 		} else if (move == 0b0011000010000100) { // white queenside
 			// king moves from c1 to e1
 			pieces[0] ^= 20;
+			hash ^= zobrist[32] ^ zobrist[16];
 			pieces[6] ^= 20;
-			// rook moves from d1 to ai
+			hash ^= zobrist[38] ^ zobrist[22];
+			// rook moves from d1 to a1
 			pieces[2] ^= 9;
+			hash ^= zobrist[2] ^ zobrist[26];
 			pieces[6] ^= 9;
+			hash ^= zobrist[6] ^ zobrist[30];
 		} else if (move == 0b0010000110000100) { // white kingside
 			// king moves from g1 to e1
 			pieces[0] ^= 80;
+			hash ^= zobrist[32] ^ zobrist[48];
 			pieces[6] ^= 80;
+			hash ^= zobrist[38] ^ zobrist[54];
 			// rook moves from f1 to h1
 			pieces[2] ^= 160;
+			hash ^= zobrist[58] ^ zobrist[42];
 			pieces[6] ^= 160;
+			hash ^= zobrist[62] ^ zobrist[48];
 		} else if (move == 0b0011111010111100) { // black queenside
 			// king moves from c8 to e8
 			pieces[0] ^= 1441151880758558720;
+			hash ^= zobrist[480] ^ zobrist[464];
 			pieces[7] ^= 1441151880758558720;
+			hash ^= zobrist[487] ^ zobrist[471];
 			// rook moves from d8 to a8
 			pieces[2] ^= 648518346341351424;
+			hash ^= zobrist[450] ^ zobrist[474];
 			pieces[7] ^= 648518346341351424;
+			hash ^= zobrist[455] ^ zobrist[479];
 		} else if (move == 0b0010111110111100) { // black kingside
 			// king moves from g8 to e8
 			pieces[0] ^= 5764607523034234880;
+			hash ^= zobrist[480] ^ zobrist[496];
 			pieces[7] ^= 5764607523034234880;
+			hash ^= zobrist[487] ^ zobrist[503];
 			// rook moves from f8 to h8
 			pieces[2] ^= 11529215046068469760;
+			hash ^= zobrist[506] ^ zobrist[490];
 			pieces[7] ^= 11529215046068469760;
+			hash ^= zobrist[511] ^ zobrist[495];
 		} else {
 			// figure out what piece moved
 			int piece = (prev >> 16) & 0b111;
 			// move piece back
 			pieces[piece] ^= BIT(src) | BIT(dst);
+			hash ^= zobrist[src * 8 + piece] ^ zobrist[dst * 8 + piece];
 			pieces[7 ^ meta[0]] ^= BIT(src) | BIT(dst);
+			hash ^= zobrist[src * 8 + (7 ^ meta[0])] ^ zobrist[dst * 8 + (7 ^ meta[0])];
 			// replace the captured piece
 			if (prev >> 24 != 0xff) {
 				pieces[prev >> 24] ^= BIT(dst);
+				hash ^= zobrist[dst * 8 + (prev >> 24)];
 				pieces[6 ^ meta[0]] ^= BIT(dst);
+				hash ^= zobrist[dst * 8 + (6 ^ meta[0])];
 			}
 		}
 	}
-	for (int i = 7; i >= 0; i--) {
-		if (pos_hist.back() != pieces[i]) {
-			std::cout << prev << ' ' << (int)meta[0] << ' ' << (int)meta[1] << ' ' << (int)meta[2] << ' ' << (int)meta[3] << ' ' << (int)meta[4] << std::endl;
-			print_board();
-			throw std::runtime_error("position mismatch");
-		}
-		pos_hist.pop_back();
+	// update position history
+	if (pos_hist[hash] == 1) {
+		pos_hist.erase(hash);
+	} else {
+		pos_hist[hash]--;
 	}
 }
 
@@ -343,6 +486,26 @@ bool Board::in_check(const bool side) { return pieces[0] & pieces[7 ^ side] & co
 
 U64 Board::zobrist_hash() {
 	U64 hash = 0;
+	for (int i = 0; i < 8; i++) {
+		U64 p = pieces[i];
+		while (p) {
+			int sq = __builtin_ctzll(p);
+			hash ^= zobrist[sq * 8 + i];
+			p &= p - 1;
+		}
+	}
+	if (meta[1] & 0b1000)
+		hash ^= zobrist[576];
+	if (meta[1] & 0b0100)
+		hash ^= zobrist[577];
+	if (meta[1] & 0b0010)
+		hash ^= zobrist[578];
+	if (meta[1] & 0b0001)
+		hash ^= zobrist[579];
+	if (meta[0])
+		hash ^= zobrist[580];
+	if (meta[3] != 0xff)
+		hash ^= zobrist[meta[3] + 512];
 	return hash;
 }
 

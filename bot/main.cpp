@@ -78,6 +78,7 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 			if (moves.size() % 2 != color) {
 				std::cout << "thinking" << std::endl;
 				move = stringify_move(ab_search(board, depth).second);
+				board.print_board();
 				if (move != "----" && move != "0000")
 					API::move(game_id, move);
 				else
@@ -120,7 +121,7 @@ void handle_event(json event) {
 		if (event["game"]["speed"] == "bullet")
 			args[len + 1] = 9;
 		else if (event["game"]["speed"] == "blitz")
-			args[len + 1] = 10;
+			args[len + 1] = 6;
 		else if (event["game"]["speed"] == "rapid")
 			args[len + 1] = 11;
 		else
