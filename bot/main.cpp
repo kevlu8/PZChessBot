@@ -104,7 +104,7 @@ void *play_helper(void *args) {
 // general event handler to dispatch jobs
 void handle_event(json event) {
 	if (event["type"] == "challenge") {
-		if (event["challenge"]["challenger"]["id"] != "wdotmathree")
+		if (event["challenge"]["challenger"]["id"] != "kevlu8")
 			API::decline_challenge(event["challenge"]["id"], "generic");
 		else
 			API::accept_challenge(event["challenge"]["id"]);
@@ -119,7 +119,7 @@ void handle_event(json event) {
 		memcpy(args, to_string(event["game"]["gameId"]).substr(1, len).c_str(), len);
 		args[len] = 0;
 		if (event["game"]["speed"] == "bullet")
-			args[len + 1] = 9;
+			args[len + 1] = 4;
 		else if (event["game"]["speed"] == "blitz")
 			args[len + 1] = 6;
 		else if (event["game"]["speed"] == "rapid")

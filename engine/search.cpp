@@ -2,7 +2,7 @@
 
 #define INF (1e9 + 100)
 
-unsigned long long count = 0, checks = 0;
+unsigned long long count = 0, checks = 0, d = 0;
 std::unordered_map<U64, std::pair<std::pair<int, uint16_t>, int>> hashtable;
 
 // 1e9 + 100 is the number that should be used as default values, they are never achievable naturally (unless maxdepth exceeds 99)
@@ -32,9 +32,8 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 		}
 		b.unmake_move();
 		// use if existing depth is greater
-		if (res.second >= depth && banned == 0xffff) {
-			return move;
-		}
+		// if (res.second >= depth && banned == 0xffff)
+		// 	return move;
 	}
 	if (!QUIESCENCE)
 		if (depth <= 0) {
@@ -55,8 +54,8 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 		// ignore quiet moves
 		if (depth <= 0 && (m >> 14) == 0)
 			continue;
-		if (m == banned)
-			continue;
+		// if (m == banned)
+		// 	continue;
 		b.make_move(m);
 		orderedmoves.push({((b.side() << 1) - 1) * -b.eval(), m});
 		b.unmake_move();
@@ -86,17 +85,18 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 #ifdef PRINTLINE
 			std::deque<std::pair<int, uint16_t>> *tmpline = new std::deque<std::pair<int, uint16_t>>;
 #endif
-			if (true || _popcnt64(b.occupied()) <= 7)
+			if (NOPRUNE || _popcnt64(b.occupied()) <= 7)
 #ifdef PRINTLINE
 				tmp = -__recurse(b, depth - 1, alpha, beta, &tmpline).first;
 #else
+				// tmp = -__recurse(b, depth - ((depth != d - 1 && i > 28 && depth > 2) ? 1 : 0) - 1, alpha, beta).first;
 				tmp = -__recurse(b, depth - 1, alpha, beta).first;
 #endif
 			else
 #ifdef PRINTLINE
-				tmp = -__recurse(b, std::max(depth - ((33 - _lzcnt_u32(i)) >> 1) - 1, (uint32_t)0), alpha, beta, &tmpline).first;
+				tmp = -__recurse(b, depth - ((depth != d - 1 && i > 28 && depth > 2) ? 1 : 0) - 1, alpha, beta, &tmpline).first;
 #else
-				tmp = -__recurse(b, std::max(depth - ((33 - _lzcnt_u32(i)) >> 1) - 1, (uint32_t)0), alpha, beta).first;
+				tmp = -__recurse(b, depth - ((depth != d - 1 && i > 28 && depth > 2) ? 1 : 0) - 1, alpha, beta).first;
 #endif
 			tmp += ((tmp >> 30) & 0b10) - 1; // decrease magnitude of positions that take longer to get to (this should hopefully make the engine prefer faster results while stalling out getting into bad positions)
 			if (tmp > bestmove.first) {
@@ -106,14 +106,10 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 				*line = tmpline;
 				(*line)->push_front(bestmove);
 #endif
-			} else if (tmp == bestmove.first && move.second > bestmove.second) {
-				bestmove = {tmp, move.second};
-#ifdef PRINTLINE
-				delete *line;
-				*line = tmpline;
-				(*line)->push_front(bestmove);
-#endif
 			}
+#ifdef PRINTLINE
+			else delete tmpline;
+#endif
 			b.unmake_move();
 			if (b.side())
 				alpha = std::max(alpha, bestmove.first);
@@ -142,6 +138,7 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 
 std::pair<int, uint16_t> ab_search(Board &b, const int depth) {
 	count = 0;
+	d = depth;
 #ifdef PRINTLINE
 	std::deque<std::pair<int, uint16_t>> *line = new std::deque<std::pair<int, uint16_t>>;
 	std::pair<int, uint16_t> ans = __recurse(b, depth, -INF, INF, &line);
