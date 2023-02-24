@@ -13,28 +13,16 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 #else
 std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int beta) {
 #endif
-	uint16_t banned = -1;
-	if (hashtable.find(b.currhash()) != hashtable.end()) {
-		std::pair<std::pair<int, uint16_t>, int> res = hashtable[b.currhash()];
-		std::pair<int, uint16_t> move = {((b.side() << 1) - 1) * res.first.first, res.first.second};
-		// check for threefold repetition
-		b.make_move(move.second);
-		if (b.threefold()) {
-			// threefold repetition
-			// if (move.first < 0) {
-			// 	// go through with it if current position is bad
-			// 	b.unmake_move();
-			// 	return {0, move.second};
-			// } else {
-			// else we ban this move
-			banned = move.second;
-			// }
-		}
-		b.unmake_move();
-		// use if existing depth is greater
-		// if (res.second >= depth && banned == 0xffff)
-		// 	return move;
-	}
+	// if (hashtable.find(b.currhash()) != hashtable.end() && hashtable[b.currhash()].second >= depth) {
+	// 	std::pair<int, uint16_t> tmp = hashtable[b.currhash()].first;
+	// 	b.make_move(tmp.second);
+	// 	if (!b.ended()) {
+	// 		b.unmake_move();
+	// 		return tmp;
+	// 	}
+	// }
+	if (b.ended())
+		return {0, 0};
 	if (!QUIESCENCE)
 		if (depth <= 0) {
 			count++;
@@ -52,12 +40,15 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 	std::priority_queue<std::pair<int, uint16_t>> orderedmoves;
 	for (auto &m : moves) {
 		// ignore quiet moves
-		if (depth <= 0 && (m >> 14) == 0)
-			continue;
+		// if (depth <= 0 && (m >> 14) == 0)
+		// 	continue;
 		// if (m == banned)
 		// 	continue;
 		b.make_move(m);
-		orderedmoves.push({((b.side() << 1) - 1) * -b.eval(), m});
+		if (b.ended() || hashtable.find(b.currhash()) == hashtable.end())
+			orderedmoves.push({((b.side() << 1) - 1) * -b.eval(), m});
+		else
+			orderedmoves.push({((b.side() << 1) - 1) * hashtable[b.currhash()].first.first, m});
 		b.unmake_move();
 		quiet = false;
 	}
@@ -89,7 +80,6 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 #ifdef PRINTLINE
 				tmp = -__recurse(b, depth - 1, alpha, beta, &tmpline).first;
 #else
-				// tmp = -__recurse(b, depth - ((depth != d - 1 && i > 28 && depth > 2) ? 1 : 0) - 1, alpha, beta).first;
 				tmp = -__recurse(b, depth - 1, alpha, beta).first;
 #endif
 			else
@@ -108,7 +98,8 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 #endif
 			}
 #ifdef PRINTLINE
-			else delete tmpline;
+			else
+				delete tmpline;
 #endif
 			b.unmake_move();
 			if (b.side())

@@ -57,6 +57,8 @@ private:
 
 	U64 zobrist_hash();
 
+	const inline constexpr bool insufficient() const { return !(pieces[1] | pieces[2] | pieces[5]) && __builtin_popcountll(pieces[3] | pieces[4]) <= 1; }
+
 public:
 	Board(); // default constructor
 	Board(const std::string &);
@@ -83,9 +85,7 @@ public:
 
 	const inline constexpr U64 currhash() const { return hash; };
 
-	// const inline constexpr bool threefold() const { return pos_hist[(const U64)hash] >= 3; }
-
-	const inline bool threefold() { return (pos_hist[hash] >= 3); }
+	const inline bool ended() { return pos_hist[hash] >= 3 || insufficient() || meta[3] >= 100; }
 };
 
 std::string stringify_move(uint16_t);

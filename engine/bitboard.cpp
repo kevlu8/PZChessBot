@@ -74,15 +74,15 @@ void Board::load_fen(const std::string &fen) {
 	}
 	currIdx++;
 	if (fen[currIdx] == '-') {
-		meta[3] = -1;
+		meta[2] = -1;
 		currIdx += 2;
 	} else {
-		meta[3] = xyx(fen[currIdx] - 'a', fen[currIdx + 1] - '1');
+		meta[2] = xyx(fen[currIdx] - 'a', fen[currIdx + 1] - '1');
 		currIdx += 3;
 	}
-	meta[2] = 0;
+	meta[3] = 0;
 	while (fen[currIdx] != ' ') {
-		meta[2] = meta[3] * 10 + fen[currIdx] - '0';
+		meta[3] = meta[3] * 10 + fen[currIdx] - '0';
 		currIdx++;
 	}
 	currIdx++;
@@ -92,6 +92,8 @@ void Board::load_fen(const std::string &fen) {
 		currIdx++;
 	}
 	hash = zobrist_hash();
+	pos_hist.clear();
+	pos_hist[hash] = 1;
 }
 
 void Board::print_board() {
@@ -145,20 +147,30 @@ void Board::make_move(uint16_t move) {
 		// std::cout << "checkmate\n";
 		meta[0] = !meta[0];
 		hash ^= zobrist[580];
+		if (pos_hist.find(hash) != pos_hist.end()) {
+			pos_hist[hash]++;
+		} else {
+			pos_hist[hash] = 1;
+		}
 		return;
 	}
 	if (move == 0xffff) {
 		// std::cout << "stalemate\n";
 		meta[0] = !meta[0];
 		hash ^= zobrist[580];
+		if (pos_hist.find(hash) != pos_hist.end()) {
+			pos_hist[hash]++;
+		} else {
+			pos_hist[hash] = 1;
+		}
 		return;
 	}
 	// if piece captures reset halfmove clock
 	if (move & (0b0100 << 12))
-		meta[2] = -1;
+		meta[3] = -1;
 	if (move & 0x8000) { // promotion
 		// reset halfmove clock
-		meta[2] = -1;
+		meta[3] = -1;
 		int piece = (move >> 12) & 0b11;
 		// clear promotion square
 		for (int i = 0; i < 8; i++)
@@ -181,7 +193,7 @@ void Board::make_move(uint16_t move) {
 	} else { // no promotion
 		if (move >> 12 == 0b0101) { // en passant
 			// reset halfmove clock
-			meta[2] = -1;
+			meta[3] = -1;
 			// pawn moves from src to dst
 			pieces[5] ^= BIT(src) | BIT(dst);
 			hash ^= zobrist[src * 8 + 5];
@@ -221,9 +233,9 @@ void Board::make_move(uint16_t move) {
 			pieces[2] ^= 160;
 			hash ^= zobrist[58] ^ zobrist[42];
 			pieces[6] ^= 160;
-			hash ^= zobrist[62] ^ zobrist[48];
+			hash ^= zobrist[62] ^ zobrist[46];
 			// revoke castling rights
-			if (meta[1 & 0b1000])
+			if (meta[1] & 0b1000)
 				hash ^= zobrist[576];
 			if (meta[1] & 0b0100)
 				hash ^= zobrist[577];
@@ -309,7 +321,7 @@ void Board::make_move(uint16_t move) {
 			}
 			// pawn move = reset halfmove clock
 			if (pieces[5] & BIT(src)) {
-				meta[2] = -1;
+				meta[3] = -1;
 				if (pieces[5] & BIT(src) && abs(src - dst) == 16) { // double pawn move
 					// set en passant square
 					ep = (src + dst) >> 1;
@@ -334,9 +346,16 @@ void Board::make_move(uint16_t move) {
 	hash ^= zobrist[580];
 	meta[3]++;
 	meta[4] += meta[0];
-	meta[3] = ep;
-	if (ep != 0xff)
+	if (ep == 0xff) {
+		if (meta[2] != ep) {
+			hash ^= zobrist[meta[2] + 512];
+		}
+	} else {
+		if (meta[2] != 0xff)
+			hash ^= zobrist[meta[2] + 512];
 		hash ^= zobrist[ep + 512];
+	}
+	meta[2] = ep;
 	// update position history
 	if (pos_hist.find(hash) != pos_hist.end()) {
 		pos_hist[hash]++;
@@ -346,6 +365,12 @@ void Board::make_move(uint16_t move) {
 }
 
 void Board::unmake_move() {
+	// update position history
+	if (pos_hist[hash] <= 1) {
+		pos_hist.erase(hash);
+	} else {
+		pos_hist[hash]--;
+	}
 	uint32_t prev = move_hist.back();
 	// restore previous metadata
 	uint8_t *oldmeta = meta;
@@ -361,13 +386,13 @@ void Board::unmake_move() {
 		hash ^= zobrist[578];
 	if ((oldmeta[1] ^ meta[1]) & 0b0001)
 		hash ^= zobrist[579];
-	if (oldmeta[3] != meta[3]) {
-		if (meta[3] == 0xff)
-			hash ^= zobrist[oldmeta[3] + 512];
-		else if (oldmeta[3] == 0xff)
-			hash ^= zobrist[meta[3] + 512];
+	if (oldmeta[2] != meta[2]) {
+		if (meta[2] == 0xff)
+			hash ^= zobrist[oldmeta[2] + 512];
+		else if (oldmeta[2] == 0xff)
+			hash ^= zobrist[meta[2] + 512];
 		else
-			hash ^= zobrist[oldmeta[3] + 512] ^ zobrist[meta[3] + 512];
+			hash ^= zobrist[oldmeta[2] + 512] ^ zobrist[meta[2] + 512];
 	}
 	delete[] oldmeta;
 	// get previous move
@@ -376,11 +401,6 @@ void Board::unmake_move() {
 	uint8_t dst = (prev >> 6) & 0b111111;
 	uint16_t move = prev & 0xffff;
 	if (move == 0 || move == 0xffff) {
-		if (pos_hist[hash] == 1) {
-			pos_hist.erase(hash);
-		} else {
-			pos_hist[hash]--;
-		}
 		return;
 	}
 	if (prev & 0x8000) { // promotion
@@ -434,7 +454,7 @@ void Board::unmake_move() {
 			pieces[2] ^= 160;
 			hash ^= zobrist[58] ^ zobrist[42];
 			pieces[6] ^= 160;
-			hash ^= zobrist[62] ^ zobrist[48];
+			hash ^= zobrist[62] ^ zobrist[46];
 		} else if (move == 0b0011111010111100) { // black queenside
 			// king moves from c8 to e8
 			pieces[0] ^= 1441151880758558720;
@@ -474,12 +494,6 @@ void Board::unmake_move() {
 			}
 		}
 	}
-	// update position history
-	if (pos_hist[hash] == 1) {
-		pos_hist.erase(hash);
-	} else {
-		pos_hist[hash]--;
-	}
 }
 
 bool Board::in_check(const bool side) { return pieces[0] & pieces[7 ^ side] & control[!side]; }
@@ -504,8 +518,8 @@ U64 Board::zobrist_hash() {
 		hash ^= zobrist[579];
 	if (meta[0])
 		hash ^= zobrist[580];
-	if (meta[3] != 0xff)
-		hash ^= zobrist[meta[3] + 512];
+	if (meta[2] != 0xff)
+		hash ^= zobrist[meta[2] + 512];
 	return hash;
 }
 

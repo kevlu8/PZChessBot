@@ -89,15 +89,8 @@ constexpr int endgame_heatmap[64] = {
 constexpr const int *heatmaps[] = {nullptr, queen_heatmap, rook_heatmap, bishop_heatmap, knight_heatmap, pawn_heatmap};
 
 int Board::eval() {
-	if (meta[3] == 100)
+	if (ended())
 		return 0;
-	if (pos_hist[hash] >= 3)
-		return 0;
-	// literally no pieces
-	if ((_popcnt32(pieces[1]) | _popcnt32(pieces[2]) | _popcnt32(pieces[5])) == 0) {
-		if (_popcnt32(pieces[3]) == 0 && _popcnt32(pieces[4]) == 0)
-			return 0;
-	}
 	int material, positioning, mobility, king_safety, controlledsquares;
 	material = positioning = mobility = king_safety = controlledsquares = 0;
 

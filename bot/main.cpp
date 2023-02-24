@@ -22,7 +22,8 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 	// main loop
 	ListNode *head = new ListNode{initialEvent, nullptr, nullptr};
 	ListNode *tail = head;
-	while (true) {
+	bool end = false;
+	while (!end) {
 		moves_str = "";
 		game.get_events(&head, &tail);
 		while (head != nullptr) {
@@ -37,11 +38,13 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 				head = nullptr;
 			}
 			std::cout << "play: " << event << '\n';
-			if (event["type"] == "chatLine" || event["type"] == "opponentGone")
+			if (event["type"] == "chatLine" || event["type"] == "opponentGone") {
 				continue;
-			else if (event["type"] == "gameFinish")
+			} else if (event["type"] == "gameFinish") {
+				end = true;
+				std::cout << "game finished" << std::endl;
 				break;
-			else if (event["type"] == "gameFull") {
+			} else if (event["type"] == "gameFull") {
 				board.load_fen(event["initialFen"]);
 				event = event["state"];
 			} else if (event["type"] == "gameStart") {
@@ -104,7 +107,7 @@ void *play_helper(void *args) {
 // general event handler to dispatch jobs
 void handle_event(json event) {
 	if (event["type"] == "challenge") {
-		if (event["challenge"]["challenger"]["id"] != "kevlu8")
+		if (event["challenge"]["challenger"]["id"] != "kevlu8" && event["challenge"]["challenger"]["id"] != "wdotmathree")
 			API::decline_challenge(event["challenge"]["id"], "generic");
 		else
 			API::accept_challenge(event["challenge"]["id"]);
