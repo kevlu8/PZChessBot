@@ -76,14 +76,14 @@ constexpr int king_heatmap[64] = {
 
 constexpr int endgame_heatmap[64] = {
 	//  a  b  c  d  e  f  g  h
-	1, 2,  4,  8,  8,  4,  2,  1, // 1
-	2, 4,  8,  16, 16, 8,  4,  2, // 2
-	4, 8,  16, 32, 32, 16, 8,  4, // 3
-	8, 16, 32, 64, 64, 32, 16, 8, // 4
-	8, 16, 32, 64, 64, 32, 16, 8, // 5
-	4, 8,  16, 32, 32, 16, 8,  4, // 6
-	2, 4,  8,  16, 16, 8,  4,  2, // 7
-	1, 2,  4,  8,  8,  4,  2,  1, // 8
+	0,	10, 20, 30, 30, 20, 10, 0, // 1
+	10, 20, 30, 40, 40, 30, 20, 10, // 2
+	20, 30, 40, 50, 50, 40, 30, 20, // 3
+	30, 40, 50, 60, 60, 50, 40, 30, // 4
+	30, 40, 50, 60, 60, 50, 40, 30, // 5
+	20, 30, 40, 50, 50, 40, 30, 20, // 6
+	10, 20, 30, 40, 40, 30, 20, 10, // 7
+	0,	10, 20, 30, 30, 20, 10, 0 // 8
 };
 
 constexpr const int *heatmaps[] = {nullptr, queen_heatmap, rook_heatmap, bishop_heatmap, knight_heatmap, pawn_heatmap};
@@ -112,7 +112,7 @@ int Board::eval() {
 
 	// decide if endgame
 	if (_popcnt64(pieces[6] | pieces[7]) <= 7) {
-		positioning += 2 * ((_popcnt64(pieces[7]) * endgame_heatmap[__builtin_ctzll(pieces[0] & pieces[6])]) - (_popcnt64(pieces[6]) * endgame_heatmap[__builtin_ctzll(pieces[0] & pieces[7])])) / _popcnt64(pieces[6] | pieces[7]);
+		positioning += (_popcnt64(pieces[7]) * endgame_heatmap[__builtin_ctzll(pieces[0] & pieces[6])] - _popcnt64(pieces[6]) * endgame_heatmap[__builtin_ctzll(pieces[0] & pieces[7])]) / _popcnt64(pieces[6] | pieces[7]);
 	} else {
 		positioning += king_heatmap[__builtin_ctzll(pieces[0] & pieces[6])] - king_heatmap[0b111000 - (__builtin_ctzll(pieces[0] & pieces[7]) & 0b111000) | (__builtin_ctzll(pieces[0] & pieces[7]) & 0b111)];
 	}

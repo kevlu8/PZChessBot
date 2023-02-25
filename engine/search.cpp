@@ -13,14 +13,25 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 #else
 std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int beta) {
 #endif
-	// if (hashtable.find(b.currhash()) != hashtable.end() && hashtable[b.currhash()].second >= depth) {
-	// 	std::pair<int, uint16_t> tmp = hashtable[b.currhash()].first;
-	// 	b.make_move(tmp.second);
-	// 	if (!b.ended()) {
-	// 		b.unmake_move();
-	// 		return tmp;
-	// 	}
-	// }
+	std::unordered_set<uint16_t> moves;
+	b.legal_moves(moves);
+	if (hashtable.find(b.currhash()) != hashtable.end()) {
+		if (hashtable[b.currhash()].second >= depth) {
+			std::pair<int, uint16_t> tmp = hashtable[b.currhash()].first;
+			if (moves.find(tmp.second) != moves.end() && tmp.second != 0) {
+				b.make_move(tmp.second);
+				b.controlled_squares(b.side());
+				if (!b.ended() && !b.in_check(!b.side())) {
+					b.unmake_move();
+#ifdef PRINTLINE
+					(*line)->push_front(tmp);
+#endif
+					return tmp;
+				}
+				b.unmake_move();
+			}
+		}
+	}
 	if (b.ended())
 		return {0, 0};
 	if (!QUIESCENCE)
@@ -31,12 +42,10 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 			delete *line;
 			*line = new std::deque<std::pair<int, uint16_t>>{};
 #endif
-			hashtable[b.currhash()] = {{((b.side() << 1) - 1) * move.first, move.second}, depth};
+			hashtable[b.currhash()] = {{((b.side() << 1) - 1) * move.first, move.second}, 0};
 			return move;
 		}
 	bool quiet = true;
-	std::unordered_set<uint16_t> moves;
-	b.legal_moves(moves);
 	std::priority_queue<std::pair<int, uint16_t>> orderedmoves;
 	for (auto &m : moves) {
 		// ignore quiet moves
@@ -45,10 +54,9 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 		// if (m == banned)
 		// 	continue;
 		b.make_move(m);
-		if (b.ended() || hashtable.find(b.currhash()) == hashtable.end())
-			orderedmoves.push({((b.side() << 1) - 1) * -b.eval(), m});
-		else
-			orderedmoves.push({((b.side() << 1) - 1) * hashtable[b.currhash()].first.first, m});
+		if (hashtable.find(b.currhash()) == hashtable.end())
+			hashtable[b.currhash()] = {{b.eval(), 0}, 0};
+		orderedmoves.push({((b.side() << 1) - 1) * hashtable[b.currhash()].first.first, m});
 		b.unmake_move();
 		quiet = false;
 	}
@@ -60,7 +68,7 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 			delete *line;
 			*line = new std::deque<std::pair<int, uint16_t>>{};
 #endif
-			hashtable[b.currhash()] = {{((b.side() << 1) - 1) * move.first, move.second}, depth};
+			hashtable[b.currhash()] = {{((b.side() << 1) - 1) * move.first, move.second}, 0};
 			return move;
 		}
 	}
@@ -76,7 +84,7 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 #ifdef PRINTLINE
 			std::deque<std::pair<int, uint16_t>> *tmpline = new std::deque<std::pair<int, uint16_t>>;
 #endif
-			if (NOPRUNE || _popcnt64(b.occupied()) <= 7)
+			if (NOPRUNE || __builtin_popcountll(b.occupied()) <= 7)
 #ifdef PRINTLINE
 				tmp = -__recurse(b, depth - 1, alpha, beta, &tmpline).first;
 #else
@@ -91,6 +99,12 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 			tmp += ((tmp >> 30) & 0b10) - 1; // decrease magnitude of positions that take longer to get to (this should hopefully make the engine prefer faster results while stalling out getting into bad positions)
 			if (tmp > bestmove.first) {
 				bestmove = {tmp, move.second};
+#ifdef PRINTLINE
+				delete *line;
+				*line = tmpline;
+				(*line)->push_front(bestmove);
+#endif
+			} else if (tmp == bestmove.first && move.second > bestmove.second) {
 #ifdef PRINTLINE
 				delete *line;
 				*line = tmpline;
@@ -120,7 +134,7 @@ std::pair<int, uint16_t> __recurse(Board &b, const int depth, int alpha, int bet
 			bestmove.first = -1e9;
 		else {
 			bestmove.first = 0;
-			bestmove.second = -1;
+			bestmove.second = 0;
 		}
 	}
 	hashtable[b.currhash()] = {{((b.side() << 1) - 1) * bestmove.first, move.second}, depth};

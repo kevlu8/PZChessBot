@@ -77,10 +77,9 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 				}
 			}
 			// if its our turn
-			std::cout << "color: " << color << " moves.size(): " << moves.size() << std::endl;
 			if (moves.size() % 2 != color) {
 				std::cout << "thinking" << std::endl;
-				move = stringify_move(ab_search(board, depth).second);
+				move = stringify_move(ab_search(board, __builtin_popcountll(board.occupied()) <= 5 ? 8 : depth).second);
 				board.print_board();
 				if (move != "----" && move != "0000")
 					API::move(game_id, move);
@@ -107,10 +106,10 @@ void *play_helper(void *args) {
 // general event handler to dispatch jobs
 void handle_event(json event) {
 	if (event["type"] == "challenge") {
-		if (event["challenge"]["challenger"]["id"] != "kevlu8" && event["challenge"]["challenger"]["id"] != "wdotmathree")
-			API::decline_challenge(event["challenge"]["id"], "generic");
-		else
-			API::accept_challenge(event["challenge"]["id"]);
+		// if (event["challenge"]["challenger"]["id"] != "kevlu8" && event["challenge"]["challenger"]["id"] != "wdotmathree")
+		// 	API::decline_challenge(event["challenge"]["id"], "generic");
+		// else
+		API::accept_challenge(event["challenge"]["id"]);
 		// if (event["challenge"]["variant"]["short"] == "Std" || event["challenge"]["challenger"]["id"] == "wdotmathree")
 		// 	API::accept_challenge(event["challenge"]["id"]);
 		// else
@@ -126,7 +125,7 @@ void handle_event(json event) {
 		else if (event["game"]["speed"] == "blitz")
 			args[len + 1] = 6;
 		else if (event["game"]["speed"] == "rapid")
-			args[len + 1] = 11;
+			args[len + 1] = 5;
 		else
 			args[len + 1] = 12;
 		args[len + 2] = event["game"]["color"] == "white";
