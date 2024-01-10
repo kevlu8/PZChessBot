@@ -1,92 +1,93 @@
 #pragma once
 
-#include <iostream>
-#include <set>
-#include <string.h>
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
-#include <x86intrin.h>
+#include "includes.hpp"
 
-#include "zobrist"
+constexpr uint64_t FileABits = 0x0101010101010101ULL;
+constexpr uint64_t FileBBits = FileABits << 1;
+constexpr uint64_t FileCBits = FileABits << 2;
+constexpr uint64_t FileDBits = FileABits << 3;
+constexpr uint64_t FileEBits = FileABits << 4;
+constexpr uint64_t FileFBits = FileABits << 5;
+constexpr uint64_t FileGBits = FileABits << 6;
+constexpr uint64_t FileHBits = FileABits << 7;
 
-#define U64 uint64_t
-#define C64(x) x##ULL
-#define xyx(x, y) ((x) + (y)*8)
-#define BIT(x) (C64(1) << (x))
-#define BITxy(x, y) (C64(1) << xyx(x, y))
-#define LSONES(x) (((C64(1) << (x)) - 1) - ((x) == 64))
-#define MSONES(x) ((C64(-1) << (64 - (x))) + ((x) == 0))
-#define EXPANDLSB(x) LSONES(_tzcnt_u64(x) + 1 - ((x) == 0))
-#define EXPANDMSB(x) MSONES(_lzcnt_u64(x) + 1 - ((x) == 0))
+constexpr uint64_t Rank1Bits = 0xff;
+constexpr uint64_t Rank2Bits = Rank1Bits << (8 * 1);
+constexpr uint64_t Rank3Bits = Rank1Bits << (8 * 2);
+constexpr uint64_t Rank4Bits = Rank1Bits << (8 * 3);
+constexpr uint64_t Rank5Bits = Rank1Bits << (8 * 4);
+constexpr uint64_t Rank6Bits = Rank1Bits << (8 * 5);
+constexpr uint64_t Rank7Bits = Rank1Bits << (8 * 6);
+constexpr uint64_t Rank8Bits = Rank1Bits << (8 * 7);
 
-#define STARTPOS "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+extern uint64_t pseudoAttacks[6][64];
 
-constexpr int fen_to_piece[] = {3, -1, -1, -1, -1, -1, -1, -1, -1, 0, -1, -1, 4, -1, 5, 1, 2};
-constexpr char piece_to_fen[] = {'K', 'Q', 'R', 'B', 'N', 'P'};
-constexpr int piece_values[] = {20000, 900, 500, 330, 320, 100};
+// clang-format off
+constexpr uint64_t square_bits(Square x) { return 1ULL << x; }
+constexpr uint64_t square_bits(Rank r, File f) { return 1ULL << (r * 8 + f); }
+// clang-format on
 
-void print_bits(U64);
-
-class Board {
-private:
-	U64 pieces[8]; // kings, queens, rooks, bishops, knights, pawns, all white, all black
-	uint8_t *meta; // 0: side to move, 1: castling rights, 2: ep square, 3: halfmove clock, 4: fullmove number
-	std::vector<uint8_t *> meta_hist;
-	std::vector<uint32_t> move_hist; // previous moves [6 bits src][6 bits dst][2 bits miscellaneous][1 bit capture flag][1 bit promotion flag][1 piece that moved][1 byte piece on dest]
-
-	std::unordered_map<U64, int> pos_hist;
-
-	U64 hash;
-	U64 control[2]; // black, white
-
-	U64 king_control(const bool);
-	U64 rook_control(const bool);
-	U64 bishop_control(const bool);
-	U64 knight_control(const bool);
-	U64 white_pawn_control();
-	U64 black_pawn_control();
-
-	void king_moves(std::unordered_set<uint16_t> &);
-	void rook_moves(std::unordered_set<uint16_t> &);
-	void bishop_moves(std::unordered_set<uint16_t> &);
-	void knight_moves(std::unordered_set<uint16_t> &);
-	void white_pawn_moves(std::unordered_set<uint16_t> &);
-	void black_pawn_moves(std::unordered_set<uint16_t> &);
-
-	U64 zobrist_hash();
-
-public:
-	Board(); // default constructor
-	Board(const std::string &);
-	void load_fen(const std::string &); // load a fen string
-	void print_board();
-	// [6 bits src][6 bits dst][2 bits miscellaneous][1 bit capture flag][1 bit promotion flag]
-	void make_move(uint16_t);
-	void unmake_move();
-	void legal_moves(std::unordered_set<uint16_t> &);
-	const inline constexpr bool side() const { return meta[0]; }
-	const inline constexpr U64 occupied() const { return pieces[6] | pieces[7]; }
-	const inline constexpr U64 kings() const { return pieces[0]; }
-	const inline constexpr U64 queens() const { return pieces[1]; }
-	const inline constexpr U64 rooks() const { return pieces[2]; }
-	const inline constexpr U64 bishops() const { return pieces[3]; }
-	const inline constexpr U64 knights() const { return pieces[4]; }
-	const inline constexpr U64 pawns() const { return pieces[5]; }
-
-	bool in_check(const bool);
-
-	void controlled_squares(const bool side);
-
-	int eval();
-
-	const inline constexpr U64 currhash() const { return hash; };
-
-	// const inline constexpr bool threefold() const { return pos_hist[(const U64)hash] >= 3; }
-
-	const inline bool threefold() { return (pos_hist[hash] >= 3); }
+// A move needs 16 bits to be stored
+// bits 0-5: Destination square (from 0 to 63)
+// bits 6-11: Origin (from 0 to 63)
+// bits 12-13: promotion piece type - 1 (from KNIGHT-1 to QUEEN-1)
+// bits 14-15: special move flag: promotion (1), en passant (2), castling (3)
+// NOTE: en passant bit is only set when a pawn can be captured
+struct Move {
+	uint16_t data;
+	constexpr explicit Move(uint16_t d) : data(d) {}
+	constexpr Move(int from, int to) : data((from << 6) | to) {}
+	template <MoveType T> static constexpr Move make(Square from, Square to, PieceType pt = KNIGHT) {
+		return Move(T | ((pt - KNIGHT) << 12) | (from << 6) | to);
+	}
+	constexpr int src() {
+		return data >> 6 & 0x3f;
+	};
+	constexpr int dst() {
+		return data & 0x3f;
+	};
+	constexpr bool operator==(const Move &m) const {
+		return data == m.data;
+	};
+	constexpr bool operator!=(const Move &m) const {
+		return data == m.data;
+	};
 };
 
-std::string stringify_move(uint16_t);
-uint16_t parse_move(Board &, std::string);
+struct Board {
+	// pawns, knights, bishops, rooks, queens, kings, w_occupancy, b_occupancy
+	uint64_t pieces[8] = {0};
+	// w_control, b_control
+	uint64_t control[2] = {0};
+	bool side = WHITE;
+	uint8_t castling = 0xf;
+	Square ep_square = SQ_NONE;
+
+	// Moves with extra information (taken piece etc..)
+	// better documentation will be included later
+	std::stack<uint32_t> move_hist;
+	std::stack<uint16_t> meta_hist;
+
+	Board() {
+		// Load starting position
+		pieces[0] = Rank2Bits | Rank7Bits;
+		pieces[1] = square_bits(SQ_B1) | square_bits(SQ_G1) | square_bits(SQ_B8) | square_bits(SQ_G8);
+		pieces[2] = square_bits(SQ_C1) | square_bits(SQ_F1) | square_bits(SQ_C8) | square_bits(SQ_F8);
+		pieces[3] = square_bits(SQ_A1) | square_bits(SQ_H1) | square_bits(SQ_A8) | square_bits(SQ_H8);
+		pieces[4] = square_bits(SQ_D1) | square_bits(SQ_D8);
+		pieces[5] = square_bits(SQ_E1) | square_bits(SQ_E8);
+		pieces[6] = Rank1Bits | Rank2Bits;
+		pieces[7] = Rank7Bits | Rank8Bits;
+	}
+	Board(std::string fen) {
+		load_fen(fen);
+	};
+
+	void load_fen(std::string);
+	void print_board();
+
+	bool make_move(Move);
+	void unmake_move();
+
+	std::vector<Move> legal_moves();
+};

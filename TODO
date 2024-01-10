@@ -1,6 +1,4 @@
-- Hashtables (Zobrist hashing)
-- Opening book
-- Endgame tablebase (e.g. Syzygy)
-- Perfts
-- Fix stalemate detection
-- Unmake_move probably not working
+- eval subtracts 1 for each step taken in order to prefer getting into a good position quicker
+- threefold repetition detection
+- 50 move rule detection
+- stalemate detection

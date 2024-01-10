@@ -1,5 +1,5 @@
 #include "../engine/bitboard.hpp"
-#include "../engine/search.hpp"
+// #include "../engine/search.hpp"
 #include "api.hpp"
 #include <pthread.h>
 #include <unistd.h>
@@ -68,8 +68,8 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 					move.clear();
 				}
 				if (moves.size() != prev_moves.size()) {
-					for (int i = prev_moves.size(); i < moves.size(); i++)
-						board.make_move(parse_move(board, moves[i]));
+					// for (int i = prev_moves.size(); i < moves.size(); i++)
+					// 	board.make_move(parse_move(board, moves[i]));
 					prev_moves = moves;
 				}
 			}
@@ -77,8 +77,8 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 			std::cout << "color: " << color << " moves.size(): " << moves.size() << std::endl;
 			if (moves.size() % 2 != color) {
 				std::cout << "thinking" << std::endl;
-				move = stringify_move(ab_search(board, depth).second);
-				board.print_board();
+				// move = stringify_move(ab_search(board, depth).second);
+				// board.print_board();
 				if (move != "----" && move != "0000")
 					API::move(game_id, move);
 				else
