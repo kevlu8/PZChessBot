@@ -1,4 +1,5 @@
 #include "bitboard.hpp"
+// #include "moves.hpp"
 
 void Board::load_fen(std::string fen) {
 	memset(pieces, 0, sizeof(pieces));
@@ -133,6 +134,18 @@ void Board::unmake_move() {
 	/// TODO: IMPLEMENT
 }
 
-std::vector<Move> Board::legal_moves() {
+void Board::legal_moves(std::vector<Move> &moves) const {
 	/// TODO: IMPLEMENT
+}
+
+uint64_t Board::hash() const {
+	uint64_t hash = 0;
+	for (int i = 0; i < 6; i++) {
+		hash ^= pieces[i];
+	}
+	hash ^= castling;
+	hash ^= ep_square;
+	hash ^= control[0];
+	hash ^= control[1];
+	hash ^= side << 62;
 }

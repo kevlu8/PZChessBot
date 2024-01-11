@@ -1,4 +1,4 @@
-- eval subtracts 1 for each step taken in order to prefer getting into a good position quicker
-- threefold repetition detection
-- 50 move rule detection
-- stalemate detection
+- moins une point d'éval pour chaque étape pris pendant la récherche pour préfèrer se rendre à une bonne position plus vite
+- détection de nul par répétition
+- détection de nul par cinquante coups
+- détection de pat

@@ -1,4 +1,4 @@
 # PZChessBot
-A Chess bot coded by two 14/15-year-old students.
+Une moteur d'échecs fait par deux étudiants en lycée, commencé quand nous étions en collège !
 
-[Challenge me!](https://lichess.org/@/PZChessBot)
+[Jouez contre nous !](https://lichess.org/@/PZChessBot)

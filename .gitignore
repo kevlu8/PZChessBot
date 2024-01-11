@@ -38,3 +38,5 @@ CMakeFiles/
 callgrind*
 in*
 !in*.*
+
+stockfish/

@@ -2,6 +2,9 @@
 
 #include "includes.hpp"
 
+// Selects the occupancy array by xoring 6 with side (white: false = 0 ^ 6 = 6, black: true = 1 ^ 6 = 7)
+#define OCC(side) (6 ^ (side))
+
 constexpr uint64_t FileABits = 0x0101010101010101ULL;
 constexpr uint64_t FileBBits = FileABits << 1;
 constexpr uint64_t FileCBits = FileABits << 2;
@@ -54,6 +57,25 @@ struct Move {
 	};
 };
 
+struct HistoryEntry {
+	uint32_t data;
+	constexpr explicit HistoryEntry(uint32_t d) : data(d) {}
+	constexpr HistoryEntry(Move m, PieceType prev_piece, uint8_t prev_castling, Square prev_ep)
+		: data(m.data | ((uint32_t)prev_piece << 16) | ((uint32_t)prev_castling << 19) | ((uint32_t)prev_ep << 23)) {}
+	constexpr Move move() {
+		return Move(data & 0xff);
+	}
+	constexpr PieceType prev_piece() {
+		return PieceType((data >> 16) & 0x111);
+	}
+	constexpr uint8_t prev_castling() {
+		return (data >> 19) & 0b11;
+	}
+	constexpr Square prev_ep() {
+		return Square((data >> 23) & 0b111111);
+	}
+};
+
 struct Board {
 	// pawns, knights, bishops, rooks, queens, kings, w_occupancy, b_occupancy
 	uint64_t pieces[8] = {0};
@@ -65,8 +87,7 @@ struct Board {
 
 	// Moves with extra information (taken piece etc..)
 	// better documentation will be included later
-	std::stack<uint32_t> move_hist;
-	std::stack<uint16_t> meta_hist;
+	std::stack<HistoryEntry> move_hist;
 
 	Board() {
 		// Load starting position
@@ -89,5 +110,7 @@ struct Board {
 	bool make_move(Move);
 	void unmake_move();
 
-	std::vector<Move> legal_moves();
+	void legal_moves(std::vector<Move> &) const;
+
+	uint64_t hash() const;
 };
