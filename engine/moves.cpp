@@ -1,36 +1,31 @@
 #include "moves.hpp"
 
-uint64_t pawn_moves_table[128];
-
-void pawn_moves(const Board &board, std::vector<Move> &moves, bool side) {
-	uint64_t pieces = board.pieces[PAWN] & board.pieces[OCC(side)];
-
-	while (pieces) {
-		// Find the lowest bit and put it in pawn_bit
-		uint64_t pawn_bit = _blsi_u64(pieces);
-		// Get the square value of that bit
-		Square sq = Square(_tzcnt_u64(pawn_bit));
-		// Clear the bit in the pieces bitboard
-		pieces ^= pawn_bit;
-
-		// Use a table
-		uint64_t dests = pawn_moves_table[sq | (side << 6)];
-
-		while (dests) {
-			uint64_t dest_bit = _blsi_u64(dests);
-			MoveType t = NORMAL;
-
-			if (dest_bit & RANK_1 || dest_bit & RANK_8)
-				t = PROMOTION;
-
-			if (dest_bit == square_bits(board.ep_square))
-				t = EN_PASSANT;
-		}
+void white_pawn_moves(const Board &board, std::vector<Move> &moves, bool side) {
+	uint64_t pieces = board.piece_boards[PAWN] & board.piece_boards[OCC(side)];
+	// Normal single pushes (no promotion)
+	uint64_t dsts = ((pieces & ~Rank7Bits) << 8) & ~(board.piece_boards[OCC(side)] | board.piece_boards[OPPOCC(side)]);
+	uint64_t tmp = dsts;
+	while (tmp) {
+		int sq = _tzcnt_u64(tmp);
+		tmp ^= 1ULL << sq;
+		moves.push_back(Move(sq - 8, sq));
 	}
-
-	// OK il y a une problème ici
-	// si on utilise une table pour mapper les src aux dst on n'a aucune façon de savoir si c'est une mange ou non
-	// et si c'est une mange on doit vérifier qu'il y a vraiment un pièce dans le dst
-	// mais si c'est pas une mange on doit vérifier qu'il n'y a aucun pièce
-	// alors on a une problème
+	// Double pushes
+	dsts = ((dsts & Rank3Bits) << 8) & ~(board.piece_boards[OCC(side)] | board.piece_boards[OPPOCC(side)]);
+	while (dsts) {
+		int sq = _tzcnt_u64(dsts);
+		dsts ^= 1ULL << sq;
+		moves.push_back(Move(sq - 16, sq));
+	}
+	// Promotion
+	dsts = ((pieces & Rank7Bits) << 8) & ~(board.piece_boards[OCC(side)] | board.piece_boards[OPPOCC(side)]);
+	while (dsts) {
+		int sq = _tzcnt_u64(dsts);
+		dsts ^= 1ULL << sq;
+		moves.push_back(Move::make<PROMOTION>(sq - 8, sq, QUEEN));
+		moves.push_back(Move::make<PROMOTION>(sq - 8, sq, ROOK));
+		moves.push_back(Move::make<PROMOTION>(sq - 8, sq, KNIGHT));
+		moves.push_back(Move::make<PROMOTION>(sq - 8, sq, BISHOP));
+	}
+	/// TODO: Add captures and EP
 }

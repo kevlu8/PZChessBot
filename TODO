@@ -2,3 +2,4 @@
 - détection de nul par répétition
 - détection de nul par cinquante coups
 - détection de pat
+- un peu de réformattage (changer `6 ^ side` à `OCC(side)`)

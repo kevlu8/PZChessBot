@@ -27,15 +27,32 @@ constexpr Value RookValue = 525;
 constexpr Value QueenValue = 1000;
 constexpr Value VALUE_MAX = QueenValue * 9 + (KnightValue + BishopValue + RookValue) * 2;
 
-enum PieceType { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, NO_PIECE };
+enum PieceType : uint8_t { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, NO_PIECETYPE };
+
+enum Piece : uint8_t {
+	WHITE_PAWN,
+	WHITE_KNIGHT,
+	WHITE_BISHOP,
+	WHITE_ROOK,
+	WHITE_QUEEN,
+	WHITE_KING,
+	BLACK_PAWN = 8,
+	BLACK_KNIGHT,
+	BLACK_BISHOP,
+	BLACK_ROOK,
+	BLACK_QUEEN,
+	BLACK_KING,
+	NO_PIECE
+};
 
 constexpr Value PieceValue[] = {PawnValue, KnightValue, BishopValue, RookValue, QueenValue, VALUE_INFINITE - VALUE_MAX};
 
 enum CastlingRights : uint8_t { NO_CASTLE, WHITE_OO, WHITE_OOO = WHITE_OO << 1, BLACK_OO = WHITE_OO << 2, BLACK_OOO = WHITE_OO << 3 };
 
 // clang-format off
-constexpr PieceType letter_piece[] = {BISHOP, NO_PIECE, NO_PIECE, NO_PIECE, NO_PIECE, NO_PIECE, NO_PIECE, NO_PIECE, NO_PIECE, KING, NO_PIECE, NO_PIECE, KNIGHT, NO_PIECE, PAWN, QUEEN, ROOK};
-constexpr char piece_letter[] = {'P', 'N', 'B', 'R', 'Q', 'K', '?'};
+constexpr PieceType letter_piece[] = {BISHOP, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, KING, NO_PIECETYPE, NO_PIECETYPE, KNIGHT, NO_PIECETYPE, PAWN, QUEEN, ROOK};
+constexpr char piecetype_letter[] = {'P', 'N', 'B', 'R', 'Q', 'K', '?'};
+constexpr char piece_letter[] = {'P','N','B','R','Q','K','?','?','p','n','b','r','q','k','?'};
 // clang-format on
 
 enum File : uint16_t {
