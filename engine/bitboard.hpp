@@ -6,32 +6,32 @@
 #define OCC(side) (6 ^ (side))
 #define OPPOCC(side) (7 ^ (side))
 
-constexpr uint64_t FileABits = 0x0101010101010101ULL;
-constexpr uint64_t FileBBits = FileABits << 1;
-constexpr uint64_t FileCBits = FileABits << 2;
-constexpr uint64_t FileDBits = FileABits << 3;
-constexpr uint64_t FileEBits = FileABits << 4;
-constexpr uint64_t FileFBits = FileABits << 5;
-constexpr uint64_t FileGBits = FileABits << 6;
-constexpr uint64_t FileHBits = FileABits << 7;
+constexpr Bitboard FileABits = 0x0101010101010101ULL;
+constexpr Bitboard FileBBits = FileABits << 1;
+constexpr Bitboard FileCBits = FileABits << 2;
+constexpr Bitboard FileDBits = FileABits << 3;
+constexpr Bitboard FileEBits = FileABits << 4;
+constexpr Bitboard FileFBits = FileABits << 5;
+constexpr Bitboard FileGBits = FileABits << 6;
+constexpr Bitboard FileHBits = FileABits << 7;
 
-constexpr uint64_t Rank1Bits = 0xff;
-constexpr uint64_t Rank2Bits = Rank1Bits << (8 * 1);
-constexpr uint64_t Rank3Bits = Rank1Bits << (8 * 2);
-constexpr uint64_t Rank4Bits = Rank1Bits << (8 * 3);
-constexpr uint64_t Rank5Bits = Rank1Bits << (8 * 4);
-constexpr uint64_t Rank6Bits = Rank1Bits << (8 * 5);
-constexpr uint64_t Rank7Bits = Rank1Bits << (8 * 6);
-constexpr uint64_t Rank8Bits = Rank1Bits << (8 * 7);
+constexpr Bitboard Rank1Bits = 0xff;
+constexpr Bitboard Rank2Bits = Rank1Bits << (8 * 1);
+constexpr Bitboard Rank3Bits = Rank1Bits << (8 * 2);
+constexpr Bitboard Rank4Bits = Rank1Bits << (8 * 3);
+constexpr Bitboard Rank5Bits = Rank1Bits << (8 * 4);
+constexpr Bitboard Rank6Bits = Rank1Bits << (8 * 5);
+constexpr Bitboard Rank7Bits = Rank1Bits << (8 * 6);
+constexpr Bitboard Rank8Bits = Rank1Bits << (8 * 7);
 
-extern uint64_t pseudoAttacks[6][64];
+extern Bitboard pseudoAttacks[6][64];
 
 // clang-format off
-constexpr uint64_t square_bits(Square x) { return 1ULL << x; }
-constexpr uint64_t square_bits(Rank r, File f) { return 1ULL << (r * 8 + f); }
+constexpr Bitboard square_bits(Square x) { return 1ULL << x; }
+constexpr Bitboard square_bits(Rank r, File f) { return 1ULL << (r * 8 + f); }
 // clang-format on
 
-void print_bitboard(uint64_t);
+void print_bitboard(Bitboard);
 
 // A move needs 16 bits to be stored
 // bits 0-5: Destination square (from 0 to 63)
@@ -46,10 +46,10 @@ struct Move {
 	template <MoveType T> static constexpr Move make(int from, int to, PieceType pt = KNIGHT) {
 		return Move(T | ((pt - KNIGHT) << 12) | (from << 6) | to);
 	}
-	constexpr Square src() {
+	constexpr Square src() const {
 		return (Square)(data >> 6 & 0x3f);
 	};
-	constexpr Square dst() {
+	constexpr Square dst() const {
 		return (Square)(data & 0x3f);
 	};
 	constexpr bool operator==(const Move &m) const {
@@ -58,6 +58,7 @@ struct Move {
 	constexpr bool operator!=(const Move &m) const {
 		return data == m.data;
 	};
+	std::string to_string() const;
 };
 
 struct HistoryEntry {
@@ -81,9 +82,9 @@ struct HistoryEntry {
 
 struct Board {
 	// pawns, knights, bishops, rooks, queens, kings, w_occupancy, b_occupancy
-	uint64_t piece_boards[8] = {0};
+	Bitboard piece_boards[8] = {0};
 	// w_control, b_control
-	uint64_t control[2] = {0};
+	Bitboard control[2] = {0};
 	bool side = WHITE;
 	uint8_t castling = 0xf;
 	Square ep_square = SQ_NONE;
@@ -125,5 +126,5 @@ struct Board {
 
 	void legal_moves(std::vector<Move> &) const;
 
-	uint64_t hash() const;
+	Bitboard hash() const;
 };

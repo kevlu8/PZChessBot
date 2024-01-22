@@ -1,6 +1,6 @@
 #include "search.hpp"
 
-uint64_t nodes = 0;
+Bitboard nodes = 0;
 
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
 	if (depth <= 0) {

@@ -1,13 +1,27 @@
 #include "bitboard.hpp"
 // #include "moves.hpp"
 
-void print_bitboard(uint64_t board) {
+void print_bitboard(Bitboard board) {
 	for (int i = 7; i >= 0; i--) {
 		for (int j = 0; j < 8; j++) {
-			std::cout << ((board >> (i * 8 + j)) & 1);
+			std::cout << (((board >> (i * 8 + j)) & 1) ? "X " : ". ");
 		}
 		std::cout << '\n';
 	}
+}
+
+std::string Move::to_string() const {
+	if (data == 0)
+		return "0000";
+	std::string str = "";
+	str += (char)('a' + (src() & 0b111));
+	str += (char)('1' + (src() >> 3));
+	str += (char)('a' + (dst() & 0b111));
+	str += (char)('1' + (dst() >> 3));
+	if ((data & 0xc000) == PROMOTION) {
+		str += piecetype_letter[((data >> 12) & 0b11) + KNIGHT];
+	}
+	return str;
 }
 
 void Board::load_fen(std::string fen) {
@@ -69,7 +83,7 @@ void Board::load_fen(std::string fen) {
 
 	// Load EP square
 	if (fen[inputIdx] != '-') {
-		ep_square = Square((fen[inputIdx] - 'a') * 8 + (fen[inputIdx + 1] - '1'));
+		ep_square = Square((fen[inputIdx] - 'a') + 8 * (fen[inputIdx + 1] - '1'));
 		inputIdx += 3;
 	} else {
 		inputIdx += 2;
@@ -84,12 +98,12 @@ void Board::print_board() {
 	// Start at -1 because we increment before processing to guarantee it happens every time
 	int printIdx = -1;
 	// Occupancy
-	uint64_t occ = piece_boards[6] | piece_boards[7];
+	Bitboard occ = piece_boards[6] | piece_boards[7];
 	// Used for sanity checks during debugging (piece set but no occupancy)
-	uint64_t sanity = (piece_boards[0] | piece_boards[1] | piece_boards[2] | piece_boards[3] | piece_boards[4] | piece_boards[5]) ^ occ;
+	Bitboard sanity = (piece_boards[0] | piece_boards[1] | piece_boards[2] | piece_boards[3] | piece_boards[4] | piece_boards[5]) ^ occ;
 	for (uint16_t rank = RANK_8; rank <= RANK_8; rank--) { // Catches wrap-around subtraction
 		for (uint16_t file = FILE_A; file <= FILE_H; file++) {
-			uint64_t bits = square_bits((Rank)rank, (File)file);
+			Bitboard bits = square_bits((Rank)rank, (File)file);
 			printIdx++;
 			if (sanity & bits) { // Occupancy and collective piece boards differ
 				if (occ & bits) // Occupied but no piece specified
@@ -169,7 +183,7 @@ bool Board::make_move(Move move) {
 		piece_boards[OPPOCC(side)] ^= square_bits(Rank(move.src() >> 3), File(move.dst() & 0b111));
 	} else if ((move.data & 0xc000) == CASTLING) {
 		// Calculate where the rook is
-		uint64_t rook_mask;
+		Bitboard rook_mask;
 		mailbox[move.dst()] = mailbox[move.src()];
 		if ((move.dst() & 0b111) == FILE_C) {
 			rook_mask = square_bits(Rank(move.src() >> 3), FILE_A);
@@ -185,6 +199,8 @@ bool Board::make_move(Move move) {
 		piece_boards[OCC(side)] ^= square_bits(move.src()) ^ square_bits(move.dst()) ^ rook_mask;
 		piece_boards[KING] ^= square_bits(move.src()) | square_bits(move.dst());
 		piece_boards[ROOK] ^= rook_mask;
+		// Remove castling rights
+		castling &= ~((WHITE_OO | WHITE_OOO) << (side << 1));
 	} else {
 		// Get piece that is moving
 		uint8_t piece = mailbox[move.src()] & 0b111;
@@ -200,6 +216,25 @@ bool Board::make_move(Move move) {
 			piece = mailbox[move.dst()] & 0b111;
 			piece_boards[piece] ^= square_bits(move.dst());
 			piece_boards[OPPOCC(side)] ^= square_bits(move.dst());
+		} else {
+			// Set EP square if applicable
+			if (piece == PAWN && ((move.src() - move.dst()) & 0b1111) == 0)
+				ep_square = Square((move.src() + move.dst()) >> 1);
+			else
+				ep_square = SQ_NONE;
+		}
+		// Handle castling rights
+		if (piece == KING) {
+			castling &= ~((WHITE_OO | WHITE_OOO) << (side << 1));
+		} else if (piece == ROOK) {
+			if (move.src() == SQ_A1 || move.dst() == SQ_A1)
+				castling &= ~WHITE_OOO;
+			else if (move.src() == SQ_H1 || move.dst() == SQ_H1)
+				castling &= ~WHITE_OO;
+			else if (move.src() == SQ_A8 || move.dst() == SQ_A8)
+				castling &= ~BLACK_OOO;
+			else if (move.src() == SQ_H8 || move.dst() == SQ_H8)
+				castling &= ~BLACK_OO;
 		}
 	}
 	side = !side;
@@ -213,8 +248,8 @@ void Board::legal_moves(std::vector<Move> &moves) const {
 	/// TODO: IMPLEMENT
 }
 
-uint64_t Board::hash() const {
-	uint64_t hash = 0;
+Bitboard Board::hash() const {
+	Bitboard hash = 0;
 	// for (int i = 0; i < 6; i++) {
 	// 	hash ^= pieces[i];
 	// }

@@ -9,6 +9,8 @@
 #include <utility>
 #include <vector>
 
+typedef uint64_t Bitboard;
+
 constexpr bool WHITE = false;
 constexpr bool BLACK = true;
 
