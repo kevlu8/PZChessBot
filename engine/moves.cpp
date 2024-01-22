@@ -380,10 +380,10 @@ void king_moves(const Board &board, std::vector<Move> &moves) {
 	}
 }
 
-void generate_moves(const Board &board, std::vector<Move> &moves) {
-	rook_moves(board, moves);
-	bishop_moves(board, moves);
-	knight_moves(board, moves);
-	pawn_moves(board, moves);
-	king_moves(board, moves);
+void Board::legal_moves(std::vector<Move> &moves) const {
+	rook_moves(*this, moves);
+	bishop_moves(*this, moves);
+	knight_moves(*this, moves);
+	pawn_moves(*this, moves);
+	king_moves(*this, moves);
 }

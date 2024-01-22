@@ -3,8 +3,6 @@
 #include "bitboard.hpp"
 #include "includes.hpp"
 
-void generate_moves(const Board &board, std::vector<Move> &moves);
-
 void white_pawn_moves(const Board &board, std::vector<Move> &moves);
 void black_pawn_moves(const Board &board, std::vector<Move> &moves);
 void pawn_moves(const Board &board, std::vector<Move> &moves);

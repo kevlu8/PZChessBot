@@ -1,4 +1,3 @@
-/*
 #include "../engine/search.hpp"
 
 std::vector<std::pair<std::string, int>> tests = {
@@ -42,10 +41,9 @@ std::vector<std::pair<std::string, int>> tests = {
 int main() {
 	int i = 1, j = 1;
 	for (auto &test : tests) {
-		Board *board = new Board(test.first);
-		ab_search(*board, i);
-		if (nodes() != test.second) {
-			std::cout << "Failed test " << j << '.' << i << " - Got: " << nodes() << " - Expected: " << test.second << std::endl;
+		Board board(test.first);
+		if (perft(board, i) != test.second) {
+			std::cout << "Failed test " << j << '.' << i << " - Got: " << nodes << " - Expected: " << test.second << std::endl;
 		} else {
 			std::cout << "Passed test " << j << '.' << i << " - Got: " << test.second << std::endl;
 		}
@@ -56,9 +54,4 @@ int main() {
 			std::cout << std::endl;
 		}
 	}
-}
-*/
-
-int main() {
-	return 0;
 }

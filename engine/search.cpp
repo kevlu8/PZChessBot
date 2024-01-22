@@ -1,11 +1,33 @@
 #include "search.hpp"
 
-Bitboard nodes = 0;
+uint64_t nodes = 0;
+
+void _perft(Board &board, int depth) {
+	if (depth == 0) {
+		nodes++;
+		return;
+	}
+	std::vector<Move> moves;
+	board.legal_moves(moves);
+	for (Move &move : moves) {
+		board.make_move(move);
+		_perft(board, depth - 1);
+		board.unmake_move();
+	}
+}
+
+uint64_t perft(Board &board, int depth) {
+	nodes = 0;
+	_perft(board, depth);
+	return nodes;
+}
 
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
 	if (depth <= 0) {
 		nodes++;
+#ifndef PERFT // We don't need to compile eval.cpp if we are only doing perfts
 		return eval(board) * side;
+#endif
 	}
 
 	std::vector<Move> moves;

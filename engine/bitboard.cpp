@@ -244,10 +244,6 @@ void Board::unmake_move() {
 	/// TODO: IMPLEMENT
 }
 
-void Board::legal_moves(std::vector<Move> &moves) const {
-	/// TODO: IMPLEMENT
-}
-
 Bitboard Board::hash() const {
 	Bitboard hash = 0;
 	// for (int i = 0; i < 6; i++) {
