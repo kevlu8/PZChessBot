@@ -31,6 +31,8 @@ constexpr uint64_t square_bits(Square x) { return 1ULL << x; }
 constexpr uint64_t square_bits(Rank r, File f) { return 1ULL << (r * 8 + f); }
 // clang-format on
 
+void print_bitboard(uint64_t);
+
 // A move needs 16 bits to be stored
 // bits 0-5: Destination square (from 0 to 63)
 // bits 6-11: Origin (from 0 to 63)
