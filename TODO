@@ -3,3 +3,4 @@
 - détection de nul par cinquante coups
 - détection de pat
 - un peu de réformattage (changer `6 ^ side` à `OCC(side)`)
+- détection d'échec, m.à.j. des cases contrôlées

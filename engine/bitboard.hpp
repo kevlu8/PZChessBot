@@ -38,7 +38,6 @@ void print_bitboard(Bitboard);
 // bits 6-11: Origin (from 0 to 63)
 // bits 12-13: promotion piece type - 1 (from KNIGHT-1 to QUEEN-1)
 // bits 14-15: special move flag: promotion (1), en passant (2), castling (3)
-// NOTE: en passant bit is only set when a pawn can be captured
 struct Move {
 	uint16_t data;
 	constexpr explicit Move(uint16_t d) : data(d) {}
@@ -52,6 +51,12 @@ struct Move {
 	constexpr Square dst() const {
 		return (Square)(data & 0x3f);
 	};
+	constexpr PieceType promotion() const {
+		return (PieceType)((data >> 12) & 0b11);
+	};
+	constexpr MoveType type() const {
+		return (MoveType)(data & 0xc000);
+	};
 	constexpr bool operator==(const Move &m) const {
 		return data == m.data;
 	};
@@ -61,19 +66,26 @@ struct Move {
 	std::string to_string() const;
 };
 
+static constexpr Move NullMove = Move(0);
+
+// A history entry stores the move and other information needed to unmake it
+// bits 0-15: move
+// bits 16-19: captured piece
+// bits 20-23: previous castling rights
+// bits 24-29: previous en passant square
 struct HistoryEntry {
 	uint32_t data;
 	constexpr explicit HistoryEntry(uint32_t d) : data(d) {}
-	constexpr HistoryEntry(Move m, PieceType prev_piece, uint8_t prev_castling, Square prev_ep)
-		: data(m.data | ((uint32_t)prev_piece << 16) | ((uint32_t)prev_castling << 19) | ((uint32_t)prev_ep << 23)) {}
+	constexpr HistoryEntry(Move m, Piece prev_piece, uint8_t prev_castling, Square prev_ep)
+		: data(m.data | ((uint32_t)prev_piece << 16) | ((uint32_t)prev_castling << 20) | ((uint32_t)prev_ep << 24)) {}
 	constexpr Move move() {
-		return Move(data & 0xff);
+		return Move(data & 0xffff);
 	}
-	constexpr PieceType prev_piece() {
-		return PieceType((data >> 16) & 0x111);
+	constexpr Piece prev_piece() {
+		return Piece((data >> 16) & 0b1111);
 	}
 	constexpr uint8_t prev_castling() {
-		return (data >> 19) & 0b11;
+		return (data >> 19) & 0b1111;
 	}
 	constexpr Square prev_ep() {
 		return Square((data >> 23) & 0b111111);
@@ -121,7 +133,7 @@ struct Board {
 	void load_fen(std::string);
 	void print_board();
 
-	bool make_move(Move);
+	void make_move(Move);
 	void unmake_move();
 
 	void legal_moves(std::vector<Move> &) const;

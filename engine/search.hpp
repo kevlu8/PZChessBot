@@ -6,6 +6,6 @@
 
 extern uint64_t nodes;
 
-Move search(Board &, int);
+Move search(Board &board, int depth);
 
-uint64_t perft(Board &, int);
+uint64_t perft(Board &board, int depth);

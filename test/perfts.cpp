@@ -42,8 +42,9 @@ int main() {
 	int i = 1, j = 1;
 	for (auto &test : tests) {
 		Board board(test.first);
-		if (perft(board, i) != test.second) {
-			std::cout << "Failed test " << j << '.' << i << " - Got: " << nodes << " - Expected: " << test.second << std::endl;
+		uint64_t res = perft(board, i);
+		if (res != test.second) {
+			std::cout << "Failed test " << j << '.' << i << " - Got: " << res << " - Expected: " << test.second << std::endl;
 		} else {
 			std::cout << "Passed test " << j << '.' << i << " - Got: " << test.second << std::endl;
 		}

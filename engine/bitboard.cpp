@@ -95,16 +95,20 @@ void Board::load_fen(std::string fen) {
 void Board::print_board() {
 #ifndef NODEBUG
 	char print[64];
-	// Start at -1 because we increment before processing to guarantee it happens every time
+	// Start at -1 because we increment before processing to guarantee it happens in every case
 	int printIdx = -1;
 	// Occupancy
 	Bitboard occ = piece_boards[6] | piece_boards[7];
 	// Used for sanity checks during debugging (piece set but no occupancy)
 	Bitboard sanity = (piece_boards[0] | piece_boards[1] | piece_boards[2] | piece_boards[3] | piece_boards[4] | piece_boards[5]) ^ occ;
-	for (uint16_t rank = RANK_8; rank <= RANK_8; rank--) { // Catches wrap-around subtraction
-		for (uint16_t file = FILE_A; file <= FILE_H; file++) {
+	for (int rank = RANK_8; rank >= 0; rank--) {
+		for (int file = FILE_A; file <= FILE_H; file++) {
 			Bitboard bits = square_bits((Rank)rank, (File)file);
 			printIdx++;
+			if (mailbox[rank * 8 + file] != NO_PIECE && !(occ & square_bits((Rank)rank, (File)file))) { // Occupancy and mailbox differ
+				print[printIdx] = '$';
+				continue;
+			}
 			if (sanity & bits) { // Occupancy and collective piece boards differ
 				if (occ & bits) // Occupied but no piece specified
 					print[printIdx] = '?';
@@ -144,8 +148,8 @@ void Board::print_board() {
 			std::cout << ' ';
 	}
 #else
-	for (uint16_t rank = RANK_8; rank <= RANK_8; rank--) { // Catches wrap-around subtraction
-		for (uint16_t file = FILE_A; file <= FILE_H; file++) {
+	for (int rank = RANK_8; rank >= 0; rank--) {
+		for (int file = FILE_A; file <= FILE_H; file++) {
 			std::cout << piece_letter[mailbox[rank * 8 + file]];
 			if (file == FILE_H)
 				std::cout << '\n';
@@ -156,10 +160,13 @@ void Board::print_board() {
 #endif
 }
 
-bool Board::make_move(Move move) {
+void Board::make_move(Move move) {
+	// Add move to move history
+	move_hist.push(HistoryEntry(move, mailbox[move.dst()], castling, ep_square));
+	Square tmp_ep_square = SQ_NONE;
 	if (move.data == 0) {
 		// Null move, do nothing, just change sides
-	} else if ((move.data & 0xc000) == PROMOTION) {
+	} else if (move.type() == PROMOTION) {
 		// Handle captures
 		if (piece_boards[OPPOCC(side)] & square_bits(move.dst())) { // If opposite occupancy bit set on destination (capture)
 			// Remove whatever piece it was
@@ -169,11 +176,11 @@ bool Board::make_move(Move move) {
 		}
 		// Remove the pawn on the src and add the piece on the dst
 		mailbox[move.src()] = NO_PIECE;
-		mailbox[move.dst()] = Piece(((move.data >> 12) & 0b11) + ((!!side) << 3) + KNIGHT);
+		mailbox[move.dst()] = Piece(move.promotion() + ((!!side) << 3) + KNIGHT);
 		piece_boards[PAWN] ^= square_bits(move.src());
 		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
-		piece_boards[((move.data >> 12) & 0b11) + KNIGHT] ^= square_bits(move.dst());
-	} else if ((move.data & 0xc000) == EN_PASSANT) {
+		piece_boards[move.promotion() + KNIGHT] ^= square_bits(move.dst());
+	} else if (move.type() == EN_PASSANT) {
 		// Remove the pawn on the src and the taken pawn, then add the pawn on the dst
 		mailbox[move.dst()] = mailbox[move.src()];
 		mailbox[move.src()] = NO_PIECE;
@@ -181,20 +188,21 @@ bool Board::make_move(Move move) {
 		piece_boards[PAWN] ^= square_bits(move.src()) | square_bits(move.dst()) | square_bits(Rank(move.src() >> 3), File(move.dst() & 0b111));
 		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
 		piece_boards[OPPOCC(side)] ^= square_bits(Rank(move.src() >> 3), File(move.dst() & 0b111));
-	} else if ((move.data & 0xc000) == CASTLING) {
+	} else if (move.type() == CASTLING) {
 		// Calculate where the rook is
 		Bitboard rook_mask;
 		mailbox[move.dst()] = mailbox[move.src()];
+		mailbox[move.src()] = NO_PIECE;
 		if ((move.dst() & 0b111) == FILE_C) {
 			rook_mask = square_bits(Rank(move.src() >> 3), FILE_A);
 			rook_mask |= rook_mask << 3;
-			mailbox[move.dst() + 1] = mailbox[move.src() - 4];
-			mailbox[move.src() - 4] = NO_PIECE;
+			mailbox[move.dst() + 1] = mailbox[move.dst() - 2];
+			mailbox[move.dst() - 2] = NO_PIECE;
 		} else {
 			rook_mask = square_bits(Rank(move.src() >> 3), FILE_H);
 			rook_mask |= rook_mask >> 2;
-			mailbox[move.dst() - 1] = mailbox[move.src() + 3];
-			mailbox[move.src() + 3] = NO_PIECE;
+			mailbox[move.dst() - 1] = mailbox[move.dst() + 1];
+			mailbox[move.dst() + 1] = NO_PIECE;
 		}
 		piece_boards[OCC(side)] ^= square_bits(move.src()) ^ square_bits(move.dst()) ^ rook_mask;
 		piece_boards[KING] ^= square_bits(move.src()) | square_bits(move.dst());
@@ -202,6 +210,13 @@ bool Board::make_move(Move move) {
 		// Remove castling rights
 		castling &= ~((WHITE_OO | WHITE_OOO) << (side << 1));
 	} else {
+		// Handle captures
+		if (piece_boards[OPPOCC(side)] & square_bits(move.dst())) { // If opposite occupancy bit set on destination (capture)
+			// Remove whatever piece it was
+			uint8_t piece = mailbox[move.dst()] & 0b111;
+			piece_boards[piece] ^= square_bits(move.dst());
+			piece_boards[OPPOCC(side)] ^= square_bits(move.dst());
+		}
 		// Get piece that is moving
 		uint8_t piece = mailbox[move.src()] & 0b111;
 		// Update mailbox repr first
@@ -210,19 +225,6 @@ bool Board::make_move(Move move) {
 		// Update piece and occupancy bitboard
 		piece_boards[piece] ^= square_bits(move.src()) | square_bits(move.dst());
 		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
-		// Handle captures
-		if (piece_boards[OPPOCC(side)] & square_bits(move.dst())) { // If opposite occupancy bit set on destination (capture)
-			// Remove whatever piece it was
-			piece = mailbox[move.dst()] & 0b111;
-			piece_boards[piece] ^= square_bits(move.dst());
-			piece_boards[OPPOCC(side)] ^= square_bits(move.dst());
-		} else {
-			// Set EP square if applicable
-			if (piece == PAWN && ((move.src() - move.dst()) & 0b1111) == 0)
-				ep_square = Square((move.src() + move.dst()) >> 1);
-			else
-				ep_square = SQ_NONE;
-		}
 		// Handle castling rights
 		if (piece == KING) {
 			castling &= ~((WHITE_OO | WHITE_OOO) << (side << 1));
@@ -235,13 +237,89 @@ bool Board::make_move(Move move) {
 				castling &= ~BLACK_OOO;
 			else if (move.src() == SQ_H8 || move.dst() == SQ_H8)
 				castling &= ~BLACK_OO;
+		} else {
+			// Set EP square if applicable
+			if (piece == PAWN && ((move.src() - move.dst()) & 0b1111) == 0)
+				tmp_ep_square = Square((move.src() + move.dst()) >> 1);
+			else
+				tmp_ep_square = SQ_NONE;
 		}
 	}
+	// Update control bitboards
+	// if (move != NullMove)
+	// 	update_control(move.src(), move.dst());
+	// Update EP square
+	ep_square = tmp_ep_square;
+	// Switch sides
 	side = !side;
 }
 
 void Board::unmake_move() {
-	/// TODO: IMPLEMENT
+	// Switch sides first
+	side = !side;
+	HistoryEntry prev = move_hist.top();
+	move_hist.pop();
+	Move move = prev.move();
+	if (move.data == 0) {
+		// Null move, do nothing on the board, but recover metadata
+	} else if (move.type() == PROMOTION) {
+		// Remove the piece on the dst and add the pawn on the src
+		mailbox[move.src()] = Piece(PAWN + ((!!side) << 3));
+		mailbox[move.dst()] = prev.prev_piece();
+		piece_boards[PAWN] ^= square_bits(move.src());
+		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
+		piece_boards[((move.data >> 12) & 0b11) + KNIGHT] ^= square_bits(move.dst());
+	} else if (move.type() == EN_PASSANT) {
+		// Remove the pawn on the dst and add the pawn on the src and the taken pawn
+		mailbox[move.src()] = mailbox[move.dst()];
+		mailbox[move.dst()] = NO_PIECE;
+		mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)] = Piece(WHITE_PAWN + ((!side) << 3));
+		piece_boards[PAWN] ^= square_bits(move.src()) | square_bits(move.dst()) | square_bits(Rank(move.src() >> 3), File(move.dst() & 0b111));
+		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
+		piece_boards[OPPOCC(side)] ^= square_bits(Rank(move.src() >> 3), File(move.dst() & 0b111));
+	} else if (move.type() == CASTLING) {
+		// Calculate where the rook was
+		Bitboard rook_mask;
+		mailbox[move.src()] = mailbox[move.dst()];
+		mailbox[move.dst()] = NO_PIECE;
+		if ((move.dst() & 0b111) == FILE_C) {
+			rook_mask = square_bits(Rank(move.src() >> 3), FILE_A);
+			rook_mask |= rook_mask << 3;
+			mailbox[move.dst() - 2] = mailbox[move.dst() + 1];
+			mailbox[move.dst() + 1] = NO_PIECE;
+		} else {
+			rook_mask = square_bits(Rank(move.src() >> 3), FILE_H);
+			rook_mask |= rook_mask >> 2;
+			mailbox[move.dst() + 1] = mailbox[move.dst() - 1];
+			mailbox[move.dst() - 1] = NO_PIECE;
+		}
+		piece_boards[OCC(side)] ^= square_bits(move.src()) ^ square_bits(move.dst()) ^ rook_mask;
+		piece_boards[KING] ^= square_bits(move.src()) | square_bits(move.dst());
+		piece_boards[ROOK] ^= rook_mask;
+	} else {
+		// Get piece that is moving
+		uint8_t piece = mailbox[move.dst()] & 0b111;
+		// Update mailbox repr first
+		mailbox[move.src()] = mailbox[move.dst()];
+		mailbox[move.dst()] = prev.prev_piece();
+		// Update piece and occupancy bitboard
+		piece_boards[piece] ^= square_bits(move.src()) | square_bits(move.dst());
+		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
+		// Handle captures
+		if (prev.prev_piece() != NO_PIECE) { // If there was a capture
+			// Add whatever piece it was
+			piece = prev.prev_piece() & 0b111;
+			piece_boards[piece] ^= square_bits(move.dst());
+			piece_boards[OPPOCC(side)] ^= square_bits(move.dst());
+		}
+	}
+	// Update control bitboards
+	// if (move != NullMove)
+	// 	update_control(move.dst(), move.src());
+	// Update EP square
+	ep_square = prev.prev_ep();
+	// Update castling rights
+	castling = prev.prev_castling();
 }
 
 Bitboard Board::hash() const {

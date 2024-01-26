@@ -17,9 +17,18 @@ void _perft(Board &board, int depth) {
 }
 
 uint64_t perft(Board &board, int depth) {
-	nodes = 0;
-	_perft(board, depth);
-	return nodes;
+	uint64_t total = 0;
+	std::vector<Move> moves;
+	board.legal_moves(moves);
+	for (Move &move : moves) {
+		nodes = 0;
+		board.make_move(move);
+		_perft(board, depth - 1);
+		board.unmake_move();
+		total += nodes;
+		std::cout << move.to_string() << ": " << nodes << std::endl;
+	}
+	return total;
 }
 
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
