@@ -61,7 +61,7 @@ struct Move {
 		return data == m.data;
 	};
 	constexpr bool operator!=(const Move &m) const {
-		return data == m.data;
+		return data != m.data;
 	};
 	std::string to_string() const;
 };
