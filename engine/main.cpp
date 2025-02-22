@@ -15,7 +15,7 @@ int main() {
 	board.print_board();
 	std::cout << '\n';
 	std::vector<Move> moves;
-	generate_moves(board, moves);
+	board.legal_moves(board, moves);
 	for (Move move : moves) {
 		std::cout << move.to_string() << '\n';
 	}
