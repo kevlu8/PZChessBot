@@ -1,4 +1,3 @@
-/*
 #include "../engine/search.hpp"
 
 bool failed = false;
@@ -18,21 +17,20 @@ std::vector<std::tuple<std::string, int, std::string>> tests = {
 int main() {
 	int i = 1;
 	for (auto [fen, depth, expected] : tests) {
-		Board *board = new Board(fen);
-		std::pair<int, uint16_t> res = ab_search(*board, depth);
-		if (stringify_move(res.second) == expected) {
-			std::cout << "Passed test " << i << " - Got: " << stringify_move(res.second) << std::endl;
+		Board board(fen);
+		std::pair<Move, Value> res = search(board, depth+1);
+		// if (stringify_move(res.second) == expected) {
+		if (res.first.to_string() == expected) {
+			std::cout << "Passed test " << i << " - Got: " << res.first.to_string() << std::endl;
 		} else {
-			std::cout << "Failed test " << i << " - Got: " << stringify_move(res.second) << " - Expected: " << expected << std::endl;
+			std::cout << "Failed test " << i << " - Got: " << res.first.to_string() << " - Expected: " << expected << std::endl;
 			failed = true;
 		}
 		i++;
-		delete board;
 	}
 	return failed;
 }
-*/
 
-int main() {
-	return 0;
-}
+// int main() {
+// 	return 0;
+// }

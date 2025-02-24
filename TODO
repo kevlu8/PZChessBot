@@ -1,6 +1,6 @@
-- moins une point d'éval pour chaque étape pris pendant la récherche pour préfèrer se rendre à une bonne position plus vite
+- les cases controlées (important: sinon, castling peut etre illegal)
+- détection d'échec
 - détection de nul par répétition
 - détection de nul par cinquante coups
 - détection de pat
-- un peu de réformattage (changer `6 ^ side` à `OCC(side)`)
-- détection d'échec, m.à.j. des cases contrôlées
+- le code dangereux (?)

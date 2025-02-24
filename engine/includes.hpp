@@ -16,7 +16,7 @@ constexpr bool BLACK = true;
 
 constexpr int MAX_PLY = 40;
 
-typedef uint16_t Value;
+typedef int16_t Value;
 constexpr Value VALUE_ZERO = 0;
 constexpr Value VALUE_INFINITE = 32001;
 constexpr Value VALUE_MATE = 32000;

@@ -1,4 +1,4 @@
-#include "moves.hpp"
+#include "movegen.hpp"
 
 struct MagicEntry {
 	Bitboard mask;
@@ -358,6 +358,8 @@ void rook_moves(const Board &board, std::vector<Move> &moves) {
 
 void king_moves(const Board &board, std::vector<Move> &moves) {
 	Bitboard piece = board.piece_boards[KING] & board.piece_boards[OCC(board.side)];
+	if (__builtin_expect(piece == 0, false))
+		return;
 	int sq = _tzcnt_u64(piece);
 	// Castling
 	if (board.side == WHITE) {
@@ -367,7 +369,7 @@ void king_moves(const Board &board, std::vector<Move> &moves) {
 				moves.push_back(Move::make<CASTLING>(SQ_E1, SQ_G1));
 		}
 		if (board.castling & WHITE_OOO) {
-			if (!((board.piece_boards[6] | board.piece_boards[7] | board.control[BLACK]) & (square_bits(SQ_D1) | square_bits(SQ_C1))) &&
+			if (!((board.piece_boards[6] | board.piece_boards[7] | board.control[BLACK]) & (square_bits(SQ_D1) | square_bits(SQ_C1) | square_bits(SQ_B1))) &&
 				!(board.control[BLACK] & square_bits(SQ_E1)))
 				moves.push_back(Move::make<CASTLING>(SQ_E1, SQ_C1));
 		}
@@ -378,7 +380,7 @@ void king_moves(const Board &board, std::vector<Move> &moves) {
 				moves.push_back(Move::make<CASTLING>(SQ_E8, SQ_G8));
 		}
 		if (board.castling & BLACK_OOO) {
-			if (!((board.piece_boards[6] | board.piece_boards[7] | board.control[WHITE]) & (square_bits(SQ_D8) | square_bits(SQ_C8))) &&
+			if (!((board.piece_boards[6] | board.piece_boards[7] | board.control[WHITE]) & (square_bits(SQ_D8) | square_bits(SQ_C8) | square_bits(SQ_B8))) &&
 				!(board.control[WHITE] & square_bits(SQ_E8)))
 				moves.push_back(Move::make<CASTLING>(SQ_E8, SQ_C8));
 		}

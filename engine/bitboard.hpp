@@ -64,6 +64,7 @@ struct Move {
 		return data != m.data;
 	};
 	std::string to_string() const;
+	static Move from_string(const std::string &, const void *);
 };
 
 static constexpr Move NullMove = Move(0);
@@ -85,10 +86,10 @@ struct HistoryEntry {
 		return Piece((data >> 16) & 0b1111);
 	}
 	constexpr uint8_t prev_castling() {
-		return (data >> 19) & 0b1111;
+		return (data >> 20) & 0b1111;
 	}
 	constexpr Square prev_ep() {
-		return Square((data >> 23) & 0b111111);
+		return Square((data >> 24) & 0b111111);
 	}
 };
 
@@ -98,7 +99,7 @@ struct Board {
 	// w_control, b_control
 	Bitboard control[2] = {0};
 	bool side = WHITE;
-	uint8_t castling = 0xf;
+	uint8_t castling = 0xf; // 1111
 	Square ep_square = SQ_NONE;
 
 	// Mailbox representation of the board for faster queries of certain data
@@ -132,6 +133,7 @@ struct Board {
 
 	void load_fen(std::string);
 	void print_board();
+	bool sanity_check(char *);
 
 	void make_move(Move);
 	void unmake_move();

@@ -2,10 +2,11 @@
 
 #include "bitboard.hpp"
 #include "eval.hpp"
-#include "moves.hpp"
+#include "movegen.hpp"
+#include <algorithm>
 
 extern uint64_t nodes;
 
-Move search(Board &board, int depth);
+std::pair<Move, Value> search(Board &board, int depth);
 
 uint64_t perft(Board &board, int depth);

@@ -45,6 +45,7 @@ int main() {
 		uint64_t res = perft(board, i);
 		if (res != test.second) {
 			std::cout << "Failed test " << j << '.' << i << " - Got: " << res << " - Expected: " << test.second << std::endl;
+			return 1;
 		} else {
 			std::cout << "Passed test " << j << '.' << i << " - Got: " << test.second << std::endl;
 		}
