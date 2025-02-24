@@ -125,7 +125,7 @@ std::pair<Move, Value> search(Board &board, int depth) {
 
 		// std::cout << move.to_string() << " " << score << '\n';
 
-		if (score + (rand() & 1) > best_score) {
+		if (score /*+ (rand() & 1)*/ > best_score) {
 			if (score > alpha) {
 				alpha = score;
 			}

@@ -21,26 +21,26 @@ int main() {
 	// std::string fen = "8/P7/1k6/8/8/8/7K/q7 b - - 4 58";
 
 	// std::string fen = "4qrk1/rb4b1/p1npp3/2p3R1/1p2P2Q/P2P3P/1PP3P1/R1B3K1 w - - 3 20";
-	std::string fen = "4qr2/rb4k1/p1npp3/2p5/1p2P2Q/P2P3P/1PP3P1/R1B3K1 w - - 0 21";
-	// std::string fen = "5rk1/8/8/8/8/8/8/6K1 w - - 3 20";
-	// Board board;
-	Board board(fen);
+	// std::string fen = "4qr2/rb4k1/p1npp3/2p5/1p2P2Q/P2P3P/1PP3P1/R1B3K1 w - - 0 21";
+	// std::string fen = "rnbqk1nr/pp1p1ppp/3b4/2pP4/8/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 3 7";
+	Board board;
+	// Board board(fen);
 	while (true) {
-		// board.print_board();
-		// std::string move;
-		// std::cin >> move;
-		// if (move == "q") break;
-		// Move m = Move::from_string(move, &board);
-		// board.make_move(m);
-		// board.print_board();
-		// board.unmake_move();
+		board.print_board();
+		std::string move;
+		std::cin >> move;
+		if (move == "q") break;
+		Move m = Move::from_string(move, &board);
+		board.make_move(m);
 		auto enginemove = search(board, 6);
 		board.make_move(enginemove.first);
 		std::cout << "Engine move: " << enginemove.first.to_string() << " Eval: " << enginemove.second << std::endl;
+		// enginemove = search(board, 6);
+		// std::cout << "Engine response: " << enginemove.first.to_string() << " Eval: " << enginemove.second << std::endl;
 		// std::vector<Move> moves;
 		// board.legal_moves(moves);
 		// for (Move m : moves)
 		// 	std::cout << m.to_string() << std::endl;
-		break;
+		// break;
 	}
 }

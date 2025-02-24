@@ -1,4 +1,5 @@
 - les cases controlées (important: sinon, castling peut etre illegal)
+- fixer le bot pour le nouveau interface du moteur
 - détection d'échec
 - détection de nul par répétition
 - détection de nul par cinquante coups

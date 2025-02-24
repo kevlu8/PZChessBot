@@ -1,5 +1,5 @@
 #include "../engine/bitboard.hpp"
-// #include "../engine/search.hpp"
+#include "../engine/search.hpp"
 #include "api.hpp"
 #include <pthread.h>
 #include <unistd.h>
@@ -13,7 +13,7 @@ std::unordered_map<std::string, pthread_t> games;
 // loop that handles game events and plays the game
 void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 	std::cout << "playing as " << (color ? "white" : "black") << std::endl;
-	Board board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+	Board board;
 	std::vector<std::string> moves, prev_moves;
 	std::string moves_str, move;
 	// connect to the game stream
@@ -79,6 +79,7 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 				std::cout << "thinking" << std::endl;
 				// move = stringify_move(ab_search(board, depth).second);
 				// board.print_board();
+				move = search(board, 6).first.to_string();
 				if (move != "----" && move != "0000")
 					API::move(game_id, move);
 				else
