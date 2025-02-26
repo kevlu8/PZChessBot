@@ -28,12 +28,6 @@ __attribute__((constructor)) constexpr void init_heatmaps() {
 }
 
 Value eval(const Board &board) {
-	/*
-	1. Si une côté manque un roi, return MATE
-	2. Compte les matérials de chaque côté (pondéré à 4)
-	3. Prendre une total des cases controllées par chaque côté (pondéré à 2)
-	*/
-
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
 		return VALUE_MATE;
