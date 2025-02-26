@@ -1,4 +1,5 @@
 - les cases controlées (important: sinon, castling peut etre illegal)
+- il ne veut pas jouer les mats, plutot, il prefere le pat (??)
 - fixer le bot pour le nouveau interface du moteur
 - détection d'échec
 - détection de nul par répétition

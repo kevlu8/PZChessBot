@@ -23,8 +23,9 @@ int main() {
 	// std::string fen = "4qrk1/rb4b1/p1npp3/2p3R1/1p2P2Q/P2P3P/1PP3P1/R1B3K1 w - - 3 20";
 	// std::string fen = "4qr2/rb4k1/p1npp3/2p5/1p2P2Q/P2P3P/1PP3P1/R1B3K1 w - - 0 21";
 	// std::string fen = "rnbqk1nr/pp1p1ppp/3b4/2pP4/8/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 3 7";
-	Board board;
+	// Board board;
 	// Board board(fen);
+	Board board("5r2/5P1p/1p1k2p1/5q1P/3n2K1/4q3/8/5r2 w - - 1 40");
 	while (true) {
 		board.print_board();
 		std::string move;

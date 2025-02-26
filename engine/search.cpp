@@ -2,18 +2,20 @@
 
 uint64_t nodes = 0;
 
-void _perft(Board &board, int depth) {
-	if (depth == 0) {
-		nodes++;
-		return;
-	}
+uint64_t _perft(Board &board, int depth) {
+	if (_mm_popcnt_u64(board.piece_boards[KING]) != 2)
+		return 0;
+	if (depth == 0)
+		return 1;
 	std::vector<Move> moves;
 	board.legal_moves(moves);
+	uint64_t cnt = 0;
 	for (Move &move : moves) {
-		if (_mm_popcnt_u64(board.piece_boards[KING]) == 2)
-			_perft(board, depth - 1);
+		board.make_move(move);
+		cnt += _perft(board, depth - 1);
 		board.unmake_move();
 	}
+	return cnt;
 }
 
 uint64_t perft(Board &board, int depth) {
@@ -21,11 +23,9 @@ uint64_t perft(Board &board, int depth) {
 	std::vector<Move> moves;
 	board.legal_moves(moves);
 	for (Move &move : moves) {
-		nodes = 0;
 		board.make_move(move);
-		_perft(board, depth - 1);
+		total += _perft(board, depth - 1);
 		board.unmake_move();
-		total += nodes;
 		std::cout << move.to_string() << ": " << nodes << std::endl;
 	}
 	return total;
@@ -41,13 +41,14 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 #endif
 	}
 
+	Value best = -VALUE_INFINITE;
+
 	std::vector<Move> moves;
 	board.legal_moves(moves);
 
-	Value best = -VALUE_INFINITE;
-
 	// Move ordering (experimental)
 	if (depth > 2) {
+		bool game_over = true;
 		std::vector<std::pair<Move, Value>> scores;
 		for (int i = 0; i < moves.size(); i++) {
 			Move &move = moves[i];
@@ -55,13 +56,28 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			Value score = eval(board) * side;
 			board.unmake_move();
 			scores.push_back({move, score});
+			if (score != VALUE_MATE && score != -VALUE_MATE)
+				game_over = false;
 		}
+		if (game_over)
+			return VALUE_MATE * side;
+
 		std::sort(scores.begin(), scores.end(), [](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
 		moves.clear();
 		for (int i = 0; i < scores.size(); i++) {
 			moves.push_back(scores[i].first);
 		}
 	}
+
+	// if (depth > 2) {
+	// 	// Null move pruning
+	// 	board.make_move(NullMove);
+	// 	Value nscore = -__recurse(board, depth - 2, -beta, -beta+1, -side);
+	// 	board.unmake_move();
+	// 	if (nscore >= beta && nscore != VALUE_MATE && nscore != -VALUE_MATE) {
+	// 		return beta;
+	// 	}
+	// }
 
 	for (int i = 0; i < moves.size(); i++) {
 		Move &move = moves[i];
@@ -96,7 +112,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 	}
 
-	// return alpha;
 	return best;
 }
 

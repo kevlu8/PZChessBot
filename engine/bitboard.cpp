@@ -269,7 +269,7 @@ void Board::make_move(Move move) {
 	Square tmp_ep_square = SQ_NONE;
 
 	// Handle captures
-	if (piece_boards[OPPOCC(side)] & square_bits(move.dst())) { // If opposite occupancy bit set on destination (capture)
+	if (move.data != 0 && (piece_boards[OPPOCC(side)] & square_bits(move.dst()))) { // If opposite occupancy bit set on destination (capture)
 		// Remove whatever piece it was
 		uint8_t piece = mailbox[move.dst()] & 0b111;
 		piece_boards[piece] ^= square_bits(move.dst());
