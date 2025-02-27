@@ -18,8 +18,8 @@ constexpr int MAX_PLY = 40;
 
 typedef int16_t Value;
 constexpr Value VALUE_ZERO = 0;
-constexpr Value VALUE_INFINITE = 32001;
-constexpr Value VALUE_MATE = 32000;
+constexpr Value VALUE_INFINITE = 32000;
+constexpr Value VALUE_MATE = 30002; // Add 2 as a consequence of our evaluation function only returning MATE when king is taken
 constexpr Value VALUE_MATE_MAX_PLY = VALUE_MATE - MAX_PLY;
 
 constexpr Value PawnValue = 100;

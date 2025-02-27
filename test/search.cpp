@@ -18,7 +18,7 @@ int main() {
 	int i = 1;
 	for (auto [fen, depth, expected] : tests) {
 		Board board(fen);
-		std::pair<Move, Value> res = search(board, depth+1);
+		std::pair<Move, Value> res = search(board);
 		// if (stringify_move(res.second) == expected) {
 		if (res.first.to_string() == expected) {
 			std::cout << "Passed test " << i << " - Got: " << res.first.to_string() << std::endl;

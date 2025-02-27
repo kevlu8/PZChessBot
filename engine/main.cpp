@@ -23,9 +23,12 @@ int main() {
 	// std::string fen = "4qrk1/rb4b1/p1npp3/2p3R1/1p2P2Q/P2P3P/1PP3P1/R1B3K1 w - - 3 20";
 	// std::string fen = "4qr2/rb4k1/p1npp3/2p5/1p2P2Q/P2P3P/1PP3P1/R1B3K1 w - - 0 21";
 	// std::string fen = "rnbqk1nr/pp1p1ppp/3b4/2pP4/8/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 3 7";
-	// Board board;
+
+	std::string fen = "5B2/8/5k2/1R1Q1p2/8/4P1p1/6P1/6K1 w - - 0 1";
+
+	Board board;
 	// Board board(fen);
-	Board board("5r2/5P1p/1p1k2p1/5q1P/3n2K1/4q3/8/5r2 w - - 1 40");
+	// Board board("r2k1r2/pp1n2Bp/2p1p3/q2p3Q/3P4/P1P1P2B/1P1N1P2/2K3RR w Kq - 0 1");
 	while (true) {
 		board.print_board();
 		std::string move;
@@ -33,7 +36,7 @@ int main() {
 		if (move == "q") break;
 		Move m = Move::from_string(move, &board);
 		board.make_move(m);
-		auto enginemove = search(board, 6);
+		auto enginemove = search(board, 7);
 		board.make_move(enginemove.first);
 		std::cout << "Engine move: " << enginemove.first.to_string() << " Eval: " << enginemove.second << std::endl;
 		// enginemove = search(board, 6);

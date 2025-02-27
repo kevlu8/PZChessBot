@@ -41,6 +41,15 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 #endif
 	}
 
+	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
+		// If black has no king, this is mate for white
+		return (VALUE_MATE) * side;
+	}
+	if (!(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])) {
+		// Likewise, if white has no king, this is mate for black
+		return (-VALUE_MATE) * side;
+	}
+
 	Value best = -VALUE_INFINITE;
 
 	std::vector<Move> moves;
@@ -48,7 +57,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	// Move ordering (experimental)
 	if (depth > 2) {
-		bool game_over = true;
 		std::vector<std::pair<Move, Value>> scores;
 		for (int i = 0; i < moves.size(); i++) {
 			Move &move = moves[i];
@@ -56,11 +64,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			Value score = eval(board) * side;
 			board.unmake_move();
 			scores.push_back({move, score});
-			if (score != VALUE_MATE && score != -VALUE_MATE)
-				game_over = false;
 		}
-		if (game_over)
-			return VALUE_MATE * side;
 
 		std::sort(scores.begin(), scores.end(), [](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
 		moves.clear();
@@ -115,32 +119,22 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	return best;
 }
 
-std::pair<Move, Value> search(Board &board, int depth) {
+std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
 	nodes = 0;
 
-	clock_t start = clock();
+	Move best_move = NullMove;
+	Value best_score = -VALUE_INFINITE;
 
 	std::vector<Move> moves;
 	board.legal_moves(moves);
 
-	Move best_move = moves[0];
-	Value best_score = -VALUE_INFINITE;
-
-	Value alpha = -VALUE_INFINITE;
-	Value beta = VALUE_INFINITE;
-
 	for (int i = 0; i < moves.size(); i++) {
 		Move &move = moves[i];
 		board.make_move(move);
-		// thing[0] = move.data == 0b011111101111;
-		thing[0] = move.data == 0b010000011001;
-		// thing[1] = move.data == 0b000110000111;
-		Value score = -__recurse(board, depth - 1, -beta, -alpha, board.side ? -1 : 1);
+		Value score = -__recurse(board, depth - 1, -beta, -alpha, -side);
 		board.unmake_move();
 
-		// std::cout << move.to_string() << " " << score << '\n';
-
-		if (score /*+ (rand() & 1)*/ > best_score) {
+		if (score > best_score) {
 			if (score > alpha) {
 				alpha = score;
 			}
@@ -149,12 +143,56 @@ std::pair<Move, Value> search(Board &board, int depth) {
 		}
 
 		if (score >= beta) {
-			std::cout << "broke\n";
 			break;
 		}
 	}
 
+	return {best_move, best_score};
+}
+
+std::pair<Move, Value> search(Board &board, int depth) {
+	nodes = 0;
+	clock_t start = clock();
+
+	Move best_move = NullMove;
+	Value eval = -VALUE_INFINITE;
+	if (depth == -1) { // Do iterative deepening
+		for (int d = 4; d <= 20; d++) {
+			Value alpha, beta;
+			if (eval == -VALUE_INFINITE) {
+				alpha = -VALUE_INFINITE;
+				beta = VALUE_INFINITE;
+			} else {
+				alpha = eval - 100;
+				beta = eval + 100;
+			}
+			auto result = __search(board, d, alpha, beta, board.side ? -1 : 1);
+			// Check for fail-high or fail-low
+			bool research = result.second >= beta || result.second <= alpha;
+			if (result.second >= beta) {
+				beta = VALUE_INFINITE;
+			}
+			if (result.second <= alpha) {
+				alpha = -VALUE_INFINITE;
+			}
+			if (research) {
+				result = __search(board, d, alpha, beta, board.side ? -1 : 1);
+			}
+			if (result.second > eval) {
+				eval = result.second;
+				best_move = result.first;
+			}
+			std::cout << "depth " << d << " eval " << eval << std::endl;
+			if (nodes > 1'000'000ll)
+				break;
+		}
+	} else {
+		auto result = __search(board, depth, -VALUE_INFINITE, VALUE_INFINITE, board.side ? -1 : 1);
+		best_move = result.first;
+		eval = result.second;
+	}
+
 	std::cout << "nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << std::endl;
 
-	return {best_move, best_score};
+	return {best_move, eval};
 }

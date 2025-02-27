@@ -1,5 +1,4 @@
 - controlled squares (important: castling may be illegal without)
-- engine likes stalemates instead of checkmates (fix known but pending)
 - fix the lichess bot for the new engine interface
 - check detection
 - threefold detection
