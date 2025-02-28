@@ -48,11 +48,13 @@ Move Move::from_string(const std::string &str, const void *b) {
 		}
 		return Move::make<PROMOTION>(src, dst, pt);
 	} else {
-		if (((const Board *)b)->mailbox[src] == KING) {
+		if ((((const Board *)b)->mailbox[src] & 7) == KING) {
 			// Check for castling
-			if (str == "e1g1" || str == "e8g8" || str == "e1c1" || str == "e8c8")
+			if (str == "e1g1" || str == "e8g8" || str == "e1c1" || str == "e8c8") {
+				std::cout << "CASTLE\n";
 				return Move::make<CASTLING>(src, dst);
-		} else if (((const Board *)b)->mailbox[src] == PAWN && dst == ((const Board *)b)->ep_square) {
+			}
+		} else if ((((const Board *)b)->mailbox[src] & 7) == PAWN && dst == ((const Board *)b)->ep_square) {
 			// En passant
 			return Move::make<EN_PASSANT>(src, dst);
 		}
@@ -61,6 +63,9 @@ Move Move::from_string(const std::string &str, const void *b) {
 }
 
 void Board::load_fen(std::string fen) {
+	if (fen == "startpos")
+		fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
+
 	memset(piece_boards, 0, sizeof(piece_boards));
 	memset(control, 0, sizeof(control));
 	memset(mailbox, NO_PIECE, sizeof(mailbox));

@@ -22,6 +22,7 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 	// main loop
 	ListNode *head = new ListNode{initialEvent, nullptr, nullptr};
 	ListNode *tail = head;
+	bool ff = true;
 	while (true) {
 		moves_str = "";
 		game.get_events(&head, &tail);
@@ -42,35 +43,43 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 			else if (event["type"] == "gameFinish")
 				break;
 			else if (event["type"] == "gameFull") {
-				board.load_fen(event["initialFen"]);
 				event = event["state"];
 			} else if (event["type"] == "gameStart") {
+				// board.load_fen(event["initialFen"]);
+				prev_moves.clear();
+
 				if (event["game"]["hasMoved"] != "")
 					continue;
 				std::cout << "game start packet" << std::endl;
 				if (!event["game"]["isMyTurn"])
 					continue;
-				moves_str = "null";
+			}
+			if (event.contains("error")) {
+				API::resign(game_id);
+				delete initialEvent;
+				return;
 			}
 			// split the moves into an array of moves
-			if (moves_str == "") {
-				moves_str = event["moves"];
-				for (int i = 0; i < moves_str.size(); i++) {
-					if (moves_str[i] == ' ') {
-						moves.push_back(move);
-						move.clear();
-					} else {
-						move += moves_str[i];
-					}
-				}
-				if (move != "") {
+			moves_str = event["moves"];
+			for (int i = 0; i < moves_str.size(); i++) {
+				if (moves_str[i] == ' ') {
 					moves.push_back(move);
 					move.clear();
+				} else {
+					move += moves_str[i];
 				}
-				if (moves.size() != prev_moves.size()) {
-					// for (int i = prev_moves.size(); i < moves.size(); i++)
-					// 	board.make_move(parse_move(board, moves[i]));
-					prev_moves = moves;
+			}
+			if (move != "") {
+				moves.push_back(move);
+				move.clear();
+			}
+			if (moves.size() != prev_moves.size()) {
+				board.print_board();
+				for (int i = prev_moves.size(); i < moves.size(); i++) {
+					std::cout << "making move: " << moves[i] << std::endl;
+					board.make_move(Move::from_string(moves[i], &board));
+					prev_moves.push_back(moves[i]);
+					board.print_board();
 				}
 			}
 			// if its our turn
@@ -78,7 +87,7 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 			if (moves.size() % 2 != color) {
 				std::cout << "thinking" << std::endl;
 				// move = stringify_move(ab_search(board, depth).second);
-				// board.print_board();
+				board.print_board();
 				move = search(board, 6).first.to_string();
 				if (move != "----" && move != "0000")
 					API::move(game_id, move);
@@ -105,7 +114,7 @@ void *play_helper(void *args) {
 // general event handler to dispatch jobs
 void handle_event(json event) {
 	if (event["type"] == "challenge") {
-		if (event["challenge"]["challenger"]["id"] != "kevlu8")
+		if (event["challenge"]["challenger"]["id"] != "kevlu8" && event["challenge"]["challenger"]["id"] != "wdotmathree")
 			API::decline_challenge(event["challenge"]["id"], "generic");
 		else
 			API::accept_challenge(event["challenge"]["id"]);
@@ -132,7 +141,7 @@ void handle_event(json event) {
 		pthread_t t = pthread_create(&t, NULL, play_helper, args);
 		games[event["game"]["gameId"]] = t;
 	} else {
-		std::cout << event << std::endl;
+		// std::cout << event << std::endl;
 	}
 }
 
@@ -143,11 +152,15 @@ int main() {
 	json challenges = API::get_challenges()["in"];
 	// for each challenge make a thread to handle it
 	for (auto challenge : challenges) {
-		// accept the challenge
-		if (challenge["variant"]["short"] == "Std")
-			API::accept_challenge(challenge["id"]);
+		if (challenge["challenger"]["id"] != "kevlu8" && challenge["challenger"]["id"] != "wdotmathree")
+			API::decline_challenge(challenge["id"], "generic");
 		else
-			API::decline_challenge(challenge["id"], "variant");
+			API::accept_challenge(challenge["id"]);
+		// // accept the challenge
+		// if (challenge["variant"]["short"] == "Std")
+		// 	API::accept_challenge(challenge["id"]);
+		// else
+		// 	API::decline_challenge(challenge["id"], "variant");
 	}
 	// main loop
 	while (true) {
@@ -167,7 +180,7 @@ int main() {
 				delete head;
 				head = nullptr;
 			}
-			std::cout << event << std::endl;
+			// std::cout << event << std::endl;
 			handle_event(event);
 		}
 		tail = head;
