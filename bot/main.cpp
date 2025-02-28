@@ -22,8 +22,8 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 	// main loop
 	ListNode *head = new ListNode{initialEvent, nullptr, nullptr};
 	ListNode *tail = head;
-	bool ff = true;
-	while (true) {
+	bool run = true;
+	while (run) {
 		moves_str = "";
 		game.get_events(&head, &tail);
 		while (head != nullptr) {
@@ -40,9 +40,10 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 			std::cout << "play: " << event << '\n';
 			if (event["type"] == "chatLine" || event["type"] == "opponentGone")
 				continue;
-			else if (event["type"] == "gameFinish")
+			else if (event["type"] == "gameFinish") {
+				run = false;
 				break;
-			else if (event["type"] == "gameFull") {
+			} else if (event["type"] == "gameFull") {
 				event = event["state"];
 			} else if (event["type"] == "gameStart") {
 				// board.load_fen(event["initialFen"]);
@@ -56,8 +57,8 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 			}
 			if (event.contains("error")) {
 				API::resign(game_id);
-				delete initialEvent;
-				return;
+				run = false;
+				break;
 			}
 			// split the moves into an array of moves
 			moves_str = event["moves"];
@@ -74,21 +75,19 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 				move.clear();
 			}
 			if (moves.size() != prev_moves.size()) {
-				board.print_board();
 				for (int i = prev_moves.size(); i < moves.size(); i++) {
 					std::cout << "making move: " << moves[i] << std::endl;
 					board.make_move(Move::from_string(moves[i], &board));
 					prev_moves.push_back(moves[i]);
-					board.print_board();
 				}
 			}
 			// if its our turn
 			std::cout << "color: " << color << " moves.size(): " << moves.size() << std::endl;
 			if (moves.size() % 2 != color) {
 				std::cout << "thinking" << std::endl;
-				// move = stringify_move(ab_search(board, depth).second);
-				board.print_board();
-				move = search(board, 6).first.to_string();
+				auto tmp = search(board, 7);
+				move = tmp.first.to_string();
+				std::cout << "move: " << move << "eval: " << tmp.second << std::endl;
 				if (move != "----" && move != "0000")
 					API::move(game_id, move);
 				else

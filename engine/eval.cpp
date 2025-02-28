@@ -40,6 +40,7 @@ Value eval(const Board &board) {
 	Value material = 0;
 	Value controlled = 0;
 	Value piecesquare = 0;
+	Value castling = 0;
 
 	material += PawnValue * _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)]);
 	material += KnightValue * _mm_popcnt_u64(board.piece_boards[KNIGHT] & board.piece_boards[OCC(WHITE)]);
@@ -86,5 +87,10 @@ Value eval(const Board &board) {
 	piecesquare += pawn_acc + knight_acc + bishop_acc + rook_acc + queen_acc + king_acc;
 	piecesquare -= pawn_acc_black + knight_acc_black + bishop_acc_black + rook_acc_black + queen_acc_black + king_acc_black;
 
-	return ((int)material * 3 + (int)piecesquare) / 4;
+	castling += (board.castling & WHITE_OO) ? 5 : 0;
+	castling += (board.castling & WHITE_OOO) ? 5 : 0;
+	castling -= (board.castling & BLACK_OO) ? 5 : 0;
+	castling -= (board.castling & BLACK_OOO) ? 5 : 0;
+
+	return ((int)material * 3 + (int)piecesquare + (int)castling) / 4;
 }
