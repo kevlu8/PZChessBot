@@ -1,7 +1,9 @@
 #include "../engine/bitboard.hpp"
 #include "../engine/search.hpp"
 #include "api.hpp"
+#include "book.hpp"
 #include <pthread.h>
+#include <signal.h>
 #include <unistd.h>
 #include <unordered_map>
 #include <vector>
@@ -9,6 +11,15 @@
 // create a list of threads
 // each thread will be a game
 std::unordered_map<std::string, pthread_t> games;
+
+int timetodepth(int remtime) {
+	if (remtime > 1200000) return 9;
+	if (remtime > 120000) return 8;
+	if (remtime > 90000) return 8;
+	if (remtime > 30000) return 7;
+	if (remtime > 20000) return 6;
+	return 5;
+}
 
 // loop that handles game events and plays the game
 void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
@@ -23,6 +34,7 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 	ListNode *head = new ListNode{initialEvent, nullptr, nullptr};
 	ListNode *tail = head;
 	bool run = true;
+	int timeleft = 0;
 	while (run) {
 		moves_str = "";
 		game.get_events(&head, &tail);
@@ -37,12 +49,19 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 				delete head;
 				head = nullptr;
 			}
-			std::cout << "play: " << event << '\n';
+			// std::cout << "play: " << event << '\n';
 			if (event["type"] == "chatLine" || event["type"] == "opponentGone")
 				continue;
 			else if (event["type"] == "gameFinish") {
 				run = false;
 				break;
+			} else if (event["type"] == "gameState") {
+				if (event["state"]["status"] == "resign" || event["state"]["status"] == "mate" || event["state"]["status"] == "draw" || event["state"]["status"] == "stalemate") {
+					run = false;
+					break;
+				}
+				if (color) timeleft = event["wtime"];
+				else timeleft = event["btime"];
 			} else if (event["type"] == "gameFull") {
 				event = event["state"];
 			} else if (event["type"] == "gameStart") {
@@ -76,22 +95,28 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 			}
 			if (moves.size() != prev_moves.size()) {
 				for (int i = prev_moves.size(); i < moves.size(); i++) {
-					std::cout << "making move: " << moves[i] << std::endl;
+					// std::cout << "making move: " << moves[i] << std::endl;
 					board.make_move(Move::from_string(moves[i], &board));
 					prev_moves.push_back(moves[i]);
 				}
 			}
 			// if its our turn
-			std::cout << "color: " << color << " moves.size(): " << moves.size() << std::endl;
 			if (moves.size() % 2 != color) {
-				std::cout << "thinking" << std::endl;
-				auto tmp = search(board, 7);
-				move = tmp.first.to_string();
-				std::cout << "move: " << move << "eval: " << tmp.second << std::endl;
-				if (move != "----" && move != "0000")
+				std::pair<Move, bool> book = {NullMove, false};
+				if (moves.size() <= 30 && (book = book_move(moves, board)).second) {
+					move = book.first.to_string();
+					std::cout << "book move: " << move << std::endl;
 					API::move(game_id, move);
-				else
-					break;
+				} else {
+					std::cout << timeleft / 1000 << "s left, so depth: " << timetodepth(timeleft) << std::endl;
+					auto tmp = search(board, timetodepth(timeleft));
+					move = tmp.first.to_string();
+					std::cout << "move: " << move << "eval: " << tmp.second << std::endl;
+					if (move != "----" && move != "0000")
+						API::move(game_id, move);
+					else
+						break;
+				}
 			}
 			moves.clear();
 			move.clear();
@@ -117,10 +142,10 @@ void handle_event(json event) {
 			API::decline_challenge(event["challenge"]["id"], "generic");
 		else
 			API::accept_challenge(event["challenge"]["id"]);
-		// if (event["challenge"]["variant"]["short"] == "Std" || event["challenge"]["challenger"]["id"] == "wdotmathree")
+		// if (event["challenge"]["variant"]["short"] == "Std")
 		// 	API::accept_challenge(event["challenge"]["id"]);
 		// else
-		// 	API::decline_challenge(event["challenge"]["id"], "standard");
+		// 	API::decline_challenge(event["challenge"]["id"], "variant");
 	} else if (event["type"] == "gameStart") {
 		std::cout << "game start" << std::endl;
 		int len = to_string(event["game"]["gameId"]).size() - 2;
@@ -145,6 +170,7 @@ void handle_event(json event) {
 }
 
 int main() {
+	init_book();
 	// connect to the event stream
 	API::Events listener;
 	// get challenges

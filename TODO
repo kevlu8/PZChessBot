@@ -1,5 +1,6 @@
 - controlled squares (important: castling may be illegal without)
-- fix the lichess bot for the new engine interface
+- rewrite bot api
+- fix the bot really liking hanging pieces
 - check detection
 - threefold detection
 - 50 move rule detection
