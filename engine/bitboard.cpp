@@ -1,5 +1,4 @@
 #include "bitboard.hpp"
-// #include "moves.hpp"
 #include <cctype>
 
 void print_bitboard(Bitboard board) {
@@ -67,7 +66,6 @@ void Board::load_fen(std::string fen) {
 		fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
 
 	memset(piece_boards, 0, sizeof(piece_boards));
-	memset(control, 0, sizeof(control));
 	memset(mailbox, NO_PIECE, sizeof(mailbox));
 	castling = NO_CASTLE;
 	uint16_t rank = RANK_8;
@@ -195,7 +193,7 @@ bool Board::sanity_check(char *print) {
 	return error;
 }
 
-void Board::print_board() {
+void Board::print_board() const {
 #ifndef NODEBUG
 	char print[64];
 	// Start at -1 because we increment before processing to guarantee it happens in every case

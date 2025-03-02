@@ -96,8 +96,6 @@ struct HistoryEntry {
 struct Board {
 	// pawns, knights, bishops, rooks, queens, kings, w_occupancy, b_occupancy
 	Bitboard piece_boards[8] = {0};
-	// w_control, b_control
-	Bitboard control[2] = {0};
 	bool side = WHITE;
 	uint8_t castling = 0xf; // 1111
 	Square ep_square = SQ_NONE;
@@ -132,13 +130,14 @@ struct Board {
 	};
 
 	void load_fen(std::string);
-	void print_board();
+	void print_board() const;
 	bool sanity_check(char *);
 
 	void make_move(Move);
 	void unmake_move();
 
 	void legal_moves(std::vector<Move> &) const;
+	std::pair<int, int> control(int) const;
 
 	Bitboard hash() const;
 };

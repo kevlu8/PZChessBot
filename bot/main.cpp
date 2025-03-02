@@ -20,6 +20,15 @@ int timetodepth(int remtime) {
 	return 5;
 }
 
+int timetonodes(int remtime) {
+	// Note: These values are calibrated with 10M nodes per second
+	if (remtime > 20*60*1000) return 500'000'000;
+	if (remtime > 3*60*1000) return 50'000'000;
+	if (remtime > 45*1000) return 5'000'000;
+	if (remtime > 15*1000) return 500'000;
+	return 50'000;
+}
+
 // loop that handles game events and plays the game
 void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 	std::cout << "playing as " << (color ? "white" : "black") << std::endl;
@@ -107,8 +116,7 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 					std::cout << "book move: " << move << std::endl;
 					API::move(game_id, move);
 				} else {
-					std::cout << timeleft / 1000 << "s left, so depth: " << timetodepth(timeleft) << std::endl;
-					auto tmp = search(board, timetodepth(timeleft));
+					auto tmp = search(board, timetonodes(timeleft));
 					move = tmp.first.to_string();
 					std::cout << "move: " << move << "eval: " << tmp.second << std::endl;
 					if (move != "----" && move != "0000")

@@ -12,19 +12,29 @@ std::vector<std::tuple<std::string, int, std::string>> tests = {
 	{"6k1/4Q1pp/2b1p3/2P1P3/3p1pPn/5P1P/1r1N1K2/R7 b - - 0 29", 8, "b2d2"}, // Arabian M4
 	{"4r1k1/pp3p1p/6pP/6P1/8/2N1P1Q1/PPPq1P2/K3n2R b - - 6 28", 4, "d2c1"}, // Smothered M2
 	{"r3k1nr/p2p1ppp/bq2P3/1N6/1p2P3/5N2/1PPBKbPP/R2Q1B1R b kq - 1 12", 4, "a6b5"}, // EP + M2
+	{"7k/8/5K2/6Q1/8/8/P1P2P1P/8 w - - 3 41", 6, "g5g7"}, // M1 (stalemate trick)
 };
 
 int main() {
 	int i = 1;
 	for (auto [fen, depth, expected] : tests) {
 		Board board(fen);
-		std::pair<Move, Value> res = search(board);
-		// if (stringify_move(res.second) == expected) {
-		if (res.first.to_string() == expected) {
-			std::cout << "Passed test " << i << " - Got: " << res.first.to_string() << std::endl;
+		std::pair<Move, Value> res = search(board, depth+1);
+		if (expected[0] == '!') {
+			// check that the res move is NOT expected
+			if (res.first.to_string() != expected.substr(1)) {
+				std::cout << "Passed test " << i << " - Got: " << res.first.to_string() << std::endl;
+			} else {
+				std::cout << "Failed test " << i << " - Got: " << res.first.to_string() << " - Expected: " << expected.substr(1) << std::endl;
+				failed = true;
+			}
 		} else {
-			std::cout << "Failed test " << i << " - Got: " << res.first.to_string() << " - Expected: " << expected << std::endl;
-			failed = true;
+			if (res.first.to_string() == expected) {
+				std::cout << "Passed test " << i << " - Got: " << res.first.to_string() << std::endl;
+			} else {
+				std::cout << "Failed test " << i << " - Got: " << res.first.to_string() << " - Expected: " << expected << std::endl;
+				failed = true;
+			}
 		}
 		i++;
 	}

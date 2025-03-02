@@ -1,8 +1,5 @@
-- controlled squares (important: castling may be illegal without)
 - rewrite bot api
 - fix the bot really liking hanging pieces
-- check detection
 - threefold detection
 - 50 move rule detection
-- stalemate detection
 - dangerous code (casting `void *` into `Board *`)

@@ -1,5 +1,9 @@
 #include "eval.hpp"
 
+extern Bitboard king_movetable[64];
+
+static constexpr Value safety_lookup[9] = {-10, 20, 40, 50, 50, 50, 50, 50, 50};
+
 /**
  * @brief Boards to denote "good" squares for each piece type
  * @details The 8 boards map out an 8-bit signed binary number that represents how good or bad a square is for a piece type.
@@ -41,6 +45,7 @@ Value eval(const Board &board) {
 	Value piecesquare = 0;
 	Value castling = 0;
 	Value bishop_pair = 0;
+	Value king_safety = 0;
 
 	material += PawnValue * _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)]);
 	material += KnightValue * _mm_popcnt_u64(board.piece_boards[KNIGHT] & board.piece_boards[OCC(WHITE)]);
@@ -53,12 +58,15 @@ Value eval(const Board &board) {
 	material -= RookValue * _mm_popcnt_u64(board.piece_boards[ROOK] & board.piece_boards[OCC(BLACK)]);
 	material -= QueenValue * _mm_popcnt_u64(board.piece_boards[QUEEN] & board.piece_boards[OCC(BLACK)]);
 
+	// Decide between normal vs endgame king map
 	const Bitboard *funny = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) >= 8 ? KING_SQUARES : KING_ENDGAME_SQUARES;
+	// Initialize accumulators
 	int8_t pawn_acc, knight_acc, bishop_acc, rook_acc, queen_acc, king_acc;
 	int8_t pawn_acc_black, knight_acc_black, bishop_acc_black, rook_acc_black, queen_acc_black, king_acc_black;
 	pawn_acc = knight_acc = bishop_acc = rook_acc = queen_acc = king_acc = 0;
 	pawn_acc_black = knight_acc_black = bishop_acc_black = rook_acc_black = queen_acc_black = king_acc_black = 0;
 
+	// Precompute piece boards (flipping for black)
 	Bitboard boards[12];
 	for (int i = 0; i < 6; i++) {
 		boards[i] = board.piece_boards[i] & board.piece_boards[OCC(WHITE)];
@@ -91,5 +99,11 @@ Value eval(const Board &board) {
 	bishop_pair += _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(WHITE)]) == 2 ? 20 : 0;
 	bishop_pair -= _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(BLACK)]) == 2 ? 20 : 0;
 
-	return ((int)material * 3 + (int)piecesquare + (int)castling + (int)bishop_pair) / 4;
+	// For king safety, check for opponent control on squares around the king
+	// As well as counting our own pieces in front of the king
+	
+	king_safety += safety_lookup[_mm_popcnt_u64(king_movetable[__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6])] & board.piece_boards[6])];
+	king_safety -= safety_lookup[_mm_popcnt_u64(king_movetable[__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])] & board.piece_boards[7])];
+
+	return ((int)material * 3 + (int)piecesquare + (int)castling + (int)bishop_pair + (int)king_safety) / 4;
 }
