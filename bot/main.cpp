@@ -13,11 +13,10 @@
 std::unordered_map<std::string, pthread_t> games;
 
 int timetodepth(int remtime) {
-	if (remtime > 1200000) return 9;
-	if (remtime > 120000) return 8;
-	if (remtime > 90000) return 8;
-	if (remtime > 30000) return 7;
-	if (remtime > 20000) return 6;
+	if (remtime > 20*60*1000) return 9;
+	if (remtime > 90*1000) return 8;
+	if (remtime > 30*1000) return 7;
+	if (remtime > 15*1000) return 6;
 	return 5;
 }
 
@@ -170,7 +169,9 @@ void handle_event(json event) {
 }
 
 int main() {
+	clock_t start = clock();
 	init_book();
+	std::cout << "book loaded in " << (double)(clock() - start) / CLOCKS_PER_SEC << "s" << std::endl;
 	// connect to the event stream
 	API::Events listener;
 	// get challenges

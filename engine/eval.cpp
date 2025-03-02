@@ -38,9 +38,9 @@ Value eval(const Board &board) {
 	}
 
 	Value material = 0;
-	Value controlled = 0;
 	Value piecesquare = 0;
 	Value castling = 0;
+	Value bishop_pair = 0;
 
 	material += PawnValue * _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)]);
 	material += KnightValue * _mm_popcnt_u64(board.piece_boards[KNIGHT] & board.piece_boards[OCC(WHITE)]);
@@ -52,10 +52,6 @@ Value eval(const Board &board) {
 	material -= BishopValue * _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(BLACK)]);
 	material -= RookValue * _mm_popcnt_u64(board.piece_boards[ROOK] & board.piece_boards[OCC(BLACK)]);
 	material -= QueenValue * _mm_popcnt_u64(board.piece_boards[QUEEN] & board.piece_boards[OCC(BLACK)]);
-
-	// controlled += _mm_popcnt_u64(board.control[WHITE] & board.piece_boards[OCC(WHITE)]);
-	// controlled -= _mm_popcnt_u64(board.control[BLACK] & board.piece_boards[OCC(BLACK)]);
-	// controlled *= 10; // Full board control would be 64 * 10 = +640
 
 	const Bitboard *funny = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) >= 8 ? KING_SQUARES : KING_ENDGAME_SQUARES;
 	int8_t pawn_acc, knight_acc, bishop_acc, rook_acc, queen_acc, king_acc;
@@ -92,5 +88,8 @@ Value eval(const Board &board) {
 	castling -= (board.castling & BLACK_OO) ? 5 : 0;
 	castling -= (board.castling & BLACK_OOO) ? 5 : 0;
 
-	return ((int)material * 3 + (int)piecesquare + (int)castling) / 4;
+	bishop_pair += _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(WHITE)]) == 2 ? 20 : 0;
+	bishop_pair -= _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(BLACK)]) == 2 ? 20 : 0;
+
+	return ((int)material * 3 + (int)piecesquare + (int)castling + (int)bishop_pair) / 4;
 }
