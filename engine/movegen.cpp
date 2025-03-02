@@ -362,26 +362,26 @@ void king_moves(const Board &board, std::vector<Move> &moves) {
 		return;
 	int sq = _tzcnt_u64(piece);
 	// Castling
-	if (board.side == WHITE) {
+	if (board.side == WHITE && !board.control(SQ_E1).second) {
 		if (board.castling & WHITE_OO) {
-			if (!((board.piece_boards[6] | board.piece_boards[7] | board.control[BLACK]) & (square_bits(SQ_F1) | square_bits(SQ_G1))) &&
-				!(board.control[BLACK] & square_bits(SQ_E1)))
+			if (!((board.piece_boards[6] | board.piece_boards[7]) & (square_bits(SQ_F1) | square_bits(SQ_G1))) &&
+				!board.control(SQ_F1).second)
 				moves.push_back(Move::make<CASTLING>(SQ_E1, SQ_G1));
 		}
 		if (board.castling & WHITE_OOO) {
-			if (!((board.piece_boards[6] | board.piece_boards[7] | board.control[BLACK]) & (square_bits(SQ_D1) | square_bits(SQ_C1) | square_bits(SQ_B1))) &&
-				!(board.control[BLACK] & square_bits(SQ_E1)))
+			if (!((board.piece_boards[6] | board.piece_boards[7]) & (square_bits(SQ_D1) | square_bits(SQ_C1) | square_bits(SQ_B1))) &&
+				!board.control(SQ_D1).second)
 				moves.push_back(Move::make<CASTLING>(SQ_E1, SQ_C1));
 		}
-	} else {
+	} else if (board.side == BLACK && !board.control(SQ_E8).first) {
 		if (board.castling & BLACK_OO) {
-			if (!((board.piece_boards[6] | board.piece_boards[7] | board.control[WHITE]) & (square_bits(SQ_F8) | square_bits(SQ_G8))) &&
-				!(board.control[WHITE] & square_bits(SQ_E8)))
+			if (!((board.piece_boards[6] | board.piece_boards[7]) & (square_bits(SQ_F8) | square_bits(SQ_G8))) &&
+				!board.control(SQ_F8).first)
 				moves.push_back(Move::make<CASTLING>(SQ_E8, SQ_G8));
 		}
 		if (board.castling & BLACK_OOO) {
-			if (!((board.piece_boards[6] | board.piece_boards[7] | board.control[WHITE]) & (square_bits(SQ_D8) | square_bits(SQ_C8) | square_bits(SQ_B8))) &&
-				!(board.control[WHITE] & square_bits(SQ_E8)))
+			if (!((board.piece_boards[6] | board.piece_boards[7]) & (square_bits(SQ_D8) | square_bits(SQ_C8) | square_bits(SQ_B8))) &&
+				!board.control(SQ_D8).first)
 				moves.push_back(Move::make<CASTLING>(SQ_E8, SQ_C8));
 		}
 	}
@@ -400,4 +400,30 @@ void Board::legal_moves(std::vector<Move> &moves) const {
 	knight_moves(*this, moves);
 	pawn_moves(*this, moves);
 	king_moves(*this, moves);
+}
+
+std::pair<int, int> Board::control(int sq) const {
+	int white = 0;
+	int black = 0;
+
+	uint32_t idx = rook_magics[sq].offset + _pext_u64(piece_boards[6] | piece_boards[7], rook_magics[sq].mask);
+	white += _mm_popcnt_u64(rook_movetable[idx] & (piece_boards[ROOK] | piece_boards[QUEEN]) & piece_boards[6]);
+	black += _mm_popcnt_u64(rook_movetable[idx] & (piece_boards[ROOK] | piece_boards[QUEEN]) & piece_boards[7]);
+
+	idx = bishop_magics[sq].offset + _pext_u64(piece_boards[6] | piece_boards[7], bishop_magics[sq].mask);
+	white += _mm_popcnt_u64(bishop_movetable[idx] & (piece_boards[BISHOP] | piece_boards[QUEEN]) & piece_boards[6]);
+	black += _mm_popcnt_u64(bishop_movetable[idx] & (piece_boards[BISHOP] | piece_boards[QUEEN]) & piece_boards[7]);
+
+	white += _mm_popcnt_u64(knight_movetable[sq] & piece_boards[KNIGHT] & piece_boards[6]);
+	black += _mm_popcnt_u64(knight_movetable[sq] & piece_boards[KNIGHT] & piece_boards[7]);
+
+#ifdef PERFT
+	white += _mm_popcnt_u64(((square_bits(Square(sq - 9)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq - 7)) & 0xfefefefefefefefe)) & piece_boards[PAWN] & piece_boards[6]);
+	black += _mm_popcnt_u64(((square_bits(Square(sq + 9)) & 0xfefefefefefefefe) | (square_bits(Square(sq + 7)) & 0x7f7f7f7f7f7f7f7f)) & piece_boards[PAWN] & piece_boards[7]);
+
+	white += _mm_popcnt_u64(king_movetable[sq] & piece_boards[KING] & piece_boards[6]);
+	black += _mm_popcnt_u64(king_movetable[sq] & piece_boards[KING] & piece_boards[7]);
+#endif
+
+	return {white, black};
 }
