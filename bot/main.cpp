@@ -22,9 +22,9 @@ int timetodepth(int remtime) {
 
 int timetonodes(int remtime) {
 	// Note: These values are calibrated with 10M nodes per second and ~200 ms ping
-	if (remtime > 20*60*1000) return 200'000'000;
-	if (remtime > 3*60*1000) return 20'000'000;
-	if (remtime > 60*1000) return 4'000'000;
+	if (remtime > 20*60*1000) return 20'000'000;
+	if (remtime > 3*60*1000) return 5'000'000;
+	if (remtime > 60*1000) return 2'000'000;
 	if (remtime > 15*1000) return 1'000'000;
 	return 100'000;
 }
@@ -64,10 +64,10 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 				run = false;
 				break;
 			} else if (event["type"] == "gameState") {
-				if (event.contains("status") && (event["status"] == "resign" || event["status"] == "mate" || event["status"] == "draw" || event["status"] == "stalemate")) {
-					run = false;
-					break;
-				}
+				// if (event.contains("status") && (event["status"] == "resign" || event["status"] == "mate" || event["status"] == "draw" || event["status"] == "stalemate")) {
+				// 	run = false;
+				// 	break;
+				// }
 				if (color) timeleft = event["wtime"];
 				else timeleft = event["btime"];
 			} else if (event["type"] == "gameFull") {

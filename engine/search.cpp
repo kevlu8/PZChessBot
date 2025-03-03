@@ -189,7 +189,7 @@ std::pair<Move, Value> search(Board &board, int depth) {
 	if (depth == -1 || depth >= 50) { // Do iterative deepening
 		int nexp = depth;
 		if (nexp == -1) nexp = 1000000;
-		for (int d = 4; d <= 20; d++) {
+		for (int d = 4; d <= 20; d+=2) { // Only search even depth since odd depth seems broken and favors opponent
 			Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
 			if (eval != -VALUE_INFINITE) {
 				alpha = eval - 200;
@@ -212,6 +212,11 @@ std::pair<Move, Value> search(Board &board, int depth) {
 			
 			std::cout << "info depth " << d << " score cp " << eval << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << std::endl;
 			
+			if (eval >= VALUE_MATE_MAX_PLY) {
+				// we found mate, no need to search further
+				break;
+			}
+
 			if (nodes > nexp)
 				break;
 		}
