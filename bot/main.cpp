@@ -24,7 +24,7 @@ int timetonodes(int remtime) {
 	// Note: These values are calibrated with 10M nodes per second
 	if (remtime > 20*60*1000) return 500'000'000;
 	if (remtime > 3*60*1000) return 50'000'000;
-	if (remtime > 45*1000) return 5'000'000;
+	if (remtime > 60*1000) return 5'000'000;
 	if (remtime > 15*1000) return 500'000;
 	return 50'000;
 }
@@ -64,7 +64,7 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 				run = false;
 				break;
 			} else if (event["type"] == "gameState") {
-				if (event["state"]["status"] == "resign" || event["state"]["status"] == "mate" || event["state"]["status"] == "draw" || event["state"]["status"] == "stalemate") {
+				if (event.contains("status") && (event["status"] == "resign" || event["status"] == "mate" || event["status"] == "draw" || event["status"] == "stalemate")) {
 					run = false;
 					break;
 				}

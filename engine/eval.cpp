@@ -96,8 +96,8 @@ Value eval(const Board &board) {
 	castling -= (board.castling & BLACK_OO) ? 5 : 0;
 	castling -= (board.castling & BLACK_OOO) ? 5 : 0;
 
-	bishop_pair += _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(WHITE)]) == 2 ? 20 : 0;
-	bishop_pair -= _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(BLACK)]) == 2 ? 20 : 0;
+	bishop_pair += _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(WHITE)]) >= 2 ? 20 : 0;
+	bishop_pair -= _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(BLACK)]) >= 2 ? 20 : 0;
 
 	// For king safety, check for opponent control on squares around the king
 	// As well as counting our own pieces in front of the king

@@ -24,14 +24,44 @@ uint64_t perft(Board &board, int depth) {
 	return cnt;
 }
 
-bool thing[10] = {0};
+Value quiesce(Board &board, Value alpha, Value beta, int side) {
+	nodes++;
+	Value stand_pat = eval(board) * side;
+
+	if (stand_pat >= beta)
+		return beta;
+	if (stand_pat > alpha)
+		alpha = stand_pat;
+
+	std::vector<Move> moves;
+	board.legal_moves(moves);
+
+	Value best = stand_pat;
+
+	for (int i = 0; i < moves.size(); i++) {
+		Move &move = moves[i];
+		if (board.piece_boards[OPPOCC(side)] & square_bits(move.dst())) {
+			board.make_move(move);
+			Value score = -quiesce(board, -beta, -alpha, -side);
+			board.unmake_move();
+
+			if (score > best) {
+				if (score > alpha)
+					alpha = score;
+				best = score;
+			}
+			if (score >= beta) {
+				return best;
+			}
+		}
+	}
+
+	return best;
+}
 
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
 	if (depth <= 0) {
-		nodes++;
-#ifndef PERFT // We don't need to compile eval.cpp if we are only doing perfts
-		return eval(board) * side;
-#endif
+		return quiesce(board, alpha, beta, side);
 	}
 
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
