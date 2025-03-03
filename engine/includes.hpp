@@ -9,6 +9,8 @@
 #include <utility>
 #include <vector>
 
+#define VERSION "20250302T18"
+
 typedef uint64_t Bitboard;
 
 constexpr bool WHITE = false;

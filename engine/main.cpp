@@ -1,21 +1,81 @@
+#include "includes.hpp"
+
+#include <sstream>
+#include <thread>
+
+#define UCI
+
 #include "bitboard.hpp"
 #include "movegen.hpp"
+#include "eval.hpp"
 #include "search.hpp"
 
-int main() {
-	// std::string fen = "1r1r2k1/pp3ppp/4bn2/8/2qNp3/P1P1P2P/1B1Q1PP1/1K1R1R2 w - - 10 22"; // next d2c2
+int timetonodes(int remtime) {
+	// Note: These values are calibrated with 10M nodes per second
+	if (remtime > 20*60*1000) return 500'000'000;
+	if (remtime > 3*60*1000) return 50'000'000;
+	if (remtime > 60*1000) return 5'000'000;
+	if (remtime > 15*1000) return 500'000;
+	return 50'000;
+}
 
+int main() {
+	std::cout << "PZChessBot v" << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
+	std::string command;
 	Board board;
-	// Board board(fen);
-	while (true) {
-		board.print_board();
-		std::string move;
-		std::cin >> move;
-		if (move == "q") break;
-		Move m = Move::from_string(move, &board);
-		board.make_move(m);
-		auto enginemove = search(board, 6);
-		board.make_move(enginemove.first);
-		std::cout << "Engine move: " << enginemove.first.to_string() << " Eval: " << enginemove.second << std::endl;
+	std::thread searchthread;
+	while (getline(std::cin, command)) {
+		if (command == "uci") {
+			std::cout << "id name PZChessBot v" << VERSION << std::endl;
+			std::cout << "id author kevlu8 and wdotmathree" << std::endl;
+			std::cout << "uciok" << std::endl;
+		} else if (command == "isready") {
+			std::cout << "readyok" << std::endl;
+		} else if (command == "ucinewgame") {
+			// Do nothing
+		} else if (command.substr(0, 8) == "position") {
+			// either `position startpos` or `position fen ...`
+			if (command.find("startpos") != std::string::npos) {
+				board = Board();
+			} else {
+				std::string fen = command.substr(13);
+				board = Board(fen);
+			}
+			if (command.find("moves") != std::string::npos) {
+				std::string moves = command.substr(command.find("moves") + 6);
+				std::stringstream ss(moves);
+				std::string move;
+				while (ss >> move) {
+					board.make_move(Move::from_string(move, &board));
+				}
+			}
+		} else if (command == "quit") {
+			break;
+		} else if (command == "stop") {
+			// stop the search thread
+			if (searchthread.joinable()) {
+				searchthread.join();
+			}
+		} else if (command.substr(0, 2) == "go") {
+			// `go wtime ... btime ... winc ... binc ...`
+			// only care about wtime and btime
+			std::stringstream ss(command);
+			std::string token;
+			int wtime = 0, btime = 0;
+			ss >> token >> token;
+			if (token == "wtime") {
+				ss >> wtime;
+			} else if (token == "btime") {
+				ss >> btime;
+			}
+			int timeleft = board.side ? wtime : btime;
+			// start thread
+			// searchthread = std::thread([timeleft, &board]() {
+			// 	auto res = search(board, timetonodes(timeleft));
+			// 	std::cout << "bestmove " << res.first.to_string() << std::endl;
+			// });
+			auto res = search(board, timetonodes(timeleft));
+			std::cout << "bestmove " << res.first.to_string() << std::endl;
+		}
 	}
 }

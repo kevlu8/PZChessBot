@@ -202,7 +202,9 @@ std::pair<Move, Value> search(Board &board, int depth) {
 			}
 			eval = result.second;
 			best_move = result.first;
-			std::cout << "depth " << d << " eval " << eval << std::endl;
+			
+			std::cout << "info depth " << d << " score cp " << eval << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << std::endl;
+			
 			if (nodes > nexp)
 				break;
 		}
@@ -211,8 +213,6 @@ std::pair<Move, Value> search(Board &board, int depth) {
 		best_move = result.first;
 		eval = result.second;
 	}
-
-	std::cout << "nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << std::endl;
 
 	return {best_move, eval};
 }

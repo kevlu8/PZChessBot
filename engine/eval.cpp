@@ -46,6 +46,7 @@ Value eval(const Board &board) {
 	Value castling = 0;
 	Value bishop_pair = 0;
 	Value king_safety = 0;
+	Value tempo_bonus = 0;
 
 	material += PawnValue * _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)]);
 	material += KnightValue * _mm_popcnt_u64(board.piece_boards[KNIGHT] & board.piece_boards[OCC(WHITE)]);
@@ -105,5 +106,7 @@ Value eval(const Board &board) {
 	king_safety += safety_lookup[_mm_popcnt_u64(king_movetable[__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6])] & board.piece_boards[6])];
 	king_safety -= safety_lookup[_mm_popcnt_u64(king_movetable[__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])] & board.piece_boards[7])];
 
-	return ((int)material * 3 + (int)piecesquare + (int)castling + (int)bishop_pair + (int)king_safety) / 4;
+	tempo_bonus += board.side == WHITE ? 10 : -10;
+
+	return ((int)material * 3 + (int)piecesquare + (int)castling + (int)bishop_pair + (int)king_safety + (int)tempo_bonus) / 4;
 }
