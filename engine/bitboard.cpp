@@ -50,7 +50,6 @@ Move Move::from_string(const std::string &str, const void *b) {
 		if ((((const Board *)b)->mailbox[src] & 7) == KING) {
 			// Check for castling
 			if (str == "e1g1" || str == "e8g8" || str == "e1c1" || str == "e8c8") {
-				std::cout << "CASTLE\n";
 				return Move::make<CASTLING>(src, dst);
 			}
 		} else if ((((const Board *)b)->mailbox[src] & 7) == PAWN && dst == ((const Board *)b)->ep_square) {

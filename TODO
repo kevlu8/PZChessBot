@@ -1,5 +1,5 @@
+- zobrist hashing + transposition table
 - rewrite bot api
-- fix the bot really liking hanging pieces
 - threefold detection
 - 50 move rule detection
 - dangerous code (casting `void *` into `Board *`)

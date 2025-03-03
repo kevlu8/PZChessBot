@@ -21,12 +21,12 @@ int timetodepth(int remtime) {
 }
 
 int timetonodes(int remtime) {
-	// Note: These values are calibrated with 10M nodes per second
-	if (remtime > 20*60*1000) return 500'000'000;
-	if (remtime > 3*60*1000) return 50'000'000;
-	if (remtime > 60*1000) return 5'000'000;
-	if (remtime > 15*1000) return 500'000;
-	return 50'000;
+	// Note: These values are calibrated with 10M nodes per second and ~200 ms ping
+	if (remtime > 20*60*1000) return 200'000'000;
+	if (remtime > 3*60*1000) return 20'000'000;
+	if (remtime > 60*1000) return 4'000'000;
+	if (remtime > 15*1000) return 1'000'000;
+	return 100'000;
 }
 
 // loop that handles game events and plays the game

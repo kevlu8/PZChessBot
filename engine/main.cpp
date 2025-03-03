@@ -12,11 +12,11 @@
 
 int timetonodes(int remtime) {
 	// Note: These values are calibrated with 10M nodes per second
-	if (remtime > 20*60*1000) return 500'000'000;
-	if (remtime > 3*60*1000) return 50'000'000;
-	if (remtime > 60*1000) return 5'000'000;
-	if (remtime > 15*1000) return 500'000;
-	return 50'000;
+	if (remtime > 20*60*1000) return 1'000'000'000;
+	if (remtime > 3*60*1000) return 100'000'000;
+	if (remtime > 60*1000) return 10'000'000;
+	if (remtime > 15*1000) return 1'000'000;
+	return 100'000;
 }
 
 int main() {

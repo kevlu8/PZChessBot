@@ -39,5 +39,7 @@ callgrind*
 in*
 !in*.*
 
-stockfish/
 book.db
+fastchess/
+old
+new

@@ -110,7 +110,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		Move &move = moves[i];
 		board.make_move(move);
 
-		// Value score = -__recurse(board, (i > 15 && depth > 2) ? depth - 2 : depth - 1, -beta, -alpha, -side);
 		Value score = -__recurse(board, depth - 1, -beta, -alpha, -side);
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
@@ -154,7 +153,15 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	for (int i = 0; i < moves.size(); i++) {
 		Move &move = moves[i];
 		board.make_move(move);
-		Value score = -__recurse(board, depth - 1, -beta, -alpha, -side);
+		Value score;
+		if (i) {
+			score = -__recurse(board, depth - 1, -alpha - 1, -alpha, -side);
+			if (score > alpha && score < beta) {
+				score = -__recurse(board, depth - 1, -beta, -alpha, -side);
+			}
+		} else {
+			score = -__recurse(board, depth - 1, -beta, -alpha, -side);
+		}
 		board.unmake_move();
 
 		if (score > best_score) {
@@ -185,8 +192,8 @@ std::pair<Move, Value> search(Board &board, int depth) {
 		for (int d = 4; d <= 20; d++) {
 			Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
 			if (eval != -VALUE_INFINITE) {
-				alpha = eval - 300;
-				beta = eval + 300;
+				alpha = eval - 200;
+				beta = eval + 200;
 			}
 			auto result = __search(board, d, alpha, beta, board.side ? -1 : 1);
 			// Check for fail-high or fail-low

@@ -55,7 +55,7 @@ enum CastlingRights : uint8_t { NO_CASTLE, WHITE_OO, WHITE_OOO = WHITE_OO << 1, 
 
 // clang-format off
 constexpr PieceType letter_piece[] = {BISHOP, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, KING, NO_PIECETYPE, NO_PIECETYPE, KNIGHT, NO_PIECETYPE, PAWN, QUEEN, ROOK};
-constexpr char piecetype_letter[] = {'P', 'N', 'B', 'R', 'Q', 'K', '?'};
+constexpr char piecetype_letter[] = {'p', 'n', 'b', 'r', 'q', 'k', '?'};
 constexpr char piece_letter[] = {'P','N','B','R','Q','K','?','?','p','n','b','r','q','k','?'};
 // clang-format on
 

@@ -1,3 +1,9 @@
 #!/bin/bash
 
-g++ bitboard.cpp eval.cpp main.cpp movegen.cpp search.cpp -mavx2 -mbmi2 -mbmi -mlzcnt -mpopcnt -m64 -O3
+# Check 2 params
+if [ "$#" -ne 1 ]; then
+	echo "Usage: ./compile.sh <output_file>"
+	exit 1
+fi
+
+g++ bitboard.cpp eval.cpp main.cpp movegen.cpp search.cpp -mavx2 -mbmi2 -mbmi -mlzcnt -mpopcnt -m64 -O3 -o $1
