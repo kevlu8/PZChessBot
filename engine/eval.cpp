@@ -60,7 +60,7 @@ Value eval(const Board &board) {
 	material -= QueenValue * _mm_popcnt_u64(board.piece_boards[QUEEN] & board.piece_boards[OCC(BLACK)]);
 
 	// Decide between normal vs endgame king map
-	const Bitboard *funny = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) >= 8 ? KING_SQUARES : KING_ENDGAME_SQUARES;
+	const Bitboard *funny = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) >= 10 ? KING_SQUARES : KING_ENDGAME_SQUARES;
 	// Initialize accumulators
 	int8_t pawn_acc, knight_acc, bishop_acc, rook_acc, queen_acc, king_acc;
 	int8_t pawn_acc_black, knight_acc_black, bishop_acc_black, rook_acc_black, queen_acc_black, king_acc_black;
