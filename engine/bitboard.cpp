@@ -1,5 +1,33 @@
 #include "bitboard.hpp"
 #include <cctype>
+#include <random>
+
+uint64_t zobrist_square[64][12];
+uint64_t zobrist_castling[16];
+uint64_t zobrist_ep[8];
+uint64_t zobrist_side[2];
+
+__attribute__((constructor)) void init_zobrist() {
+	std::mt19937_64 rng(0xdeadbeef);
+	std::uniform_int_distribution<uint64_t> dist;
+
+	for (int i = 0; i < 64; i++) {
+		for (int j = 0; j < 12; j++) {
+			zobrist_square[i][j] = dist(rng);
+		}
+	}
+
+	for (int i = 0; i < 16; i++) {
+		zobrist_castling[i] = dist(rng);
+	}
+
+	for (int i = 0; i < 8; i++) {
+		zobrist_ep[i] = dist(rng);
+	}
+
+	zobrist_side[0] = dist(rng);
+	zobrist_side[1] = dist(rng);
+}
 
 void print_bitboard(Bitboard board) {
 	for (int i = 7; i >= 0; i--) {
@@ -355,9 +383,6 @@ void Board::make_move(Move move) {
 				tmp_ep_square = SQ_NONE;
 		}
 	}
-	// Update control bitboards
-	// if (move != NullMove)
-	// 	update_control(move.src(), move.dst());
 	// Update EP square
 	ep_square = tmp_ep_square;
 	// Switch sides
@@ -484,15 +509,20 @@ void Board::unmake_move() {
 	// }
 }
 
-Bitboard Board::hash() const {
-	Bitboard hash = 0;
-	// for (int i = 0; i < 6; i++) {
-	// 	hash ^= pieces[i];
-	// }
-	// hash ^= castling;
-	// hash ^= ep_square;
-	// hash ^= control[0];
-	// hash ^= control[1];
-	// hash ^= side << 62;
-	return hash;
+uint64_t Board::hash() const {
+	return zobrist;
+}
+
+void Board::recompute_hash() {
+	zobrist = 0;
+	for (int i = 0; i < 64; i++) {
+		if (mailbox[i] != NO_PIECE) {
+			zobrist ^= zobrist_square[i][mailbox[i]];
+		}
+	}
+	zobrist ^= zobrist_castling[castling];
+	if (ep_square != SQ_NONE) {
+		zobrist ^= zobrist_ep[ep_square & 0b111];
+	}
+	zobrist ^= zobrist_side[side];
 }

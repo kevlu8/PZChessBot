@@ -99,6 +99,7 @@ struct Board {
 	bool side = WHITE;
 	uint8_t castling = 0xf; // 1111
 	Square ep_square = SQ_NONE;
+	uint64_t zobrist = 0;
 
 	// Mailbox representation of the board for faster queries of certain data
 	Piece mailbox[8 * 8] = {WHITE_ROOK, WHITE_KNIGHT, WHITE_BISHOP, WHITE_QUEEN, WHITE_KING, WHITE_BISHOP, WHITE_KNIGHT, WHITE_ROOK,
@@ -124,9 +125,11 @@ struct Board {
 		piece_boards[5] = square_bits(SQ_E1) | square_bits(SQ_E8);
 		piece_boards[6] = Rank1Bits | Rank2Bits;
 		piece_boards[7] = Rank7Bits | Rank8Bits;
+		recompute_hash();
 	}
 	Board(std::string fen) {
 		load_fen(fen);
+		recompute_hash();
 	};
 
 	void load_fen(std::string);
@@ -139,5 +142,6 @@ struct Board {
 	void legal_moves(std::vector<Move> &) const;
 	std::pair<int, int> control(int) const;
 
-	Bitboard hash() const;
+	uint64_t hash() const;
+	void recompute_hash();
 };
