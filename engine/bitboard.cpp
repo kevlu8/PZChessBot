@@ -469,6 +469,8 @@ void Board::make_move(Move move) {
 	// Update castling rights
 	zobrist ^= zobrist_castling[castling] ^ zobrist_castling[move_hist.top().prev_castling()];
 
+	halfmove++;
+
 #ifdef HASHCHECK
 	old_hash = zobrist;
 	recompute_hash();
@@ -630,6 +632,8 @@ void Board::unmake_move() {
 	int old_castling = castling;
 	zobrist ^= zobrist_castling[castling] ^ zobrist_castling[prev.prev_castling()];
 	castling = prev.prev_castling();
+
+	halfmove--;
 
 #ifdef HASHCHECK
 	old_hash = zobrist;

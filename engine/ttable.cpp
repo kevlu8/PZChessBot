@@ -2,9 +2,9 @@
 
 void TTable::store(uint64_t key, Value eval, uint8_t depth, TTFlag flag, Move best_move, uint8_t age) {
 	TTEntry *entry = TT + (key & (TT_SIZE - 1));
-	if (entry->age < age)
+	if (entry->flags != INVALID && entry->age < age)
 		return;
-	else if (entry->age == age && entry->depth > depth)
+	else if (entry->flags != INVALID && entry->age == age && entry->depth > depth)
 		return;
 	if (entry->flags == INVALID) tsize++;
 	entry->key = key;
@@ -22,7 +22,7 @@ TTable::TTEntry *TTable::probe(uint64_t key) {
 	return &NO_ENTRY;
 }
 
-constexpr uint64_t TTable::size() const {
+uint64_t TTable::size() const {
 	return tsize;
 }
 

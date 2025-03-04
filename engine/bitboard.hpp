@@ -60,9 +60,9 @@ struct HistoryEntry {
 };
 
 struct Board {
-	// pawns, knights, bishops, rooks, queens, kings, w_occupancy, b_occupancy
 	Bitboard piece_boards[8] = {0};
 	bool side = WHITE;
+	uint8_t halfmove = 0;
 	uint8_t castling = 0xf; // 1111
 	Square ep_square = SQ_NONE;
 	uint64_t zobrist = 0;

@@ -3,7 +3,7 @@
 #include "includes.hpp"
 #include "move.hpp"
 
-#define TT_SIZE (1 << 24)
+#define TT_SIZE (1 << 27)
 
 enum TTFlag {
 	EXACT = 0,
@@ -28,7 +28,7 @@ struct TTable {
 
 	TTEntry NO_ENTRY;
 	TTEntry *TT;
-	uint64_t tsize;
+	uint64_t tsize=0;
 
 	TTable() { TT = new TTEntry[TT_SIZE]; }
 
@@ -52,7 +52,7 @@ struct TTable {
 
 	TTEntry *probe(uint64_t key);
 
-	constexpr uint64_t size() const;
+	uint64_t size() const;
 	constexpr uint64_t mxsize() const { return TT_SIZE; }
 };
 

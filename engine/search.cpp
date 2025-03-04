@@ -2,7 +2,7 @@
 
 #define MOVENUM(x) ((((#x)[1]-'1') << 12) | (((#x)[0]-'a') << 8) | (((#x)[3]-'1') << 4) | ((#x)[2]-'a'))
 
-uint64_t nodes = 0;
+uint64_t nodes = 0, tbhits = 0;
 
 uint64_t perft(Board &board, int depth) {
 	// If white's turn is beginning and black is in check
@@ -80,20 +80,26 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	// Move ordering (experimental)
 	if (depth > 2) {
-		std::vector<std::pair<Move, Value>> scores;
-		for (int i = 0; i < moves.size(); i++) {
-			Move &move = moves[i];
-			board.make_move(move);
-			Value score = eval(board) * side;
+		std::sort(moves.begin(), moves.end(), [&board, side](const Move &a, const Move &b) {
+			board.make_move(a);
+			// check hash table
+			Value score_a = 0;
+			TTable::TTEntry *entry = board.ttable.probe(board.zobrist);
+			if (entry->flags != INVALID) {
+				score_a = entry->eval * side;
+				tbhits++;
+			}
 			board.unmake_move();
-			scores.push_back({move, score});
-		}
-
-		std::sort(scores.begin(), scores.end(), [](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
-		moves.clear();
-		for (int i = 0; i < scores.size(); i++) {
-			moves.push_back(scores[i].first);
-		}
+			board.make_move(b);
+			Value score_b = 0;
+			entry = board.ttable.probe(board.zobrist);
+			if (entry->flags != INVALID) {
+				score_b = entry->eval * side;
+				tbhits++;
+			}
+			board.unmake_move();
+			return score_a * side > score_b * side;
+		});
 	}
 
 	// if (depth > 2) {
@@ -106,6 +112,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	// 	}
 	// }
 
+	Move best_move = NullMove;
+
 	for (int i = 0; i < moves.size(); i++) {
 		Move &move = moves[i];
 		board.make_move(move);
@@ -114,6 +122,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
 			score = score - ((score >> 15) << 1) - 1;
+
+		board.ttable.store(board.zobrist, score, depth, EXACT, move, board.halfmove);
 		board.unmake_move();
 
 		if (score > best) {
@@ -121,8 +131,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				alpha = score;
 			}
 			best = score;
+			best_move = move;
 		}
 		if (score >= beta) {
+			board.ttable.store(board.zobrist, beta, depth, LOWER_BOUND, best_move, board.halfmove);
 			return best;
 		}
 	}
@@ -131,11 +143,17 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (best == -VALUE_MATE + 2) {
 		if (board.side == WHITE) {
 			if (!board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6])).second)
-				return 0;
+				best = 0;
 		} else {
 			if (!board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first)
-				return 0;
+				best = 0;
 		}
+	}
+
+	if (best <= alpha) {
+		board.ttable.store(board.zobrist, alpha, depth, UPPER_BOUND, best_move, board.halfmove);
+	} else {
+		board.ttable.store(board.zobrist, best, depth, EXACT, best_move, board.halfmove);
 	}
 
 	return best;
@@ -166,6 +184,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side);
 			}
 		}
+		board.ttable.store(board.zobrist, score, depth, EXACT, move, board.halfmove);
 		board.unmake_move();
 
 		if (score > best_score) {
@@ -181,11 +200,16 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		}
 	}
 
+	if (best_score <= alpha) {
+		board.ttable.store(board.zobrist, alpha, depth, UPPER_BOUND, best_move, board.halfmove);
+	} else {
+		board.ttable.store(board.zobrist, best_score, depth, EXACT, best_move, board.halfmove);
+	}
 	return {best_move, best_score};
 }
 
 std::pair<Move, Value> search(Board &board, int depth) {
-	nodes = 0;
+	nodes = tbhits = 0;
 	clock_t start = clock();
 
 	Move best_move = NullMove;
@@ -214,7 +238,8 @@ std::pair<Move, Value> search(Board &board, int depth) {
 			eval = result.second;
 			best_move = result.first;
 			
-			std::cout << "info depth " << d << " score cp " << eval << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << std::endl;
+			std::cout << "info depth " << d << " score cp " << eval << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
+					  << " tbhits " << tbhits << " pv " << best_move.to_string() << " hashfull " << board.ttable.size() << std::endl;
 			
 			if (eval >= VALUE_MATE_MAX_PLY) {
 				// we found mate, no need to search further
