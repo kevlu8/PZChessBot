@@ -89,7 +89,7 @@ struct HistoryEntry {
 		return (data >> 20) & 0b1111;
 	}
 	constexpr Square prev_ep() {
-		return Square((data >> 24) & 0b111111);
+		return Square(data >> 24);
 	}
 };
 
