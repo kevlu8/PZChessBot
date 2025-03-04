@@ -22,7 +22,7 @@ int timetonodes(int remtime) {
 int main() {
 	std::cout << "PZChessBot v" << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
 	std::string command;
-	Board board;
+	Board board = Board();
 	std::thread searchthread;
 	while (getline(std::cin, command)) {
 		if (command == "uci") {
@@ -37,25 +37,30 @@ int main() {
 			// either `position startpos` or `position fen ...`
 			if (command.find("startpos") != std::string::npos) {
 				board = Board();
-			} else {
-				std::string fen = command.substr(13);
+			} else if (command.find("fen") != std::string::npos) {
+				std::string fen = command.substr(command.find("fen") + 4);
+				if (fen.find("moves") != std::string::npos) {
+					fen = fen.substr(0, fen.find("moves"));
+				}
 				board = Board(fen);
 			}
 			if (command.find("moves") != std::string::npos) {
 				std::string moves = command.substr(command.find("moves") + 6);
 				std::stringstream ss(moves);
 				std::string move;
+				board.commit();
 				while (ss >> move) {
 					board.make_move(Move::from_string(move, &board));
+					board.commit();
 				}
 			}
 		} else if (command == "quit") {
 			break;
 		} else if (command == "stop") {
 			// stop the search thread
-			if (searchthread.joinable()) {
-				searchthread.join();
-			}
+			// if (searchthread.joinable()) {
+			// 	searchthread.join();
+			// }
 		} else if (command.substr(0, 2) == "go") {
 			// `go wtime ... btime ... winc ... binc ...`
 			// only care about wtime and btime
@@ -68,7 +73,7 @@ int main() {
 			} else if (token == "btime") {
 				ss >> btime;
 			}
-			int timeleft = board.side ? wtime : btime;
+			int timeleft = board.side ? btime : wtime;
 			// start thread
 			// searchthread = std::thread([timeleft, &board]() {
 			// 	auto res = search(board, timetonodes(timeleft));

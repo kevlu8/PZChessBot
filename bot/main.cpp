@@ -105,6 +105,7 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 				for (int i = prev_moves.size(); i < moves.size(); i++) {
 					// std::cout << "making move: " << moves[i] << std::endl;
 					board.make_move(Move::from_string(moves[i], &board));
+					board.commit();
 					prev_moves.push_back(moves[i]);
 				}
 			}

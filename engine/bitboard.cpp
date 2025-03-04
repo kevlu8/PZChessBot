@@ -678,3 +678,8 @@ void Board::recompute_hash() {
 	}
 	zobrist ^= zobrist_side * side;
 }
+
+void Board::commit() {
+	// Commit position to drawtable
+	dtable.store(zobrist);
+}

@@ -154,13 +154,17 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		Move &move = moves[i];
 		board.make_move(move);
 		Value score;
-		if (i) {
-			score = -__recurse(board, depth - 1, -alpha - 1, -alpha, -side);
-			if (score > alpha && score < beta) {
+		if (board.dtable.occ(board.zobrist) >= 2) {
+			score = 0; // Draw by repetition
+		} else {
+			if (i) {
+				score = -__recurse(board, depth - 1, -alpha - 1, -alpha, -side);
+				if (score > alpha && score < beta) {
+					score = -__recurse(board, depth - 1, -beta, -alpha, -side);
+				}
+			} else {
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side);
 			}
-		} else {
-			score = -__recurse(board, depth - 1, -beta, -alpha, -side);
 		}
 		board.unmake_move();
 

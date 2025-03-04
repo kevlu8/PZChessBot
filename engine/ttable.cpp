@@ -1,9 +1,5 @@
 #include "ttable.hpp"
 
-void TTable::init() {
-	TT = new TTEntry[TT_SIZE];
-}
-
 void TTable::store(uint64_t key, Value eval, uint8_t depth, TTFlag flag, Move best_move, uint8_t age) {
 	TTEntry *entry = TT + (key & (TT_SIZE - 1));
 	if (entry->age < age)
@@ -28,10 +24,6 @@ TTable::TTEntry *TTable::probe(uint64_t key) {
 
 constexpr uint64_t TTable::size() const {
 	return tsize;
-}
-
-void DrawTable::init() {
-	DT = new DTableEntry[TT_SIZE];
 }
 
 void DrawTable::store(uint64_t key) {
