@@ -3,7 +3,7 @@
 #include "bitboard.hpp"
 #include "includes.hpp"
 
-Value eval(const Board &board);
+Value eval(Board &board);
 
 constexpr int pawn_heatmap[64] = {
 	//  a  b  c  d  e  f  g  h
@@ -37,7 +37,7 @@ constexpr int bishop_heatmap[64] = {
 	-10, 0,	  10,  10,	10,	 10,  0,   -10, // 4
 	-10, 5,	  5,   10,	10,	 5,	  5,   -10, // 5
 	-10, 0,	  5,   10,	10,	 5,	  0,   -10, // 6
-	-10, 0,	  0,   0,	0,	 0,	  0,   -10, // 7
+	-30, 0,	  0,   0,	0,	 0,	  0,   -30, // 7
 	-20, -10, -10, -10, -10, -10, -10, -20, // 8
 };
 

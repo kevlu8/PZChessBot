@@ -12,21 +12,13 @@
 // each thread will be a game
 std::unordered_map<std::string, pthread_t> games;
 
-int timetodepth(int remtime) {
-	if (remtime > 20*60*1000) return 9;
-	if (remtime > 90*1000) return 8;
-	if (remtime > 30*1000) return 7;
-	if (remtime > 15*1000) return 6;
-	return 5;
-}
-
 int timetonodes(int remtime) {
 	// Note: These values are calibrated with 10M nodes per second and ~200 ms ping
-	if (remtime > 20*60*1000) return 20'000'000;
-	if (remtime > 3*60*1000) return 10'000'000;
-	if (remtime > 60*1000) return 5'000'000;
-	if (remtime > 15*1000) return 1'000'000;
-	return 100'000;
+	if (remtime > 20*60*1000) return 2'000'000;
+	if (remtime > 3*60*1000) return 1'000'000;
+	if (remtime > 60*1000) return 250'000;
+	if (remtime > 15*1000) return 50'000;
+	return 10'000;
 }
 
 // loop that handles game events and plays the game
@@ -105,6 +97,7 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 				for (int i = prev_moves.size(); i < moves.size(); i++) {
 					// std::cout << "making move: " << moves[i] << std::endl;
 					board.make_move(Move::from_string(moves[i], &board));
+					board.commit();
 					prev_moves.push_back(moves[i]);
 				}
 			}

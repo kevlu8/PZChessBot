@@ -3,6 +3,7 @@
 #include "bitboard.hpp"
 #include "eval.hpp"
 #include "movegen.hpp"
+#include "ttable.hpp"
 #include <algorithm>
 
 extern uint64_t nodes;

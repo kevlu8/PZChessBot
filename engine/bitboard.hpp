@@ -1,6 +1,8 @@
 #pragma once
 
 #include "includes.hpp"
+#include "move.hpp"
+#include "ttable.hpp"
 
 // Selects the occupancy array by xoring 6 with side (white: false = 0 ^ 6 = 6, black: true = 1 ^ 6 = 7)
 #define OCC(side) (6 ^ (side))
@@ -33,42 +35,6 @@ constexpr Bitboard square_bits(Rank r, File f) { return 1ULL << (r * 8 + f); }
 
 void print_bitboard(Bitboard);
 
-// A move needs 16 bits to be stored
-// bits 0-5: Destination square (from 0 to 63)
-// bits 6-11: Origin (from 0 to 63)
-// bits 12-13: promotion piece type - 1 (from KNIGHT-1 to QUEEN-1)
-// bits 14-15: special move flag: promotion (1), en passant (2), castling (3)
-struct Move {
-	uint16_t data;
-	constexpr explicit Move(uint16_t d) : data(d) {}
-	constexpr Move(int from, int to) : data((from << 6) | to) {}
-	template <MoveType T> static constexpr Move make(int from, int to, PieceType pt = KNIGHT) {
-		return Move(T | ((pt - KNIGHT) << 12) | (from << 6) | to);
-	}
-	constexpr Square src() const {
-		return (Square)(data >> 6 & 0x3f);
-	};
-	constexpr Square dst() const {
-		return (Square)(data & 0x3f);
-	};
-	constexpr PieceType promotion() const {
-		return (PieceType)((data >> 12) & 0b11);
-	};
-	constexpr MoveType type() const {
-		return (MoveType)(data & 0xc000);
-	};
-	constexpr bool operator==(const Move &m) const {
-		return data == m.data;
-	};
-	constexpr bool operator!=(const Move &m) const {
-		return data != m.data;
-	};
-	std::string to_string() const;
-	static Move from_string(const std::string &, const void *);
-};
-
-static constexpr Move NullMove = Move(0);
-
 // A history entry stores the move and other information needed to unmake it
 // bits 0-15: move
 // bits 16-19: captured piece
@@ -89,16 +55,19 @@ struct HistoryEntry {
 		return (data >> 20) & 0b1111;
 	}
 	constexpr Square prev_ep() {
-		return Square((data >> 24) & 0b111111);
+		return Square(data >> 24);
 	}
 };
 
 struct Board {
-	// pawns, knights, bishops, rooks, queens, kings, w_occupancy, b_occupancy
 	Bitboard piece_boards[8] = {0};
 	bool side = WHITE;
+	uint8_t halfmove = 0;
 	uint8_t castling = 0xf; // 1111
 	Square ep_square = SQ_NONE;
+	uint64_t zobrist = 0;
+	TTable ttable;
+	DrawTable dtable;
 
 	// Mailbox representation of the board for faster queries of certain data
 	Piece mailbox[8 * 8] = {WHITE_ROOK, WHITE_KNIGHT, WHITE_BISHOP, WHITE_QUEEN, WHITE_KING, WHITE_BISHOP, WHITE_KNIGHT, WHITE_ROOK,
@@ -124,9 +93,12 @@ struct Board {
 		piece_boards[5] = square_bits(SQ_E1) | square_bits(SQ_E8);
 		piece_boards[6] = Rank1Bits | Rank2Bits;
 		piece_boards[7] = Rank7Bits | Rank8Bits;
+		recompute_hash();
 	}
+
 	Board(std::string fen) {
 		load_fen(fen);
+		recompute_hash();
 	};
 
 	void load_fen(std::string);
@@ -139,5 +111,8 @@ struct Board {
 	void legal_moves(std::vector<Move> &) const;
 	std::pair<int, int> control(int) const;
 
-	Bitboard hash() const;
+	uint64_t hash() const;
+	void recompute_hash();
+
+	void commit();
 };
