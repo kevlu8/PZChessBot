@@ -31,7 +31,7 @@ __attribute__((constructor)) constexpr void init_heatmaps() {
 	}
 }
 
-Value eval(const Board &board) {
+Value eval(Board &board) {
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
 		return VALUE_MATE;
@@ -39,6 +39,11 @@ Value eval(const Board &board) {
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])) {
 		// Likewise, if white has no king, this is mate for black
 		return -VALUE_MATE;
+	}
+
+	auto entry = board.ttable.probe(board.zobrist);
+	if (entry->flags != INVALID) {
+		return entry->eval;
 	}
 
 	Value material = 0;
@@ -108,5 +113,5 @@ Value eval(const Board &board) {
 
 	tempo_bonus += board.side == WHITE ? 10 : -10;
 
-	return ((int)material * 3 + (int)piecesquare + (int)castling + (int)bishop_pair + (int)king_safety + (int)tempo_bonus) / 4;
+	return ((int)material * 2 + (int)piecesquare + (int)castling + (int)bishop_pair + (int)king_safety + (int)tempo_bonus);
 }

@@ -119,6 +119,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		board.make_move(move);
 
 		Value score = -__recurse(board, depth - 1, -beta, -alpha, -side);
+		// Value score = -__recurse(board, i > 15 ? depth - 2 : depth - 1, -beta, -alpha, -side);
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
 			score = score - ((score >> 15) << 1) - 1;
@@ -167,6 +168,29 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 
 	std::vector<Move> moves;
 	board.legal_moves(moves);
+
+	if (depth > 2) {
+		std::sort(moves.begin(), moves.end(), [&board, side](const Move &a, const Move &b) {
+			board.make_move(a);
+			// check hash table
+			Value score_a = 0;
+			TTable::TTEntry *entry = board.ttable.probe(board.zobrist);
+			if (entry->flags != INVALID) {
+				score_a = entry->eval * side;
+				tbhits++;
+			}
+			board.unmake_move();
+			board.make_move(b);
+			Value score_b = 0;
+			entry = board.ttable.probe(board.zobrist);
+			if (entry->flags != INVALID) {
+				score_b = entry->eval * side;
+				tbhits++;
+			}
+			board.unmake_move();
+			return score_a * side > score_b * side;
+		});
+	}
 
 	for (int i = 0; i < moves.size(); i++) {
 		Move &move = moves[i];
@@ -217,7 +241,7 @@ std::pair<Move, Value> search(Board &board, int depth) {
 	if (depth == -1 || depth >= 50) { // Do iterative deepening
 		int nexp = depth;
 		if (nexp == -1) nexp = 1000000;
-		for (int d = 4; d <= 20; d+=2) { // Only search even depth since odd depth seems broken and favors opponent
+		for (int d = 4; d <= 20; d++) { // Only search even depth since odd depth seems broken and favors opponent
 			Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
 			if (eval != -VALUE_INFINITE) {
 				alpha = eval - 200;
@@ -239,8 +263,9 @@ std::pair<Move, Value> search(Board &board, int depth) {
 			best_move = result.first;
 			
 			std::cout << "info depth " << d << " score cp " << eval << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-					  << " tbhits " << tbhits << " pv " << best_move.to_string() << " hashfull " << board.ttable.size() << std::endl;
-			
+					  << " tbhits " << tbhits << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
+			// I know tbhits isn't correct here, I'm just using it to show number of TT hits
+
 			if (eval >= VALUE_MATE_MAX_PLY) {
 				// we found mate, no need to search further
 				break;
