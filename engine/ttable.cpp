@@ -1,24 +1,24 @@
 #include "ttable.hpp"
 
 void TTable::store(uint64_t key, Value eval, uint8_t depth, TTFlag flag, Move best_move, uint8_t age) {
-	TTEntry *entry = TT + (key & (TT_SIZE - 1));
-	if (entry->flags != INVALID && entry->age < age)
-		return;
-	else if (entry->flags != INVALID && entry->age == age && entry->depth > depth)
-		return;
-	if (entry->flags == INVALID) tsize++;
-	entry->key = key;
-	entry->eval = eval;
-	entry->depth = depth;
-	entry->flags = flag;
-	entry->best_move = best_move;
-	entry->age = age;
+	// TTEntry *entry = TT + (key & (TT_SIZE - 1));
+	// if (entry->flags != INVALID && entry->age < age)
+	// 	return;
+	// else if (entry->flags != INVALID && entry->age == age && entry->depth > depth)
+	// 	return;
+	// if (entry->flags == INVALID) tsize++;
+	// entry->key = key;
+	// entry->eval = eval;
+	// entry->depth = depth;
+	// entry->flags = flag;
+	// entry->best_move = best_move;
+	// entry->age = age;
 }
 
 TTable::TTEntry *TTable::probe(uint64_t key) {
-	TTEntry *entry = TT + (key & (TT_SIZE - 1));
-	if (entry->key == key)
-		return entry;
+	// TTEntry *entry = TT + (key & (TT_SIZE - 1));
+	// if (entry->key == key)
+	// 	return entry;
 	return &NO_ENTRY;
 }
 
@@ -27,16 +27,16 @@ uint64_t TTable::size() const {
 }
 
 void DrawTable::store(uint64_t key) {
-	DTableEntry *entry = DT + (key & (TT_SIZE - 1));
-	if (entry->key == key)
-		entry->n_occ++;
-	else
-		*entry = DTableEntry(key);
+	// DTableEntry *entry = DT + (key & (TT_SIZE - 1));
+	// if (entry->key == key)
+	// 	entry->n_occ++;
+	// else
+	// 	*entry = DTableEntry(key);
 }
 
 uint32_t DrawTable::occ(uint64_t key) const {
-	DTableEntry *entry = DT + (key & (TT_SIZE - 1));
-	if (entry->key == key)
-		return entry->n_occ;
+	// DTableEntry *entry = DT + (key & (TT_SIZE - 1));
+	// if (entry->key == key)
+	// 	return entry->n_occ;
 	return 0;
 }

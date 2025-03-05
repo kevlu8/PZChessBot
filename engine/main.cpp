@@ -14,9 +14,10 @@ int timetonodes(int remtime) {
 	// Note: These values are calibrated with 10M nodes per second
 	if (remtime > 20*60*1000) return 25'000'000;
 	if (remtime > 3*60*1000) return 12'000'000;
-	if (remtime > 60*1000) return 6'000'000;
-	if (remtime > 15*1000) return 1'000'000;
-	return 100'000;
+	if (remtime > 60*1000) return 5'000'000;
+	if (remtime > 15*1000) return 3'000'000;
+	if (remtime > 5*1000) return 500'000;
+	return 1; // Literally just play a move so we don't flag
 }
 
 int main() {
@@ -24,7 +25,9 @@ int main() {
 	std::string command;
 	Board board = Board();
 	std::thread searchthread;
+	// std::fstream log("log.txt", std::ios::out);
 	while (getline(std::cin, command)) {
+		// log << command << std::endl;
 		if (command == "uci") {
 			std::cout << "id name PZChessBot v" << VERSION << std::endl;
 			std::cout << "id author kevlu8 and wdotmathree" << std::endl;

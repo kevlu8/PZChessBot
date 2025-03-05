@@ -2,7 +2,8 @@
 
 #define MOVENUM(x) ((((#x)[1]-'1') << 12) | (((#x)[0]-'a') << 8) | (((#x)[3]-'1') << 4) | ((#x)[2]-'a'))
 
-uint64_t nodes = 0, tbhits = 0;
+uint64_t nodes = 0, tbhits = 0, nexp = 0;
+bool early_exit = false, exit_allowed = false;
 
 uint64_t perft(Board &board, int depth) {
 	// If white's turn is beginning and black is in check
@@ -27,6 +28,9 @@ uint64_t perft(Board &board, int depth) {
 Value quiesce(Board &board, Value alpha, Value beta, int side) {
 	nodes++;
 	Value stand_pat = eval(board) * side;
+
+	if (stand_pat == VALUE_MATE || stand_pat == -VALUE_MATE)
+		return stand_pat;
 
 	if (stand_pat >= beta)
 		return beta;
@@ -138,6 +142,11 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			board.ttable.store(board.zobrist, beta, depth, LOWER_BOUND, best_move, board.halfmove);
 			return best;
 		}
+
+		if (nodes > nexp && exit_allowed) {
+			early_exit = true;
+			break;
+		}
 	}
 	
 	// Stalemate detection
@@ -222,6 +231,11 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		if (score >= beta) {
 			break;
 		}
+
+		if (nodes > nexp && exit_allowed) {
+			early_exit = true;
+			break;
+		}
 	}
 
 	if (best_score <= alpha) {
@@ -234,14 +248,15 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 
 std::pair<Move, Value> search(Board &board, int depth) {
 	nodes = tbhits = 0;
+	early_exit = exit_allowed = false;
 	clock_t start = clock();
 
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
 	if (depth == -1 || depth >= 50) { // Do iterative deepening
-		int nexp = depth;
-		if (nexp == -1) nexp = 1000000;
-		for (int d = 4; d <= 20; d++) { // Only search even depth since odd depth seems broken and favors opponent
+		if (depth == -1) nexp = 10'000'000;
+		else nexp = depth;
+		for (int d = 1; d <= 20; d++) {
 			Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
 			if (eval != -VALUE_INFINITE) {
 				alpha = eval - 200;
@@ -259,12 +274,17 @@ std::pair<Move, Value> search(Board &board, int depth) {
 			if (research) {
 				result = __search(board, d, alpha, beta, board.side ? -1 : 1);
 			}
+			if (early_exit) {
+				break;
+			}
 			eval = result.second;
 			best_move = result.first;
 			
 			std::cout << "info depth " << d << " score cp " << eval << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
 					  << " tbhits " << tbhits << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
 			// I know tbhits isn't correct here, I'm just using it to show number of TT hits
+
+			exit_allowed = true;
 
 			if (eval >= VALUE_MATE_MAX_PLY) {
 				// we found mate, no need to search further
@@ -278,6 +298,8 @@ std::pair<Move, Value> search(Board &board, int depth) {
 		auto result = __search(board, depth, -VALUE_INFINITE, VALUE_INFINITE, board.side ? -1 : 1);
 		best_move = result.first;
 		eval = result.second;
+		std::cout << "info depth " << depth << " score cp " << eval << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
+				  << " tbhits " << tbhits << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
 	}
 
 	return {best_move, eval};
