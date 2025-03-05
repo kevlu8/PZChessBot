@@ -40,7 +40,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side) {
 
 	for (int i = 0; i < moves.size(); i++) {
 		Move &move = moves[i];
-		if (board.piece_boards[OPPOCC(side)] & square_bits(move.dst())) {
+		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
 			board.make_move(move);
 			Value score = -quiesce(board, -beta, -alpha, -side);
 			board.unmake_move();
