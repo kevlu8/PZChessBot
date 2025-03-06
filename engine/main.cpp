@@ -70,11 +70,13 @@ int main() {
 			std::stringstream ss(command);
 			std::string token;
 			int wtime = 0, btime = 0;
-			ss >> token >> token;
-			if (token == "wtime") {
-				ss >> wtime;
-			} else if (token == "btime") {
-				ss >> btime;
+			ss >> token;
+			while (ss >> token) {
+				if (token == "wtime") {
+					ss >> wtime;
+				} else if (token == "btime") {
+					ss >> btime;
+				}
 			}
 			int timeleft = board.side ? btime : wtime;
 			// start thread
@@ -82,7 +84,8 @@ int main() {
 			// 	auto res = search(board, timetonodes(timeleft));
 			// 	std::cout << "bestmove " << res.first.to_string() << std::endl;
 			// });
-			auto res = search(board, timetonodes(timeleft));
+			// auto res = search(board, timetonodes(timeleft));
+			auto res = search(board);
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
 		}
 	}

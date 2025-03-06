@@ -3,7 +3,7 @@
 #include "includes.hpp"
 #include "move.hpp"
 
-#define TT_SIZE (1 << 1)
+#define TT_SIZE (1 << 16)
 // Note that the actual size of TT is TT_SIZE * 32 bytes
 
 enum TTFlag {
