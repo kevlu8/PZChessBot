@@ -6,4 +6,4 @@ if [ "$#" -ne 1 ]; then
 	exit 1
 fi
 
-g++ bitboard.cpp eval.cpp main.cpp movegen.cpp search.cpp ttable.cpp -mavx2 -mbmi2 -mbmi -mlzcnt -mpopcnt -m64 -g -o $1
+g++ bitboard.cpp eval.cpp main.cpp movegen.cpp search.cpp ttable.cpp -mavx2 -mbmi2 -mbmi -mlzcnt -mpopcnt -m64 -O3 -o $1

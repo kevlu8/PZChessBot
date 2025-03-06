@@ -106,9 +106,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		for (Move &move : moves) {
 			board.make_move(move);
 			Value score = 0;
-			TTable::TTEntry *entry = board.ttable.probe(board.zobrist);
-			if (entry->flags != INVALID) {
-				score = entry->eval * side;
+			auto entry = board.ttable.probe(board.zobrist, alpha, beta, depth);
+			if (entry.second) {
+				score = entry.first;
 				tbhits++;
 			} else score = eval(board) * side;
 			board.unmake_move();
@@ -117,6 +117,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) {
 			return a.second > b.second;
 		});
+		for (int i = 0; i < scores.size(); i++) moves[i] = scores[i].first;
 	}
 
 	Move best_move = NullMove;
@@ -125,13 +126,19 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		Move &move = moves[i];
 		board.make_move(move);
 
-		Value score = -__recurse(board, depth - 1, -beta, -alpha, -side);
-		// Value score = -__recurse(board, i > 15 ? depth - 2 : depth - 1, -beta, -alpha, -side);
+		Value score;
+		if (i) {
+			score = -__recurse(board, i > 15 ? depth - 2 : depth - 1, -alpha - 1, -alpha, -side);
+			if (score > alpha && score < beta) {
+				score = -__recurse(board, i > 15 ? depth - 2 : depth - 1, -beta, -alpha, -side);
+			}
+		} else {
+			score = -__recurse(board, depth - 1, -beta, -alpha, -side);
+		}
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
 			score = score - (uint16_t(score >> 15) << 1) - 1;
 
-		board.ttable.store(board.zobrist, score, depth, EXACT, move, board.halfmove);
 		board.unmake_move();
 
 		if (score > best) {
@@ -180,9 +187,9 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		for (Move &move : moves) {
 			board.make_move(move);
 			Value score = 0;
-			TTable::TTEntry *entry = board.ttable.probe(board.zobrist);
-			if (entry->flags != INVALID) {
-				score = entry->eval * side;
+			auto entry = board.ttable.probe(board.zobrist, alpha, beta, depth);
+			if (entry.second) {
+				score = entry.first;
 				tbhits++;
 			} else score = eval(board) * side;
 			board.unmake_move();
@@ -191,6 +198,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) {
 			return a.second > b.second;
 		});
+		for (int i = 0; i < scores.size(); i++) moves[i] = scores[i].first;
 	}
 
 	for (int i = 0; i < moves.size(); i++) {
@@ -245,11 +253,12 @@ std::pair<Move, Value> search(Board &board, int depth) {
 	if (depth == -1 || depth >= 50) { // Do iterative deepening
 		if (depth == -1) nexp = 50'000'000;
 		else nexp = depth;
+		bool aspiration_enabled = true;
 		for (int d = 1; d <= 20; d++) {
 			Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
-			if (eval != -VALUE_INFINITE) {
-				alpha = eval - 200;
-				beta = eval + 200;
+			if (eval != -VALUE_INFINITE && aspiration_enabled) {
+				alpha = eval - 100;
+				beta = eval + 100;
 			}
 			auto result = __search(board, d, alpha, beta, board.side ? -1 : 1);
 			// Check for fail-high or fail-low
@@ -266,6 +275,8 @@ std::pair<Move, Value> search(Board &board, int depth) {
 			if (early_exit) {
 				break;
 			}
+			if (d > 4 && abs(result.second-eval) > 400) // We are probably in a very sharp position, better to not use aspir.
+				aspiration_enabled = false;
 			eval = result.second;
 			best_move = result.first;
 			

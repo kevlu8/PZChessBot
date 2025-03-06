@@ -12,6 +12,7 @@
 
 int timetonodes(int remtime) {
 	// Note: These values are calibrated with 10M nodes per second
+	if (remtime > 90*60*1000) return 500'000'000;
 	if (remtime > 20*60*1000) return 25'000'000;
 	if (remtime > 3*60*1000) return 12'000'000;
 	if (remtime > 60*1000) return 5'000'000;
@@ -84,8 +85,8 @@ int main() {
 			// 	auto res = search(board, timetonodes(timeleft));
 			// 	std::cout << "bestmove " << res.first.to_string() << std::endl;
 			// });
-			// auto res = search(board, timetonodes(timeleft));
-			auto res = search(board);
+			auto res = search(board, timetonodes(timeleft));
+			// auto res = search(board);
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
 		}
 	}

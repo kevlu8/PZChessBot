@@ -3,7 +3,7 @@
 #include "includes.hpp"
 #include "move.hpp"
 
-#define TT_SIZE (1 << 16)
+#define TT_SIZE (1 << 20)
 // Note that the actual size of TT is TT_SIZE * 32 bytes
 
 enum TTFlag {
@@ -51,7 +51,7 @@ struct TTable {
 
 	void store(uint64_t key, Value eval, uint8_t depth, TTFlag flag, Move best_move, uint8_t age);
 
-	TTEntry *probe(uint64_t key);
+	std::pair<Value, bool> probe(uint64_t key, Value alpha, Value beta, Value depth);
 
 	uint64_t size() const;
 	constexpr uint64_t mxsize() const { return TT_SIZE; }
