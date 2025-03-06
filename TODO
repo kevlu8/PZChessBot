@@ -1,5 +1,3 @@
-- zobrist hashing + transposition table
-- are we handling eval correctly in our tables? i.e. are we accidentally negating stuff?
 - fix quiescence search
 - rewrite bot api
 - threefold detection
