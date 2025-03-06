@@ -38,6 +38,7 @@ struct TTable {
 	TTable(const TTable &o) {
 		TT = new TTEntry[TT_SIZE];
 		std::copy(o.TT, o.TT + TT_SIZE, TT);
+		tsize = 0;
 	}
 
 	TTable &operator=(const TTable &o) {
@@ -45,6 +46,7 @@ struct TTable {
 			delete[] TT;
 			TT = new TTEntry[TT_SIZE];
 			std::copy(o.TT, o.TT + TT_SIZE, TT);
+			tsize = 0;
 		}
 		return *this;
 	}
