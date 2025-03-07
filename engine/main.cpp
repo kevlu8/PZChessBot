@@ -9,18 +9,7 @@
 #include "movegen.hpp"
 #include "eval.hpp"
 #include "search.hpp"
-
-int timetonodes(int remtime) {
-	// Note: These values are calibrated with 10M nodes per second
-	if (remtime > 90*60*1000) return 1'000'000'000;
-	if (remtime > 20*60*1000) return 500'000'000;
-	if (remtime > 3*60*1000) return 100'000'000;
-	if (remtime > 60*1000) return 30'000'000;
-	if (remtime > 15*1000) return 10'000'000;
-	if (remtime > 5*1000) return 3'000'000;
-	if (remtime > 2*1000) return 1'000'000;
-	return 1; // Literally just play a move so we don't flag
-}
+#include "movetimings.hpp"
 
 int main() {
 	std::cout << "PZChessBot v" << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
@@ -84,6 +73,7 @@ int main() {
 			// 	auto res = search(board, timetonodes(timeleft));
 			// 	std::cout << "bestmove " << res.first.to_string() << std::endl;
 			// });
+			std::cout << "info string timeleft " << timetonodes(timeleft) << std::endl;
 			auto res = search(board, timetonodes(timeleft));
 			// auto res = search(board);
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
