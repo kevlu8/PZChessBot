@@ -1,5 +1,6 @@
 #include "../engine/bitboard.hpp"
 #include "../engine/search.hpp"
+#include "../engine/movetimings.hpp"
 #include "api.hpp"
 #include "book.hpp"
 #include <pthread.h>
@@ -11,16 +12,6 @@
 // create a list of threads
 // each thread will be a game
 std::unordered_map<std::string, pthread_t> games;
-
-int timetonodes(int remtime) {
-	// Note: These values are calibrated with 10M nodes per second and ~200 ms ping
-	if (remtime > 20*60*1000) return 10'000'000;
-	if (remtime > 3*60*1000) return 4'000'000;
-	if (remtime > 60*1000) return 1'000'000;
-	if (remtime > 15*1000) return 500'000;
-	if (remtime > 5*1000) return 50'000;
-	return 1;
-}
 
 // loop that handles game events and plays the game
 void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
@@ -110,7 +101,7 @@ void play(std::string game_id, bool color, uint8_t depth, json *initialEvent) {
 					std::cout << "book move: " << move << std::endl;
 					API::move(game_id, move);
 				} else {
-					auto tmp = search(board, timetonodes(timeleft));
+					auto tmp = search(board, timetonodes(timeleft, 1));
 					move = tmp.first.to_string();
 					std::cout << "move: " << move << "eval: " << tmp.second << std::endl;
 					if (move != "----" && move != "0000")

@@ -3,7 +3,7 @@
 #include "includes.hpp"
 #include "move.hpp"
 
-#define TT_SIZE (1 << 1)
+#define TT_SIZE (1 << 22)
 // Note that the actual size of TT is TT_SIZE * 32 bytes
 
 enum TTFlag {
@@ -38,6 +38,7 @@ struct TTable {
 	TTable(const TTable &o) {
 		TT = new TTEntry[TT_SIZE];
 		std::copy(o.TT, o.TT + TT_SIZE, TT);
+		tsize = 0;
 	}
 
 	TTable &operator=(const TTable &o) {
@@ -45,13 +46,14 @@ struct TTable {
 			delete[] TT;
 			TT = new TTEntry[TT_SIZE];
 			std::copy(o.TT, o.TT + TT_SIZE, TT);
+			tsize = 0;
 		}
 		return *this;
 	}
 
 	void store(uint64_t key, Value eval, uint8_t depth, TTFlag flag, Move best_move, uint8_t age);
 
-	TTEntry *probe(uint64_t key);
+	std::pair<Value, bool> probe(uint64_t key, Value alpha, Value beta, Value depth);
 
 	uint64_t size() const;
 	constexpr uint64_t mxsize() const { return TT_SIZE; }
@@ -87,6 +89,7 @@ struct DrawTable {
 	~DrawTable() { delete[] DT; }
 
 	void store(uint64_t key);
+	void remove(uint64_t key);
 
 	uint32_t occ(uint64_t key) const;
 };

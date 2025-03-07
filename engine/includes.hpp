@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-#define VERSION "20250304T20"
+#define VERSION "20250306T21"
 
 typedef uint64_t Bitboard;
 

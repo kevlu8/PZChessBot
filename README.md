@@ -11,6 +11,9 @@ PZChessBot is a basic negamax engine.
 ### Search
 
 - Basic alpha-beta pruning
+- Principal-Variation Search
+- Late-move reductions
+- Transposition tables
 
 ### Moves and board representation
 
@@ -24,7 +27,5 @@ PZChessBot is a basic negamax engine.
 
 ## Up next
 
-- Late-move reductions once we have stuff fixed
 - Null-move pruning once we have stuff fixed
 - Deeper evaluation
-- Functional perfts

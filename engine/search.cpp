@@ -3,6 +3,7 @@
 #define MOVENUM(x) ((((#x)[1]-'1') << 12) | (((#x)[0]-'a') << 8) | (((#x)[3]-'1') << 4) | ((#x)[2]-'a'))
 
 uint64_t nodes = 0, tbhits = 0, nexp = 0;
+int seldepth = 0;
 bool early_exit = false, exit_allowed = false;
 
 uint64_t perft(Board &board, int depth) {
@@ -25,15 +26,16 @@ uint64_t perft(Board &board, int depth) {
 	return cnt;
 }
 
-Value quiesce(Board &board, Value alpha, Value beta, int side) {
+Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	nodes++;
+	seldepth = std::max(depth, seldepth);
 	Value stand_pat = eval(board) * side;
 
 	if (stand_pat == VALUE_MATE || stand_pat == -VALUE_MATE)
 		return stand_pat;
 
 	if (stand_pat >= beta)
-		return beta;
+		return stand_pat;
 	if (stand_pat > alpha)
 		alpha = stand_pat;
 
@@ -46,7 +48,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side) {
 		Move &move = moves[i];
 		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
 			board.make_move(move);
-			Value score = -quiesce(board, -beta, -alpha, -side);
+			Value score = -quiesce(board, -beta, -alpha, -side, depth+1);
 			board.unmake_move();
 
 			if (score > best) {
@@ -65,7 +67,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side) {
 
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
 	if (depth <= 0) {
-		return quiesce(board, alpha, beta, side);
+		return quiesce(board, alpha, beta, side, 0);
 	}
 
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
@@ -84,37 +86,23 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	// Move ordering (experimental)
 	if (depth > 2) {
-		std::sort(moves.begin(), moves.end(), [&board, side](const Move &a, const Move &b) {
-			board.make_move(a);
-			// check hash table
-			Value score_a = 0;
-			TTable::TTEntry *entry = board.ttable.probe(board.zobrist);
-			if (entry->flags != INVALID) {
-				score_a = entry->eval * side;
+		std::vector<std::pair<Move, Value>> scores;
+		for (Move &move : moves) {
+			board.make_move(move);
+			Value score = 0;
+			auto entry = board.ttable.probe(board.zobrist, alpha, beta, depth-1);
+			if (entry.second) {
+				score = entry.first;
 				tbhits++;
-			}
+			} else score = eval(board) * side;
 			board.unmake_move();
-			board.make_move(b);
-			Value score_b = 0;
-			entry = board.ttable.probe(board.zobrist);
-			if (entry->flags != INVALID) {
-				score_b = entry->eval * side;
-				tbhits++;
-			}
-			board.unmake_move();
-			return score_a * side > score_b * side;
+			scores.push_back({move, score});
+		}
+		std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) {
+			return a.second > b.second;
 		});
+		for (int i = 0; i < scores.size(); i++) moves[i] = scores[i].first;
 	}
-
-	// if (depth > 2) {
-	// 	// Null move pruning
-	// 	board.make_move(NullMove);
-	// 	Value nscore = -__recurse(board, depth - 2, -beta, -beta+1, -side);
-	// 	board.unmake_move();
-	// 	if (nscore >= beta && nscore != VALUE_MATE && nscore != -VALUE_MATE) {
-	// 		return beta;
-	// 	}
-	// }
 
 	Move best_move = NullMove;
 
@@ -122,13 +110,20 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		Move &move = moves[i];
 		board.make_move(move);
 
-		Value score = -__recurse(board, depth - 1, -beta, -alpha, -side);
-		// Value score = -__recurse(board, i > 15 ? depth - 2 : depth - 1, -beta, -alpha, -side);
+		Value score;
+		if (i) {
+			score = -__recurse(board, i > 15 ? depth - 2 : depth - 1, -alpha - 1, -alpha, -side);
+			if (score > alpha && score < beta) {
+				score = -__recurse(board, depth - 1, -beta, -alpha, -side);
+				// score = -__recurse(board, i > 15 ? depth - 2 : depth - 1, -beta, -alpha, -side);
+			}
+		} else {
+			score = -__recurse(board, depth - 1, -beta, -alpha, -side);
+		}
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
-			score = score - ((score >> 15) << 1) - 1;
+			score = score - (uint16_t(score >> 15) << 1) - 1;
 
-		board.ttable.store(board.zobrist, score, depth, EXACT, move, board.halfmove);
 		board.unmake_move();
 
 		if (score > best) {
@@ -170,8 +165,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 }
 
 std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
-	nodes = 0;
-
 	Move best_move = NullMove;
 	Value best_score = -VALUE_INFINITE;
 
@@ -179,26 +172,22 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	board.legal_moves(moves);
 
 	if (depth > 2) {
-		std::sort(moves.begin(), moves.end(), [&board, side](const Move &a, const Move &b) {
-			board.make_move(a);
-			// check hash table
-			Value score_a = 0;
-			TTable::TTEntry *entry = board.ttable.probe(board.zobrist);
-			if (entry->flags != INVALID) {
-				score_a = entry->eval * side;
+		std::vector<std::pair<Move, Value>> scores;
+		for (Move &move : moves) {
+			board.make_move(move);
+			Value score = 0;
+			auto entry = board.ttable.probe(board.zobrist, alpha, beta, depth-1);
+			if (entry.second) {
+				score = entry.first;
 				tbhits++;
-			}
+			} else score = eval(board) * side;
 			board.unmake_move();
-			board.make_move(b);
-			Value score_b = 0;
-			entry = board.ttable.probe(board.zobrist);
-			if (entry->flags != INVALID) {
-				score_b = entry->eval * side;
-				tbhits++;
-			}
-			board.unmake_move();
-			return score_a * side > score_b * side;
+			scores.push_back({move, score});
+		}
+		std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) {
+			return a.second > b.second;
 		});
+		for (int i = 0; i < scores.size(); i++) moves[i] = scores[i].first;
 	}
 
 	for (int i = 0; i < moves.size(); i++) {
@@ -229,7 +218,8 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		}
 
 		if (score >= beta) {
-			break;
+			board.ttable.store(board.zobrist, beta, depth, LOWER_BOUND, best_move, board.halfmove);
+			return {best_move, best_score};
 		}
 
 		if (nodes > nexp && exit_allowed) {
@@ -243,24 +233,26 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	} else {
 		board.ttable.store(board.zobrist, best_score, depth, EXACT, best_move, board.halfmove);
 	}
+
 	return {best_move, best_score};
 }
 
-std::pair<Move, Value> search(Board &board, int depth) {
-	nodes = tbhits = 0;
+std::pair<Move, Value> search(Board &board, int64_t depth) {
+	nodes = tbhits = seldepth = 0;
 	early_exit = exit_allowed = false;
 	clock_t start = clock();
 
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
 	if (depth == -1 || depth >= 50) { // Do iterative deepening
-		if (depth == -1) nexp = 10'000'000;
+		if (depth == -1) nexp = 50'000'000;
 		else nexp = depth;
+		bool aspiration_enabled = false;
 		for (int d = 1; d <= 20; d++) {
 			Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
-			if (eval != -VALUE_INFINITE) {
-				alpha = eval - 200;
-				beta = eval + 200;
+			if (eval != -VALUE_INFINITE && aspiration_enabled) {
+				alpha = eval - 100;
+				beta = eval + 100;
 			}
 			auto result = __search(board, d, alpha, beta, board.side ? -1 : 1);
 			// Check for fail-high or fail-low
@@ -277,19 +269,16 @@ std::pair<Move, Value> search(Board &board, int depth) {
 			if (early_exit) {
 				break;
 			}
+			if (d > 4 && abs(result.second-eval) > 400) // We are probably in a very sharp position, better to not use aspir.
+				aspiration_enabled = false;
 			eval = result.second;
 			best_move = result.first;
 			
-			std::cout << "info depth " << d << " score cp " << eval << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
+			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
 					  << " tbhits " << tbhits << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
 			// I know tbhits isn't correct here, I'm just using it to show number of TT hits
 
 			exit_allowed = true;
-
-			if (eval >= VALUE_MATE_MAX_PLY) {
-				// we found mate, no need to search further
-				break;
-			}
 
 			if (nodes > nexp)
 				break;
@@ -298,7 +287,7 @@ std::pair<Move, Value> search(Board &board, int depth) {
 		auto result = __search(board, depth, -VALUE_INFINITE, VALUE_INFINITE, board.side ? -1 : 1);
 		best_move = result.first;
 		eval = result.second;
-		std::cout << "info depth " << depth << " score cp " << eval << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
+		std::cout << "info depth " << depth << " seldepth " << depth + seldepth << " score cp " << eval << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
 				  << " tbhits " << tbhits << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
 	}
 

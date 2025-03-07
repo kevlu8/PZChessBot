@@ -41,11 +41,6 @@ Value eval(Board &board) {
 		return -VALUE_MATE;
 	}
 
-	auto entry = board.ttable.probe(board.zobrist);
-	if (entry->flags != INVALID) {
-		return entry->eval;
-	}
-
 	Value material = 0;
 	Value piecesquare = 0;
 	Value castling = 0;
