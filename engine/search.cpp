@@ -27,58 +27,41 @@ uint64_t perft(Board &board, int depth) {
 
 Value quiesce(Board &board, Value alpha, Value beta, int side) {
 	nodes++;
-	return eval(board) * side; // temporary
-	// Value stand_pat = eval(board) * side;
+	// return eval(board) * side; // temporary
+	Value stand_pat = eval(board) * side;
 
-	// if (stand_pat == VALUE_MATE || stand_pat == -VALUE_MATE)
-	// 	return stand_pat;
+	if (stand_pat == VALUE_MATE || stand_pat == -VALUE_MATE)
+		return stand_pat;
 
-	// if (stand_pat >= beta)
-	// 	return stand_pat;
-	// if (stand_pat > alpha)
-	// 	alpha = stand_pat;
+	if (stand_pat >= beta)
+		return stand_pat;
+	if (stand_pat > alpha)
+		alpha = stand_pat;
 
-	// std::vector<Move> moves;
-	// board.legal_moves(moves);
+	std::vector<Move> moves;
+	board.legal_moves(moves);
 
-	// Value best = stand_pat;
+	Value best = stand_pat;
 
-	// for (int i = 0; i < moves.size(); i++) {
-	// 	Move &move = moves[i];
-	// 	if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
-	// 		board.make_move(move);
-	// 		Value score = -quiesce(board, -beta, -alpha, -side);
-	// 		board.unmake_move();
+	for (int i = 0; i < moves.size(); i++) {
+		Move &move = moves[i];
+		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
+			board.make_move(move);
+			Value score = -quiesce(board, -beta, -alpha, -side);
+			board.unmake_move();
 
-	// 		if (score > best) {
-	// 			if (score > alpha)
-	// 				alpha = score;
-	// 			best = score;
-	// 		}
-	// 		if (score >= beta) {
-	// 			return best;
-	// 		}
-	// 	} else {
-	// 		board.make_move(move);
-	// 		// check if it's a check
-	// 		std::pair<int, int> check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(board.side)]));
-	// 		if (board.side == WHITE && check.second || board.side == BLACK && check.first) {
-	// 			Value score = -quiesce(board, -beta, -alpha, -side);
-	// 			board.unmake_move();
+			if (score > best) {
+				if (score > alpha)
+					alpha = score;
+				best = score;
+			}
+			if (score >= beta) {
+				return best;
+			}
+		}
+	}
 
-	// 			if (score > best) {
-	// 				if (score > alpha)
-	// 					alpha = score;
-	// 				best = score;
-	// 			}
-	// 			if (score >= beta) {
-	// 				return best;
-	// 			}
-	// 		} else board.unmake_move();
-	// 	}
-	// }
-
-	// return best;
+	return best;
 }
 
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
@@ -106,7 +89,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		for (Move &move : moves) {
 			board.make_move(move);
 			Value score = 0;
-			auto entry = board.ttable.probe(board.zobrist, alpha, beta, depth);
+			auto entry = board.ttable.probe(board.zobrist, alpha, beta, depth-1);
 			if (entry.second) {
 				score = entry.first;
 				tbhits++;
@@ -130,7 +113,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (i) {
 			score = -__recurse(board, i > 15 ? depth - 2 : depth - 1, -alpha - 1, -alpha, -side);
 			if (score > alpha && score < beta) {
-				score = -__recurse(board, i > 15 ? depth - 2 : depth - 1, -beta, -alpha, -side);
+				score = -__recurse(board, depth - 1, -beta, -alpha, -side);
+				// score = -__recurse(board, i > 15 ? depth - 2 : depth - 1, -beta, -alpha, -side);
 			}
 		} else {
 			score = -__recurse(board, depth - 1, -beta, -alpha, -side);
@@ -149,7 +133,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			best_move = move;
 		}
 		if (score >= beta) {
-			board.ttable.store(board.zobrist, best, depth, LOWER_BOUND, best_move, board.halfmove);
+			board.ttable.store(board.zobrist, beta, depth, LOWER_BOUND, best_move, board.halfmove);
 			return best;
 		}
 
@@ -170,7 +154,11 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 	}
 
-	board.ttable.store(board.zobrist, best, depth, EXACT, best_move, board.halfmove);
+	if (best <= alpha) {
+		board.ttable.store(board.zobrist, alpha, depth, UPPER_BOUND, best_move, board.halfmove);
+	} else {
+		board.ttable.store(board.zobrist, best, depth, EXACT, best_move, board.halfmove);
+	}
 
 	return best;
 }
@@ -187,7 +175,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		for (Move &move : moves) {
 			board.make_move(move);
 			Value score = 0;
-			auto entry = board.ttable.probe(board.zobrist, alpha, beta, depth);
+			auto entry = board.ttable.probe(board.zobrist, alpha, beta, depth-1);
 			if (entry.second) {
 				score = entry.first;
 				tbhits++;
@@ -229,7 +217,8 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		}
 
 		if (score >= beta) {
-			break;
+			board.ttable.store(board.zobrist, beta, depth, LOWER_BOUND, best_move, board.halfmove);
+			return {best_move, best_score};
 		}
 
 		if (nodes > nexp && exit_allowed) {
@@ -238,7 +227,11 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		}
 	}
 
-	board.ttable.store(board.zobrist, best_score, depth, EXACT, best_move, board.halfmove);
+	if (best_score <= alpha) {
+		board.ttable.store(board.zobrist, alpha, depth, UPPER_BOUND, best_move, board.halfmove);
+	} else {
+		board.ttable.store(board.zobrist, best_score, depth, EXACT, best_move, board.halfmove);
+	}
 
 	return {best_move, best_score};
 }
@@ -253,7 +246,7 @@ std::pair<Move, Value> search(Board &board, int depth) {
 	if (depth == -1 || depth >= 50) { // Do iterative deepening
 		if (depth == -1) nexp = 50'000'000;
 		else nexp = depth;
-		bool aspiration_enabled = true;
+		bool aspiration_enabled = false;
 		for (int d = 1; d <= 20; d++) {
 			Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
 			if (eval != -VALUE_INFINITE && aspiration_enabled) {

@@ -1,4 +1,5 @@
 - fix quiescence search
+- TTable takes up 2x memory because of a double-allocation when replacing board, try to delete board then replace to only have 1 copy
 - rewrite bot api
 - threefold detection
 - 50 move rule detection

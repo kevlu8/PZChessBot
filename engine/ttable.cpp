@@ -2,10 +2,7 @@
 
 void TTable::store(uint64_t key, Value eval, uint8_t depth, TTFlag flag, Move best_move, uint8_t age) {
 	TTEntry *entry = TT + (key & (TT_SIZE - 1));
-	if (entry->flags != INVALID && entry->age > age)
-		return;
-	else if (entry->flags != INVALID && entry->age == age && entry->depth > depth)
-		return;
+	// TODO: implement replacement scheme
 	if (entry->flags == INVALID) tsize++;
 	entry->key = key;
 	entry->eval = eval;
@@ -35,6 +32,12 @@ void DrawTable::store(uint64_t key) {
 		entry->n_occ++;
 	else
 		*entry = DTableEntry(key);
+}
+
+void DrawTable::remove(uint64_t key) {
+	DTableEntry *entry = DT + (key & (TT_SIZE - 1));
+	if (entry->key == key)
+		entry->n_occ--;
 }
 
 uint32_t DrawTable::occ(uint64_t key) const {

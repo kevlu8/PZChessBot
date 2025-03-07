@@ -3,7 +3,7 @@
 #include "includes.hpp"
 #include "move.hpp"
 
-#define TT_SIZE (1 << 20)
+#define TT_SIZE (1 << 22)
 // Note that the actual size of TT is TT_SIZE * 32 bytes
 
 enum TTFlag {
@@ -89,6 +89,7 @@ struct DrawTable {
 	~DrawTable() { delete[] DT; }
 
 	void store(uint64_t key);
+	void remove(uint64_t key);
 
 	uint32_t occ(uint64_t key) const;
 };
