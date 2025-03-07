@@ -274,7 +274,7 @@ std::pair<Move, Value> search(Board &board, int64_t depth) {
 			eval = result.second;
 			best_move = result.first;
 			
-			std::cout << "info depth " << d << " seldepth " << seldepth << " score cp " << eval << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
+			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
 					  << " tbhits " << tbhits << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
 			// I know tbhits isn't correct here, I'm just using it to show number of TT hits
 
@@ -287,7 +287,7 @@ std::pair<Move, Value> search(Board &board, int64_t depth) {
 		auto result = __search(board, depth, -VALUE_INFINITE, VALUE_INFINITE, board.side ? -1 : 1);
 		best_move = result.first;
 		eval = result.second;
-		std::cout << "info depth " << depth << " seldepth " << seldepth << " score cp " << eval << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
+		std::cout << "info depth " << depth << " seldepth " << depth + seldepth << " score cp " << eval << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
 				  << " tbhits " << tbhits << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
 	}
 
