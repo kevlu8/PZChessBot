@@ -26,6 +26,12 @@ uint64_t perft(Board &board, int depth) {
 	return cnt;
 }
 
+uint16_t reduction(int i, int d) {
+	if (d <= 1) return 1;
+	if (i>15) return 2;
+	return 1;
+}
+
 Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	nodes++;
 	seldepth = std::max(depth, seldepth);
@@ -85,24 +91,22 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	board.legal_moves(moves);
 
 	// Move ordering (experimental)
-	if (depth > 2) {
-		std::vector<std::pair<Move, Value>> scores;
-		for (Move &move : moves) {
-			board.make_move(move);
-			Value score = 0;
-			auto entry = board.ttable.probe(board.zobrist, alpha, beta, depth-1);
-			if (entry.second) {
-				score = entry.first;
-				tbhits++;
-			} else score = eval(board) * side;
-			board.unmake_move();
-			scores.push_back({move, score});
-		}
-		std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) {
-			return a.second > b.second;
-		});
-		for (int i = 0; i < scores.size(); i++) moves[i] = scores[i].first;
+	std::vector<std::pair<Move, Value>> scores;
+	for (Move &move : moves) {
+		board.make_move(move);
+		Value score = 0;
+		auto entry = board.ttable.probe(board.zobrist, alpha, beta, -1);
+		if (entry.second) {
+			score = entry.first;
+			tbhits++;
+		} else score = eval(board) * side;
+		board.unmake_move();
+		scores.push_back({move, score});
 	}
+	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) {
+		return a.second > b.second;
+	});
+	for (int i = 0; i < scores.size(); i++) moves[i] = scores[i].first;
 
 	Move best_move = NullMove;
 
@@ -112,10 +116,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		Value score;
 		if (i) {
-			score = -__recurse(board, i > 15 ? depth - 2 : depth - 1, -alpha - 1, -alpha, -side);
+			score = -__recurse(board, depth-reduction(i, depth), -alpha - 1, -alpha, -side);
 			if (score > alpha && score < beta) {
-				score = -__recurse(board, depth - 1, -beta, -alpha, -side);
-				// score = -__recurse(board, i > 15 ? depth - 2 : depth - 1, -beta, -alpha, -side);
+				score = -__recurse(board, depth-reduction(i, depth), -beta, -alpha, -side);
 			}
 		} else {
 			score = -__recurse(board, depth - 1, -beta, -alpha, -side);
@@ -134,7 +137,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			best_move = move;
 		}
 		if (score >= beta) {
-			board.ttable.store(board.zobrist, beta, depth, LOWER_BOUND, best_move, board.halfmove);
+			board.ttable.store(board.zobrist, best, depth, LOWER_BOUND, best_move, board.halfmove);
 			return best;
 		}
 
@@ -171,24 +174,22 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	std::vector<Move> moves;
 	board.legal_moves(moves);
 
-	if (depth > 2) {
-		std::vector<std::pair<Move, Value>> scores;
-		for (Move &move : moves) {
-			board.make_move(move);
-			Value score = 0;
-			auto entry = board.ttable.probe(board.zobrist, alpha, beta, depth-1);
-			if (entry.second) {
-				score = entry.first;
-				tbhits++;
-			} else score = eval(board) * side;
-			board.unmake_move();
-			scores.push_back({move, score});
-		}
-		std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) {
-			return a.second > b.second;
-		});
-		for (int i = 0; i < scores.size(); i++) moves[i] = scores[i].first;
+	std::vector<std::pair<Move, Value>> scores;
+	for (Move &move : moves) {
+		board.make_move(move);
+		Value score = 0;
+		auto entry = board.ttable.probe(board.zobrist, alpha, beta, -1);
+		if (entry.second) {
+			score = entry.first;
+			tbhits++;
+		} else score = eval(board) * side;
+		board.unmake_move();
+		scores.push_back({move, score});
 	}
+	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) {
+		return a.second > b.second;
+	});
+	for (int i = 0; i < scores.size(); i++) moves[i] = scores[i].first;
 
 	for (int i = 0; i < moves.size(); i++) {
 		Move &move = moves[i];
@@ -198,9 +199,9 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 			score = 0; // Draw by repetition
 		} else {
 			if (i) {
-				score = -__recurse(board, depth - 1, -alpha - 1, -alpha, -side);
+				score = -__recurse(board, depth-reduction(i, depth), -alpha - 1, -alpha, -side);
 				if (score > alpha && score < beta) {
-					score = -__recurse(board, depth - 1, -beta, -alpha, -side);
+					score = -__recurse(board, depth-reduction(i, depth), -beta, -alpha, -side);
 				}
 			} else {
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side);
@@ -218,7 +219,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		}
 
 		if (score >= beta) {
-			board.ttable.store(board.zobrist, beta, depth, LOWER_BOUND, best_move, board.halfmove);
+			board.ttable.store(board.zobrist, best_score, depth, LOWER_BOUND, best_move, board.halfmove);
 			return {best_move, best_score};
 		}
 

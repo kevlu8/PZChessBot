@@ -73,7 +73,6 @@ int main() {
 			// 	auto res = search(board, timetonodes(timeleft));
 			// 	std::cout << "bestmove " << res.first.to_string() << std::endl;
 			// });
-			std::cout << "info string timeleft " << timetonodes(timeleft) << std::endl;
 			auto res = search(board, timetonodes(timeleft));
 			// auto res = search(board);
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
