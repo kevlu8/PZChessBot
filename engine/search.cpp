@@ -93,7 +93,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	// Move ordering (experimental)
 	pzstd::vector<std::pair<Move, Value>> scores;
-	Move entry = board.ttable.probe(board.zobrist, alpha, beta, depth);
+	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist, alpha, beta, depth);
+	Move entry = tentry ? tentry->best_move : NullMove;
 	bool entry_is_legal = false;
 	if (entry != NullMove) {
 		scores.push_back({entry, VALUE_INFINITE}); // Make the TT move first
@@ -185,7 +186,8 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	board.legal_moves(moves);
 
 	pzstd::vector<std::pair<Move, Value>> scores;
-	Move entry = board.ttable.probe(board.zobrist, alpha, beta, depth);
+	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist, alpha, beta, depth);
+	Move entry = tentry ? tentry->best_move : NullMove;
 	bool entry_is_legal = false;
 	if (entry != NullMove) {
 		scores.push_back({entry, VALUE_INFINITE}); // Make the TT move first
@@ -271,6 +273,9 @@ std::pair<Move, Value> search(Board &board, int64_t depth) {
 		for (int d = 1; d <= 20; d++) {
 			Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
 			if (eval != -VALUE_INFINITE && aspiration_enabled) {
+				// Aspiration window values are rather large because our eval function
+				// does not return values in centipawns, but rather in closer to ~1/400
+				// So this window size is actually around 50 centipawns
 				alpha = eval - 200;
 				beta = eval + 200;
 			}
@@ -294,7 +299,7 @@ std::pair<Move, Value> search(Board &board, int64_t depth) {
 			eval = result.second;
 			best_move = result.first;
 			
-			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
+			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
 					  << " tbhits " << tbhits << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
 			// I know tbhits isn't correct here, I'm just using it to show number of TT hits
 
@@ -307,7 +312,7 @@ std::pair<Move, Value> search(Board &board, int64_t depth) {
 		auto result = __search(board, depth, -VALUE_INFINITE, VALUE_INFINITE, board.side ? -1 : 1);
 		best_move = result.first;
 		eval = result.second;
-		std::cout << "info depth " << depth << " seldepth " << depth + seldepth << " score cp " << eval << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
+		std::cout << "info depth " << depth << " seldepth " << depth + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
 				  << " tbhits " << tbhits << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
 	}
 

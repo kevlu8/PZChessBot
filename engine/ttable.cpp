@@ -12,14 +12,14 @@ void TTable::store(uint64_t key, Value eval, uint8_t depth, TTFlag flag, Move be
 	entry->age = age;
 }
 
-Move TTable::probe(uint64_t key, Value alpha, Value beta, Value depth) {
+TTable::TTEntry *TTable::probe(uint64_t key, Value alpha, Value beta, Value depth) {
 	TTEntry *entry = TT + (key & (TT_SIZE - 1));
 	if (entry->key != key || entry->depth < depth)
-		return NullMove;
-	if (entry->flags == EXACT) return entry->best_move;
-	if (entry->flags == LOWER_BOUND && entry->eval >= beta) return entry->best_move;
-	if (entry->flags == UPPER_BOUND && entry->eval <= alpha) return entry->best_move;
-	return NullMove;
+		return nullptr;
+	if (entry->flags == EXACT) return entry;
+	if (entry->flags == LOWER_BOUND && entry->eval >= beta) return entry;
+	if (entry->flags == UPPER_BOUND && entry->eval <= alpha) return entry;
+	return nullptr;
 }
 
 uint64_t TTable::size() const {
