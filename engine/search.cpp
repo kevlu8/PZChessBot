@@ -89,6 +89,12 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		return (-VALUE_MATE) * side;
 	}
 
+	// Check for TTable cutoff
+	TTable::TTEntry *cutoff = board.ttable.probe(board.zobrist, alpha, beta, depth);
+	if (cutoff) {
+		return cutoff->eval;
+	}
+
 	Value best = -VALUE_INFINITE;
 
 	pzstd::vector<Move> moves;
@@ -96,7 +102,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	// Move ordering (experimental)
 	pzstd::vector<std::pair<Move, Value>> scores;
-	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist, alpha, beta, depth);
+	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist, VALUE_INFINITE, -VALUE_INFINITE, -1);
 	Move entry = tentry ? tentry->best_move : NullMove;
 	bool entry_is_legal = false;
 	if (entry != NullMove) {
@@ -181,7 +187,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 }
 
 std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
-	nodes++;
 	Move best_move = NullMove;
 	Value best_score = -VALUE_INFINITE;
 
@@ -189,7 +194,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	board.legal_moves(moves);
 
 	pzstd::vector<std::pair<Move, Value>> scores;
-	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist, alpha, beta, depth);
+	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist, VALUE_INFINITE, -VALUE_INFINITE, -1);
 	Move entry = tentry ? tentry->best_move : NullMove;
 	bool entry_is_legal = false;
 	if (entry != NullMove) {
@@ -230,7 +235,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 				first = false;
 			}
 		}
-		board.ttable.store(board.zobrist, score, depth, EXACT, move, board.halfmove);
+
 		board.unmake_move();
 
 		if (score > best_score) {
@@ -303,15 +308,15 @@ std::pair<Move, Value> search(Board &board, int64_t depth) {
 			
 			if (eval >= VALUE_MATE_MAX_PLY) {
 				std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - eval) / 2 << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-					  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
+					  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << std::endl;
 			} else {
 				std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-					  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
+					  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << std::endl;
 			}
 
 			exit_allowed = true;
 
-			if (eval >= VALUE_MATE_MAX_PLY) {
+			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
 				return {best_move, eval / CP_SCALE_FACTOR};
 				// We don't need to search further, we found mate
 			}
@@ -323,12 +328,12 @@ std::pair<Move, Value> search(Board &board, int64_t depth) {
 		auto result = __search(board, depth, -VALUE_INFINITE, VALUE_INFINITE, board.side ? -1 : 1);
 		best_move = result.first;
 		eval = result.second;
-		if (eval >= VALUE_MATE_MAX_PLY) {
+		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
 			std::cout << "info depth " << depth << " seldepth " << depth + seldepth << " score mate " << (VALUE_MATE - eval) / 2 << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-					  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
+					  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << std::endl;
 		} else {
 			std::cout << "info depth " << depth << " seldepth " << depth + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-				  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
+				  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << std::endl;
 		}
 	}
 
