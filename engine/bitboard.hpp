@@ -108,7 +108,7 @@ struct Board {
 	void make_move(Move);
 	void unmake_move();
 
-	void legal_moves(std::vector<Move> &) const;
+	void legal_moves(pzstd::vector<Move> &) const;
 	std::pair<int, int> control(int) const;
 
 	uint64_t hash() const;

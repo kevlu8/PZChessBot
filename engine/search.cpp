@@ -15,7 +15,7 @@ uint64_t perft(Board &board, int depth) {
 		return 0;
 	if (depth == 0)
 		return 1;
-	std::vector<Move> moves;
+	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 	uint64_t cnt = 0;
 	for (Move &move : moves) {
@@ -45,7 +45,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	if (stand_pat > alpha)
 		alpha = stand_pat;
 
-	std::vector<Move> moves;
+	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
 	Value best = stand_pat;
@@ -87,11 +87,11 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	Value best = -VALUE_INFINITE;
 
-	std::vector<Move> moves;
+	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
 	// Move ordering (experimental)
-	std::vector<std::pair<Move, Value>> scores;
+	pzstd::vector<std::pair<Move, Value>> scores;
 	Move entry = board.ttable.probe(board.zobrist, alpha, beta, depth);
 	bool entry_is_legal = false;
 	if (entry != NullMove) {
@@ -180,10 +180,10 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	Move best_move = NullMove;
 	Value best_score = -VALUE_INFINITE;
 
-	std::vector<Move> moves;
+	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
-	std::vector<std::pair<Move, Value>> scores;
+	pzstd::vector<std::pair<Move, Value>> scores;
 	Move entry = board.ttable.probe(board.zobrist, alpha, beta, depth);
 	bool entry_is_legal = false;
 	if (entry != NullMove) {
@@ -264,7 +264,7 @@ std::pair<Move, Value> search(Board &board, int64_t depth) {
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
 	if (depth == -1 || depth >= 50) { // Do iterative deepening
-		if (depth == -1) nexp = 50'000'000;
+		if (depth == -1) nexp = 30'000'000;
 		else nexp = depth;
 		bool aspiration_enabled = false;
 		for (int d = 1; d <= 20; d++) {

@@ -9,7 +9,9 @@
 #include <utility>
 #include <vector>
 
-#define VERSION "20250306T21"
+#include "pzstl/vector.hpp"
+
+#define VERSION "20250307T21"
 
 typedef uint64_t Bitboard;
 

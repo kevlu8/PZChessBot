@@ -160,7 +160,7 @@ __attribute__((constructor)) void init_movetables() {
 	}
 }
 
-void white_pawn_moves(const Board &board, std::vector<Move> &moves) {
+void white_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
 	Bitboard pieces = board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)];
 	Bitboard dsts;
 	// En passant
@@ -232,7 +232,7 @@ void white_pawn_moves(const Board &board, std::vector<Move> &moves) {
 	}
 }
 
-void black_pawn_moves(const Board &board, std::vector<Move> &moves) {
+void black_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
 	Bitboard pieces = board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)];
 	Bitboard dsts;
 	// En passant
@@ -304,7 +304,7 @@ void black_pawn_moves(const Board &board, std::vector<Move> &moves) {
 	}
 }
 
-void pawn_moves(const Board &board, std::vector<Move> &moves) {
+void pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
 	if (board.side == WHITE) {
 		white_pawn_moves(board, moves);
 	} else {
@@ -312,7 +312,7 @@ void pawn_moves(const Board &board, std::vector<Move> &moves) {
 	}
 }
 
-void knight_moves(const Board &board, std::vector<Move> &moves) {
+void knight_moves(const Board &board, pzstd::vector<Move> &moves) {
 	Bitboard pieces = board.piece_boards[KNIGHT] & board.piece_boards[OCC(board.side)];
 	while (pieces) {
 		int sq = _tzcnt_u64(pieces);
@@ -326,7 +326,7 @@ void knight_moves(const Board &board, std::vector<Move> &moves) {
 	}
 }
 
-void bishop_moves(const Board &board, std::vector<Move> &moves) {
+void bishop_moves(const Board &board, pzstd::vector<Move> &moves) {
 	Bitboard pieces = (board.piece_boards[BISHOP] | board.piece_boards[QUEEN]) & board.piece_boards[OCC(board.side)];
 	while (pieces) {
 		int sq = _tzcnt_u64(pieces);
@@ -341,7 +341,7 @@ void bishop_moves(const Board &board, std::vector<Move> &moves) {
 	}
 }
 
-void rook_moves(const Board &board, std::vector<Move> &moves) {
+void rook_moves(const Board &board, pzstd::vector<Move> &moves) {
 	Bitboard pieces = (board.piece_boards[ROOK] | board.piece_boards[QUEEN]) & board.piece_boards[OCC(board.side)];
 	while (pieces) {
 		int sq = _tzcnt_u64(pieces);
@@ -356,7 +356,7 @@ void rook_moves(const Board &board, std::vector<Move> &moves) {
 	}
 }
 
-void king_moves(const Board &board, std::vector<Move> &moves) {
+void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 	Bitboard piece = board.piece_boards[KING] & board.piece_boards[OCC(board.side)];
 	if (__builtin_expect(piece == 0, false))
 		return;
@@ -394,7 +394,7 @@ void king_moves(const Board &board, std::vector<Move> &moves) {
 	}
 }
 
-void Board::legal_moves(std::vector<Move> &moves) const {
+void Board::legal_moves(pzstd::vector<Move> &moves) const {
 	rook_moves(*this, moves);
 	bishop_moves(*this, moves);
 	knight_moves(*this, moves);
