@@ -27,8 +27,9 @@ uint64_t perft(Board &board, int depth) {
 }
 
 uint16_t reduction(int i, int d) {
-	if (d <= 1) return 1;
-	if (i>15) return 2;
+	if (d <= 1 || i <= 1) return 1; // Don't reduce on nodes that lead to leaves since the TT doesn't provide info
+	// if (i > 31) return 3;
+	// if (i > 15) return 2;
 	return 1;
 }
 
@@ -266,12 +267,12 @@ std::pair<Move, Value> search(Board &board, int64_t depth) {
 	if (depth == -1 || depth >= 50) { // Do iterative deepening
 		if (depth == -1) nexp = 30'000'000;
 		else nexp = depth;
-		bool aspiration_enabled = false;
+		bool aspiration_enabled = true;
 		for (int d = 1; d <= 20; d++) {
 			Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
 			if (eval != -VALUE_INFINITE && aspiration_enabled) {
-				alpha = eval - 100;
-				beta = eval + 100;
+				alpha = eval - 200;
+				beta = eval + 200;
 			}
 			auto result = __search(board, d, alpha, beta, board.side ? -1 : 1);
 			// Check for fail-high or fail-low

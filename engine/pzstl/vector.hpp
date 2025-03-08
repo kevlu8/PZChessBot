@@ -10,14 +10,10 @@ namespace pzstd {
 		uint16_t sz = 0;
 
 		void push_back(T value) noexcept {
-			if (sz < PZSTL_MAX_SIZE) {
-				data[sz++] = value;
-			}
+			data[sz++] = value;
 		}
 		void pop_back() noexcept {
-			if (sz > 0) {
-				sz--;
-			}
+			sz--;
 		}
 		void clear() {
 			sz = 0;
