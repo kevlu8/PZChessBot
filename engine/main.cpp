@@ -68,13 +68,7 @@ int main() {
 				}
 			}
 			int timeleft = board.side ? btime : wtime;
-			// start thread
-			// searchthread = std::thread([timeleft, &board]() {
-			// 	auto res = search(board, timetonodes(timeleft));
-			// 	std::cout << "bestmove " << res.first.to_string() << std::endl;
-			// });
 			auto res = search(board, timetonodes(timeleft));
-			// auto res = search(board);
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
 		}
 	}

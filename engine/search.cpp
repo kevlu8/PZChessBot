@@ -92,14 +92,20 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	// Move ordering (experimental)
 	std::vector<std::pair<Move, Value>> scores;
+	Move entry = board.ttable.probe(board.zobrist, alpha, beta, depth);
+	bool entry_is_legal = false;
+	if (entry != NullMove) {
+		scores.push_back({entry, VALUE_INFINITE}); // Make the TT move first
+		tbhits++;
+	} else entry_is_legal = true; // Don't skip the first move if we never added it
 	for (Move &move : moves) {
+		if (move == entry) {
+			entry_is_legal = true;
+			continue; // Don't add the TT move again
+		}
 		board.make_move(move);
 		Value score = 0;
-		auto entry = board.ttable.probe(board.zobrist, alpha, beta, -1);
-		if (entry.second) {
-			score = entry.first;
-			tbhits++;
-		} else score = eval(board) * side;
+		score = eval(board) * side;
 		board.unmake_move();
 		scores.push_back({move, score});
 	}
@@ -110,18 +116,21 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	Move best_move = NullMove;
 
-	for (int i = 0; i < moves.size(); i++) {
+	bool first = true;
+
+	for (int i = !entry_is_legal; i < moves.size(); i++) {
 		Move &move = moves[i];
 		board.make_move(move);
 
 		Value score;
-		if (i) {
+		if (!first) {
 			score = -__recurse(board, depth-reduction(i, depth), -alpha - 1, -alpha, -side);
 			if (score > alpha && score < beta) {
 				score = -__recurse(board, depth-reduction(i, depth), -beta, -alpha, -side);
 			}
 		} else {
 			score = -__recurse(board, depth - 1, -beta, -alpha, -side);
+			first = false;
 		}
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
@@ -175,14 +184,20 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	board.legal_moves(moves);
 
 	std::vector<std::pair<Move, Value>> scores;
+	Move entry = board.ttable.probe(board.zobrist, alpha, beta, depth);
+	bool entry_is_legal = false;
+	if (entry != NullMove) {
+		scores.push_back({entry, VALUE_INFINITE}); // Make the TT move first
+		tbhits++;
+	} else entry_is_legal = true; // Don't skip the first move if we never added it
 	for (Move &move : moves) {
+		if (move == entry) {
+			entry_is_legal = true;
+			continue; // Don't add the TT move again
+		}
 		board.make_move(move);
 		Value score = 0;
-		auto entry = board.ttable.probe(board.zobrist, alpha, beta, -1);
-		if (entry.second) {
-			score = entry.first;
-			tbhits++;
-		} else score = eval(board) * side;
+		score = eval(board) * side;
 		board.unmake_move();
 		scores.push_back({move, score});
 	}
@@ -191,20 +206,23 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	});
 	for (int i = 0; i < scores.size(); i++) moves[i] = scores[i].first;
 
-	for (int i = 0; i < moves.size(); i++) {
+	bool first = true;
+
+	for (int i = !entry_is_legal; i < moves.size(); i++) { // Skip the TT move if it's not legal
 		Move &move = moves[i];
 		board.make_move(move);
 		Value score;
 		if (board.dtable.occ(board.zobrist) >= 2) {
 			score = 0; // Draw by repetition
 		} else {
-			if (i) {
+			if (!first) {
 				score = -__recurse(board, depth-reduction(i, depth), -alpha - 1, -alpha, -side);
 				if (score > alpha && score < beta) {
 					score = -__recurse(board, depth-reduction(i, depth), -beta, -alpha, -side);
 				}
 			} else {
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side);
+				first = false;
 			}
 		}
 		board.ttable.store(board.zobrist, score, depth, EXACT, move, board.halfmove);
