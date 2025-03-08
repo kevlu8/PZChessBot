@@ -2,7 +2,7 @@
 
 #define MOVENUM(x) ((((#x)[1]-'1') << 12) | (((#x)[0]-'a') << 8) | (((#x)[3]-'1') << 4) | ((#x)[2]-'a'))
 
-uint64_t nodes = 0, tbhits = 0, nexp = 0;
+uint64_t nodes = 0, nexp = 0;
 int seldepth = 0;
 bool early_exit = false, exit_allowed = false;
 
@@ -58,6 +58,9 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 			Value score = -quiesce(board, -beta, -alpha, -side, depth+1);
 			board.unmake_move();
 
+			if (score >= VALUE_MATE_MAX_PLY)
+				score = score - (uint16_t(score >> 15) << 1) - 1; // Fixes "mate 0" bug
+
 			if (score > best) {
 				if (score > alpha)
 					alpha = score;
@@ -98,7 +101,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	bool entry_is_legal = false;
 	if (entry != NullMove) {
 		scores.push_back({entry, VALUE_INFINITE}); // Make the TT move first
-		tbhits++;
 	} else entry_is_legal = true; // Don't skip the first move if we never added it
 	for (Move &move : moves) {
 		if (move == entry) {
@@ -128,7 +130,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (!first) {
 			score = -__recurse(board, depth-reduction(i, depth), -alpha - 1, -alpha, -side);
 			if (score > alpha && score < beta) {
-				score = -__recurse(board, depth-reduction(i, depth), -beta, -alpha, -side);
+				score = -__recurse(board, depth-1, -beta, -alpha, -side);
 			}
 		} else {
 			score = -__recurse(board, depth - 1, -beta, -alpha, -side);
@@ -179,6 +181,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 }
 
 std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
+	nodes++;
 	Move best_move = NullMove;
 	Value best_score = -VALUE_INFINITE;
 
@@ -191,7 +194,6 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	bool entry_is_legal = false;
 	if (entry != NullMove) {
 		scores.push_back({entry, VALUE_INFINITE}); // Make the TT move first
-		tbhits++;
 	} else entry_is_legal = true; // Don't skip the first move if we never added it
 	for (Move &move : moves) {
 		if (move == entry) {
@@ -221,7 +223,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 			if (!first) {
 				score = -__recurse(board, depth-reduction(i, depth), -alpha - 1, -alpha, -side);
 				if (score > alpha && score < beta) {
-					score = -__recurse(board, depth-reduction(i, depth), -beta, -alpha, -side);
+					score = -__recurse(board, depth-1, -beta, -alpha, -side);
 				}
 			} else {
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side);
@@ -260,7 +262,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 }
 
 std::pair<Move, Value> search(Board &board, int64_t depth) {
-	nodes = tbhits = seldepth = 0;
+	nodes = seldepth = 0;
 	early_exit = exit_allowed = false;
 	clock_t start = clock();
 
@@ -299,11 +301,20 @@ std::pair<Move, Value> search(Board &board, int64_t depth) {
 			eval = result.second;
 			best_move = result.first;
 			
-			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-					  << " tbhits " << tbhits << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
-			// I know tbhits isn't correct here, I'm just using it to show number of TT hits
+			if (eval >= VALUE_MATE_MAX_PLY) {
+				std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - eval) / 2 << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
+					  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
+			} else {
+				std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
+					  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
+			}
 
 			exit_allowed = true;
+
+			if (eval >= VALUE_MATE_MAX_PLY) {
+				return {best_move, eval / CP_SCALE_FACTOR};
+				// We don't need to search further, we found mate
+			}
 
 			if (nodes > nexp)
 				break;
@@ -312,9 +323,14 @@ std::pair<Move, Value> search(Board &board, int64_t depth) {
 		auto result = __search(board, depth, -VALUE_INFINITE, VALUE_INFINITE, board.side ? -1 : 1);
 		best_move = result.first;
 		eval = result.second;
-		std::cout << "info depth " << depth << " seldepth " << depth + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-				  << " tbhits " << tbhits << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
+		if (eval >= VALUE_MATE_MAX_PLY) {
+			std::cout << "info depth " << depth << " seldepth " << depth + seldepth << " score mate " << (VALUE_MATE - eval) / 2 << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
+					  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
+		} else {
+			std::cout << "info depth " << depth << " seldepth " << depth + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
+				  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
+		}
 	}
 
-	return {best_move, eval};
+	return {best_move, eval / CP_SCALE_FACTOR};
 }
