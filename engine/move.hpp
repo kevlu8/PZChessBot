@@ -9,6 +9,7 @@
 // bits 14-15: special move flag: promotion (1), en passant (2), castling (3)
 struct Move {
 	uint16_t data;
+	constexpr Move() : data(0) {}
 	constexpr explicit Move(uint16_t d) : data(d) {}
 	constexpr Move(int from, int to) : data((from << 6) | to) {}
 	template <MoveType T> static constexpr Move make(int from, int to, PieceType pt = KNIGHT) {
