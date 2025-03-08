@@ -209,14 +209,3 @@
 // 	}
 // 	return 0;
 // }
-
-#include "net.hpp"
-
-int main() {
-	JSONStream stream("https://lichess.org/api/stream/event");
-	while (true) {
-		json msg = stream.waitMsg();
-		std::cout << msg << std::endl;
-	}
-	return 0;
-}
