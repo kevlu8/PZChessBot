@@ -140,14 +140,14 @@ size_t JSONStream::write_callback(char *contents, size_t size, size_t nmemb, JSO
 	}
 
 	// Split messages by newlines
-	while (true) {
+	while (realsize > 0) {
 		size_t newlinePos = std::find((char *)contents, (char *)contents + realsize, '\n') - (char *)contents;
 		if (newlinePos != realsize) {
 			obj->buffer.append((char *)contents, newlinePos);
+			obj->msgQueueMutex.lock();
 			obj->msgQueue.push_back(json::parse(obj->buffer));
+			obj->msgQueueMutex.unlock();
 			obj->buffer.clear();
-			if (newlinePos + 1 < realsize)
-				obj->buffer.append((char *)contents + newlinePos + 1, realsize - newlinePos - 1);
 			contents += newlinePos + 1;
 			realsize -= newlinePos + 1;
 		} else {
@@ -184,6 +184,9 @@ JSONStream::~JSONStream() {
 }
 
 json JSONStream::waitMsg() {
+	if (url.empty())
+		return json();
+
 	while (msgQueue.empty()) {
 		if (res != CURLE_OK)
 			throw API::StreamError("Connection to " + url + " failed: " + curl_easy_strerror(res));
@@ -202,7 +205,15 @@ json JSONStream::waitMsg() {
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
+	msgQueueMutex.lock();
 	json msg = msgQueue.front();
 	msgQueue.pop_front();
+	msgQueueMutex.unlock();
 	return msg;
+}
+
+void JSONStream::insertMsg(std::string msg) {
+	msgQueueMutex.lock();
+	msgQueue.push_back(json::parse(msg));
+	msgQueueMutex.unlock();
 }

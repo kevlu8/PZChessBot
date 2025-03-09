@@ -10,6 +10,7 @@
 // create a list of threads
 // each thread will be a game
 std::unordered_map<std::string, std::unique_ptr<std::thread>> games;
+std::unique_ptr<JSONStream> listener;
 
 void play(const json &initialEvent) {
 	std::string game_id = initialEvent["game"]["gameId"];
@@ -76,7 +77,7 @@ void play(const json &initialEvent) {
 	}
 
 	// Remove the game from the list
-	games.erase(game_id);
+	listener->insertMsg("{\"__PZinternal__\": {\"type\": \"gameEnd\", \"gameId\": \"" + game_id + "\"}}");
 }
 
 int main() {
@@ -100,10 +101,15 @@ int main() {
 	// Process events
 	while (true) {
 		try {
-			JSONStream listener(API_REQUEST_URL "/api/stream/event");
+			listener = std::make_unique<JSONStream>(API_REQUEST_URL "/api/stream/event");
 			json event;
-			while (!(event = listener.waitMsg()).empty()) {
-				if (event["type"] == "challenge") {
+			while (!(event = listener->waitMsg()).empty()) {
+				if (event.contains("__PZinternal__")) {
+					if (event["__PZinternal__"]["type"] == "gameEnd") {
+						games[event["__PZinternal__"]["gameId"]]->join();
+						games.erase(event["__PZinternal__"]["gameId"]);
+					}
+				} else if (event["type"] == "challenge") {
 					if (games.size() >= 4 || event["challenge"]["challenger"]["id"] != "kevlu8" && event["challenge"]["challenger"]["id"] != "wdotmathree")
 						API::decline_challenge(event["challenge"]["id"], "generic");
 					else

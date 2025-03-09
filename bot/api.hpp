@@ -5,6 +5,7 @@
 #include <curl/curl.h>
 #include <deque>
 #include <iostream>
+#include <mutex>
 #include <string>
 #include <thread>
 using json = nlohmann::json;
@@ -107,6 +108,7 @@ private:
 	CURL *curl;
 	std::string buffer;
 	std::deque<json> msgQueue;
+	std::mutex msgQueueMutex;
 	std::thread t;
 	CURLcode res = CURLE_OK;
 
@@ -129,4 +131,12 @@ public:
 	 * @return The next message, or an empty json object if the stream is closed
 	 */
 	json waitMsg();
+
+	/**
+	 * @brief Thread safe method to insert a message into the queue
+	 * @note This method is intended to be used for inter-thread communication
+	 *
+	 * @param msg The message to insert
+	 */
+	void insertMsg(std::string);
 };
