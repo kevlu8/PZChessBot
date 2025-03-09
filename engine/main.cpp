@@ -40,10 +40,8 @@ int main() {
 				std::string moves = command.substr(command.find("moves") + 6);
 				std::stringstream ss(moves);
 				std::string move;
-				board.commit();
 				while (ss >> move) {
 					board.make_move(Move::from_string(move, &board));
-					board.commit();
 				}
 			}
 		} else if (command == "quit") {
