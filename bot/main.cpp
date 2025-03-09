@@ -3,6 +3,7 @@
 #include "../engine/search.hpp"
 #include "api.hpp"
 #include "book.hpp"
+#include <sstream>
 #include <unordered_map>
 #include <vector>
 
@@ -42,37 +43,26 @@ void play(const json &initialEvent) {
 		}
 
 		// Update our board
-		std::string moves_str = event["moves"];
-		std::string move;
-		int movenum = 0;
-		for (int i = 0; i < moves_str.size(); i++) {
-			if (moves_str[i] == ' ') {
-				if (movenum++ >= moves.size()) {
-					moves.push_back(move);
-					board.make_move(Move::from_string(move, &board));
-					board.commit();
-				}
-				move.clear();
-			} else {
-				move += moves_str[i];
+		std::stringstream ss((std::string)event["moves"]);
+		for (int i = 0; !ss.eof(); i++) {
+			std::string move;
+			ss >> move;
+			if (i >= moves.size()) {
+				moves.push_back(move);
+				board.make_move(Move::from_string(move, &board));
 			}
-		}
-		if (movenum >= moves.size()) {
-			moves.push_back(move);
-			board.make_move(Move::from_string(move, &board));
-			board.commit();
 		}
 
 		// If its our turn
 		if (moves.size() % 2 != color) {
 			std::pair<Move, bool> book = {NullMove, false};
 			if (moves.size() <= 30 && (book = book_move(moves, board)).second) {
-				move = book.first.to_string();
+				std::string move = book.first.to_string();
 				std::cout << "book move: " << move << std::endl;
 				API::move(game_id, move);
 			} else {
 				auto tmp = search(board, timetonodes(color ? event["wtime"] : event["btime"], 1));
-				move = tmp.first.to_string();
+				std::string move = tmp.first.to_string();
 				std::cout << "move: " << move << "eval: " << tmp.second << std::endl;
 				if (move != "----" && move != "0000")
 					API::move(game_id, move);
@@ -81,12 +71,15 @@ void play(const json &initialEvent) {
 			}
 		}
 	}
+
+	// Remove the game from the list
+	games.erase(game_id);
 }
 
 int main() {
 	clock_t start = clock();
 	init_book();
-	std::cout << "book loaded in " << (double)(clock() - start) / CLOCKS_PER_SEC << "ms" << std::endl;
+	std::cout << "book loaded in " << (double)(clock() - start) * 1000 / CLOCKS_PER_SEC << "ms" << std::endl;
 
 	// Deal with existing challenges
 	json challenges = API::get_challenges()["in"];
