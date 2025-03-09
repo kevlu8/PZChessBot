@@ -33,6 +33,16 @@ uint16_t reduction(int i, int d) {
 	return 1;
 }
 
+Value MVV_LVA[6][6]; // [vctm][atk]
+
+__attribute__((constructor)) void init_mvvlva() {
+	for (int i = 0; i < 6; i++) {
+		for (int j = 0; j < 6; j++) {
+			MVV_LVA[i][j] = PieceValue[i] - PieceValue[j];
+		}
+	}
+}
+
 Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	nodes++;
 	seldepth = std::max(depth, seldepth);
@@ -49,26 +59,36 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
+	pzstd::vector<std::pair<Move, Value>> scores;
+	for (Move &move : moves) {
+		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
+			Value score = 0;
+			score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
+			scores.push_back({move, score});
+		}
+	}
+	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) {
+		return a.second > b.second;
+	});
+
 	Value best = stand_pat;
 
-	for (int i = 0; i < moves.size(); i++) {
-		Move &move = moves[i];
-		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
-			board.make_move(move);
-			Value score = -quiesce(board, -beta, -alpha, -side, depth+1);
-			board.unmake_move();
+	for (int i = 0; i < scores.size(); i++) {
+		Move &move = scores[i].first;
+		board.make_move(move);
+		Value score = -quiesce(board, -beta, -alpha, -side, depth+1);
+		board.unmake_move();
 
-			if (score >= VALUE_MATE_MAX_PLY)
-				score = score - (uint16_t(score >> 15) << 1) - 1; // Fixes "mate 0" bug
+		if (score >= VALUE_MATE_MAX_PLY)
+			score = score - (uint16_t(score >> 15) << 1) - 1; // Fixes "mate 0" bug
 
-			if (score > best) {
-				if (score > alpha)
-					alpha = score;
-				best = score;
-			}
-			if (score >= beta) {
-				return best;
-			}
+		if (score > best) {
+			if (score > alpha)
+				alpha = score;
+			best = score;
+		}
+		if (score >= beta) {
+			return best;
 		}
 	}
 
