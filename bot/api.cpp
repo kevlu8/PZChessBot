@@ -18,7 +18,6 @@ int _send_get(std::string url, std::string *response) {
 		+[](char *contents, size_t size, size_t nmemb, std::string *buf) {
 			if (buf)
 				buf->append(contents, size * nmemb);
-			std::cout << contents << std::endl;
 			return size * nmemb;
 		}
 	);
@@ -55,7 +54,6 @@ int _send_post(std::string url, std::string body, std::string *response) {
 		+[](char *contents, size_t size, size_t nmemb, std::string *buf) {
 			if (buf)
 				buf->append(contents, size * nmemb);
-			std::cout << contents << std::endl;
 			return size * nmemb;
 		}
 	);
