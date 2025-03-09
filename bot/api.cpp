@@ -186,9 +186,20 @@ JSONStream::~JSONStream() {
 json JSONStream::waitMsg() {
 	while (msgQueue.empty()) {
 		if (res != CURLE_OK)
-			throw std::runtime_error("Connection to " + url + " failed: " + curl_easy_strerror(res));
-		if (status >= 0)
-			throw std::runtime_error("Connection to " + url + " closed with status code " + std::to_string(status) + ": " + buffer);
+			throw API::StreamError("Connection to " + url + " failed: " + curl_easy_strerror(res));
+		if (status >= 0 && status != 200)
+			throw API::StreamError("Connection to " + url + " closed with status code " + std::to_string(status) + ": " + buffer);
+		if (status == 200) {
+			if (buffer.empty())
+				return json();
+
+			try {
+				return json::parse(buffer);
+			} catch (json::parse_error) {
+				std::cerr << "Stream from " + url + " returned invalid JSON: " << buffer << std::endl;
+				return json();
+			}
+		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
 	json msg = msgQueue.front();

@@ -19,16 +19,16 @@ void play(const json &initialEvent) {
 	Board board;
 	std::vector<std::string> moves;
 	// Connect to the game stream
-	JSONStream game(API_REQUEST_URL "/api/stream/game/" + game_id);
+	JSONStream game(API_REQUEST_URL "/api/bot/game/stream/" + game_id);
 	std::cout << "connected to game " << game_id << std::endl;
 
-	while (json event = game.waitMsg()) {
+	json event;
+	while (!(event = game.waitMsg()).empty()) {
+		std::cout << event << std::endl;
 		if (event["type"] == "chatLine" || event["type"] == "opponentGone") {
 			continue;
 		} else if (event["type"] == "gameFinish") {
 			break;
-		} else if (event["type"] == "gameState") {
-			event = event["state"];
 		} else if (event["type"] == "gameFull") {
 			event = event["state"];
 		} else if (event["type"] == "gameStart") {
@@ -44,10 +44,13 @@ void play(const json &initialEvent) {
 
 		// Update our board
 		std::stringstream ss((std::string)event["moves"]);
-		for (int i = 0; !ss.eof(); i++) {
+		int i = 0;
+		while (true) {
 			std::string move;
 			ss >> move;
-			if (i >= moves.size()) {
+			if (move.empty())
+				break;
+			if (i++ >= moves.size()) {
 				moves.push_back(move);
 				board.make_move(Move::from_string(move, &board));
 			}
@@ -63,7 +66,7 @@ void play(const json &initialEvent) {
 			} else {
 				auto tmp = search(board, timetonodes(color ? event["wtime"] : event["btime"], 1));
 				std::string move = tmp.first.to_string();
-				std::cout << "move: " << move << "eval: " << tmp.second << std::endl;
+				std::cout << "move: " << move << " eval: " << tmp.second << std::endl;
 				if (move != "----" && move != "0000")
 					API::move(game_id, move);
 				else
@@ -84,7 +87,7 @@ int main() {
 	// Deal with existing challenges
 	json challenges = API::get_challenges()["in"];
 	for (auto challenge : challenges) {
-		if (challenge["challenger"]["id"] != "kevlu8" && challenge["challenger"]["id"] != "wdotmathree")
+		if (games.size() >= 4 || challenge["challenger"]["id"] != "kevlu8" && challenge["challenger"]["id"] != "wdotmathree")
 			API::decline_challenge(challenge["id"], "generic");
 		else
 			API::accept_challenge(challenge["id"]);
@@ -98,9 +101,10 @@ int main() {
 	while (true) {
 		try {
 			JSONStream listener(API_REQUEST_URL "/api/stream/event");
-			while (json event = listener.waitMsg()) {
+			json event;
+			while (!(event = listener.waitMsg()).empty()) {
 				if (event["type"] == "challenge") {
-					if (event["challenge"]["challenger"]["id"] != "kevlu8" && event["challenge"]["challenger"]["id"] != "wdotmathree")
+					if (games.size() >= 4 || event["challenge"]["challenger"]["id"] != "kevlu8" && event["challenge"]["challenger"]["id"] != "wdotmathree")
 						API::decline_challenge(event["challenge"]["id"], "generic");
 					else
 						API::accept_challenge(event["challenge"]["id"]);
@@ -115,7 +119,7 @@ int main() {
 					// std::cout << event << std::endl;
 				}
 			}
-		} catch (const std::exception &e) {
+		} catch (const API::StreamError &e) {
 			std::cerr << e.what() << std::endl;
 		}
 	}

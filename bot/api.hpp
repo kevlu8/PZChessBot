@@ -88,6 +88,17 @@ namespace API {
 	 * @return JSON object containing the response
 	 */
 	json book(std::string);
+
+	class StreamError : public std::exception {
+	private:
+		std::string message;
+
+	public:
+		StreamError(std::string msg) : message(msg) {};
+		const char *what() const noexcept override {
+			return message.c_str();
+		};
+	};
 }
 
 class JSONStream {
