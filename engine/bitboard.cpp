@@ -471,6 +471,8 @@ void Board::make_move(Move move) {
 
 	halfmove++;
 
+	dtable.store(zobrist);
+
 #ifdef HASHCHECK
 	old_hash = zobrist;
 	recompute_hash();
@@ -516,6 +518,8 @@ void Board::unmake_move() {
 		abort();
 	}
 #endif
+
+	dtable.remove(zobrist);
 
 	// Switch sides first
 	side = !side;

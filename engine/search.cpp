@@ -133,14 +133,18 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		board.make_move(move);
 
 		Value score;
-		if (!first) {
-			score = -__recurse(board, depth-reduction(i, depth), -alpha - 1, -alpha, -side);
-			if (score > alpha && score < beta) {
-				score = -__recurse(board, depth-1, -beta, -alpha, -side);
-			}
+		if (board.dtable.occ(board.zobrist) >= 3) {
+			score = 0; // Draw by repetition
 		} else {
-			score = -__recurse(board, depth - 1, -beta, -alpha, -side);
-			first = false;
+			if (!first) {
+				score = -__recurse(board, depth-reduction(i, depth), -alpha - 1, -alpha, -side);
+				if (score > alpha && score < beta) {
+					score = -__recurse(board, depth-1, -beta, -alpha, -side);
+				}
+			} else {
+				score = -__recurse(board, depth - 1, -beta, -alpha, -side);
+				first = false;
+			}
 		}
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
@@ -222,7 +226,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		Move &move = moves[i];
 		board.make_move(move);
 		Value score;
-		if (board.dtable.occ(board.zobrist) >= 2) {
+		if (board.dtable.occ(board.zobrist) >= 3) {
 			score = 0; // Draw by repetition
 		} else {
 			if (!first) {
