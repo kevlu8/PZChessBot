@@ -59,6 +59,7 @@ int main() {
 			std::string token;
 			int wtime = 0, btime = 0, winc = 0, binc = 0;
 			int depth = -1;
+			bool inf = false;
 			ss >> token;
 			while (ss >> token) {
 				if (token == "wtime") {
@@ -71,11 +72,14 @@ int main() {
 					ss >> binc;
 				} else if (token == "depth") {
 					ss >> depth;
+				} else if (token == "infinite") {
+					inf = true;
 				}
 			}
 			int timeleft = board.side ? btime : wtime;
 			std::pair<Move, Value> res;
-			if (depth != -1) res = search(board, depth);
+			if (inf) res = search(board, 1e18);
+			else if (depth != -1) res = search(board, depth);
 			else res = search(board, timetonodes(timeleft));
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
 		}

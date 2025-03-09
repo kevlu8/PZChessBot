@@ -28,7 +28,7 @@ uint64_t perft(Board &board, int depth) {
 
 uint16_t reduction(int i, int d) {
 	if (d <= 1 || i <= 1) return 1; // Don't reduce on nodes that lead to leaves since the TT doesn't provide info
-	// if (i > 31) return 3;
+	if (i > 31) return 2;
 	// if (i > 15) return 2;
 	return 1;
 }
@@ -113,8 +113,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			entry_is_legal = true;
 			continue; // Don't add the TT move again
 		}
-		board.make_move(move);
 		Value score = 0;
+		board.make_move(move);
 		score = eval(board) * side;
 		board.unmake_move();
 		scores.push_back({move, score});
@@ -135,6 +135,15 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		Value score;
 		if (board.dtable.occ(board.zobrist) >= 3) {
 			score = 0; // Draw by repetition
+			// Make sure we're not in check or this is an illegal move
+			if (board.side == WHITE) {
+				// Black just played a move, so we check that white doesn't control black's king
+				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first)
+					score = -VALUE_MATE;
+			} else {
+				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6])).second)
+					score = -VALUE_MATE;
+			}
 		} else {
 			if (!first) {
 				score = -__recurse(board, depth-reduction(i, depth), -alpha - 1, -alpha, -side);
@@ -209,8 +218,8 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 			entry_is_legal = true;
 			continue; // Don't add the TT move again
 		}
-		board.make_move(move);
 		Value score = 0;
+		board.make_move(move);
 		score = eval(board) * side;
 		board.unmake_move();
 		scores.push_back({move, score});
@@ -228,6 +237,15 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		Value score;
 		if (board.dtable.occ(board.zobrist) >= 3) {
 			score = 0; // Draw by repetition
+			// Make sure we're not in check or this is an illegal move
+			if (board.side == WHITE) {
+				// Black just played a move, so we check that white doesn't control black's king
+				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first)
+					score = -VALUE_MATE;
+			} else {
+				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6])).second)
+					score = -VALUE_MATE;
+			}
 		} else {
 			if (!first) {
 				score = -__recurse(board, depth-reduction(i, depth), -alpha - 1, -alpha, -side);
@@ -277,68 +295,56 @@ std::pair<Move, Value> search(Board &board, int64_t depth) {
 
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
-	if (depth == -1 || depth >= 50) { // Do iterative deepening
-		if (depth == -1) nexp = 30'000'000;
-		else nexp = depth;
-		bool aspiration_enabled = true;
-		for (int d = 1; d <= 20; d++) {
-			Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
-			if (eval != -VALUE_INFINITE && aspiration_enabled) {
-				// Aspiration window values are rather large because our eval function
-				// does not return values in centipawns, but rather in closer to ~1/400
-				// So this window size is actually around 50 centipawns
-				alpha = eval - 200;
-				beta = eval + 200;
-			}
-			auto result = __search(board, d, alpha, beta, board.side ? -1 : 1);
-			// Check for fail-high or fail-low
-			bool research = result.second >= beta || result.second <= alpha;
-			if (result.second >= beta) {
-				beta = VALUE_INFINITE;
-			}
-			if (result.second <= alpha) {
-				alpha = -VALUE_INFINITE;
-			}
-			if (research) {
-				result = __search(board, d, alpha, beta, board.side ? -1 : 1);
-			}
-			if (early_exit) {
-				break;
-			}
-			if (d > 4 && abs(result.second-eval) > 400) // We are probably in a very sharp position, better to not use aspir.
-				aspiration_enabled = false;
-			eval = result.second;
-			best_move = result.first;
-			
-			if (eval >= VALUE_MATE_MAX_PLY) {
-				std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - eval) / 2 << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-						  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
-			} else {
-				std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-						  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
-			}
-
-			exit_allowed = true;
-
-			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
-				return {best_move, eval};
-				// We don't need to search further, we found mate
-			}
-
-			if (nodes > nexp)
-				break;
+	if (depth == -1) nexp = 30'000'000;
+	else if (depth > MAX_PLY) nexp = depth, depth = MAX_PLY;
+	else nexp = 1e18; // We are searching by depth instead of by nodes
+	bool aspiration_enabled = true;
+	for (int d = 1; d <= depth; d++) {
+		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
+		if (eval != -VALUE_INFINITE && aspiration_enabled) {
+			// Aspiration window values are rather large because our eval function
+			// does not return values in centipawns, but rather in closer to ~1/400
+			// So this window size is actually around 50 centipawns
+			alpha = eval - 200;
+			beta = eval + 200;
 		}
-	} else {
-		auto result = __search(board, depth, -VALUE_INFINITE, VALUE_INFINITE, board.side ? -1 : 1);
-		best_move = result.first;
+		auto result = __search(board, d, alpha, beta, board.side ? -1 : 1);
+		// Check for fail-high or fail-low
+		bool research = result.second >= beta || result.second <= alpha;
+		if (result.second >= beta) {
+			beta = VALUE_INFINITE;
+		}
+		if (result.second <= alpha) {
+			alpha = -VALUE_INFINITE;
+		}
+		if (research) {
+			result = __search(board, d, alpha, beta, board.side ? -1 : 1);
+		}
+		if (early_exit) {
+			break;
+		}
+		if (d > 4 && abs(result.second-eval) > 400) // We are probably in a very sharp position, better to not use aspir.
+			aspiration_enabled = false;
 		eval = result.second;
-		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
-			std::cout << "info depth " << depth << " seldepth " << depth + seldepth << " score mate " << (VALUE_MATE - eval) / 2 << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-					  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+		best_move = result.first;
+		
+		if (eval >= VALUE_MATE_MAX_PLY) {
+			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - eval) / 2 << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
+						<< " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 		} else {
-			std::cout << "info depth " << depth << " seldepth " << depth + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-					  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
+						<< " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 		}
+
+		exit_allowed = true;
+
+		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
+			return {best_move, eval};
+			// We don't need to search further, we found mate
+		}
+
+		if (nodes > nexp)
+			break;
 	}
 
 	return {best_move, eval / CP_SCALE_FACTOR};
