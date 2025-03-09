@@ -312,16 +312,16 @@ std::pair<Move, Value> search(Board &board, int64_t depth) {
 			
 			if (eval >= VALUE_MATE_MAX_PLY) {
 				std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - eval) / 2 << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-						  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_SEC << std::endl;
+						  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			} else {
 				std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-						  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_SEC << std::endl;
+						  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			}
 
 			exit_allowed = true;
 
 			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
-				return {best_move, eval / CP_SCALE_FACTOR};
+				return {best_move, eval};
 				// We don't need to search further, we found mate
 			}
 
@@ -334,10 +334,10 @@ std::pair<Move, Value> search(Board &board, int64_t depth) {
 		eval = result.second;
 		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
 			std::cout << "info depth " << depth << " seldepth " << depth + seldepth << " score mate " << (VALUE_MATE - eval) / 2 << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-					  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_SEC << std::endl;
+					  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 		} else {
 			std::cout << "info depth " << depth << " seldepth " << depth + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-					  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_SEC << std::endl;
+					  << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 		}
 	}
 
