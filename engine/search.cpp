@@ -28,8 +28,8 @@ uint64_t perft(Board &board, int depth) {
 
 uint16_t reduction(int i, int d) {
 	if (d <= 1 || i <= 1) return 1; // Don't reduce on nodes that lead to leaves since the TT doesn't provide info
-	if (i > 31) return 2;
-	// if (i > 15) return 2;
+	if (i > 31) return 3;
+	if (i > 15) return 2;
 	return 1;
 }
 
@@ -349,8 +349,8 @@ std::pair<Move, Value> search(Board &board, int64_t depth) {
 		eval = result.second;
 		best_move = result.first;
 		
-		if (eval >= VALUE_MATE_MAX_PLY) {
-			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - eval) / 2 << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
+		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
+			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval>0?1:-1) << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
 						<< " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 		} else {
 			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))

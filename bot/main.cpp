@@ -88,14 +88,12 @@ int main() {
 	// Deal with existing challenges
 	json challenges = API::get_challenges()["in"];
 	for (auto challenge : challenges) {
-		if (games.size() >= 4 || challenge["challenger"]["id"] != "kevlu8" && challenge["challenger"]["id"] != "wdotmathree")
+		if (challenge["variant"]["short"] == "Std" && games.size() < 4)
+			API::accept_challenge(challenge["id"]);
+		else if (games.size() >= 4)
 			API::decline_challenge(challenge["id"], "generic");
 		else
-			API::accept_challenge(challenge["id"]);
-		// if (challenge["variant"]["short"] == "Std")
-		// 	API::accept_challenge(challenge["id"]);
-		// else
-		// 	API::decline_challenge(challenge["id"], "variant");
+			API::decline_challenge(challenge["id"], "variant");
 	}
 
 	// Process events
@@ -110,14 +108,12 @@ int main() {
 						games.erase(event["__PZinternal__"]["gameId"]);
 					}
 				} else if (event["type"] == "challenge") {
-					if (games.size() >= 4 || event["challenge"]["challenger"]["id"] != "kevlu8" && event["challenge"]["challenger"]["id"] != "wdotmathree")
+					if (event["challenge"]["variant"]["short"] == "Std" && games.size() < 4)
+						API::accept_challenge(event["challenge"]["id"]);
+					else if (games.size() >= 4)
 						API::decline_challenge(event["challenge"]["id"], "generic");
 					else
-						API::accept_challenge(event["challenge"]["id"]);
-					// if (event["challenge"]["variant"]["short"] == "Std")
-					// 	API::accept_challenge(event["challenge"]["id"]);
-					// else
-					// 	API::decline_challenge(event["challenge"]["id"], "variant");
+						API::decline_challenge(event["challenge"]["id"], "variant");
 				} else if (event["type"] == "gameStart") {
 					std::cout << "game start" << std::endl;
 					games[event["game"]["gameId"]] = std::make_unique<std::thread>(play, event);
