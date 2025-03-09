@@ -2,7 +2,7 @@
 
 #define MOVENUM(x) ((((#x)[1]-'1') << 12) | (((#x)[0]-'a') << 8) | (((#x)[3]-'1') << 4) | ((#x)[2]-'a'))
 
-uint64_t nodes = 0, tbhits = 0, nexp = 0;
+uint64_t nodes = 0, nexp = 0;
 int seldepth = 0;
 bool early_exit = false, exit_allowed = false;
 
@@ -28,9 +28,19 @@ uint64_t perft(Board &board, int depth) {
 
 uint16_t reduction(int i, int d) {
 	if (d <= 1 || i <= 1) return 1; // Don't reduce on nodes that lead to leaves since the TT doesn't provide info
-	// if (i > 31) return 3;
+	if (i > 31) return 2;
 	// if (i > 15) return 2;
 	return 1;
+}
+
+Value MVV_LVA[6][6]; // [vctm][atk]
+
+__attribute__((constructor)) void init_mvvlva() {
+	for (int i = 0; i < 6; i++) {
+		for (int j = 0; j < 6; j++) {
+			MVV_LVA[i][j] = PieceValue[i] - PieceValue[j];
+		}
+	}
 }
 
 Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
@@ -49,23 +59,36 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
+	pzstd::vector<std::pair<Move, Value>> scores;
+	for (Move &move : moves) {
+		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
+			Value score = 0;
+			score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
+			scores.push_back({move, score});
+		}
+	}
+	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) {
+		return a.second > b.second;
+	});
+
 	Value best = stand_pat;
 
-	for (int i = 0; i < moves.size(); i++) {
-		Move &move = moves[i];
-		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
-			board.make_move(move);
-			Value score = -quiesce(board, -beta, -alpha, -side, depth+1);
-			board.unmake_move();
+	for (int i = 0; i < scores.size(); i++) {
+		Move &move = scores[i].first;
+		board.make_move(move);
+		Value score = -quiesce(board, -beta, -alpha, -side, depth+1);
+		board.unmake_move();
 
-			if (score > best) {
-				if (score > alpha)
-					alpha = score;
-				best = score;
-			}
-			if (score >= beta) {
-				return best;
-			}
+		if (score >= VALUE_MATE_MAX_PLY)
+			score = score - (uint16_t(score >> 15) << 1) - 1; // Fixes "mate 0" bug
+
+		if (score > best) {
+			if (score > alpha)
+				alpha = score;
+			best = score;
+		}
+		if (score >= beta) {
+			return best;
 		}
 	}
 
@@ -86,6 +109,12 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		return (-VALUE_MATE) * side;
 	}
 
+	// Check for TTable cutoff
+	TTable::TTEntry *cutoff = board.ttable.probe(board.zobrist, alpha, beta, depth);
+	if (cutoff) {
+		return cutoff->eval;
+	}
+
 	Value best = -VALUE_INFINITE;
 
 	pzstd::vector<Move> moves;
@@ -93,20 +122,19 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	// Move ordering (experimental)
 	pzstd::vector<std::pair<Move, Value>> scores;
-	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist, alpha, beta, depth);
+	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist, VALUE_INFINITE, -VALUE_INFINITE, -1);
 	Move entry = tentry ? tentry->best_move : NullMove;
 	bool entry_is_legal = false;
 	if (entry != NullMove) {
 		scores.push_back({entry, VALUE_INFINITE}); // Make the TT move first
-		tbhits++;
 	} else entry_is_legal = true; // Don't skip the first move if we never added it
 	for (Move &move : moves) {
 		if (move == entry) {
 			entry_is_legal = true;
 			continue; // Don't add the TT move again
 		}
-		board.make_move(move);
 		Value score = 0;
+		board.make_move(move);
 		score = eval(board) * side;
 		board.unmake_move();
 		scores.push_back({move, score});
@@ -125,14 +153,27 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		board.make_move(move);
 
 		Value score;
-		if (!first) {
-			score = -__recurse(board, depth-reduction(i, depth), -alpha - 1, -alpha, -side);
-			if (score > alpha && score < beta) {
-				score = -__recurse(board, depth-reduction(i, depth), -beta, -alpha, -side);
+		if (board.dtable.occ(board.zobrist) >= 3) {
+			score = 0; // Draw by repetition
+			// Make sure we're not in check or this is an illegal move
+			if (board.side == WHITE) {
+				// Black just played a move, so we check that white doesn't control black's king
+				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first)
+					score = -VALUE_MATE;
+			} else {
+				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6])).second)
+					score = -VALUE_MATE;
 			}
 		} else {
-			score = -__recurse(board, depth - 1, -beta, -alpha, -side);
-			first = false;
+			if (!first) {
+				score = -__recurse(board, depth-reduction(i, depth), -alpha - 1, -alpha, -side);
+				if (score > alpha && score < beta) {
+					score = -__recurse(board, depth-1, -beta, -alpha, -side);
+				}
+			} else {
+				score = -__recurse(board, depth - 1, -beta, -alpha, -side);
+				first = false;
+			}
 		}
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
@@ -186,20 +227,19 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	board.legal_moves(moves);
 
 	pzstd::vector<std::pair<Move, Value>> scores;
-	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist, alpha, beta, depth);
+	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist, VALUE_INFINITE, -VALUE_INFINITE, -1);
 	Move entry = tentry ? tentry->best_move : NullMove;
 	bool entry_is_legal = false;
 	if (entry != NullMove) {
 		scores.push_back({entry, VALUE_INFINITE}); // Make the TT move first
-		tbhits++;
 	} else entry_is_legal = true; // Don't skip the first move if we never added it
 	for (Move &move : moves) {
 		if (move == entry) {
 			entry_is_legal = true;
 			continue; // Don't add the TT move again
 		}
-		board.make_move(move);
 		Value score = 0;
+		board.make_move(move);
 		score = eval(board) * side;
 		board.unmake_move();
 		scores.push_back({move, score});
@@ -215,20 +255,29 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		Move &move = moves[i];
 		board.make_move(move);
 		Value score;
-		if (board.dtable.occ(board.zobrist) >= 2) {
+		if (board.dtable.occ(board.zobrist) >= 3) {
 			score = 0; // Draw by repetition
+			// Make sure we're not in check or this is an illegal move
+			if (board.side == WHITE) {
+				// Black just played a move, so we check that white doesn't control black's king
+				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first)
+					score = -VALUE_MATE;
+			} else {
+				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6])).second)
+					score = -VALUE_MATE;
+			}
 		} else {
 			if (!first) {
 				score = -__recurse(board, depth-reduction(i, depth), -alpha - 1, -alpha, -side);
 				if (score > alpha && score < beta) {
-					score = -__recurse(board, depth-reduction(i, depth), -beta, -alpha, -side);
+					score = -__recurse(board, depth-1, -beta, -alpha, -side);
 				}
 			} else {
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side);
 				first = false;
 			}
 		}
-		board.ttable.store(board.zobrist, score, depth, EXACT, move, board.halfmove);
+
 		board.unmake_move();
 
 		if (score > best_score) {
@@ -260,61 +309,64 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 }
 
 std::pair<Move, Value> search(Board &board, int64_t depth) {
-	nodes = tbhits = seldepth = 0;
+	std::cout << std::fixed << std::setprecision(0);
+	nodes = seldepth = 0;
 	early_exit = exit_allowed = false;
 	clock_t start = clock();
 
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
-	if (depth == -1 || depth >= 50) { // Do iterative deepening
-		if (depth == -1) nexp = 30'000'000;
-		else nexp = depth;
-		bool aspiration_enabled = true;
-		for (int d = 1; d <= 20; d++) {
-			Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
-			if (eval != -VALUE_INFINITE && aspiration_enabled) {
-				// Aspiration window values are rather large because our eval function
-				// does not return values in centipawns, but rather in closer to ~1/400
-				// So this window size is actually around 50 centipawns
-				alpha = eval - 200;
-				beta = eval + 200;
-			}
-			auto result = __search(board, d, alpha, beta, board.side ? -1 : 1);
-			// Check for fail-high or fail-low
-			bool research = result.second >= beta || result.second <= alpha;
-			if (result.second >= beta) {
-				beta = VALUE_INFINITE;
-			}
-			if (result.second <= alpha) {
-				alpha = -VALUE_INFINITE;
-			}
-			if (research) {
-				result = __search(board, d, alpha, beta, board.side ? -1 : 1);
-			}
-			if (early_exit) {
-				break;
-			}
-			if (d > 4 && abs(result.second-eval) > 400) // We are probably in a very sharp position, better to not use aspir.
-				aspiration_enabled = false;
-			eval = result.second;
-			best_move = result.first;
-			
-			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-					  << " tbhits " << tbhits << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
-			// I know tbhits isn't correct here, I'm just using it to show number of TT hits
-
-			exit_allowed = true;
-
-			if (nodes > nexp)
-				break;
+	if (depth == -1) nexp = 5'000'000, depth = MAX_PLY;
+	else if (depth > MAX_PLY) nexp = depth, depth = MAX_PLY;
+	else nexp = 1e18; // We are searching by depth instead of by nodes
+	bool aspiration_enabled = true;
+	for (int d = 1; d <= depth; d++) {
+		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
+		if (eval != -VALUE_INFINITE && aspiration_enabled) {
+			// Aspiration window values are rather large because our eval function
+			// does not return values in centipawns, but rather in closer to ~1/400
+			// So this window size is actually around 50 centipawns
+			alpha = eval - 200;
+			beta = eval + 200;
 		}
-	} else {
-		auto result = __search(board, depth, -VALUE_INFINITE, VALUE_INFINITE, board.side ? -1 : 1);
-		best_move = result.first;
+		auto result = __search(board, d, alpha, beta, board.side ? -1 : 1);
+		// Check for fail-high or fail-low
+		bool research = result.second >= beta || result.second <= alpha;
+		if (result.second >= beta) {
+			beta = VALUE_INFINITE;
+		}
+		if (result.second <= alpha) {
+			alpha = -VALUE_INFINITE;
+		}
+		if (research) {
+			result = __search(board, d, alpha, beta, board.side ? -1 : 1);
+		}
+		if (early_exit) {
+			break;
+		}
+		if (d > 4 && abs(result.second-eval) > 400) // We are probably in a very sharp position, better to not use aspir.
+			aspiration_enabled = false;
 		eval = result.second;
-		std::cout << "info depth " << depth << " seldepth " << depth + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-				  << " tbhits " << tbhits << " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 100 / TT_SIZE) << std::endl;
+		best_move = result.first;
+		
+		if (eval >= VALUE_MATE_MAX_PLY) {
+			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - eval) / 2 << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
+						<< " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+		} else {
+			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
+						<< " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+		}
+
+		exit_allowed = true;
+
+		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
+			return {best_move, eval};
+			// We don't need to search further, we found mate
+		}
+
+		if (nodes > nexp)
+			break;
 	}
 
-	return {best_move, eval};
+	return {best_move, eval / CP_SCALE_FACTOR};
 }

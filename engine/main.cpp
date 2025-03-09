@@ -40,10 +40,8 @@ int main() {
 				std::string moves = command.substr(command.find("moves") + 6);
 				std::stringstream ss(moves);
 				std::string move;
-				board.commit();
 				while (ss >> move) {
 					board.make_move(Move::from_string(move, &board));
-					board.commit();
 				}
 			}
 		} else if (command == "quit") {
@@ -58,17 +56,30 @@ int main() {
 			// only care about wtime and btime
 			std::stringstream ss(command);
 			std::string token;
-			int wtime = 0, btime = 0;
+			int wtime = 0, btime = 0, winc = 0, binc = 0;
+			int depth = -1;
+			bool inf = false;
 			ss >> token;
 			while (ss >> token) {
 				if (token == "wtime") {
 					ss >> wtime;
 				} else if (token == "btime") {
 					ss >> btime;
+				} else if (token == "winc") {
+					ss >> winc;
+				} else if (token == "binc") {
+					ss >> binc;
+				} else if (token == "depth") {
+					ss >> depth;
+				} else if (token == "infinite") {
+					inf = true;
 				}
 			}
 			int timeleft = board.side ? btime : wtime;
-			auto res = search(board, timetonodes(timeleft));
+			std::pair<Move, Value> res;
+			if (inf) res = search(board, 1e18);
+			else if (depth != -1) res = search(board, depth);
+			else res = search(board, timetonodes(timeleft));
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
 		}
 	}

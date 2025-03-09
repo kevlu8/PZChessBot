@@ -113,6 +113,4 @@ struct Board {
 
 	uint64_t hash() const;
 	void recompute_hash();
-
-	void commit();
 };

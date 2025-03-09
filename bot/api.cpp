@@ -1,191 +1,219 @@
 #include "api.hpp"
 
-#define REQUEST_URL (std::string) "https://lichess.org"
+int _send_get(std::string url, std::string *response) {
+	CURL *curl = curl_easy_init();
+	if (!curl)
+		return CURLE_FAILED_INIT;
 
-int __send_request(std::string url, std::string method) {
-	if (method == "GET") {
-		cpr::Response r = cpr::Get(cpr::Url{url}, cpr::Bearer{TOKEN});
-		if (r.status_code != 200) {
-			std::cerr << method << ' ' << url << ' ' << r.text << std::endl;
+	struct curl_slist *headers = NULL;
+	headers = curl_slist_append(headers, "Authorization: Bearer " TOKEN);
+	headers = curl_slist_append(headers, "Accept: application/json");
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+	curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
+	curl_easy_setopt(
+		curl, CURLOPT_WRITEFUNCTION,
+		+[](char *contents, size_t size, size_t nmemb, std::string *buf) {
+			if (buf)
+				buf->append(contents, size * nmemb);
+			return size * nmemb;
 		}
-		return r.status_code;
-	} else {
-		cpr::Response r = cpr::Post(cpr::Url{url}, cpr::Bearer{TOKEN});
-		if (r.status_code != 200) {
-			std::cerr << method << ' ' << url << ' ' << r.text << std::endl;
-		}
-		return r.status_code;
+	);
+	CURLcode e;
+	while (true) {
+		e = curl_easy_perform(curl);
+		if (e == CURLE_OK)
+			break;
+		std::cerr << "Failed to GET " + url + ": " << curl_easy_strerror(e) << std::endl;
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
+	int status;
+	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+	curl_easy_cleanup(curl);
+	return status;
 }
 
-int __send_request(std::string url, std::string method, cpr::Response &r) {
-	if (method == "GET") {
-		r = cpr::Get(cpr::Url{url}, cpr::Bearer{TOKEN});
-		if (r.status_code != 200) {
-			std::cerr << method << ' ' << url << ' ' << r.text << std::endl;
+int _send_post(std::string url, std::string body, std::string *response) {
+	CURL *curl = curl_easy_init();
+	if (!curl)
+		return CURLE_FAILED_INIT;
+
+	struct curl_slist *headers = NULL;
+	headers = curl_slist_append(headers, "Authorization: Bearer " TOKEN);
+	headers = curl_slist_append(headers, "Accept: application/json");
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+	curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
+	curl_easy_setopt(
+		curl, CURLOPT_WRITEFUNCTION,
+		+[](char *contents, size_t size, size_t nmemb, std::string *buf) {
+			if (buf)
+				buf->append(contents, size * nmemb);
+			return size * nmemb;
 		}
-		return r.status_code;
-	} else {
-		r = cpr::Post(cpr::Url{url}, cpr::Bearer{TOKEN});
-		if (r.status_code != 200) {
-			std::cerr << method << ' ' << url << ' ' << r.text << std::endl;
-		}
-		return r.status_code;
+	);
+	CURLcode e;
+	while (true) {
+		e = curl_easy_perform(curl);
+		if (e == CURLE_OK)
+			break;
+		std::cerr << "Failed to POST " + url + ": " << curl_easy_strerror(e) << std::endl;
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
+	int status;
+	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+	curl_easy_cleanup(curl);
+	return status;
 }
 
 int API::move(std::string game_id, std::string move, bool draw) {
-	std::string url = REQUEST_URL + "/api/bot/game/" + game_id + "/move/" + move;
+	std::string url = API_REQUEST_URL "/api/bot/game/" + game_id + "/move/" + move;
 	if (draw)
 		url += "?offeringDraw=true";
-	return __send_request(url, "POST");
+	return _send_post(url, "", nullptr);
 }
 
 int API::chat(std::string game_id, int room, std::string message) {
-	std::string url = REQUEST_URL + "/api/bot/game/" + game_id + "/chat";
+	std::string url = API_REQUEST_URL "/api/bot/game/" + game_id + "/chat";
 	if (room == 0) {
 		url += "/player";
-	} else {
+	} else if (room == 1) {
 		url += "/spectator";
+	} else {
+		throw std::invalid_argument("Invalid room id");
 	}
 	url += "?text=" + message;
-	return __send_request(url, "POST");
+	return _send_post(url, "", nullptr);
 }
 
 int API::resign(std::string game_id) {
-	std::string url = REQUEST_URL + "/api/bot/game/" + game_id + "/resign";
-	return __send_request(url, "POST");
+	std::string url = API_REQUEST_URL "/api/bot/game/" + game_id + "/resign";
+	return _send_post(url, "", nullptr);
 }
 
 json API::get_challenges() {
-	std::string url = REQUEST_URL + "/api/challenge";
-	cpr::Response res;
-	if (__send_request(url, "GET", res) == 200) {
-		return json::parse(res.text);
-	} else {
-		return 0;
-	}
+	std::string url = API_REQUEST_URL "/api/challenge";
+	std::string res;
+	_send_get(url, &res);
+	return json::parse(res);
 }
 
 int API::send_challenge(std::string username, bool rated, int time, int increment, std::string color, std::string variant) {
-	std::string url = REQUEST_URL + "/api/bot/challenge/" + username;
+	std::string url = API_REQUEST_URL "/api/bot/challenge/" + username;
 	url += "?rated=" + std::to_string(rated);
 	url += "&timeControl=" + std::to_string(time) + "+" + std::to_string(increment);
 	url += "&color=" + color;
 	url += "&variant=" + variant;
-	return __send_request(url, "POST");
+	return _send_post(url, "", nullptr);
 }
 
 int API::accept_challenge(std::string challenge_id) {
-	std::string url = REQUEST_URL + "/api/challenge/" + challenge_id + "/accept";
-	return __send_request(url, "POST");
+	std::string url = API_REQUEST_URL "/api/challenge/" + challenge_id + "/accept";
+	return _send_post(url, "", nullptr);
 }
 
 int API::decline_challenge(std::string challenge_id, std::string reason) {
-	std::string url = REQUEST_URL + "/api/challenge/" + challenge_id + "/decline";
-	cpr::Response r = cpr::Post(cpr::Url{url}, cpr::Bearer{TOKEN}, cpr::Body{"reason=" + reason});
-	return r.status_code;
+	std::string url = API_REQUEST_URL "/api/challenge/" + challenge_id + "/decline";
+	return _send_post(url, "reason=" + reason, nullptr);
 }
 
-API::Events::Events() {
-	head = nullptr;
-	tail = head;
-	// make a request to the stream endpoint
-	request = cpr::GetAsync(cpr::Url{REQUEST_URL + "/api/stream/event"}, cpr::Bearer{TOKEN}, cpr::WriteCallback{[this](std::string response, intptr_t userdata) { return this->callback(response); }});
+json API::book(std::string moves) {
+	std::string url = "https://explorer.lichess.ovh/masters?play=" + moves;
+	std::string res;
+	_send_get(url, &res);
+	return json::parse(res);
 }
 
-API::Events::~Events() {
-	running = false;
-	request.wait();
-}
+size_t JSONStream::write_callback(char *contents, size_t size, size_t nmemb, JSONStream *obj) {
+	size_t readsize = size * nmemb;
 
-bool API::Events::callback(std::string header) {
-	// read and parse until end of valid json and store the rest in residual
-	json j;
-	std::string s = residual + header;
-	for (int i = 0; i < s.length(); i++) {
-		if (s[i] == '\n') {
-			try {
-				if (s.substr(0, i) != "\n") {
-					j = json::parse(s.substr(0, i));
-					if (head == nullptr) {
-						head = new ListNode{new json(j), nullptr, nullptr};
-						tail = head;
-					} else {
-						tail->next = new ListNode{new json(j), nullptr, tail};
-						tail = tail->next;
-					}
-				}
-				residual = s.substr(i + 1);
-				s = residual;
-			} catch (json::parse_error &e) {
-				// TODO: handle error
-			}
+	// Remove leading newlines
+	size_t realsize = readsize;
+	while (contents[0] == '\n') {
+		contents++;
+		realsize--;
+	}
+
+	// Split messages by newlines
+	while (realsize > 0) {
+		size_t newlinePos = std::find((char *)contents, (char *)contents + realsize, '\n') - (char *)contents;
+		if (newlinePos != realsize) {
+			obj->buffer.append((char *)contents, newlinePos);
+			obj->msgQueueMutex.lock();
+			obj->msgQueue.push_back(json::parse(obj->buffer));
+			obj->msgQueueMutex.unlock();
+			obj->buffer.clear();
+			contents += newlinePos + 1;
+			realsize -= newlinePos + 1;
+		} else {
+			obj->buffer.append((char *)contents, realsize);
+			break;
 		}
 	}
-	return running;
+	return readsize;
 }
 
-void API::Events::get_events(ListNode **first, ListNode **second) {
-	if (*first == nullptr) {
-		*first = head;
-		*second = tail;
-	} else {
-		(*second)->next = head;
-		*second = tail;
-	}
-	head = nullptr;
-	tail = head;
+JSONStream::JSONStream(std::string url) {
+	this->url = url;
+	curl = curl_easy_init();
+
+	struct curl_slist *headers = NULL;
+	headers = curl_slist_append(headers, "Authorization: Bearer " TOKEN);
+	headers = curl_slist_append(headers, "Accept: application/x-ndjson");
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+	curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, this);
+
+	t = std::thread([this]() {
+		res = curl_easy_perform(curl);
+		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+	});
 }
 
-API::Game::Game(std::string game_id) {
-	std::cout << "gameid: " << game_id << std::endl;
-	head = nullptr;
-	tail = head;
-	// make a request to the stream endpoint
-	request = cpr::GetAsync(cpr::Url{REQUEST_URL + "/api/bot/game/stream/" + game_id}, cpr::Bearer{TOKEN}, cpr::WriteCallback{[this](std::string response, intptr_t userdata) { return this->callback(response); }});
+JSONStream::~JSONStream() {
+	curl_easy_cleanup(curl);
+	t.join();
 }
 
-API::Game::~Game() {
-	running = false;
-	request.wait();
-}
+json JSONStream::waitMsg() {
+	if (url.empty())
+		return json();
 
-bool API::Game::callback(std::string header) {
-	// read and parse until end of valid json and store the rest in residual
-	json j;
-	std::string s = residual + header;
-	for (int i = 0; i < s.length(); i++) {
-		if (s[i] == '\n') {
+	while (msgQueue.empty()) {
+		if (res != CURLE_OK)
+			throw API::StreamError("Connection to " + url + " failed: " + curl_easy_strerror(res));
+		if (status >= 0 && status != 200)
+			throw API::StreamError("Connection to " + url + " closed with status code " + std::to_string(status) + ": " + buffer);
+		if (status == 200) {
+			if (buffer.empty())
+				return json();
+
 			try {
-				if (s.substr(0, i) != "\n") {
-					j = json::parse(s.substr(0, i));
-					if (head == nullptr) {
-						head = new ListNode{new json(j), nullptr, nullptr};
-						tail = head;
-					} else {
-						tail->next = new ListNode{new json(j), nullptr, tail};
-						tail = tail->next;
-					}
-				}
-				residual = s.substr(i + 1);
-				s = residual;
-			} catch (json::parse_error &e) {
-				// TODO: handle error
+				return json::parse(buffer);
+			} catch (json::parse_error) {
+				std::cerr << "Stream from " + url + " returned invalid JSON: " << buffer << std::endl;
+				return json();
 			}
 		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
-	return running;
+	msgQueueMutex.lock();
+	json msg = msgQueue.front();
+	msgQueue.pop_front();
+	msgQueueMutex.unlock();
+	return msg;
 }
 
-void API::Game::get_events(ListNode **first, ListNode **second) {
-	if (*first == nullptr) {
-		*first = head;
-		*second = tail;
-	} else {
-		(*second)->next = head;
-		*second = tail;
-	}
-	head = nullptr;
-	tail = head;
+void JSONStream::insertMsg(std::string msg) {
+	msgQueueMutex.lock();
+	msgQueue.push_back(json::parse(msg));
+	msgQueueMutex.unlock();
 }
