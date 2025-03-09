@@ -53,7 +53,7 @@ struct TTable {
 
 	void store(uint64_t key, Value eval, uint8_t depth, TTFlag flag, Move best_move, uint8_t age);
 
-	std::pair<Value, bool> probe(uint64_t key, Value alpha, Value beta, Value depth);
+	TTEntry *probe(uint64_t key, Value alpha, Value beta, Value depth);
 
 	uint64_t size() const;
 	constexpr uint64_t mxsize() const { return TT_SIZE; }
