@@ -16,7 +16,6 @@ int main() {
 	std::string command;
 	Board board = Board();
 	std::thread searchthread;
-	std::cout << std::fixed << std::setprecision(0);
 	while (getline(std::cin, command)) {
 		if (command == "uci") {
 			std::cout << "id name PZChessBot v" << VERSION << std::endl;

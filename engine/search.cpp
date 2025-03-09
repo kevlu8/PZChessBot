@@ -309,13 +309,14 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 }
 
 std::pair<Move, Value> search(Board &board, int64_t depth) {
+	std::cout << std::fixed << std::setprecision(0);
 	nodes = seldepth = 0;
 	early_exit = exit_allowed = false;
 	clock_t start = clock();
 
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
-	if (depth == -1) nexp = 30'000'000;
+	if (depth == -1) nexp = 5'000'000, depth = MAX_PLY;
 	else if (depth > MAX_PLY) nexp = depth, depth = MAX_PLY;
 	else nexp = 1e18; // We are searching by depth instead of by nodes
 	bool aspiration_enabled = true;
