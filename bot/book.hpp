@@ -1,11 +1,11 @@
 #pragma once
 
+#include "../engine/bitboard.hpp"
+#include "api.hpp"
+#include <cpr/cpr.h>
+#include <fstream>
 #include <string>
 #include <vector>
-#include <fstream>
-#include <cpr/cpr.h>
-#include "../engine/bitboard.hpp"
-#include "json.hpp"
 
 using json = nlohmann::json;
 
