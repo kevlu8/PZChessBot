@@ -19,7 +19,7 @@ typedef uint64_t Bitboard;
 constexpr bool WHITE = false;
 constexpr bool BLACK = true;
 
-constexpr int MAX_PLY = 40;
+constexpr int MAX_PLY = 100;
 
 typedef int16_t Value;
 constexpr Value VALUE_ZERO = 0;
