@@ -78,9 +78,9 @@ int main() {
 			int timeleft = board.side ? btime : wtime;
 			int inc = board.side ? binc : winc;
 			std::pair<Move, Value> res;
-			if (inf) res = search(board, 1e18);
-			else if (depth != -1) res = search(board, depth);
-			else res = search(board, timetonodes(timeleft, inc));
+			if (inf) res = search(board);
+			else if (depth != -1) res = search_depth(board, depth);
+			else res = search(board, timemgmt(timeleft, inc));
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
 		}
 	}

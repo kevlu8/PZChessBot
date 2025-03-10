@@ -8,6 +8,8 @@
 
 extern uint64_t nodes;
 
-std::pair<Move, Value> search(Board &board, int64_t depth = -1);
+std::pair<Move, Value> search(Board &board, int64_t time = 1e18);
+
+std::pair<Move, Value> search_depth(Board &board, int depth);
 
 uint64_t perft(Board &board, int depth);
