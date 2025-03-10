@@ -65,7 +65,7 @@ void play(const json &initialEvent) {
 				std::cout << "book move: " << move << std::endl;
 				API::move(game_id, move);
 			} else {
-				auto tmp = search(board, timetonodes(color ? event["wtime"] : event["btime"], 1));
+				auto tmp = search(board, timetonodes(color ? event["wtime"] : event["btime"], color ? event["winc"] : event["binc"], 1));
 				std::string move = tmp.first.to_string();
 				std::cout << "move: " << move << " eval: " << tmp.second << std::endl;
 				if (move != "----" && move != "0000")

@@ -2,9 +2,6 @@
 
 void TTable::store(uint64_t key, Value eval, uint8_t depth, TTFlag flag, Move best_move, uint8_t age) {
 	TTEntry *entry = TT + (key & (TT_SIZE - 1));
-	int entryhmc = entry->age + entry->depth;
-	int newhmc = age + depth;
-	if (entry->key == key && entryhmc > newhmc) return;
 	if (entry->flags == INVALID) tsize++;
 	entry->key = key;
 	entry->eval = eval;

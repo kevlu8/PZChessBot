@@ -65,6 +65,8 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 			Value score = 0;
 			score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
 			scores.push_back({move, score});
+		} else if (move.type() == PROMOTION) {
+			scores.push_back({move, PieceValue[move.promotion() + KNIGHT] - PawnValue});
 		}
 	}
 	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) {
@@ -95,7 +97,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	return best;
 }
 
-Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
+Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false) {
 	if (depth <= 0) {
 		return quiesce(board, alpha, beta, side, 0);
 	}
@@ -113,6 +115,13 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	TTable::TTEntry *cutoff = board.ttable.probe(board.zobrist, alpha, beta, depth);
 	if (cutoff) {
 		return cutoff->eval;
+	}
+
+	bool in_check = false;
+	if (board.side == WHITE) {
+		in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6])).second;
+	} else {
+		in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first;
 	}
 
 	Value best = -VALUE_INFINITE;
@@ -144,9 +153,15 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	});
 	for (int i = 0; i < scores.size(); i++) moves[i] = scores[i].first;
 
-	Move best_move = NullMove;
+	// Reverse futility pruning
+	if (!in_check && entry_is_legal && entry != NullMove && !pv) {
+		int cur_eval = eval(board) * side;
+		int margin = 400 * depth;
+		if (cur_eval >= beta + margin)
+			return cur_eval;
+	}
 
-	bool first = true;
+	Move best_move = NullMove;
 
 	for (int i = !entry_is_legal; i < moves.size(); i++) {
 		Move &move = moves[i];
@@ -165,14 +180,13 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 					score = -VALUE_MATE;
 			}
 		} else {
-			if (!first) {
+			if (i > 3) {
 				score = -__recurse(board, depth-reduction(i, depth), -alpha - 1, -alpha, -side);
 				if (score > alpha && score < beta) {
 					score = -__recurse(board, depth-1, -beta, -alpha, -side);
 				}
 			} else {
-				score = -__recurse(board, depth - 1, -beta, -alpha, -side);
-				first = false;
+				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1);
 			}
 		}
 
@@ -249,8 +263,6 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	});
 	for (int i = 0; i < scores.size(); i++) moves[i] = scores[i].first;
 
-	bool first = true;
-
 	for (int i = !entry_is_legal; i < moves.size(); i++) { // Skip the TT move if it's not legal
 		Move &move = moves[i];
 		board.make_move(move);
@@ -267,14 +279,13 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 					score = -VALUE_MATE;
 			}
 		} else {
-			if (!first) {
+			if (i > 3) {
 				score = -__recurse(board, depth-reduction(i, depth), -alpha - 1, -alpha, -side);
 				if (score > alpha && score < beta) {
 					score = -__recurse(board, depth-1, -beta, -alpha, -side);
 				}
 			} else {
-				score = -__recurse(board, depth - 1, -beta, -alpha, -side);
-				first = false;
+				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1);
 			}
 		}
 
@@ -330,6 +341,8 @@ std::pair<Move, Value> search(Board &board, int64_t depth) {
 			beta = eval + 200;
 		}
 		auto result = __search(board, d, alpha, beta, board.side ? -1 : 1);
+		if (early_exit)
+			break;
 		// Check for fail-high or fail-low
 		bool research = result.second >= beta || result.second <= alpha;
 		if (result.second >= beta) {
@@ -341,9 +354,8 @@ std::pair<Move, Value> search(Board &board, int64_t depth) {
 		if (research) {
 			result = __search(board, d, alpha, beta, board.side ? -1 : 1);
 		}
-		if (early_exit) {
+		if (early_exit)
 			break;
-		}
 		if (d > 4 && abs(result.second-eval) > 400) // We are probably in a very sharp position, better to not use aspir.
 			aspiration_enabled = false;
 		eval = result.second;
