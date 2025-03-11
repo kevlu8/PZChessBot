@@ -692,7 +692,7 @@ bool Board::threefold() {
 	for (const uint64_t h : hash_hist) {
 		if (h == zobrist)
 			cnt++;
-		if (cnt == 2)
+		if (cnt >= 3)
 			return true;
 	}
 	return false;

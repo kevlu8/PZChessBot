@@ -8,11 +8,10 @@
 #include <stack>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "pzstl/vector.hpp"
 
-#define VERSION "20250307T21"
+#define VERSION "20250311T07"
 
 typedef uint64_t Bitboard;
 

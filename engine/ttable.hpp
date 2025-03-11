@@ -4,7 +4,7 @@
 #include "move.hpp"
 
 #define TT_SIZE (1 << 24)
-// Note that the actual size of TT is TT_SIZE * 32 bytes
+// Note that the actual size of TT is TT_SIZE * 16 bytes
 
 enum TTFlag {
 	EXACT = 0,

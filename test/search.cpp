@@ -1,5 +1,7 @@
 #include "../engine/search.hpp"
 
+#include <vector>
+
 bool failed = false;
 
 std::vector<std::tuple<std::string, int, std::string>> tests = {
@@ -19,7 +21,7 @@ int main() {
 	int i = 1;
 	for (auto [fen, depth, expected] : tests) {
 		Board board(fen);
-		std::pair<Move, Value> res = search(board);
+		std::pair<Move, Value> res = search(board, 3000);
 		if (expected[0] == '!') {
 			// check that the res move is NOT expected
 			if (res.first.to_string() != expected.substr(1)) {

@@ -277,7 +277,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		board.make_move(move);
 		Value score;
 		if (board.threefold()) {
-			score = 52; // Draw by repetition
+			score = 0; // Draw by repetition
 			// Make sure we're not in check or this is an illegal move
 			if (board.side == WHITE) {
 				// Black just played a move, so we check that white doesn't control black's king
