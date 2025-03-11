@@ -401,25 +401,25 @@ void Board::make_move(Move move) {
 		} else if (move.data == 0b1100111100111110) {
 			// Black O-O
 			mailbox[SQ_E8] = NO_PIECE;
-			mailbox[SQ_G8] = Piece(WHITE_KING);
+			mailbox[SQ_G8] = Piece(BLACK_KING);
 			mailbox[SQ_H8] = NO_PIECE;
-			mailbox[SQ_F8] = Piece(WHITE_ROOK);
+			mailbox[SQ_F8] = Piece(BLACK_ROOK);
 			piece_boards[7] ^= square_bits(SQ_E8) | square_bits(SQ_G8) | square_bits(SQ_H8) | square_bits(SQ_F8);
 			piece_boards[KING] ^= square_bits(SQ_E8) | square_bits(SQ_G8);
 			piece_boards[ROOK] ^= square_bits(SQ_H8) | square_bits(SQ_F8);
-			zobrist ^= zobrist_square[SQ_E8][Piece(WHITE_KING)] ^ zobrist_square[SQ_G8][Piece(WHITE_KING)];
-			zobrist ^= zobrist_square[SQ_H8][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F8][Piece(WHITE_ROOK)];
+			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
+			zobrist ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
 		} else if (move.data == 0b1100111100111010) {
 			// Black O-O-O
 			mailbox[SQ_E8] = NO_PIECE;
-			mailbox[SQ_C8] = Piece(WHITE_KING);
+			mailbox[SQ_C8] = Piece(BLACK_KING);
 			mailbox[SQ_A8] = NO_PIECE;
-			mailbox[SQ_D8] = Piece(WHITE_ROOK);
+			mailbox[SQ_D8] = Piece(BLACK_ROOK);
 			piece_boards[7] ^= square_bits(SQ_E8) | square_bits(SQ_C8) | square_bits(SQ_A8) | square_bits(SQ_D8);
 			piece_boards[KING] ^= square_bits(SQ_E8) | square_bits(SQ_C8);
 			piece_boards[ROOK] ^= square_bits(SQ_A8) | square_bits(SQ_D8);
-			zobrist ^= zobrist_square[SQ_E8][Piece(WHITE_KING)] ^ zobrist_square[SQ_C8][Piece(WHITE_KING)];
-			zobrist ^= zobrist_square[SQ_A8][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D8][Piece(WHITE_ROOK)];
+			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
+			zobrist ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
 		} else {
 			std::cerr << "Il faut que tu meures" << std::endl;
 			volatile int *p = 0;
@@ -471,7 +471,7 @@ void Board::make_move(Move move) {
 
 	halfmove++;
 
-	dtable.store(zobrist);
+	hash_hist.push_back(zobrist);
 
 #ifdef HASHCHECK
 	old_hash = zobrist;
@@ -519,7 +519,7 @@ void Board::unmake_move() {
 	}
 #endif
 
-	dtable.remove(zobrist);
+	hash_hist.pop_back();
 
 	// Switch sides first
 	side = !side;
@@ -582,25 +582,25 @@ void Board::unmake_move() {
 		} else if (move.data == 0b1100111100111110) {
 			// Black O-O
 			mailbox[SQ_G8] = NO_PIECE;
-			mailbox[SQ_E8] = Piece(WHITE_KING);
+			mailbox[SQ_E8] = Piece(BLACK_KING);
 			mailbox[SQ_F8] = NO_PIECE;
-			mailbox[SQ_H8] = Piece(WHITE_ROOK);
+			mailbox[SQ_H8] = Piece(BLACK_ROOK);
 			piece_boards[7] ^= square_bits(SQ_E8) | square_bits(SQ_G8) | square_bits(SQ_H8) | square_bits(SQ_F8);
 			piece_boards[KING] ^= square_bits(SQ_E8) | square_bits(SQ_G8);
 			piece_boards[ROOK] ^= square_bits(SQ_H8) | square_bits(SQ_F8);
-			zobrist ^= zobrist_square[SQ_E8][Piece(WHITE_KING)] ^ zobrist_square[SQ_G8][Piece(WHITE_KING)];
-			zobrist ^= zobrist_square[SQ_H8][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F8][Piece(WHITE_ROOK)];
+			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
+			zobrist ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
 		} else if (move.data == 0b1100111100111010) {
 			// Black O-O-O
 			mailbox[SQ_C8] = NO_PIECE;
-			mailbox[SQ_E8] = Piece(WHITE_KING);
+			mailbox[SQ_E8] = Piece(BLACK_KING);
 			mailbox[SQ_D8] = NO_PIECE;
-			mailbox[SQ_A8] = Piece(WHITE_ROOK);
+			mailbox[SQ_A8] = Piece(BLACK_ROOK);
 			piece_boards[7] ^= square_bits(SQ_E8) | square_bits(SQ_C8) | square_bits(SQ_A8) | square_bits(SQ_D8);
 			piece_boards[KING] ^= square_bits(SQ_E8) | square_bits(SQ_C8);
 			piece_boards[ROOK] ^= square_bits(SQ_A8) | square_bits(SQ_D8);
-			zobrist ^= zobrist_square[SQ_E8][Piece(WHITE_KING)] ^ zobrist_square[SQ_C8][Piece(WHITE_KING)];
-			zobrist ^= zobrist_square[SQ_A8][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D8][Piece(WHITE_ROOK)];
+			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
+			zobrist ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
 		} else {
 			std::cerr << "Il faut que tu meures" << std::endl;
 			volatile int *p = 0;
@@ -685,4 +685,15 @@ void Board::recompute_hash() {
 		zobrist ^= zobrist_ep[ep_square & 0b111];
 	}
 	zobrist ^= zobrist_side * side;
+}
+
+bool Board::threefold() {
+	int cnt = 0;
+	for (const uint64_t h : hash_hist) {
+		if (h == zobrist)
+			cnt++;
+		if (cnt == 2)
+			return true;
+	}
+	return false;
 }
