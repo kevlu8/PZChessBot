@@ -8,7 +8,7 @@
 
 extern uint64_t nodes;
 
-std::pair<Move, Value> search(Board &board, int64_t time = 1e18);
+std::pair<Move, Value> search(Board &board, int64_t time = 1e9);
 
 std::pair<Move, Value> search_depth(Board &board, int depth);
 
