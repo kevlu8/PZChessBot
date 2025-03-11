@@ -24,24 +24,3 @@ TTable::TTEntry *TTable::probe(uint64_t key, Value alpha, Value beta, Value dept
 uint64_t TTable::size() const {
 	return tsize;
 }
-
-void DrawTable::store(uint64_t key) {
-	DTableEntry *entry = DT + (key & (TT_SIZE - 1));
-	if (entry->key == key)
-		entry->n_occ++;
-	else
-		*entry = DTableEntry(key);
-}
-
-void DrawTable::remove(uint64_t key) {
-	DTableEntry *entry = DT + (key & (TT_SIZE - 1));
-	if (entry->key == key)
-		entry->n_occ--;
-}
-
-uint32_t DrawTable::occ(uint64_t key) const {
-	DTableEntry *entry = DT + (key & (TT_SIZE - 1));
-	if (entry->key == key)
-		return entry->n_occ;
-	return 0;
-}

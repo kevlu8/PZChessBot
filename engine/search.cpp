@@ -179,7 +179,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		board.make_move(move);
 
 		Value score;
-		if (board.dtable.occ(board.zobrist) >= 3) {
+		if (board.threefold()) {
 			score = 0; // Draw by repetition
 			// Make sure we're not in check or this is an illegal move
 			if (board.side == WHITE) {
@@ -276,8 +276,8 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		Move &move = moves[i];
 		board.make_move(move);
 		Value score;
-		if (board.dtable.occ(board.zobrist) >= 3) {
-			score = 0; // Draw by repetition
+		if (board.threefold()) {
+			score = 52; // Draw by repetition
 			// Make sure we're not in check or this is an illegal move
 			if (board.side == WHITE) {
 				// Black just played a move, so we check that white doesn't control black's king

@@ -67,7 +67,7 @@ struct Board {
 	Square ep_square = SQ_NONE;
 	uint64_t zobrist = 0;
 	TTable ttable;
-	DrawTable dtable;
+	pzstd::vector<uint64_t> hash_hist;
 
 	// Mailbox representation of the board for faster queries of certain data
 	Piece mailbox[8 * 8] = {WHITE_ROOK, WHITE_KNIGHT, WHITE_BISHOP, WHITE_QUEEN, WHITE_KING, WHITE_BISHOP, WHITE_KNIGHT, WHITE_ROOK,
@@ -113,4 +113,6 @@ struct Board {
 
 	uint64_t hash() const;
 	void recompute_hash();
+
+	bool threefold();
 };
