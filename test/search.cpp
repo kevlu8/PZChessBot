@@ -1,5 +1,7 @@
 #include "../engine/search.hpp"
 
+#include <vector>
+
 bool failed = false;
 
 std::vector<std::tuple<std::string, int, std::string>> tests = {
