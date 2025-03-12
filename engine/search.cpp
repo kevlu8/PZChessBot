@@ -3,7 +3,8 @@
 #define MOVENUM(x) ((((#x)[1]-'1') << 12) | (((#x)[0]-'a') << 8) | (((#x)[3]-'1') << 4) | ((#x)[2]-'a'))
 
 uint64_t nodes = 0;
-int seldepth = 0, mxtime = 1000;
+int seldepth = 0;
+uint64_t mxtime = 1000;
 bool early_exit = false, exit_allowed = false;
 clock_t start = 0;
 
@@ -29,9 +30,7 @@ uint64_t perft(Board &board, int depth) {
 
 uint16_t reduction(int i, int d) {
 	if (d <= 1 || i <= 1) return 1; // Don't reduce on nodes that lead to leaves since the TT doesn't provide info
-	if (i > 31) return 3;
-	if (i > 15) return 2;
-	return 1;
+	return 0.77 + log2(i) * log2(d) / 2.36;
 }
 
 Value MVV_LVA[6][6]; // [vctm][atk]
@@ -49,7 +48,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 
 	if (!(nodes & 32767)) {
 		// Check for early exit
-		int time = (clock() - start) / CLOCKS_PER_MS;
+		uint64_t time = (clock() - start) / CLOCKS_PER_MS;
 		if (time > mxtime && exit_allowed) {
 			early_exit = true;
 			return 0;
@@ -422,6 +421,8 @@ std::pair<Move, Value> search_depth(Board &board, int depth) {
 		if (research) {
 			result = __search(board, d, alpha, beta, board.side ? -1 : 1);
 		}
+		if (early_exit)
+			break;
 		if (d > 4 && abs(result.second-eval) > 400) // We are probably in a very sharp position, better to not use aspir.
 			aspiration_enabled = false;
 		eval = result.second;
@@ -433,13 +434,6 @@ std::pair<Move, Value> search_depth(Board &board, int depth) {
 		} else {
 			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
 						<< " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
-		}
-
-		exit_allowed = true;
-
-		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
-			return {best_move, eval};
-			// We don't need to search further, we found mate
 		}
 	}
 
