@@ -135,6 +135,15 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first;
 	}
 
+	if (!in_check) {
+		// Perform null-move pruning
+		board.make_move(NullMove);
+		Value null_score = -__recurse(board, depth - 3, -beta, -beta + 1, -side);
+		board.unmake_move();
+		if (null_score >= beta)
+			return null_score;
+	}
+
 	Value best = -VALUE_INFINITE;
 
 	pzstd::vector<Move> moves;

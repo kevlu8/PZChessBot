@@ -11,21 +11,23 @@ PZChessBot is a basic negamax engine.
 ### Search
 
 - Basic alpha-beta pruning
+- Quiescence search
 - Principal-Variation Search
 - Late-move reductions
 - Transposition tables
+- Null-move pruning
 
 ### Moves and board representation
 
 - Hybrid bitboard + mailbox representation
-- Magic bitboards for lightning fast move generation
+- PEXT bitboards for lightning fast move generation
 
 ### Evaluation
 
 - Simple HCE-type evaluation
 - Weighs material and position (piece-square tables)
+- Roughly counts king safety though it is not very accurate
 
 ## Up next
 
-- Null-move pruning once we have stuff fixed
-- Deeper evaluation
+- NNUE?
