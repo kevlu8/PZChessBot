@@ -74,7 +74,11 @@ Value eval(Board &board) {
 	Bitboard boards[12];
 	for (int i = 0; i < 6; i++) {
 		boards[i] = board.piece_boards[i] & board.piece_boards[OCC(WHITE)];
+#ifndef WINDOWS
 		boards[i+6] = __bswap_64(board.piece_boards[i] & board.piece_boards[OCC(BLACK)]);
+#else
+		boards[i+6] = _bswap64(board.piece_boards[i] & board.piece_boards[OCC(BLACK)]);
+#endif
 	}
 
 	for (int i = 0; i < 8; i++) {

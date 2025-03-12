@@ -11,7 +11,8 @@
 #include "search.hpp"
 #include "movetimings.hpp"
 
-int main() {
+int main(int argc, char *argv[]) {
+	bool online = argc == 2 && std::string(argv[1]) == "--online";
 	std::cout << "PZChessBot v" << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
 	std::string command;
 	Board board = Board();
@@ -80,7 +81,7 @@ int main() {
 			std::pair<Move, Value> res;
 			if (inf) res = search(board);
 			else if (depth != -1) res = search_depth(board, depth);
-			else res = search(board, timemgmt(timeleft, inc));
+			else res = search(board, timemgmt(timeleft, inc, online));
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
 		}
 	}
