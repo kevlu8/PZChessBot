@@ -68,11 +68,21 @@ Move Move::from_string(const std::string &str, const void *b) {
 		char promo = std::tolower(str[4]);
 		PieceType pt;
 		switch (promo) {
-			case 'n': pt = KNIGHT; break;
-			case 'b': pt = BISHOP; break;
-			case 'r': pt = ROOK;   break;
-			case 'q': pt = QUEEN;  break;
-			default:  pt = QUEEN; break; // default to queen
+		case 'n':
+			pt = KNIGHT;
+			break;
+		case 'b':
+			pt = BISHOP;
+			break;
+		case 'r':
+			pt = ROOK;
+			break;
+		case 'q':
+			pt = QUEEN;
+			break;
+		default:
+			pt = QUEEN;
+			break; // default to queen
 		}
 		return Move::make<PROMOTION>(src, dst, pt);
 	} else {
@@ -167,7 +177,7 @@ bool Board::sanity_check(char *print) {
 	// Start at -1 because we increment before processing to guarantee it happens in every case
 	int printIdx = -1;
 	// Occupancy
-	Bitboard occ = piece_boards[6] | piece_boards[7];
+	Bitboard occ = piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)];
 	// Used for sanity checks during debugging (piece set but no occupancy)
 	Bitboard sanity = (piece_boards[0] | piece_boards[1] | piece_boards[2] | piece_boards[3] | piece_boards[4] | piece_boards[5]) ^ occ;
 	for (int rank = RANK_8; rank >= 0; rank--) {
@@ -177,19 +187,18 @@ bool Board::sanity_check(char *print) {
 			if (mailbox[rank * 8 + file] != NO_PIECE && !(occ & square_bits((Rank)rank, (File)file))) { // Occupancy and mailbox differ
 				print[printIdx] = '$';
 				std::cerr << "Occupancy and mailbox differ on square " << rank << file << '\n';
-				error=1;
+				error = 1;
 				continue;
 			}
 			if (sanity & bits) { // Occupancy and collective piece boards differ
 				if (occ & bits) { // Occupied but no piece specified
 					print[printIdx] = '?';
 					std::cerr << "Occupied but no piece specified on square " << rank << file << '\n';
-					error=1;
-				}
-				else { // Piece specified but no occupancy
+					error = 1;
+				} else { // Piece specified but no occupancy
 					print[printIdx] = '!';
 					std::cerr << "Piece specified but no occupancy on square " << rank << file << '\n';
-					error=1;
+					error = 1;
 				}
 				continue;
 			}
@@ -206,17 +215,17 @@ bool Board::sanity_check(char *print) {
 				if (put) { // More than two pieces on one square
 					print[printIdx] = '&';
 					std::cerr << "More than two pieces on square " << rank << file << '\n';
-					error=1;
+					error = 1;
 					break;
 				}
 				put = true;
-				if (mailbox[rank * 8 + file] != type + (!!(piece_boards[7] & bits) << 3)) { // Bitboard and mailbox representations differ
+				if (mailbox[rank * 8 + file] != type + (!!(piece_boards[OCC(BLACK)] & bits) << 3)) { // Bitboard and mailbox representations differ
 					print[printIdx] = '$';
 					std::cerr << "Bitboard and mailbox representations differ on square " << rank << file << '\n';
-					error=1;
+					error = 1;
 					break;
 				}
-				print[printIdx] = piecetype_letter[type] + (!!(piece_boards[7] & bits) << 5);
+				print[printIdx] = piecetype_letter[type] + (!!(piece_boards[OCC(BLACK)] & bits) << 5);
 			}
 		}
 	}
@@ -249,7 +258,7 @@ void Board::print_board() const {
 	// Start at -1 because we increment before processing to guarantee it happens in every case
 	int printIdx = -1;
 	// Occupancy
-	Bitboard occ = piece_boards[6] | piece_boards[7];
+	Bitboard occ = piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)];
 	// Used for sanity checks during debugging (piece set but no occupancy)
 	Bitboard sanity = (piece_boards[0] | piece_boards[1] | piece_boards[2] | piece_boards[3] | piece_boards[4] | piece_boards[5]) ^ occ;
 	for (int rank = RANK_8; rank >= 0; rank--) {
@@ -282,7 +291,7 @@ void Board::print_board() const {
 					break;
 				}
 				put = true;
-				if (mailbox[rank * 8 + file] != type + (!!(piece_boards[7] & bits) << 3)) { // Bitboard and mailbox representations differ
+				if (mailbox[rank * 8 + file] != type + (!!(piece_boards[OCC(BLACK)] & bits) << 3)) { // Bitboard and mailbox representations differ
 					print[printIdx] = '$';
 					break;
 				}
@@ -382,7 +391,7 @@ void Board::make_move(Move move) {
 			mailbox[SQ_G1] = Piece(WHITE_KING);
 			mailbox[SQ_H1] = NO_PIECE;
 			mailbox[SQ_F1] = Piece(WHITE_ROOK);
-			piece_boards[6] ^= square_bits(SQ_E1) | square_bits(SQ_G1) | square_bits(SQ_H1) | square_bits(SQ_F1);
+			piece_boards[OCC(WHITE)] ^= square_bits(SQ_E1) | square_bits(SQ_G1) | square_bits(SQ_H1) | square_bits(SQ_F1);
 			piece_boards[KING] ^= square_bits(SQ_E1) | square_bits(SQ_G1);
 			piece_boards[ROOK] ^= square_bits(SQ_H1) | square_bits(SQ_F1);
 			zobrist ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
@@ -393,7 +402,7 @@ void Board::make_move(Move move) {
 			mailbox[SQ_C1] = Piece(WHITE_KING);
 			mailbox[SQ_A1] = NO_PIECE;
 			mailbox[SQ_D1] = Piece(WHITE_ROOK);
-			piece_boards[6] ^= square_bits(SQ_E1) | square_bits(SQ_C1) | square_bits(SQ_A1) | square_bits(SQ_D1);
+			piece_boards[OCC(WHITE)] ^= square_bits(SQ_E1) | square_bits(SQ_C1) | square_bits(SQ_A1) | square_bits(SQ_D1);
 			piece_boards[KING] ^= square_bits(SQ_E1) | square_bits(SQ_C1);
 			piece_boards[ROOK] ^= square_bits(SQ_A1) | square_bits(SQ_D1);
 			zobrist ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
@@ -404,7 +413,7 @@ void Board::make_move(Move move) {
 			mailbox[SQ_G8] = Piece(BLACK_KING);
 			mailbox[SQ_H8] = NO_PIECE;
 			mailbox[SQ_F8] = Piece(BLACK_ROOK);
-			piece_boards[7] ^= square_bits(SQ_E8) | square_bits(SQ_G8) | square_bits(SQ_H8) | square_bits(SQ_F8);
+			piece_boards[OCC(BLACK)] ^= square_bits(SQ_E8) | square_bits(SQ_G8) | square_bits(SQ_H8) | square_bits(SQ_F8);
 			piece_boards[KING] ^= square_bits(SQ_E8) | square_bits(SQ_G8);
 			piece_boards[ROOK] ^= square_bits(SQ_H8) | square_bits(SQ_F8);
 			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
@@ -415,7 +424,7 @@ void Board::make_move(Move move) {
 			mailbox[SQ_C8] = Piece(BLACK_KING);
 			mailbox[SQ_A8] = NO_PIECE;
 			mailbox[SQ_D8] = Piece(BLACK_ROOK);
-			piece_boards[7] ^= square_bits(SQ_E8) | square_bits(SQ_C8) | square_bits(SQ_A8) | square_bits(SQ_D8);
+			piece_boards[OCC(BLACK)] ^= square_bits(SQ_E8) | square_bits(SQ_C8) | square_bits(SQ_A8) | square_bits(SQ_D8);
 			piece_boards[KING] ^= square_bits(SQ_E8) | square_bits(SQ_C8);
 			piece_boards[ROOK] ^= square_bits(SQ_A8) | square_bits(SQ_D8);
 			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
@@ -509,7 +518,7 @@ void Board::make_move(Move move) {
 void Board::unmake_move() {
 	// char before[64];
 	// sanity_check(before);
-	
+
 #ifdef HASHCHECK
 	uint64_t old_hash = zobrist;
 	recompute_hash();
@@ -563,7 +572,7 @@ void Board::unmake_move() {
 			mailbox[SQ_E1] = Piece(WHITE_KING);
 			mailbox[SQ_F1] = NO_PIECE;
 			mailbox[SQ_H1] = Piece(WHITE_ROOK);
-			piece_boards[6] ^= square_bits(SQ_E1) | square_bits(SQ_G1) | square_bits(SQ_H1) | square_bits(SQ_F1);
+			piece_boards[OCC(WHITE)] ^= square_bits(SQ_E1) | square_bits(SQ_G1) | square_bits(SQ_H1) | square_bits(SQ_F1);
 			piece_boards[KING] ^= square_bits(SQ_E1) | square_bits(SQ_G1);
 			piece_boards[ROOK] ^= square_bits(SQ_H1) | square_bits(SQ_F1);
 			zobrist ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
@@ -574,7 +583,7 @@ void Board::unmake_move() {
 			mailbox[SQ_E1] = Piece(WHITE_KING);
 			mailbox[SQ_D1] = NO_PIECE;
 			mailbox[SQ_A1] = Piece(WHITE_ROOK);
-			piece_boards[6] ^= square_bits(SQ_E1) | square_bits(SQ_C1) | square_bits(SQ_A1) | square_bits(SQ_D1);
+			piece_boards[OCC(WHITE)] ^= square_bits(SQ_E1) | square_bits(SQ_C1) | square_bits(SQ_A1) | square_bits(SQ_D1);
 			piece_boards[KING] ^= square_bits(SQ_E1) | square_bits(SQ_C1);
 			piece_boards[ROOK] ^= square_bits(SQ_A1) | square_bits(SQ_D1);
 			zobrist ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
@@ -585,7 +594,7 @@ void Board::unmake_move() {
 			mailbox[SQ_E8] = Piece(BLACK_KING);
 			mailbox[SQ_F8] = NO_PIECE;
 			mailbox[SQ_H8] = Piece(BLACK_ROOK);
-			piece_boards[7] ^= square_bits(SQ_E8) | square_bits(SQ_G8) | square_bits(SQ_H8) | square_bits(SQ_F8);
+			piece_boards[OCC(BLACK)] ^= square_bits(SQ_E8) | square_bits(SQ_G8) | square_bits(SQ_H8) | square_bits(SQ_F8);
 			piece_boards[KING] ^= square_bits(SQ_E8) | square_bits(SQ_G8);
 			piece_boards[ROOK] ^= square_bits(SQ_H8) | square_bits(SQ_F8);
 			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
@@ -596,7 +605,7 @@ void Board::unmake_move() {
 			mailbox[SQ_E8] = Piece(BLACK_KING);
 			mailbox[SQ_D8] = NO_PIECE;
 			mailbox[SQ_A8] = Piece(BLACK_ROOK);
-			piece_boards[7] ^= square_bits(SQ_E8) | square_bits(SQ_C8) | square_bits(SQ_A8) | square_bits(SQ_D8);
+			piece_boards[OCC(BLACK)] ^= square_bits(SQ_E8) | square_bits(SQ_C8) | square_bits(SQ_A8) | square_bits(SQ_D8);
 			piece_boards[KING] ^= square_bits(SQ_E8) | square_bits(SQ_C8);
 			piece_boards[ROOK] ^= square_bits(SQ_A8) | square_bits(SQ_D8);
 			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];

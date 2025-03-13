@@ -1,6 +1,6 @@
 #include "search.hpp"
 
-#define MOVENUM(x) ((((#x)[1]-'1') << 12) | (((#x)[0]-'a') << 8) | (((#x)[3]-'1') << 4) | ((#x)[2]-'a'))
+#define MOVENUM(x) ((((#x)[1] - '1') << 12) | (((#x)[0] - 'a') << 8) | (((#x)[3] - '1') << 4) | ((#x)[2] - 'a'))
 
 uint64_t nodes = 0;
 int seldepth = 0;
@@ -29,7 +29,8 @@ uint64_t perft(Board &board, int depth) {
 }
 
 uint16_t reduction(int i, int d) {
-	if (d <= 1 || i <= 1) return 1; // Don't reduce on nodes that lead to leaves since the TT doesn't provide info
+	if (d <= 1 || i <= 1)
+		return 1; // Don't reduce on nodes that lead to leaves since the TT doesn't provide info
 	return 0.77 + log2(i) * log2(d) / 2.36;
 }
 
@@ -79,16 +80,14 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 			scores.push_back({move, PieceValue[move.promotion() + KNIGHT] - PawnValue});
 		}
 	}
-	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) {
-		return a.second > b.second;
-	});
+	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
 
 	Value best = stand_pat;
 
 	for (int i = 0; i < scores.size(); i++) {
 		Move &move = scores[i].first;
 		board.make_move(move);
-		Value score = -quiesce(board, -beta, -alpha, -side, depth+1);
+		Value score = -quiesce(board, -beta, -alpha, -side, depth + 1);
 		board.unmake_move();
 
 		if (score >= VALUE_MATE_MAX_PLY)
@@ -114,7 +113,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
-		return (VALUE_MATE) * side;
+		return (VALUE_MATE)*side;
 	}
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])) {
 		// Likewise, if white has no king, this is mate for black
@@ -129,9 +128,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	bool in_check = false;
 	if (board.side == WHITE) {
-		in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6])).second;
+		in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second;
 	} else {
-		in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first;
+		in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])).first;
 	}
 
 	if (!in_check) {
@@ -155,7 +154,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	bool entry_is_legal = false;
 	if (entry != NullMove) {
 		scores.push_back({entry, VALUE_INFINITE}); // Make the TT move first
-	} else entry_is_legal = true; // Don't skip the first move if we never added it
+	} else
+		entry_is_legal = true; // Don't skip the first move if we never added it
 	for (Move &move : moves) {
 		if (move == entry) {
 			entry_is_legal = true;
@@ -167,10 +167,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		board.unmake_move();
 		scores.push_back({move, score});
 	}
-	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) {
-		return a.second > b.second;
-	});
-	for (int i = 0; i < scores.size(); i++) moves[i] = scores[i].first;
+	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
+	for (int i = 0; i < scores.size(); i++)
+		moves[i] = scores[i].first;
 
 	// Reverse futility pruning
 	if (!in_check && entry_is_legal && entry != NullMove && !pv) {
@@ -192,17 +191,17 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			// Make sure we're not in check or this is an illegal move
 			if (board.side == WHITE) {
 				// Black just played a move, so we check that white doesn't control black's king
-				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first)
+				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])).first)
 					score = -VALUE_MATE;
 			} else {
-				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6])).second)
+				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second)
 					score = -VALUE_MATE;
 			}
 		} else {
 			if (i > 3) {
-				score = -__recurse(board, depth-reduction(i, depth), -alpha - 1, -alpha, -side);
+				score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side);
 				if (score > alpha && score < beta) {
-					score = -__recurse(board, depth-1, -beta, -alpha, -side);
+					score = -__recurse(board, depth - 1, -beta, -alpha, -side);
 				}
 			} else {
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1);
@@ -229,14 +228,14 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (early_exit)
 			break;
 	}
-	
+
 	// Stalemate detection
 	if (best == -VALUE_MATE + 2) {
 		if (board.side == WHITE) {
-			if (!board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6])).second)
+			if (!board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second)
 				best = 0;
 		} else {
-			if (!board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first)
+			if (!board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])).first)
 				best = 0;
 		}
 	}
@@ -263,7 +262,8 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	bool entry_is_legal = false;
 	if (entry != NullMove) {
 		scores.push_back({entry, VALUE_INFINITE}); // Make the TT move first
-	} else entry_is_legal = true; // Don't skip the first move if we never added it
+	} else
+		entry_is_legal = true; // Don't skip the first move if we never added it
 	for (Move &move : moves) {
 		if (move == entry) {
 			entry_is_legal = true;
@@ -275,10 +275,9 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		board.unmake_move();
 		scores.push_back({move, score});
 	}
-	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) {
-		return a.second > b.second;
-	});
-	for (int i = 0; i < scores.size(); i++) moves[i] = scores[i].first;
+	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
+	for (int i = 0; i < scores.size(); i++)
+		moves[i] = scores[i].first;
 
 	for (int i = !entry_is_legal; i < moves.size(); i++) { // Skip the TT move if it's not legal
 		Move &move = moves[i];
@@ -289,17 +288,17 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 			// Make sure we're not in check or this is an illegal move
 			if (board.side == WHITE) {
 				// Black just played a move, so we check that white doesn't control black's king
-				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first)
+				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])).first)
 					score = -VALUE_MATE;
 			} else {
-				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6])).second)
+				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second)
 					score = -VALUE_MATE;
 			}
 		} else {
 			if (i > 3) {
-				score = -__recurse(board, depth-reduction(i, depth), -alpha - 1, -alpha, -side);
+				score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side);
 				if (score > alpha && score < beta) {
-					score = -__recurse(board, depth-1, -beta, -alpha, -side);
+					score = -__recurse(board, depth - 1, -beta, -alpha, -side);
 				}
 			} else {
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1);
@@ -367,17 +366,19 @@ std::pair<Move, Value> search(Board &board, int64_t time) {
 		}
 		if (early_exit)
 			break;
-		if (d > 4 && abs(result.second-eval) > 400) // We are probably in a very sharp position, better to not use aspir.
+		if (d > 4 && abs(result.second - eval) > 400) // We are probably in a very sharp position, better to not use aspir.
 			aspiration_enabled = false;
 		eval = result.second;
 		best_move = result.first;
-		
+
 		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
-			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval>0?1:-1) << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-						<< " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
+					  << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
+					  << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 		} else {
-			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-						<< " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
+					  << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
+					  << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 		}
 
 		exit_allowed = true;
@@ -423,17 +424,19 @@ std::pair<Move, Value> search_depth(Board &board, int depth) {
 		}
 		if (early_exit)
 			break;
-		if (d > 4 && abs(result.second-eval) > 400) // We are probably in a very sharp position, better to not use aspir.
+		if (d > 4 && abs(result.second - eval) > 400) // We are probably in a very sharp position, better to not use aspir.
 			aspiration_enabled = false;
 		eval = result.second;
 		best_move = result.first;
-		
+
 		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
-			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval>0?1:-1) << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-						<< " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
+					  << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
+					  << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 		} else {
-			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC))
-						<< " pv " << best_move.to_string() << " hashfull " << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
+					  << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
+					  << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 		}
 	}
 
