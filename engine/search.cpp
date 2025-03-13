@@ -10,10 +10,10 @@ clock_t start = 0;
 
 uint64_t perft(Board &board, int depth) {
 	// If white's turn is beginning and black is in check
-	if (board.side == WHITE && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])).first)
+	if (board.side == WHITE && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first)
 		return 0;
 	// If black's turn is beginning and white is in check
-	else if (board.side == BLACK && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second)
+	else if (board.side == BLACK && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6])).second)
 		return 0;
 	if (depth == 0)
 		return 1;
@@ -137,7 +137,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (!in_check) {
 		// Perform null-move pruning
 		board.make_move(NullMove);
-		Value null_score = -__recurse(board, depth - 3, -beta, -beta + 1, -side);
+		Value null_score = -__recurse(board, depth - 3, -beta, -beta + 1, -side, pv);
 		board.unmake_move();
 		if (null_score >= beta)
 			return null_score;
