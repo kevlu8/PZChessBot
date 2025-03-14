@@ -31,7 +31,10 @@ uint64_t perft(Board &board, int depth) {
 uint16_t reduction(int i, int d) {
 	if (d <= 1 || i <= 1)
 		return 1; // Don't reduce on nodes that lead to leaves since the TT doesn't provide info
-	return 0.77 + log2(i) * log2(d) / 2.36;
+	// return 0.77 + log2(i) * log2(d) / 2.36;
+	if (i > 31) return 3;
+	if (i > 15) return 2;
+	return 1;
 }
 
 Value MVV_LVA[6][6]; // [vctm][atk]
