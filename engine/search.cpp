@@ -113,11 +113,22 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
-		return (VALUE_MATE)*side;
+		return (VALUE_MATE) * side;
 	}
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])) {
 		// Likewise, if white has no king, this is mate for black
 		return (-VALUE_MATE) * side;
+	}
+
+	auto wcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]));
+	auto bcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]));
+	
+	if (board.side == WHITE) {
+		if (bcontrol.first > 0)
+			return VALUE_MATE - 1;
+	} else {
+		if (wcontrol.second > 0)
+			return VALUE_MATE - 1;
 	}
 
 	// Check for TTable cutoff
@@ -128,9 +139,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	bool in_check = false;
 	if (board.side == WHITE) {
-		in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second;
+		in_check = wcontrol.second > 0;
 	} else {
-		in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])).first;
+		in_check = bcontrol.first > 0;
 	}
 
 	if (!in_check) {
