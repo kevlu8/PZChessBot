@@ -42,7 +42,7 @@ Value MVV_LVA[6][6]; // [vctm][atk]
 __attribute__((constructor)) void init_mvvlva() {
 	for (int i = 0; i < 6; i++) {
 		for (int j = 0; j < 6; j++) {
-			MVV_LVA[i][j] = PieceValue[i] - PieceValue[j];
+			MVV_LVA[i][j] = PieceValue[i] * 20 - PieceValue[j];
 		}
 	}
 }
