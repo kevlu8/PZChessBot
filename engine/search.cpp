@@ -37,20 +37,12 @@ uint16_t reduction(int i, int d) {
 	return 1;
 }
 
-Value MVV_LVA[6][6]; // [vctm][atk]
-
-__attribute__((constructor)) void init_mvvlva() {
-	for (int i = 0; i < 6; i++) {
-		for (int j = 0; j < 6; j++) {
-			MVV_LVA[i][j] = PieceValue[i] * 20 - PieceValue[j];
-		}
-	}
-}
-
 Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	nodes++;
 
-	if (!(nodes & 32767)) {
+	if (early_exit) return 0;
+
+	if (!(nodes & 4095)) {
 		// Check for early exit
 		uint64_t time = (clock() - start) / CLOCKS_PER_MS;
 		if (time > mxtime && exit_allowed) {
@@ -76,11 +68,19 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	pzstd::vector<std::pair<Move, Value>> scores;
 	for (Move &move : moves) {
 		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
-			Value score = 0;
-			score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
+			// Value score = 0;
+			// score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
+			// scores.push_back({move, score});
+			board.make_move(move);
+			Value score = eval(board) * side;
+			board.unmake_move();
 			scores.push_back({move, score});
 		} else if (move.type() == PROMOTION) {
-			scores.push_back({move, PieceValue[move.promotion() + KNIGHT] - PawnValue});
+			// scores.push_back({move, PieceValue[move.promotion() + KNIGHT] - PawnValue});
+			board.make_move(move);
+			Value score = eval(board) * side;
+			board.unmake_move();
+			scores.push_back({move, score});
 		}
 	}
 	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
@@ -107,6 +107,26 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	}
 
 	return best;
+}
+
+pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Move> &moves, int side, int depth, bool &entry_exists) {
+	pzstd::vector<std::pair<Move, Value>> scores;
+	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist, VALUE_INFINITE, -VALUE_INFINITE, -1);
+	Move entry = tentry ? tentry->best_move : NullMove;
+	entry_exists = false;
+	if (entry != NullMove) {
+		scores.push_back({entry, VALUE_INFINITE}); // Make the TT move first
+		entry_exists = true;
+	}
+	for (Move &move : moves) {
+		if (move == entry) continue; // Don't add the TT move again
+		board.make_move(move);
+		Value score = eval(board) * side;
+		board.unmake_move();
+		scores.push_back({move, score});
+	}
+	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
+	return scores;
 }
 
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false) {
@@ -161,42 +181,21 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
-	// Move ordering (experimental)
-	pzstd::vector<std::pair<Move, Value>> scores;
-	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist, VALUE_INFINITE, -VALUE_INFINITE, -1);
-	Move entry = tentry ? tentry->best_move : NullMove;
-	bool entry_is_legal = false;
-	if (entry != NullMove) {
-		scores.push_back({entry, VALUE_INFINITE}); // Make the TT move first
-	} else
-		entry_is_legal = true; // Don't skip the first move if we never added it
-	for (Move &move : moves) {
-		if (move == entry) {
-			entry_is_legal = true;
-			continue; // Don't add the TT move again
-		}
-		Value score = 0;
-		board.make_move(move);
-		score = eval(board) * side;
-		board.unmake_move();
-		scores.push_back({move, score});
-	}
-	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
-	for (int i = 0; i < scores.size(); i++)
-		moves[i] = scores[i].first;
+	bool entry_exists = false;
+	pzstd::vector<std::pair<Move, Value>> scores = order_moves(board, moves, side, depth, entry_exists);
 
 	// Reverse futility pruning
-	if (!in_check && entry_is_legal && entry != NullMove && !pv) {
+	if (!in_check && entry_exists && !pv) {
 		int cur_eval = eval(board) * side;
-		int margin = 400 * depth;
+		int margin = RFP_THRESHOLD * depth;
 		if (cur_eval >= beta + margin)
 			return cur_eval;
 	}
 
 	Move best_move = NullMove;
 
-	for (int i = !entry_is_legal; i < moves.size(); i++) {
-		Move &move = moves[i];
+	for (int i = 0; i < moves.size(); i++) {
+		Move &move = scores[i].first;
 		board.make_move(move);
 
 		Value score;
@@ -270,31 +269,11 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
-	pzstd::vector<std::pair<Move, Value>> scores;
-	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist, VALUE_INFINITE, -VALUE_INFINITE, -1);
-	Move entry = tentry ? tentry->best_move : NullMove;
-	bool entry_is_legal = false;
-	if (entry != NullMove) {
-		scores.push_back({entry, VALUE_INFINITE}); // Make the TT move first
-	} else
-		entry_is_legal = true; // Don't skip the first move if we never added it
-	for (Move &move : moves) {
-		if (move == entry) {
-			entry_is_legal = true;
-			continue; // Don't add the TT move again
-		}
-		Value score = 0;
-		board.make_move(move);
-		score = eval(board) * side;
-		board.unmake_move();
-		scores.push_back({move, score});
-	}
-	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
-	for (int i = 0; i < scores.size(); i++)
-		moves[i] = scores[i].first;
+	bool entry_exists = false;
+	pzstd::vector<std::pair<Move, Value>> scores = order_moves(board, moves, side, depth, entry_exists);
 
-	for (int i = !entry_is_legal; i < moves.size(); i++) { // Skip the TT move if it's not legal
-		Move &move = moves[i];
+	for (int i = 0; i < moves.size(); i++) { // Skip the TT move if it's not legal
+		Move &move = scores[i].first;
 		board.make_move(move);
 		Value score;
 		if (board.threefold()) {
@@ -363,8 +342,8 @@ std::pair<Move, Value> search(Board &board, int64_t time) {
 			// Aspiration window values are rather large because our eval function
 			// does not return values in centipawns, but rather in closer to ~1/400
 			// So this window size is actually around 50 centipawns
-			alpha = eval - 200;
-			beta = eval + 200;
+			alpha = eval - ASPIRATION_WINDOW;
+			beta = eval + ASPIRATION_WINDOW;
 		}
 		auto result = __search(board, d, alpha, beta, board.side ? -1 : 1);
 		// Check for fail-high or fail-low
@@ -380,8 +359,6 @@ std::pair<Move, Value> search(Board &board, int64_t time) {
 		}
 		if (early_exit)
 			break;
-		if (d > 4 && abs(result.second - eval) > 400) // We are probably in a very sharp position, better to not use aspir.
-			aspiration_enabled = false;
 		eval = result.second;
 		best_move = result.first;
 
@@ -421,8 +398,8 @@ std::pair<Move, Value> search_depth(Board &board, int depth) {
 			// Aspiration window values are rather large because our eval function
 			// does not return values in centipawns, but rather in closer to ~1/400
 			// So this window size is actually around 50 centipawns
-			alpha = eval - 200;
-			beta = eval + 200;
+			alpha = eval - ASPIRATION_WINDOW;
+			beta = eval + ASPIRATION_WINDOW;
 		}
 		auto result = __search(board, d, alpha, beta, board.side ? -1 : 1);
 		// Check for fail-high or fail-low
@@ -438,8 +415,6 @@ std::pair<Move, Value> search_depth(Board &board, int depth) {
 		}
 		if (early_exit)
 			break;
-		if (d > 4 && abs(result.second - eval) > 400) // We are probably in a very sharp position, better to not use aspir.
-			aspiration_enabled = false;
 		eval = result.second;
 		best_move = result.first;
 
