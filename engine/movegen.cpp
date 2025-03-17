@@ -330,7 +330,7 @@ void bishop_moves(const Board &board, pzstd::vector<Move> &moves) {
 	Bitboard pieces = (board.piece_boards[BISHOP] | board.piece_boards[QUEEN]) & board.piece_boards[OCC(board.side)];
 	while (pieces) {
 		int sq = _tzcnt_u64(pieces);
-		uint32_t idx = bishop_magics[sq].offset + _pext_u64(board.piece_boards[6] | board.piece_boards[7], bishop_magics[sq].mask);
+		uint32_t idx = bishop_magics[sq].offset + _pext_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)], bishop_magics[sq].mask);
 		Bitboard dsts = bishop_movetable[idx] & ~board.piece_boards[OCC(board.side)];
 		while (dsts) {
 			int dst = _tzcnt_u64(dsts);
@@ -345,7 +345,7 @@ void rook_moves(const Board &board, pzstd::vector<Move> &moves) {
 	Bitboard pieces = (board.piece_boards[ROOK] | board.piece_boards[QUEEN]) & board.piece_boards[OCC(board.side)];
 	while (pieces) {
 		int sq = _tzcnt_u64(pieces);
-		uint32_t idx = rook_magics[sq].offset + _pext_u64(board.piece_boards[6] | board.piece_boards[7], rook_magics[sq].mask);
+		uint32_t idx = rook_magics[sq].offset + _pext_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)], rook_magics[sq].mask);
 		Bitboard dsts = rook_movetable[idx] & ~board.piece_boards[OCC(board.side)];
 		while (dsts) {
 			int dst = _tzcnt_u64(dsts);
@@ -364,23 +364,22 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 	// Castling
 	if (board.side == WHITE && !board.control(SQ_E1).second) {
 		if (board.castling & WHITE_OO) {
-			if (!((board.piece_boards[6] | board.piece_boards[7]) & (square_bits(SQ_F1) | square_bits(SQ_G1))) &&
+			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_F1) | square_bits(SQ_G1))) &&
 				!board.control(SQ_F1).second)
 				moves.push_back(Move::make<CASTLING>(SQ_E1, SQ_G1));
 		}
 		if (board.castling & WHITE_OOO) {
-			if (!((board.piece_boards[6] | board.piece_boards[7]) & (square_bits(SQ_D1) | square_bits(SQ_C1) | square_bits(SQ_B1))) &&
+			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_D1) | square_bits(SQ_C1) | square_bits(SQ_B1))) &&
 				!board.control(SQ_D1).second)
 				moves.push_back(Move::make<CASTLING>(SQ_E1, SQ_C1));
 		}
 	} else if (board.side == BLACK && !board.control(SQ_E8).first) {
 		if (board.castling & BLACK_OO) {
-			if (!((board.piece_boards[6] | board.piece_boards[7]) & (square_bits(SQ_F8) | square_bits(SQ_G8))) &&
-				!board.control(SQ_F8).first)
+			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_F8) | square_bits(SQ_G8))) && !board.control(SQ_F8).first)
 				moves.push_back(Move::make<CASTLING>(SQ_E8, SQ_G8));
 		}
 		if (board.castling & BLACK_OOO) {
-			if (!((board.piece_boards[6] | board.piece_boards[7]) & (square_bits(SQ_D8) | square_bits(SQ_C8) | square_bits(SQ_B8))) &&
+			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_D8) | square_bits(SQ_C8) | square_bits(SQ_B8))) &&
 				!board.control(SQ_D8).first)
 				moves.push_back(Move::make<CASTLING>(SQ_E8, SQ_C8));
 		}
@@ -406,24 +405,28 @@ std::pair<int, int> Board::control(int sq) const {
 	int white = 0;
 	int black = 0;
 
-	uint32_t idx = rook_magics[sq].offset + _pext_u64(piece_boards[6] | piece_boards[7], rook_magics[sq].mask);
-	white += _mm_popcnt_u64(rook_movetable[idx] & (piece_boards[ROOK] | piece_boards[QUEEN]) & piece_boards[6]);
-	black += _mm_popcnt_u64(rook_movetable[idx] & (piece_boards[ROOK] | piece_boards[QUEEN]) & piece_boards[7]);
+	uint32_t idx = rook_magics[sq].offset + _pext_u64(piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)], rook_magics[sq].mask);
+	white += _mm_popcnt_u64(rook_movetable[idx] & (piece_boards[ROOK] | piece_boards[QUEEN]) & piece_boards[OCC(WHITE)]);
+	black += _mm_popcnt_u64(rook_movetable[idx] & (piece_boards[ROOK] | piece_boards[QUEEN]) & piece_boards[OCC(BLACK)]);
 
-	idx = bishop_magics[sq].offset + _pext_u64(piece_boards[6] | piece_boards[7], bishop_magics[sq].mask);
-	white += _mm_popcnt_u64(bishop_movetable[idx] & (piece_boards[BISHOP] | piece_boards[QUEEN]) & piece_boards[6]);
-	black += _mm_popcnt_u64(bishop_movetable[idx] & (piece_boards[BISHOP] | piece_boards[QUEEN]) & piece_boards[7]);
+	idx = bishop_magics[sq].offset + _pext_u64(piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)], bishop_magics[sq].mask);
+	white += _mm_popcnt_u64(bishop_movetable[idx] & (piece_boards[BISHOP] | piece_boards[QUEEN]) & piece_boards[OCC(WHITE)]);
+	black += _mm_popcnt_u64(bishop_movetable[idx] & (piece_boards[BISHOP] | piece_boards[QUEEN]) & piece_boards[OCC(BLACK)]);
 
-	white += _mm_popcnt_u64(knight_movetable[sq] & piece_boards[KNIGHT] & piece_boards[6]);
-	black += _mm_popcnt_u64(knight_movetable[sq] & piece_boards[KNIGHT] & piece_boards[7]);
+	white += _mm_popcnt_u64(knight_movetable[sq] & piece_boards[KNIGHT] & piece_boards[OCC(WHITE)]);
+	black += _mm_popcnt_u64(knight_movetable[sq] & piece_boards[KNIGHT] & piece_boards[OCC(BLACK)]);
 
-#ifdef PERFT
-	white += _mm_popcnt_u64(((square_bits(Square(sq - 9)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq - 7)) & 0xfefefefefefefefe)) & piece_boards[PAWN] & piece_boards[6]);
-	black += _mm_popcnt_u64(((square_bits(Square(sq + 9)) & 0xfefefefefefefefe) | (square_bits(Square(sq + 7)) & 0x7f7f7f7f7f7f7f7f)) & piece_boards[PAWN] & piece_boards[7]);
+	white += _mm_popcnt_u64(
+		((square_bits(Square(sq - 9)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq - 7)) & 0xfefefefefefefefe)) & piece_boards[PAWN] &
+		piece_boards[OCC(WHITE)]
+	);
+	black += _mm_popcnt_u64(
+		((square_bits(Square(sq + 9)) & 0xfefefefefefefefe) | (square_bits(Square(sq + 7)) & 0x7f7f7f7f7f7f7f7f)) & piece_boards[PAWN] &
+		piece_boards[OCC(BLACK)]
+	);
 
-	white += _mm_popcnt_u64(king_movetable[sq] & piece_boards[KING] & piece_boards[6]);
-	black += _mm_popcnt_u64(king_movetable[sq] & piece_boards[KING] & piece_boards[7]);
-#endif
+	white += _mm_popcnt_u64(king_movetable[sq] & piece_boards[KING] & piece_boards[OCC(WHITE)]);
+	black += _mm_popcnt_u64(king_movetable[sq] & piece_boards[KING] & piece_boards[OCC(BLACK)]);
 
 	return {white, black};
 }

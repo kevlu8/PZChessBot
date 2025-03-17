@@ -2,7 +2,8 @@
 
 extern Bitboard king_movetable[64];
 
-static constexpr Value safety_lookup[9] = {-10, 20, 40, 50, 50, 50, 50, 50, 50};
+static constexpr Value king_safety_lookup[9] = {-10, 20, 40, 50, 50, 50, 50, 50, 50};
+static constexpr Value multipawn_lookup[7] = {0, 0, 20, 40, 80, 160, 320};
 
 /**
  * @brief Boards to denote "good" squares for each piece type
@@ -18,19 +19,37 @@ Bitboard KING_SQUARES[8];
 Bitboard KING_ENDGAME_SQUARES[8];
 Bitboard PAWN_ENDGAME_SQUARES[8];
 
-__attribute__((constructor)) constexpr void init_heatmaps() {
+Bitboard PASSED_PAWN_MASKS[2][64];
+
+__attribute__((constructor)) constexpr void gen_lookups() {
+	// Convert heatmaps
 	for (int i = 0; i < 8; i++) {
 		for (int j = 0; j < 64; j++) {
-			PAWN_SQUARES[7-i] |= (((Bitboard)pawn_heatmap[j] >> i) & 1) << j;
-			KNIGHT_SQUARES[7-i] |= (((Bitboard)knight_heatmap[j] >> i) & 1) << j;
-			BISHOP_SQUARES[7-i] |= (((Bitboard)bishop_heatmap[j] >> i) & 1) << j;
-			ROOK_SQUARES[7-i] |= (((Bitboard)rook_heatmap[j] >> i) & 1) << j;
-			QUEEN_SQUARES[7-i] |= (((Bitboard)queen_heatmap[j] >> i) & 1) << j;
-			KING_SQUARES[7-i] |= (((Bitboard)king_heatmap[j] >> i) & 1) << j;
-			KING_ENDGAME_SQUARES[7-i] |= (((Bitboard)endgame_heatmap[j] >> i) & 1) << j;
-			PAWN_ENDGAME_SQUARES[7-i] |= (((Bitboard)pawn_endgame[j] >> i) & 1) << j;
+			PAWN_SQUARES[7 - i] |= (((Bitboard)pawn_heatmap[j] >> i) & 1) << j;
+			KNIGHT_SQUARES[7 - i] |= (((Bitboard)knight_heatmap[j] >> i) & 1) << j;
+			BISHOP_SQUARES[7 - i] |= (((Bitboard)bishop_heatmap[j] >> i) & 1) << j;
+			ROOK_SQUARES[7 - i] |= (((Bitboard)rook_heatmap[j] >> i) & 1) << j;
+			QUEEN_SQUARES[7 - i] |= (((Bitboard)queen_heatmap[j] >> i) & 1) << j;
+			KING_SQUARES[7 - i] |= (((Bitboard)king_heatmap[j] >> i) & 1) << j;
+			KING_ENDGAME_SQUARES[7 - i] |= (((Bitboard)endgame_heatmap[j] >> i) & 1) << j;
+			PAWN_ENDGAME_SQUARES[7 - i] |= (((Bitboard)pawn_endgame[j] >> i) & 1) << j;
 		}
 	}
+
+	for (int i = 8; i < 56; i++) {
+		Bitboard white_mask = 0x0101010101010101ULL << (i + 8);
+		Bitboard black_mask = 0x8080808080808080ULL >> (71 - i);
+		PASSED_PAWN_MASKS[WHITE][i] = white_mask | ((white_mask << 1) & 0x0101010101010101) | ((white_mask >> 1) & 0x8080808080808080);
+		PASSED_PAWN_MASKS[BLACK][i] = black_mask | ((black_mask << 1) & 0x0101010101010101) | ((black_mask >> 1) & 0x8080808080808080);
+	}
+}
+
+float multi(int x) {
+	// If there are fewer pieces on the board, we should raise the magnitude of the eval
+	// This allows for the engine to prioritize trading pieces when ahead, especially in the endgame
+	// The main caveat is that this may cause the engine to draw by insufficient material
+	int diff = std::min(32 - x, 20); // Number of pieces taken off the board
+	return 1.0 + 0.02 * diff;
 }
 
 Value eval(Board &board) {
@@ -49,6 +68,7 @@ Value eval(Board &board) {
 	Value bishop_pair = 0;
 	Value king_safety = 0;
 	Value tempo_bonus = 0;
+	Value pawn_structure = 0;
 
 	material += PawnValue * _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)]);
 	material += KnightValue * _mm_popcnt_u64(board.piece_boards[KNIGHT] & board.piece_boards[OCC(WHITE)]);
@@ -74,7 +94,11 @@ Value eval(Board &board) {
 	Bitboard boards[12];
 	for (int i = 0; i < 6; i++) {
 		boards[i] = board.piece_boards[i] & board.piece_boards[OCC(WHITE)];
-		boards[i+6] = __bswap_64(board.piece_boards[i] & board.piece_boards[OCC(BLACK)]);
+#ifndef WINDOWS
+		boards[i + 6] = __bswap_64(board.piece_boards[i] & board.piece_boards[OCC(BLACK)]);
+#else
+		boards[i + 6] = _bswap64(board.piece_boards[i] & board.piece_boards[OCC(BLACK)]);
+#endif
 	}
 
 	for (int i = 0; i < 8; i++) {
@@ -105,9 +129,13 @@ Value eval(Board &board) {
 
 	// For king safety, check for opponent control on squares around the king
 	// As well as counting our own pieces in front of the king
-	
-	king_safety += safety_lookup[_mm_popcnt_u64(king_movetable[__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6])] & board.piece_boards[6])];
-	king_safety -= safety_lookup[_mm_popcnt_u64(king_movetable[__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])] & board.piece_boards[7])];
+
+	king_safety += king_safety_lookup[_mm_popcnt_u64(
+		king_movetable[__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])] & board.piece_boards[OCC(WHITE)]
+	)];
+	king_safety -= king_safety_lookup[_mm_popcnt_u64(
+		king_movetable[__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])] & board.piece_boards[OCC(BLACK)]
+	)];
 	Bitboard white_king = (board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]);
 	Bitboard black_king = (board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]);
 	if (white_king & (square_bits(SQ_G1) | square_bits(SQ_H1))) {
@@ -144,5 +172,35 @@ Value eval(Board &board) {
 
 	tempo_bonus += board.side == WHITE ? 10 : -10;
 
-	return ((int)material * 3 + (int)piecesquare + (int)castling + (int)bishop_pair + (int)king_safety * 2 + (int)tempo_bonus);
+	for (Bitboard mask = 0x0101010101010101; mask & 0xff; mask <<= 1) {
+		// Doubled pawns
+		pawn_structure -= multipawn_lookup[_mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)] & mask)];
+		pawn_structure += multipawn_lookup[_mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)] & mask)];
+
+		// Isolated pawns
+		if (mask & 0b01111110) {
+			if (board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)] & ((mask << 1) | (mask >> 1)) == 0)
+				pawn_structure -= _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)] & mask) ? 60 : 0;
+			if (board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)] & ((mask << 1) | (mask >> 1)) == 0)
+				pawn_structure += _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)] & mask) ? 60 : 0;
+		}
+	}
+
+	Bitboard pawns = board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)];
+	while (pawns) {
+		int sq = _tzcnt_u64(pawns);
+		pawn_structure += (board.piece_boards[PAWN] & PASSED_PAWN_MASKS[WHITE][sq]) == 0 ? 80 : 0;
+		pawns = _blsr_u64(pawns);
+	}
+	pawns = board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)];
+	while (pawns) {
+		int sq = _tzcnt_u64(pawns);
+		pawn_structure -= (board.piece_boards[PAWN] & PASSED_PAWN_MASKS[BLACK][sq]) == 0 ? 80 : 0;
+		pawns = _blsr_u64(pawns);
+	}
+
+	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
+
+	return ((int)material * 3 + (int)piecesquare + (int)castling + (int)bishop_pair + (int)king_safety * 2 + (int)tempo_bonus + (int)pawn_structure) *
+		   multi(npieces);
 }
