@@ -37,6 +37,11 @@ Value eval(Board &board) {
 		}
 	}
 
-	int32_t score = nnue_eval(nnue_network, w_acc, b_acc);
+	int32_t score;
+	if (board.side == WHITE) {
+		score = nnue_eval(nnue_network, w_acc, b_acc);
+	} else {
+		score = -nnue_eval(nnue_network, b_acc, w_acc);
+	}
 	return score;
 }
