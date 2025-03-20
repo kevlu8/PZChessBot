@@ -3,12 +3,10 @@
 #include "../includes.hpp"
 
 #define INPUT_SIZE 768
-#define HL_SIZE 128
+#define HL_SIZE 64
 #define SCALE 400
 #define QA 255
 #define QB 64
-
-int16_t crelu(int16_t x);
 
 struct Accumulator {
 	int16_t val[HL_SIZE] = {};
