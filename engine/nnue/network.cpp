@@ -5,6 +5,7 @@ void Network::load(const std::string &filename) {
 	// bin format: little endian, 2 bytes per int16_t
 	if (!file) {
 		std::cerr << "Error opening file: " << filename << std::endl;
+		abort();
 		return;
 	}
 	file.read(reinterpret_cast<char *>(accumulator_weights), sizeof(accumulator_weights));

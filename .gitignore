@@ -47,5 +47,5 @@ prevrel
 pzchessbot
 lichess-bot/
 stockfish/
-*.bin
 nnue_test
+engine/*.bin

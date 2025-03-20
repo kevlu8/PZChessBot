@@ -5,7 +5,7 @@ Network nnue_network;
 Piece prev_mailbox[64] = {};
 
 void init_network() {
-	nnue_network.load("beans.bin");
+	nnue_network.load("nnue.bin");
 	for (int i = 0; i < HL_SIZE; i++) {
 		w_acc.val[i] = nnue_network.accumulator_biases[i];
 		b_acc.val[i] = nnue_network.accumulator_biases[i];

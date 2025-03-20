@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
 		} else if (command == "isready") {
 			std::cout << "readyok" << std::endl;
 		} else if (command == "ucinewgame") {
-			// Do nothing
+			/// TODO: reset transposition table
 		} else if (command.substr(0, 8) == "position") {
 			// either `position startpos` or `position fen ...`
 			if (command.find("startpos") != std::string::npos) {

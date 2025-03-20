@@ -12,7 +12,7 @@ jobs:
         steps:
             - uses: actions/checkout@v3
             - name: compile test binary
-              run: cd test && g++ -o perfts.out perfts.cpp ../engine/bitboard.cpp ../engine/movegen.cpp ../engine/search.cpp ../engine/eval.cpp ../engine/ttable.cpp ../engine/nnue/network.cpp -O3 -mbmi -mbmi2 -m64 -mlzcnt -mavx2 -mpopcnt -fPIC -DPERFT
+              run: cd test && cp ../nnue.bin . && g++ -o perfts.out perfts.cpp ../engine/bitboard.cpp ../engine/movegen.cpp ../engine/search.cpp ../engine/eval.cpp ../engine/ttable.cpp ../engine/nnue/network.cpp -O3 -mbmi -mbmi2 -m64 -mlzcnt -mavx2 -mpopcnt -fPIC -DPERFT
             - name: test
               run: ./test/perfts.out
     positions:
@@ -20,6 +20,6 @@ jobs:
         steps:
             - uses: actions/checkout@v3
             - name: compile test binary
-              run: cd test && g++ -o search.out search.cpp ../engine/bitboard.cpp ../engine/movegen.cpp ../engine/search.cpp ../engine/eval.cpp ../engine/ttable.cpp ../engine/nnue/network.cpp -O3 -std=c++17 -mbmi -mbmi2 -m64 -mlzcnt -mavx2 -mpopcnt -fPIC
+              run: cd test && cp ../nnue.bin . && g++ -o search.out search.cpp ../engine/bitboard.cpp ../engine/movegen.cpp ../engine/search.cpp ../engine/eval.cpp ../engine/ttable.cpp ../engine/nnue/network.cpp -O3 -std=c++17 -mbmi -mbmi2 -m64 -mlzcnt -mavx2 -mpopcnt -fPIC
             - name: test
               run: ./test/search.out
