@@ -7,6 +7,7 @@ void init_network() {
 	nnue_network.load("nnue.bin");
 }
 
+// Returns evaluation from white's perspective
 Value eval(Board &board) {
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
@@ -21,7 +22,7 @@ Value eval(Board &board) {
 	// Efficient updates are not implemented yet for debugging purposes
 	for (int i = 0; i < HL_SIZE; i++) {
 		w_acc.val[i] = nnue_network.accumulator_biases[i];
-		b_acc.val[i] = nnue_network.accumulator_biases[HL_SIZE + i];
+		b_acc.val[i] = nnue_network.accumulator_biases[i];
 	}
 
 	for (uint16_t i = 0; i < 64; i++) {
@@ -29,12 +30,10 @@ Value eval(Board &board) {
 		if (piece == NO_PIECE) continue;
 		bool side = piece >> 3; // 1 = black, 0 = white
 		PieceType pt = PieceType(piece & 7);
-		uint16_t index = calculate_index((Square)i, pt, side, 0);
-		if (side == WHITE) {
-			accumulator_add(nnue_network, w_acc, index);
-		} else {
-			accumulator_add(nnue_network, b_acc, index);
-		}
+		uint16_t w_index = calculate_index((Square)i, pt, side, 0);
+		accumulator_add(nnue_network, w_acc, w_index);
+		uint16_t b_index = calculate_index((Square)i, pt, side, 1);
+		accumulator_add(nnue_network, b_acc, b_index);
 	}
 
 	int32_t score;
