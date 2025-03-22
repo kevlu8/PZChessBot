@@ -18,6 +18,11 @@
 // this range, we expand the window.
 #define ASPIRATION_WINDOW 50
 
+// Null-move pruning reduction value
+// This is the amount of depth we reduce the search by
+// when we do a null-move search
+#define NMP_R_VALUE 3
+
 extern uint64_t nodes;
 
 std::pair<Move, Value> search(Board &board, int64_t time = 1e9);

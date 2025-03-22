@@ -2,10 +2,10 @@
 
 #define MOVENUM(x) ((((#x)[1] - '1') << 12) | (((#x)[0] - 'a') << 8) | (((#x)[3] - '1') << 4) | ((#x)[2] - 'a'))
 
-uint64_t nodes = 0;
-int seldepth = 0;
-uint64_t mxtime = 1000;
-bool early_exit = false, exit_allowed = false;
+uint64_t nodes = 0; // Node count
+int seldepth = 0; // Maximum searched depth, including quiescence search
+uint64_t mxtime = 1000; // Maximum time to search in milliseconds
+bool early_exit = false, exit_allowed = false; // Whether or not to exit the search, and if we are allowed to exit (so we don't exit on the depth 1)
 clock_t start = 0;
 
 uint64_t perft(Board &board, int depth) {
@@ -28,6 +28,12 @@ uint64_t perft(Board &board, int depth) {
 	return cnt;
 }
 
+/**
+ * Determines the amount of depth to reduce the search by, given the move's index and the remaining depth
+ * 
+ * Currently, the function is very gentle because our move ordering is not ideal.
+ * See https://www.chessprogramming.org/Late_Move_Reductions
+ */
 uint16_t reduction(int i, int d) {
 	if (d <= 1 || i <= 1)
 		return 1; // Don't reduce on nodes that lead to leaves since the TT doesn't provide info
@@ -37,6 +43,13 @@ uint16_t reduction(int i, int d) {
 	return 1;
 }
 
+/**
+ * MVV_LVA (most-valuable-victim:least-valuable-attacker) is a metric for move ordering that helps
+ * sort captures and promotions. We basically sort high-value captures first, and low-value captures
+ * last.
+ * 
+ * This is currently not used because somehow static eval sorting is outperforming it.
+ */
 Value MVV_LVA[6][6];
 
 __attribute__((constructor)) void init_mvvlva() {
@@ -50,6 +63,19 @@ __attribute__((constructor)) void init_mvvlva() {
 	}
 }
 
+/**
+ * Perform the quiescence search
+ * 
+ * Quiescence search is a technique to avoid the horizon effect, where the evaluation function
+ * incorrectly evaluates a position because it is not stable (e.g. there is a hanging queen).
+ * In this function, we search only captures and promotions, and return the best score.
+ * 
+ * TODO:
+ * - Search for checks and check evasions
+ * - Delta pruning (sort of like futility pruning, see https://www.chessprogramming.org/Delta_Pruning)
+ * - Late move reduction
+ * - Static exchange evaluation (don't search moves that lose material, see https://www.chessprogramming.org/Static_Exchange_Evaluation)
+ */
 Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	nodes++;
 
@@ -57,6 +83,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 
 	if (!(nodes & 4095)) {
 		// Check for early exit
+		// We check every 4096 nodes to avoid slowing down the search too much
 		uint64_t time = (clock() - start) / CLOCKS_PER_MS;
 		if (time > mxtime && exit_allowed) {
 			early_exit = true;
@@ -67,9 +94,11 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	seldepth = std::max(depth, seldepth);
 	Value stand_pat = eval(board) * side;
 
+	// If it's a mate, stop here since there's no point in searching further
 	if (stand_pat == VALUE_MATE || stand_pat == -VALUE_MATE)
 		return stand_pat;
 
+	// If we are too good, return the score
 	if (stand_pat >= beta)
 		return stand_pat;
 	if (stand_pat > alpha)
@@ -78,6 +107,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
+	// Sort captures and promotions (ideally we should be using MVV_LVA here)
 	pzstd::vector<std::pair<Move, Value>> scores;
 	for (Move &move : moves) {
 		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
@@ -121,8 +151,19 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	return best;
 }
 
+/**
+ * Order the moves based on the TTable entry, and then by static evaluation. The issue with this
+ * is that the static evaluation is arguably a lot slower than than using other metrics, but somehow
+ * SPRTs seem to indicate that this is the best way to do it.
+ * 
+ * TODO:
+ * - Use MVV_LVA for captures and promotions
+ * - Killers and history heuristics
+ */
 pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Move> &moves, int side, int depth, bool &entry_exists) {
 	pzstd::vector<std::pair<Move, Value>> scores;
+	// If we have a TTable entry *at all* for this position, we should use it
+	// Even if it falls outside of our alpha-beta window, it probably provides a decent move
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist, VALUE_INFINITE, -VALUE_INFINITE, -1);
 	Move entry = tentry ? tentry->best_move : NullMove;
 	entry_exists = false;
@@ -149,6 +190,7 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false) {
 	if (depth <= 0) {
+		// Reached the maximum depth, perform quiescence search
 		return quiesce(board, alpha, beta, side, 0);
 	}
 
@@ -161,22 +203,24 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		return (-VALUE_MATE) * side;
 	}
 
+	// Control on white king and black king respectively. First is white's control, second is that of black
 	auto wcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]));
 	auto bcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]));
 	
 	if (board.side == WHITE) {
+		// If it is white to move and white controls black's king, it's mate
 		if (bcontrol.first > 0)
 			return VALUE_MATE - 1;
 	} else {
+		// Likewise, the contrary also applies.
 		if (wcontrol.second > 0)
 			return VALUE_MATE - 1;
 	}
 
 	// Check for TTable cutoff
 	TTable::TTEntry *cutoff = board.ttable.probe(board.zobrist, alpha, beta, depth);
-	if (cutoff) {
+	if (cutoff)
 		return cutoff->eval;
-	}
 
 	bool in_check = false;
 	if (board.side == WHITE) {
@@ -185,10 +229,22 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		in_check = bcontrol.first > 0;
 	}
 
+	// Null-move pruning
 	if (!in_check) {
-		// Perform null-move pruning
+		/**
+		 * This works off the *null-move observation*.
+		 * 
+		 * The general idea is that a null move will almost always be worse than the best move
+		 * in a given position. So, if we can play a suboptimal move (in this case the null move)
+		 * and still be winning, we were probably winning in the first place.
+		 * 
+		 * The only issue with this approach is that it will fail in Zugzwang positions. There's
+		 * really no good way of preventing this except for disabling NMP in positions where there
+		 * are probably Zugzwangs (e.g. endgames).
+		 */
 		board.make_move(NullMove);
-		Value null_score = -__recurse(board, depth - 3, -beta, -beta + 1, -side, pv);
+		// Perform a reduced-depth search
+		Value null_score = -__recurse(board, depth - NMP_R_VALUE, -beta, -beta + 1, -side, pv);
 		board.unmake_move();
 		if (null_score >= beta)
 			return null_score;
@@ -204,7 +260,14 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	// Reverse futility pruning
 	if (!in_check && entry_exists && !pv) {
-		int cur_eval = eval(board) * side;
+		/**
+		 * The idea is that if we are winning by such a large margin that we can afford to lose
+		 * RFP_THRESHOLD * depth eval units per ply, we can return the current eval.
+		 * 
+		 * We need to make sure that we aren't in check (since we might get mated) and that the
+		 * TT entry exists (so that the current position is actually good).
+		 */
+		int cur_eval = eval(board) * side; // TODO: Use the TT entry instead of the eval function?
 		int margin = RFP_THRESHOLD * depth;
 		if (cur_eval >= beta + margin)
 			return cur_eval;
@@ -230,6 +293,18 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			}
 		} else {
 			if (i > 3) {
+				/**
+				 * PV Search (principal variation)
+				 * 
+				 * Assuming our move ordering is good, there probably won't be any moves past
+				 * the top 3 that are better than those top 3 moves. So, we run a reduced-depth
+				 * null-window search on those moves (a much shorter search) to ensure that they
+				 * are bad moves. 
+				 * 
+				 * However, if the move turns out to be better than expected, we run a full-window
+				 * full-depth re-search. This, however, doesn't happen often enough to slow down
+				 * the search.
+				 */
 				score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side);
 				if (score > alpha && score < beta) {
 					score = -__recurse(board, depth - 1, -beta, -alpha, -side);
@@ -240,7 +315,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
-			score = score - (uint16_t(score >> 15) << 1) - 1;
+			score = score - (uint16_t(score >> 15) << 1) - 1; // Mate score fix
 
 		board.unmake_move();
 
@@ -251,6 +326,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			best = score;
 			best_move = move;
 		}
+
 		if (score >= beta) {
 			board.ttable.store(board.zobrist, best, depth, LOWER_BOUND, best_move, board.halfmove);
 			return best;
@@ -262,6 +338,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	// Stalemate detection
 	if (best == -VALUE_MATE + 2) {
+		// If our engine thinks we are mated but we are not in check, we are stalemated
+		// TODO: Is this buggy?
 		if (board.side == WHITE) {
 			if (!board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second)
 				best = 0;
@@ -280,6 +358,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	return best;
 }
 
+// Search function from the first layer of moves
 std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
 	Move best_move = NullMove;
 	Value best_score = -VALUE_INFINITE;
@@ -357,9 +436,17 @@ std::pair<Move, Value> search(Board &board, int64_t time) {
 	for (int d = 1; d <= MAX_PLY; d++) {
 		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
 		if (eval != -VALUE_INFINITE && aspiration_enabled) {
-			// Aspiration window values are rather large because our eval function
-			// does not return values in centipawns, but rather in closer to ~1/400
-			// So this window size is actually around 50 centipawns
+			/**
+			 * Aspiration windows work by searching a small window around the expected value
+			 * of the position. By having a smaller window, our search runs faster. 
+			 * 
+			 * However, if we fail either high or low out of this window, we need to re-search
+			 * on a larger window.
+			 * 
+			 * TODO:
+			 * - Incremental window size, i.e. we don't search to VALUE_INFINITE but instead 
+			 * gradually increase the window size
+			 */
 			alpha = eval - ASPIRATION_WINDOW;
 			beta = eval + ASPIRATION_WINDOW;
 		}
@@ -373,6 +460,7 @@ std::pair<Move, Value> search(Board &board, int64_t time) {
 			alpha = -VALUE_INFINITE;
 		}
 		if (research) {
+			// If we failed, re-search
 			result = __search(board, d, alpha, beta, board.side ? -1 : 1);
 		}
 		if (early_exit)
