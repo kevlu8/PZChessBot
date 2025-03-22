@@ -6,5 +6,5 @@ if [ "$#" -ne 1 ]; then
 	exit 1
 fi
 
-g++ *.cpp -mavx2 -mbmi2 -mbmi -mlzcnt -mpopcnt -O3 -o $1
+g++ *.cpp nnue/*.cpp -mavx2 -mbmi2 -mbmi -mlzcnt -mpopcnt -O3 -o $1 -std=c++17
 

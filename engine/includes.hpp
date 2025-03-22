@@ -1,8 +1,10 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <fstream>
 #include <immintrin.h>
 #include <iomanip>
 #include <iostream>
@@ -12,7 +14,7 @@
 
 #include "pzstl/vector.hpp"
 
-#define VERSION "20250318T22"
+#define VERSION "20250319T23"
 
 typedef uint64_t Bitboard;
 
@@ -34,7 +36,7 @@ constexpr Value RookValue = 525;
 constexpr Value QueenValue = 1000;
 constexpr Value VALUE_MAX = QueenValue * 9 + (KnightValue + BishopValue + RookValue) * 2;
 
-#define CP_SCALE_FACTOR 4
+#define CP_SCALE_FACTOR 1
 
 #define CLOCKS_PER_MS (CLOCKS_PER_SEC / 1000)
 

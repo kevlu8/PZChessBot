@@ -37,6 +37,19 @@ uint16_t reduction(int i, int d) {
 	return 1;
 }
 
+Value MVV_LVA[6][6];
+
+__attribute__((constructor)) void init_mvvlva() {
+	for (int i = 0; i < 6; i++) {
+		for (int j = 0; j < 6; j++) {
+			if (i == KING)
+				MVV_LVA[i][j] = VALUE_INFINITE;
+			else
+				MVV_LVA[i][j] = PieceValue[i] * 8 - PieceValue[j];
+		}
+	}
+}
+
 Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	nodes++;
 
@@ -68,11 +81,10 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	pzstd::vector<std::pair<Move, Value>> scores;
 	for (Move &move : moves) {
 		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
-			// Value score = 0;
+			Value score = 0;
 			// score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
-			// scores.push_back({move, score});
 			board.make_move(move);
-			Value score = eval(board) * side;
+			score = eval(board) * side;
 			board.unmake_move();
 			scores.push_back({move, score});
 		} else if (move.type() == PROMOTION) {
@@ -120,8 +132,14 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 	}
 	for (Move &move : moves) {
 		if (move == entry) continue; // Don't add the TT move again
+		Value score = 0;
+		// if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
+		// 	score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
+		// } else if (move.type() == PROMOTION) {
+		// 	score = PieceValue[move.promotion() + KNIGHT] - PawnValue;
+		// }
 		board.make_move(move);
-		Value score = eval(board) * side;
+		score = eval(board) * side;
 		board.unmake_move();
 		scores.push_back({move, score});
 	}

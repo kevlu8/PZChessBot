@@ -10,13 +10,13 @@
 // RFP stops searching if our position is so good that
 // we can afford to lose RFP_THRESHOLD eval units per ply
 // and still be in a better position
-#define RFP_THRESHOLD 400
+#define RFP_THRESHOLD 150
 
 // Aspiration window size(s)
 // The aspiration window is the range of values we search
 // for the best move. If we fail to find the best move in
 // this range, we expand the window.
-#define ASPIRATION_WINDOW 200
+#define ASPIRATION_WINDOW 50
 
 extern uint64_t nodes;
 

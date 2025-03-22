@@ -16,6 +16,7 @@ int main(int argc, char *argv[]) {
 	std::cout << "PZChessBot v" << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
 	std::string command;
 	Board board = Board();
+	init_network();
 	std::thread searchthread;
 	while (getline(std::cin, command)) {
 		if (command == "uci") {
@@ -25,7 +26,7 @@ int main(int argc, char *argv[]) {
 		} else if (command == "isready") {
 			std::cout << "readyok" << std::endl;
 		} else if (command == "ucinewgame") {
-			// Do nothing
+			/// TODO: reset transposition table
 		} else if (command.substr(0, 8) == "position") {
 			// either `position startpos` or `position fen ...`
 			if (command.find("startpos") != std::string::npos) {
@@ -52,6 +53,9 @@ int main(int argc, char *argv[]) {
 			// if (searchthread.joinable()) {
 			// 	searchthread.join();
 			// }
+		} else if (command == "eval") {
+			Value score = eval(board);
+			std::cout << "eval " << score / CP_SCALE_FACTOR << std::endl;
 		} else if (command.substr(0, 2) == "go") {
 			// `go wtime ... btime ... winc ... binc ...`
 			// only care about wtime and btime
