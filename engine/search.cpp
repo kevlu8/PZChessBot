@@ -4,6 +4,7 @@
 
 uint64_t nodes = 0; // Node count
 int seldepth = 0; // Maximum searched depth, including quiescence search
+uint64_t mx_nodes = 1e18; // Maximum nodes to search
 uint64_t mxtime = 1000; // Maximum time to search in milliseconds
 bool early_exit = false, exit_allowed = false; // Whether or not to exit the search, and if we are allowed to exit (so we don't exit on the depth 1)
 clock_t start = 0;
@@ -85,7 +86,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 		// Check for early exit
 		// We check every 4096 nodes to avoid slowing down the search too much
 		uint64_t time = (clock() - start) / CLOCKS_PER_MS;
-		if (time > mxtime && exit_allowed) {
+		if ((time > mxtime || nodes > mx_nodes) && exit_allowed) {
 			early_exit = true;
 			return 0;
 		}
@@ -467,6 +468,7 @@ std::pair<Move, Value> search(Board &board, int64_t time) {
 		eval = result.second;
 		best_move = result.first;
 
+#ifdef UCI
 		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
 			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
 					  << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
@@ -476,6 +478,7 @@ std::pair<Move, Value> search(Board &board, int64_t time) {
 					  << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
 					  << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 		}
+#endif
 
 		exit_allowed = true;
 
@@ -523,6 +526,7 @@ std::pair<Move, Value> search_depth(Board &board, int depth) {
 		eval = result.second;
 		best_move = result.first;
 
+#ifdef UCI
 		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
 			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
 					  << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
@@ -532,7 +536,15 @@ std::pair<Move, Value> search_depth(Board &board, int depth) {
 					  << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
 					  << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 		}
+#endif
 	}
 
 	return {best_move, eval / CP_SCALE_FACTOR};
 }
+
+std::pair<Move, Value> search_nodes(Board &board, uint64_t nodes) {
+	mx_nodes = nodes;
+	auto res = search(board);
+	mx_nodes = 1e18; // Reset the node limit
+	return res;
+} // Search for a given number of nodes

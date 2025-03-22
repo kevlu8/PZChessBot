@@ -102,6 +102,7 @@ struct Board {
 	};
 
 	void load_fen(std::string);
+	std::string get_fen() const;
 	void print_board() const;
 	bool sanity_check(char *);
 

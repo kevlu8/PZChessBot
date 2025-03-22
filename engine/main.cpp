@@ -55,8 +55,13 @@ int main(int argc, char *argv[]) {
 			// }
 		} else if (command == "eval") {
 			Value score = eval(board);
+			board.print_board();
+			std::cout << "info string fen " << board.get_fen() << std::endl;
 			std::cout << "eval " << score / CP_SCALE_FACTOR << std::endl;
 		} else if (command.substr(0, 2) == "go") {
+#ifndef HCE
+			std::cout << "info string Using " << NNUE_PATH << " for evaluation" << std::endl;
+#endif
 			// `go wtime ... btime ... winc ... binc ...`
 			// only care about wtime and btime
 			std::stringstream ss(command);
