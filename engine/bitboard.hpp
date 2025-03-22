@@ -110,6 +110,8 @@ struct Board {
 
 	void legal_moves(pzstd::vector<Move> &) const;
 	std::pair<int, int> control(int) const;
+	Value see(Square);
+	Value see_capture(Move);
 
 	uint64_t hash() const;
 	void recompute_hash();

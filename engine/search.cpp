@@ -73,7 +73,7 @@ __attribute__((constructor)) void init_mvvlva() {
  * TODO:
  * - Search for checks and check evasions
  * - Delta pruning (sort of like futility pruning, see https://www.chessprogramming.org/Delta_Pruning)
- * - Late move reduction
+ * - Late move reduction (instead of reducing depth, we reduce the search window)
  * - Static exchange evaluation (don't search moves that lose material, see https://www.chessprogramming.org/Static_Exchange_Evaluation)
  */
 Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
@@ -112,17 +112,10 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	for (Move &move : moves) {
 		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
 			Value score = 0;
-			// score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
-			board.make_move(move);
-			score = eval(board) * side;
-			board.unmake_move();
+			score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
 			scores.push_back({move, score});
 		} else if (move.type() == PROMOTION) {
-			// scores.push_back({move, PieceValue[move.promotion() + KNIGHT] - PawnValue});
-			board.make_move(move);
-			Value score = eval(board) * side;
-			board.unmake_move();
-			scores.push_back({move, score});
+			scores.push_back({move, PieceValue[move.promotion() + KNIGHT] - PawnValue});
 		}
 	}
 	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
@@ -131,6 +124,12 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 
 	for (int i = 0; i < scores.size(); i++) {
 		Move &move = scores[i].first;
+
+		// Value see = board.see_capture(move);
+		// if (see < 0) {
+		// 	continue; // Don't search moves that lose material
+		// }
+
 		board.make_move(move);
 		Value score = -quiesce(board, -beta, -alpha, -side, depth + 1);
 		board.unmake_move();

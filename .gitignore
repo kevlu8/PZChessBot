@@ -49,3 +49,4 @@ lichess-bot/
 stockfish/
 nnue_test
 engine/*.bin
+*bullet*

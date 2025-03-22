@@ -430,3 +430,72 @@ std::pair<int, int> Board::control(int sq) const {
 
 	return {white, black};
 }
+
+Value Board::see(Square sq) {
+	Value val = 0;
+
+	Bitboard tmp;
+	PieceType atk = NO_PIECETYPE; // Get the least valuable attacker
+	Square atksq = SQ_NONE; // Get the square of the attacker
+	uint32_t idx;
+
+	if (side == WHITE)
+		tmp = ((square_bits(Square(sq - 9)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq - 7)) & 0xfefefefefefefefe)) & piece_boards[PAWN] & piece_boards[OCC(WHITE)];
+	else
+		tmp = ((square_bits(Square(sq + 7)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq + 9)) & 0xfefefefefefefefe)) & piece_boards[PAWN] & piece_boards[OCC(WHITE)];
+	if (tmp) {
+		atk = PAWN;
+		atksq = Square(__tzcnt_u64(tmp));
+		goto found;
+	}
+
+	tmp = knight_movetable[sq] & piece_boards[KNIGHT] & piece_boards[OCC(side)];
+	if (tmp) {
+		atk = KNIGHT;
+		atksq = Square(__tzcnt_u64(tmp));
+		goto found;
+	}
+
+	idx = bishop_magics[sq].offset + _pext_u64(piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)], bishop_magics[sq].mask);
+	tmp = bishop_movetable[idx] & piece_boards[BISHOP] & piece_boards[OCC(side)];
+	if (tmp) {
+		atk = BISHOP;
+		atksq = Square(__tzcnt_u64(tmp));
+		goto found;
+	}
+
+	idx = rook_magics[sq].offset + _pext_u64(piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)], rook_magics[sq].mask);
+	tmp = rook_movetable[idx] & piece_boards[ROOK] & piece_boards[OCC(side)];
+	if (tmp) {
+		atk = ROOK;
+		atksq = Square(__tzcnt_u64(tmp));
+		goto found;
+	}
+
+	idx = bishop_magics[sq].offset + _pext_u64(piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)], bishop_magics[sq].mask);
+	tmp = bishop_movetable[idx] & piece_boards[QUEEN] & piece_boards[OCC(side)];
+	idx = rook_magics[sq].offset + _pext_u64(piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)], rook_magics[sq].mask);
+	tmp |= rook_movetable[idx] & piece_boards[QUEEN] & piece_boards[OCC(side)];
+	if (tmp) {
+		atk = QUEEN;
+		atksq = Square(__tzcnt_u64(tmp));
+		goto found;
+	}
+
+	found:
+	if (atk != NO_PIECETYPE) {
+		make_move(Move::make<MoveType::NORMAL>(atksq, sq));
+		val = std::max(0, PieceValue[atk & 7] - see(sq));
+		unmake_move();
+	}
+	return val;
+}
+
+Value Board::see_capture(Move move) {
+	Value val = 0;
+	PieceType victim = PieceType(mailbox[move.dst()] & 7);
+	make_move(move);
+	val = PieceValue[victim] - see(move.src());
+	unmake_move();
+	return val;
+}

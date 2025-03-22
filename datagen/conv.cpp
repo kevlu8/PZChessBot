@@ -8,7 +8,7 @@
 using namespace std;
 using namespace chess;
 
-ofstream outFile("data.bullet.txt");
+ofstream outFile("data.bullet.txt", ios::out | ios::app);
 
 string result = "";
 int positions = 0;

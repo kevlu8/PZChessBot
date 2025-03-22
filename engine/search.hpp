@@ -23,6 +23,10 @@
 // when we do a null-move search
 #define NMP_R_VALUE 3
 
+// Delta pruning threshold
+// This is the threshold for delta pruning (in centipawns)
+#define DELTA_THRESHOLD 300
+
 extern uint64_t nodes;
 
 std::pair<Move, Value> search(Board &board, int64_t time = 1e9);
