@@ -1,14 +1,15 @@
 #include "includes.hpp"
 
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <csignal>
+#include <mutex>
+#include <queue>
+#include <sched.h>
 #include <sstream>
 #include <thread>
-#include <mutex>
 #include <vector>
-#include <queue>
-#include <condition_variable>
-#include <chrono>
-#include <csignal>
 
 #include "bitboard.hpp"
 #include "eval.hpp"
@@ -17,8 +18,7 @@
 #include "search.hpp"
 
 #define OUT_FILE "data.bullet.txt"
-#define FIXED_NODES 100000 // Around 25ms per move, adjust accordingly
-#define NUM_THREADS 8      // Adjust based on your CPU cores
+#define FIXED_NODES 500000 // Around 25ms per move, adjust accordingly
 
 // Thread-safe queue for storing generated game data
 class SafeQueue {
@@ -70,20 +70,25 @@ std::atomic<bool> shouldStop(false);
 std::mutex printMutex;
 
 // Worker thread function to generate games
-void generateGames() {
-    while (!shouldStop.load()) {
+void generateGames(int worker_id) {
+	cpu_set_t mask;
+	CPU_ZERO(&mask);
+	CPU_SET(worker_id, &mask);
+	sched_setaffinity(0, sizeof(mask), &mask);
+
+	while (!shouldStop.load()) {
         Board board = Board();
         // Generate ~5 random moves to start the game
-        for (int i = 0; i < 5; i++) {
-            pzstd::vector<Move> moves;
-            board.legal_moves(moves);
-            if (moves.size() == 0) {
-                continue; // Skip this game and start a new one
-            }
-            board.make_move(moves[rand() % moves.size()]);
-        }
-        
-        // Self play time!
+		for (int i = 0; i < 6; i++) {
+			pzstd::vector<Move> moves;
+			board.legal_moves(moves);
+			if (moves.size() == 0) {
+				continue; // Skip this game and start a new one
+			}
+			board.make_move(moves[rand() % moves.size()]);
+		}
+
+		// Self play time!
         Value eval = 0;
         pzstd::largevector<std::pair<std::string, Value>> game; // fen, eval
         std::string res = "";
@@ -149,8 +154,8 @@ void writerThread(std::ofstream& outfile) {
 void monitorThread(std::chrono::steady_clock::time_point start) {
     while (!shouldStop.load()) {
         std::this_thread::sleep_for(std::chrono::seconds(300)); // Update stats every 5 minutes
-        
-        int positions = totalPositions.load();
+
+		int positions = totalPositions.load();
         int games = totalGames.load();
         
         // Use wall clock time instead of CPU time
@@ -173,8 +178,10 @@ void signalHandler(int signal) {
 int main(int argc, char *argv[]) {
     // Data generation script
     std::ofstream outfile(OUT_FILE, std::ios::app); // Append mode in case of restart
-    
-    std::cout << "PZChessBot v" << VERSION << " parallelized data generation script" << std::endl;
+
+	const int NUM_THREADS = std::thread::hardware_concurrency();
+
+	std::cout << "PZChessBot v" << VERSION << " parallelized data generation script" << std::endl;
     std::cout << "Using " << NUM_THREADS << " worker threads" << std::endl;
     std::cout << "I'm going to generate as much data as I can, until you stop me. Press Ctrl+C to stop." << std::endl << std::endl;
 
@@ -196,8 +203,8 @@ int main(int argc, char *argv[]) {
     // Create worker threads
     std::vector<std::thread> workers;
     for (int i = 0; i < NUM_THREADS; i++) {
-        workers.push_back(std::thread(generateGames));
-    }
+		workers.push_back(std::thread(generateGames, i));
+	}
     
     // Join threads when done (this won't happen unless SIGINT is received)
     for (auto& worker : workers) {
