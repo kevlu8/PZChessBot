@@ -67,6 +67,7 @@ SafeQueue gameDataQueue;
 std::atomic<int> totalPositions(0);
 std::atomic<int> totalGames(0);
 std::atomic<bool> shouldStop(false);
+std::atomic<bool> stopWriter(false);
 std::mutex printMutex;
 
 // Worker thread function to generate games
@@ -136,37 +137,47 @@ void generateGames(int worker_id) {
 			totalGames++;
 		}
 	}
+	std::cout << "Worker " << worker_id << " finished." << std::endl;
 }
 
 // Writer thread function to handle file I/O
-void writerThread(std::ofstream& outfile) {
+void writerThread(std::ofstream &outfile) {
 	std::string data;
-	while (!shouldStop.load() || !gameDataQueue.empty()) {
+	while (!stopWriter.load() || !gameDataQueue.empty()) {
 		if (gameDataQueue.pop(data)) {
 			outfile << data;
 			outfile.flush(); // Ensure data is written to disk
 		} else {
-			std::this_thread::sleep_for(std::chrono::milliseconds(10)); // Prevent CPU spinning
+			std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Prevent CPU spinning
 		}
 	}
+	std::cout << "Writer thread finished." << std::endl;
 }
 
 // Monitoring thread to print statistics
 void monitorThread(std::chrono::steady_clock::time_point start) {
-	while (!shouldStop.load()) {
-		std::this_thread::sleep_for(std::chrono::seconds(300)); // Update stats every 5 minutes
+	auto prev = std::chrono::steady_clock::now();
+	while (!stopWriter.load()) {
+		// Use wall clock time instead of CPU time
+		auto now = std::chrono::steady_clock::now();
+
+		// Update stats every 5 minutes
+		if (now - prev < std::chrono::seconds(300)) {
+			continue; // Skip if not enough time has passed
+		}
+		prev = now;
 
 		int positions = totalPositions.load();
 		int games = totalGames.load();
 
-		// Use wall clock time instead of CPU time
-		auto now = std::chrono::steady_clock::now();
 		double elapsedSecs = std::chrono::duration<double>(now - start).count();
 
 		std::lock_guard<std::mutex> lock(printMutex);
 		std::cout << "Generated " << positions << " positions in " << games << " games in " << elapsedSecs << "s" << std::endl;
-		std::cout << "Positions / second: " << (positions / elapsedSecs) << std::endl;
+		std::cout << "Positions / second: ~" << (positions / elapsedSecs) << std::endl;
 		std::cout << "Queue size: " << gameDataQueue.size() << std::endl << std::endl;
+
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 }
 
@@ -213,6 +224,9 @@ int main(int argc, char *argv[]) {
 			worker.join();
 		}
 	}
+
+	// Stop the writer thread
+	stopWriter.store(true);
 
 	if (monitor.joinable()) {
 		monitor.join();
