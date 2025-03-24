@@ -72,10 +72,12 @@ std::mutex printMutex;
 
 // Worker thread function to generate games
 void generateGames(int worker_id) {
+#ifndef WINDOWS
 	cpu_set_t mask;
 	CPU_ZERO(&mask);
 	CPU_SET(worker_id, &mask);
 	sched_setaffinity(0, sizeof(mask), &mask);
+#endif
 
 	while (!shouldStop.load()) {
 		Board board = Board();

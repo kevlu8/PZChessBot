@@ -79,7 +79,7 @@ Value eval(Board &board) {
 		// Likewise, if white has no king, this is mate for black
 		return -VALUE_MATE;
 	}
-	
+
 #ifdef HCE
 	Value material = 0;
 	Value piecesquare = 0;
@@ -116,7 +116,7 @@ Value eval(Board &board) {
 #ifndef WINDOWS
 		boards[i + 6] = __bswap_64(board.piece_boards[i] & board.piece_boards[OCC(BLACK)]);
 #else
-		boards[i + 6] = _bswap64(board.piece_boards[i] & board.piece_boards[OCC(BLACK)]);
+		boards[i + 6] = _byteswap_ulong(board.piece_boards[i] & board.piece_boards[OCC(BLACK)]);
 #endif
 	}
 
@@ -227,7 +227,8 @@ Value eval(Board &board) {
 	for (uint16_t i = 0; i < 64; i++) {
 		Piece piece = board.mailbox[i];
 		Piece prev_piece = prev_mailbox[i];
-		if (piece == prev_piece) continue; // No change
+		if (piece == prev_piece)
+			continue; // No change
 		bool side = piece >> 3; // 1 = black, 0 = white
 		bool prev_side = prev_piece >> 3; // 1 = black, 0 = white
 		PieceType pt = PieceType(piece & 7);
