@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Check 2 params
+if [ "$#" -ne 1 ]; then
+	echo "Usage: ./compile.sh <output_file>"
+	exit 1
+fi
+
+g++ *.cpp nnue/*.cpp -mavx2 -mbmi2 -mbmi -mlzcnt -mpopcnt -O3 -o $1 -std=c++17 -DHCE -DUCI

@@ -3,8 +3,6 @@
 #include <sstream>
 #include <thread>
 
-#define UCI
-
 #include "bitboard.hpp"
 #include "eval.hpp"
 #include "movegen.hpp"

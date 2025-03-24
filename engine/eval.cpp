@@ -69,7 +69,7 @@ void init_network() {
 #endif
 }
 
-// Returns evaluation from white's perspective
+#ifdef HCE
 Value eval(Board &board) {
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
@@ -80,7 +80,6 @@ Value eval(Board &board) {
 		return -VALUE_MATE;
 	}
 
-#ifdef HCE
 	Value material = 0;
 	Value piecesquare = 0;
 	Value castling = 0;
@@ -222,7 +221,18 @@ Value eval(Board &board) {
 
 	return ((int)material * 3 + (int)piecesquare + (int)castling + (int)bishop_pair + (int)king_safety * 2 + (int)tempo_bonus + (int)pawn_structure) *
 		   multi(npieces);
+}
 #else
+Value eval(Board &board) {
+	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
+		// If black has no king, this is mate for white
+		return VALUE_MATE;
+	}
+	if (!(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])) {
+		// Likewise, if white has no king, this is mate for black
+		return -VALUE_MATE;
+	}
+
 	// Query the NNUE network
 	for (uint16_t i = 0; i < 64; i++) {
 		Piece piece = board.mailbox[i];
@@ -260,5 +270,5 @@ Value eval(Board &board) {
 		score = -nnue_eval(nnue_network, b_acc, w_acc);
 	}
 	return score;
-#endif
 }
+#endif
