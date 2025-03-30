@@ -189,11 +189,6 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 }
 
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false) {
-	if (depth <= 0) {
-		// Reached the maximum depth, perform quiescence search
-		return quiesce(board, alpha, beta, side, 0);
-	}
-
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
 		return (VALUE_MATE) * side;
@@ -217,17 +212,24 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			return VALUE_MATE - 1;
 	}
 
-	// Check for TTable cutoff
-	TTable::TTEntry *cutoff = board.ttable.probe(board.zobrist, alpha, beta, depth);
-	if (cutoff)
-		return cutoff->eval;
-
 	bool in_check = false;
 	if (board.side == WHITE) {
 		in_check = wcontrol.second > 0;
 	} else {
 		in_check = bcontrol.first > 0;
 	}
+
+	if (in_check) depth++; // Check extensions
+
+	if (depth <= 0) {
+		// Reached the maximum depth, perform quiescence search
+		return quiesce(board, alpha, beta, side, 0);
+	}
+
+	// Check for TTable cutoff
+	TTable::TTEntry *cutoff = board.ttable.probe(board.zobrist, alpha, beta, depth);
+	if (cutoff)
+		return cutoff->eval;
 
 	// Null-move pruning
 	if (!in_check) {
