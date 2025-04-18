@@ -82,6 +82,7 @@ struct Board {
 	// Moves with extra information (taken piece etc..)
 	// better documentation will be included later
 	std::stack<HistoryEntry> move_hist;
+	std::stack<uint8_t> halfmove_hist;
 
 	Board() {
 		// Load starting position

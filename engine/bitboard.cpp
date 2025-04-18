@@ -375,6 +375,7 @@ void Board::make_move(Move move) {
 
 	// Add move to move history
 	move_hist.push(HistoryEntry(move, mailbox[move.dst()], castling, ep_square));
+	halfmove_hist.push(halfmove);
 	Square tmp_ep_square = SQ_NONE;
 
 	// Handle captures
@@ -397,7 +398,12 @@ void Board::make_move(Move move) {
 				castling &= ~BLACK_OO;
 			zobrist ^= zobrist_castling[old_castling] ^ zobrist_castling[castling];
 		}
+
+		halfmove = -1;
 	}
+
+	if (piece_boards[move.src()] & 0b111 == PAWN)
+		halfmove = -1;
 
 	if (move.data == 0) {
 		// Null move, do nothing, just change sides
@@ -684,7 +690,8 @@ void Board::unmake_move() {
 	zobrist ^= zobrist_castling[castling] ^ zobrist_castling[prev.prev_castling()];
 	castling = prev.prev_castling();
 
-	halfmove--;
+	halfmove = halfmove_hist.top();
+	halfmove_hist.pop();
 
 #ifdef HASHCHECK
 	old_hash = zobrist;
