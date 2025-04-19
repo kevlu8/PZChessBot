@@ -87,7 +87,6 @@ int main(int argc, char *argv[]) {
 			Value score = eval(board);
 			board.print_board();
 			std::cout << "info string fen " << board.get_fen() << std::endl;
-			std::cout << board.ttable.mxsize() << ' ' << TT_SIZE << std::endl;
 			std::cout << "eval " << score / CP_SCALE_FACTOR << std::endl;
 		} else if (command.substr(0, 2) == "go") {
 #ifndef HCE
