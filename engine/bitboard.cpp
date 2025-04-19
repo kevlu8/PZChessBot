@@ -402,7 +402,7 @@ void Board::make_move(Move move) {
 		halfmove = -1;
 	}
 
-	if (mailbox[move.src()] & 0b111 == PAWN)
+	if ((mailbox[move.src()] & 0b111) == PAWN)
 		halfmove = -1;
 
 	if (move.data == 0) {
