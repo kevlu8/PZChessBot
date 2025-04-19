@@ -18,6 +18,15 @@ namespace pzstd {
 		void clear() {
 			sz = 0;
 		}
+		uint16_t count(T value) const {
+			uint16_t cnt = 0;
+			for (uint16_t i = 0; i < sz; i++) {
+				if (data[i] == value) {
+					cnt++;
+				}
+			}
+			return cnt;
+		}
 		T &operator[](uint16_t index) {
 			return data[index];
 		}

@@ -172,6 +172,44 @@ void Board::load_fen(std::string fen) {
 	recompute_hash();
 }
 
+std::string Board::get_fen() const {
+	std::string res = "";
+	for (int rank = RANK_8; rank >= 0; rank--) {
+		int empty = 0;
+		for (int file = FILE_A; file <= FILE_H; file++) {
+			if (mailbox[rank * 8 + file] == NO_PIECE) {
+				empty++;
+			} else {
+				if (empty > 0) {
+					res += std::to_string(empty);
+					empty = 0;
+				}
+				res += piece_letter[mailbox[rank * 8 + file]];
+			}
+		}
+		if (empty > 0) {
+			res += std::to_string(empty);
+		}
+		if (rank > 0) {
+			res += '/';
+		}
+	}
+	res += side ? " b " : " w ";
+	if (castling == NO_CASTLE) {
+		res += "- ";
+	} else {
+		if (castling & WHITE_OO)
+			res += "K";
+		if (castling & WHITE_OOO)
+			res += "Q";
+		if (castling & BLACK_OO)
+			res += "k";
+		if (castling & BLACK_OOO)
+			res += "q";
+	}
+	return res; // Shortened fen (no ep, halfmove, etc) since we don't need those in datagen
+}
+
 bool Board::sanity_check(char *print) {
 	bool error = 0;
 	// Start at -1 because we increment before processing to guarantee it happens in every case
@@ -337,6 +375,7 @@ void Board::make_move(Move move) {
 
 	// Add move to move history
 	move_hist.push(HistoryEntry(move, mailbox[move.dst()], castling, ep_square));
+	halfmove_hist.push(halfmove);
 	Square tmp_ep_square = SQ_NONE;
 
 	// Handle captures
@@ -359,7 +398,12 @@ void Board::make_move(Move move) {
 				castling &= ~BLACK_OO;
 			zobrist ^= zobrist_castling[old_castling] ^ zobrist_castling[castling];
 		}
+
+		halfmove = -1;
 	}
+
+	if (piece_boards[move.src()] & 0b111 == PAWN)
+		halfmove = -1;
 
 	if (move.data == 0) {
 		// Null move, do nothing, just change sides
@@ -646,7 +690,8 @@ void Board::unmake_move() {
 	zobrist ^= zobrist_castling[castling] ^ zobrist_castling[prev.prev_castling()];
 	castling = prev.prev_castling();
 
-	halfmove--;
+	halfmove = halfmove_hist.top();
+	halfmove_hist.pop();
 
 #ifdef HASHCHECK
 	old_hash = zobrist;

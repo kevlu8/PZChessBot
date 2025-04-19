@@ -18,7 +18,7 @@ struct Network {
 	int16_t output_weights[2 * HL_SIZE];
 	int16_t output_bias;
 
-	void load(const std::string &filename);
+	void load();
 };
 
 int calculate_index(Square sq, PieceType pt, bool side, bool perspective);

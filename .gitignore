@@ -41,7 +41,7 @@ in*
 
 book.db
 fastchess/
-old
+*old
 new
 prevrel
 pzchessbot
@@ -49,3 +49,4 @@ lichess-bot/
 stockfish/
 nnue_test
 engine/*.bin
+*bullet*

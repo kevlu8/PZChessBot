@@ -16,6 +16,10 @@ PZChessBot is a basic negamax engine.
 - Late-move reductions
 - Transposition tables
 - Null-move pruning
+- Move ordering using static eval in search and MVV-LVA in QSearch
+- Reverse futility pruning
+- Aspiration windows and iterative deepening
+- Check extensions
 
 ### Moves and board representation
 
@@ -24,10 +28,6 @@ PZChessBot is a basic negamax engine.
 
 ### Evaluation
 
-- Simple HCE-type evaluation
-- Weighs material and position (piece-square tables)
-- Roughly counts king safety though it is not very accurate
-
-## Up next
-
-- NNUE?
+- Simple NNUE-type evaluation
+- Runs a 768->128x2->1 model
+- Trained on a mix of Stockfish and LC0 Data

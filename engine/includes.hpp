@@ -36,7 +36,15 @@ constexpr Value RookValue = 525;
 constexpr Value QueenValue = 1000;
 constexpr Value VALUE_MAX = QueenValue * 9 + (KnightValue + BishopValue + RookValue) * 2;
 
+#ifdef HCE
+#define CP_SCALE_FACTOR 4
+#else
 #define CP_SCALE_FACTOR 1
+#endif
+
+#ifndef NNUE_PATH
+#define NNUE_PATH "nnue.bin"
+#endif
 
 #define CLOCKS_PER_MS (CLOCKS_PER_SEC / 1000)
 

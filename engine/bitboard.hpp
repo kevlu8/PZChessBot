@@ -82,6 +82,7 @@ struct Board {
 	// Moves with extra information (taken piece etc..)
 	// better documentation will be included later
 	std::stack<HistoryEntry> move_hist;
+	std::stack<uint8_t> halfmove_hist;
 
 	Board() {
 		// Load starting position
@@ -102,6 +103,7 @@ struct Board {
 	};
 
 	void load_fen(std::string);
+	std::string get_fen() const;
 	void print_board() const;
 	bool sanity_check(char *);
 
@@ -110,6 +112,8 @@ struct Board {
 
 	void legal_moves(pzstd::vector<Move> &) const;
 	std::pair<int, int> control(int) const;
+	Value see(Square);
+	Value see_capture(Move);
 
 	uint64_t hash() const;
 	void recompute_hash();

@@ -3,7 +3,7 @@
 #include "includes.hpp"
 #include "move.hpp"
 
-#define TT_SIZE (1 << 24)
+#define TT_SIZE (16 * 1024 * 1024 / sizeof(TTable::TTEntry))
 // Note that the actual size of TT is TT_SIZE * 16 bytes
 
 enum TTFlag {
