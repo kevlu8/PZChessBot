@@ -30,8 +30,8 @@ int main(int argc, char *argv[]) {
 		if (command == "uci") {
 			std::cout << "id name PZChessBot v" << VERSION << std::endl;
 			std::cout << "id author kevlu8 and wdotmathree" << std::endl;
-			// std::cout << "option name Hash type spin default 16 min 16 max 16" << std::endl;
-			// std::cout << "option name Threads type spin min 1 max 1" << std::endl; // Not implemented yet
+			std::cout << "option name Hash type spin default 16 min 1 max 2048" << std::endl;
+			std::cout << "option name Threads type spin min 1 max 1" << std::endl; // Not implemented yet
 			std::cout << "uciok" << std::endl;
 		} else if (command == "isready") {
 			std::cout << "readyok" << std::endl;
@@ -47,7 +47,12 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			if (optionname == "Hash") {
-				TT_SIZE = std::stoi(optionvalue) * 1024 * 1024 / sizeof(TTable::TTEntry);
+				int optionint = std::stoi(optionvalue);
+				if (optionint < 1 || optionint > 2048) {
+					std::cerr << "Invalid hash size: " << optionint << std::endl;
+					continue;
+				}
+				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTEntry);
 			}
 		} else if (command == "ucinewgame") {
 			/// TODO: reset transposition table
