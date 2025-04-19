@@ -9,9 +9,11 @@
 #include "movetimings.hpp"
 #include "search.hpp"
 
+int TT_SIZE = 16 * 1024 * 1024 / sizeof(TTable::TTEntry); // 16 MB
+
 int main(int argc, char *argv[]) {
 	if (argc == 2 && std::string(argv[1]) == "bench") {
-		Board board = Board();
+		Board board = Board(TT_SIZE);
 		init_network();
 		clock_t start = clock();
 		search_depth(board, 10, true);
@@ -21,7 +23,7 @@ int main(int argc, char *argv[]) {
 	bool online = argc == 2 && std::string(argv[1]) == "--online";
 	std::cout << "PZChessBot v" << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
 	std::string command;
-	Board board = Board();
+	Board board = Board(TT_SIZE);
 	init_network();
 	std::thread searchthread;
 	while (getline(std::cin, command)) {
@@ -33,7 +35,7 @@ int main(int argc, char *argv[]) {
 			std::cout << "uciok" << std::endl;
 		} else if (command == "isready") {
 			std::cout << "readyok" << std::endl;
-		} else if (command == "setoption") {
+		} else if (command.substr(0, 9) == "setoption") {
 			std::string optionname, optionvalue, token;
 			std::stringstream ss(command);
 			ss >> token;
@@ -45,21 +47,21 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			if (optionname == "Hash") {
-				/// TODO: set hash size
+				TT_SIZE = std::stoi(optionvalue) * 1024 * 1024 / sizeof(TTable::TTEntry);
 			}
 		} else if (command == "ucinewgame") {
 			/// TODO: reset transposition table
-			board = Board();
+			board = Board(TT_SIZE);
 		} else if (command.substr(0, 8) == "position") {
 			// either `position startpos` or `position fen ...`
 			if (command.find("startpos") != std::string::npos) {
-				board = Board();
+				board = Board(TT_SIZE);
 			} else if (command.find("fen") != std::string::npos) {
 				std::string fen = command.substr(command.find("fen") + 4);
 				if (fen.find("moves") != std::string::npos) {
 					fen = fen.substr(0, fen.find("moves"));
 				}
-				board = Board(fen);
+				board = Board(TT_SIZE, fen);
 			}
 			if (command.find("moves") != std::string::npos) {
 				std::string moves = command.substr(command.find("moves") + 6);
@@ -80,6 +82,7 @@ int main(int argc, char *argv[]) {
 			Value score = eval(board);
 			board.print_board();
 			std::cout << "info string fen " << board.get_fen() << std::endl;
+			std::cout << board.ttable.mxsize() << ' ' << TT_SIZE << std::endl;
 			std::cout << "eval " << score / CP_SCALE_FACTOR << std::endl;
 		} else if (command.substr(0, 2) == "go") {
 #ifndef HCE

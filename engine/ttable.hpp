@@ -3,9 +3,6 @@
 #include "includes.hpp"
 #include "move.hpp"
 
-#define TT_SIZE (16 * 1024 * 1024 / sizeof(TTable::TTEntry))
-// Note that the actual size of TT is TT_SIZE * 16 bytes
-
 enum TTFlag {
 	EXACT = 0,
 	LOWER_BOUND = 1, // eval might be higher than stored value
@@ -13,7 +10,9 @@ enum TTFlag {
 	INVALID = 3
 };
 
-struct TTable {
+class TTable {
+	int TT_SIZE;
+	public:
 	struct TTEntry {
 		uint64_t key;
 		Move best_move;
@@ -31,21 +30,21 @@ struct TTable {
 	TTEntry *TT;
 	uint64_t tsize=0;
 
-	TTable() { TT = new TTEntry[TT_SIZE]; }
+	TTable(int size) : TT_SIZE(size) { TT = new TTEntry[size]; }
 
 	~TTable() { delete[] TT; }
 
-	TTable(const TTable &o) {
-		TT = new TTEntry[TT_SIZE];
-		std::copy(o.TT, o.TT + TT_SIZE, TT);
-		tsize = 0;
-	}
+	// TTable(const TTable &o) {
+	// 	TT = new TTEntry[TT_SIZE];
+	// 	std::copy(o.TT, o.TT + TT_SIZE, TT);
+	// 	tsize = 0;
+	// }
 
 	TTable &operator=(const TTable &o) {
 		if (this != &o) {
 			delete[] TT;
+			TT_SIZE = o.TT_SIZE;
 			TT = new TTEntry[TT_SIZE];
-			std::copy(o.TT, o.TT + TT_SIZE, TT);
 			tsize = 0;
 		}
 		return *this;
@@ -56,5 +55,5 @@ struct TTable {
 	TTEntry *probe(uint64_t key, Value alpha, Value beta, Value depth);
 
 	uint64_t size() const;
-	constexpr uint64_t mxsize() const { return TT_SIZE; }
+	uint64_t mxsize() const { return TT_SIZE; }
 };
