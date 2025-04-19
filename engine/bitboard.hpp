@@ -115,7 +115,6 @@ struct Board {
 	Value see(Square);
 	Value see_capture(Move);
 
-	uint64_t hash() const;
 	void recompute_hash();
 
 	bool threefold();

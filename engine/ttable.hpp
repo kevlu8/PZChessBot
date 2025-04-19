@@ -12,9 +12,7 @@ enum TTFlag {
 	INVALID = 3
 };
 
-class TTable {
-	int TT_SIZE;
-	public:
+struct TTable {
 	struct TTEntry {
 		uint64_t key;
 		Move best_move;
@@ -30,7 +28,8 @@ class TTable {
 
 	TTEntry NO_ENTRY;
 	TTEntry *TT;
-	uint64_t tsize=0;
+	uint64_t tsize = 0;
+	int TT_SIZE;
 
 	TTable(int size) : TT_SIZE(size) { TT = new TTEntry[size]; }
 

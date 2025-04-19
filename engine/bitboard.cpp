@@ -725,10 +725,6 @@ void Board::unmake_move() {
 	// }
 }
 
-uint64_t Board::hash() const {
-	return zobrist;
-}
-
 void Board::recompute_hash() {
 	zobrist = 0;
 	for (int i = 0; i < 64; i++) {
