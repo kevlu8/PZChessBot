@@ -197,9 +197,9 @@ Value eval(Board &board) {
 
 		// Isolated pawns
 		if (mask & 0b01111110) {
-			if (board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)] & ((mask << 1) | (mask >> 1)) == 0)
+			if ((board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)] & ((mask << 1) | (mask >> 1))) == 0)
 				pawn_structure -= _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)] & mask) ? 60 : 0;
-			if (board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)] & ((mask << 1) | (mask >> 1)) == 0)
+			if ((board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)] & ((mask << 1) | (mask >> 1))) == 0)
 				pawn_structure += _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)] & mask) ? 60 : 0;
 		}
 	}
