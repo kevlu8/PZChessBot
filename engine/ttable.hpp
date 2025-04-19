@@ -56,6 +56,6 @@ class TTable {
 
 	TTEntry *probe(uint64_t key, Value alpha, Value beta, Value depth);
 
-	uint64_t size() const;
-	uint64_t mxsize() const { return TT_SIZE; }
+	constexpr uint64_t size() const { return tsize; };
+	constexpr uint64_t mxsize() const { return TT_SIZE; }
 };

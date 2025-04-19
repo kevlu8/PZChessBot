@@ -25,7 +25,3 @@ TTable::TTEntry *TTable::probe(uint64_t key, Value alpha, Value beta, Value dept
 	if (entry->flags == UPPER_BOUND && entry->eval <= alpha) return entry;
 	return nullptr;
 }
-
-uint64_t TTable::size() const {
-	return tsize;
-}
