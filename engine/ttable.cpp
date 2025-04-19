@@ -1,7 +1,7 @@
 #include "ttable.hpp"
 
 void TTable::store(uint64_t key, Value eval, uint8_t depth, TTFlag flag, Move best_move, uint8_t age) {
-	TTEntry *entry = TT + (key & (TT_SIZE - 1));
+	TTEntry *entry = TT + (key % TT_SIZE);
 	if (entry->flags == INVALID) tsize++;
 	if (entry->key != key && entry->depth > depth) {
 		// This entry contains more information than the new one
@@ -17,7 +17,7 @@ void TTable::store(uint64_t key, Value eval, uint8_t depth, TTFlag flag, Move be
 }
 
 TTable::TTEntry *TTable::probe(uint64_t key, Value alpha, Value beta, Value depth) {
-	TTEntry *entry = TT + (key & (TT_SIZE - 1));
+	TTEntry *entry = TT + (key % TT_SIZE);
 	if (entry->key != key || entry->depth < depth)
 		return nullptr;
 	if (entry->flags == EXACT) return entry;
