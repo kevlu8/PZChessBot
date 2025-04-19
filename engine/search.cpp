@@ -470,7 +470,7 @@ std::pair<Move, Value> search(Board &board, int64_t time) {
 		eval = result.second;
 		best_move = result.first;
 
-#ifdef UCI
+#ifndef NOUCI
 		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
 			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
 					  << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
@@ -529,7 +529,7 @@ std::pair<Move, Value> search_depth(Board &board, int depth) {
 		eval = result.second;
 		best_move = result.first;
 
-#ifdef UCI
+#ifndef NOUCI
 		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
 			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
 					  << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "

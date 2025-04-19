@@ -10,6 +10,14 @@
 #include "search.hpp"
 
 int main(int argc, char *argv[]) {
+	if (argc == 2 && std::string(argv[1]) == "bench") {
+		Board board = Board();
+		init_network();
+		clock_t start = clock();
+		search(board, 1000);
+		std::cout << nodes << " nodes " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
+		return 0;
+	}
 	bool online = argc == 2 && std::string(argv[1]) == "--online";
 	std::cout << "PZChessBot v" << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
 	std::string command;
@@ -20,11 +28,21 @@ int main(int argc, char *argv[]) {
 		if (command == "uci") {
 			std::cout << "id name PZChessBot v" << VERSION << std::endl;
 			std::cout << "id author kevlu8 and wdotmathree" << std::endl;
+			std::cout << "option name Hash type spin default 16 min 1 max 2048" << std::endl;
+			std::cout << "option name Threads type spin min 1 max 1" << std::endl; // Not implemented yet
 			std::cout << "uciok" << std::endl;
 		} else if (command == "isready") {
 			std::cout << "readyok" << std::endl;
+		} else if (command == "setoption") {
+			std::string optionname, optionvalue;
+			std::stringstream ss(command);
+			ss >> optionname >> optionname >> optionname >> optionvalue >> optionvalue; // setoption name ... value ...
+			if (optionname == "Hash") {
+				/// TODO: implement
+			}
 		} else if (command == "ucinewgame") {
 			/// TODO: reset transposition table
+			board = Board();
 		} else if (command.substr(0, 8) == "position") {
 			// either `position startpos` or `position fen ...`
 			if (command.find("startpos") != std::string::npos) {

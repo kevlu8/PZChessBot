@@ -1,18 +1,19 @@
 #include "network.hpp"
+#include "incbin.h"
 
-void Network::load(const std::string &filename) {
-	std::ifstream file(filename, std::ios::binary);
-	// bin format: little endian, 2 bytes per int16_t
-	if (!file) {
-		std::cerr << "Error opening file: " << filename << std::endl;
-		abort();
-		return;
-	}
-	file.read(reinterpret_cast<char *>(accumulator_weights), sizeof(accumulator_weights));
-	file.read(reinterpret_cast<char *>(accumulator_biases), sizeof(accumulator_biases));
-	file.read(reinterpret_cast<char *>(output_weights), sizeof(output_weights));
-	file.read(reinterpret_cast<char *>(&output_bias), sizeof(output_bias));
-	file.close();
+extern "C" {
+	INCBIN(network_weights, NNUE_PATH);
+}
+
+void Network::load() {
+	char *ptr = (char *)gnetwork_weightsData;
+	memcpy(accumulator_weights, ptr, sizeof(accumulator_weights));
+	ptr += sizeof(accumulator_weights);
+	memcpy(accumulator_biases, ptr, sizeof(accumulator_biases));
+	ptr += sizeof(accumulator_biases);
+	memcpy(output_weights, ptr, sizeof(output_weights));
+	ptr += sizeof(output_weights);
+	memcpy(&output_bias, ptr, sizeof(output_bias));
 }
 
 int calculate_index(Square sq, PieceType pt, bool side, bool perspective) {

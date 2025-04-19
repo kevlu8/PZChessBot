@@ -60,7 +60,7 @@ float multi(int x) {
 
 void init_network() {
 #ifndef HCE
-	nnue_network.load(NNUE_PATH);
+	nnue_network.load();
 	for (int i = 0; i < HL_SIZE; i++) {
 		w_acc.val[i] = nnue_network.accumulator_biases[i];
 		b_acc.val[i] = nnue_network.accumulator_biases[i];
