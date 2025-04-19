@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
 		Board board = Board();
 		init_network();
 		clock_t start = clock();
-		search(board, 1000);
+		search(board, 1000, true);
 		std::cout << nodes << " nodes " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
 		return 0;
 	}

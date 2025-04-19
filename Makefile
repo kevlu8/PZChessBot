@@ -4,7 +4,7 @@ EVALFILE ?= nnue.bin
 CXX := g++
 CXXFLAGS := -O3 -std=c++17 -march=native -DNNUE_PATH=\"$(EVALFILE)\"
 
-SRCS := $(shell find engine -name '*.cpp')
+SRCS := $(wildcard engine/*.cpp engine/nnue/*.cpp)
 OBJS := $(SRCS:.cpp=.o)
 
 $(EXE): $(OBJS)
@@ -19,4 +19,4 @@ $(EXE): $(OBJS)
 clean:
 	@echo "Cleaning up..."
 	rm -f $(EXE)
-	find engine -name '*.o' -delete
+	rm -f $(OBJS)

@@ -425,7 +425,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	return {best_move, best_score};
 }
 
-std::pair<Move, Value> search(Board &board, int64_t time) {
+std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 	std::cout << std::fixed << std::setprecision(0);
 	nodes = seldepth = 0;
 	early_exit = exit_allowed = false;
@@ -471,14 +471,16 @@ std::pair<Move, Value> search(Board &board, int64_t time) {
 		best_move = result.first;
 
 #ifndef NOUCI
-		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
-			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
-					  << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
-					  << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
-		} else {
-			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
-					  << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
-					  << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+		if (!quiet) {
+			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
+				std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
+						<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
+						<< (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+			} else {
+				std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
+						<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
+						<< (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+			}
 		}
 #endif
 
@@ -493,7 +495,7 @@ std::pair<Move, Value> search(Board &board, int64_t time) {
 	return {best_move, eval / CP_SCALE_FACTOR};
 }
 
-std::pair<Move, Value> search_depth(Board &board, int depth) {
+std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
 	mx_nodes = 1e18;
 	std::cout << std::fixed << std::setprecision(0);
 	nodes = seldepth = 0;
@@ -530,14 +532,16 @@ std::pair<Move, Value> search_depth(Board &board, int depth) {
 		best_move = result.first;
 
 #ifndef NOUCI
-		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
-			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
-					  << nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
-					  << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
-		} else {
-			std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
-					  << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
-					  << (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+		if (!quiet) {
+			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
+				std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
+						<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
+						<< (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+			} else {
+				std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
+						<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
+						<< (board.ttable.size() * 1000 / TT_SIZE) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+			}
 		}
 #endif
 	}
