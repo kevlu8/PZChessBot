@@ -12,7 +12,6 @@ $(EXE): $(OBJS)
 	@echo "Build complete. Run with './$(EXE)'"
 
 %.o: %.cpp
-	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 .PHONY: clean
