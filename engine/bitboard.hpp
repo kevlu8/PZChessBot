@@ -84,7 +84,7 @@ struct Board {
 	std::stack<HistoryEntry> move_hist;
 	std::stack<uint8_t> halfmove_hist;
 
-	Board(int ttsize) : ttable(ttsize) {
+	Board(int ttsize=DEFAULT_TT_SIZE) : ttable(ttsize) {
 		// Load starting position
 		piece_boards[0] = Rank2Bits | Rank7Bits;
 		piece_boards[1] = square_bits(SQ_B1) | square_bits(SQ_G1) | square_bits(SQ_B8) | square_bits(SQ_G8);
@@ -97,7 +97,7 @@ struct Board {
 		recompute_hash();
 	}
 
-	Board(int ttsize, std::string fen) : ttable(ttsize) {
+	Board(std::string fen, int ttsize=DEFAULT_TT_SIZE) : ttable(ttsize) {
 		load_fen(fen);
 		recompute_hash();
 	};

@@ -3,6 +3,8 @@
 #include "includes.hpp"
 #include "move.hpp"
 
+#define DEFAULT_TT_SIZE (16 * 1024 * 1024 / sizeof(TTable::TTEntry)) // 16 MB
+
 enum TTFlag {
 	EXACT = 0,
 	LOWER_BOUND = 1, // eval might be higher than stored value

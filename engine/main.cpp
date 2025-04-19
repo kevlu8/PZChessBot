@@ -9,7 +9,7 @@
 #include "movetimings.hpp"
 #include "search.hpp"
 
-int TT_SIZE = 16 * 1024 * 1024 / sizeof(TTable::TTEntry); // 16 MB
+int TT_SIZE = DEFAULT_TT_SIZE;
 
 int main(int argc, char *argv[]) {
 	if (argc == 2 && std::string(argv[1]) == "bench") {
@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
 				if (fen.find("moves") != std::string::npos) {
 					fen = fen.substr(0, fen.find("moves"));
 				}
-				board = Board(TT_SIZE, fen);
+				board = Board(fen, TT_SIZE);
 			}
 			if (command.find("moves") != std::string::npos) {
 				std::string moves = command.substr(command.find("moves") + 6);
