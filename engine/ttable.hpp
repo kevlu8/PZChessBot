@@ -55,6 +55,6 @@ struct TTable {
 
 	TTEntry *probe(uint64_t key, Value alpha, Value beta, Value depth);
 
-	constexpr uint64_t size() const { return tsize; };
+	constexpr uint64_t size() const { return tsize; }
 	constexpr uint64_t mxsize() const { return TT_SIZE; }
 };

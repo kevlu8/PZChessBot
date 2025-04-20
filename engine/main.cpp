@@ -15,9 +15,10 @@ int main(int argc, char *argv[]) {
 	if (argc == 2 && std::string(argv[1]) == "bench") {
 		Board board = Board(TT_SIZE);
 		init_network();
-		clock_t start = clock();
+		uint64_t start = clock();
 		search_depth(board, 10, true);
-		std::cout << nodes << " nodes " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
+		uint64_t end = clock();
+		std::cout << nodes << " nodes " << (nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
 		return 0;
 	}
 	bool online = argc == 2 && std::string(argv[1]) == "--online";
@@ -98,6 +99,7 @@ int main(int argc, char *argv[]) {
 			std::string token;
 			int wtime = 0, btime = 0, winc = 0, binc = 0;
 			int depth = -1;
+			int nodes = -1;
 			bool inf = false;
 			ss >> token;
 			while (ss >> token) {
@@ -113,6 +115,8 @@ int main(int argc, char *argv[]) {
 					ss >> depth;
 				} else if (token == "infinite") {
 					inf = true;
+				} else if (token == "nodes") {
+					ss >> nodes;
 				}
 			}
 			int timeleft = board.side ? btime : wtime;
@@ -122,6 +126,8 @@ int main(int argc, char *argv[]) {
 				res = search(board);
 			else if (depth != -1)
 				res = search_depth(board, depth);
+			else if (nodes != -1)
+				res = search_nodes(board, nodes);
 			else
 				res = search(board, timemgmt(timeleft, inc, online));
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
