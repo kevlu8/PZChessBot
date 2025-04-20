@@ -85,10 +85,17 @@ int main(int argc, char *argv[]) {
 			// 	searchthread.join();
 			// }
 		} else if (command == "eval") {
-			Value score = eval(board);
+			std::array<Value, 8> score = debug_eval(board);
 			board.print_board();
 			std::cout << "info string fen " << board.get_fen() << std::endl;
-			std::cout << "eval " << score / CP_SCALE_FACTOR << std::endl;
+			int nbucket = (_mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) - 2) / 4;
+			for (int i = 0; i < 8; i++) {
+				std::cout << "info string eval " << i << ": " << score[i];
+				if (i == nbucket) {
+					std::cout << " (current)";
+				}
+				std::cout << std::endl;
+			}
 		} else if (command.substr(0, 2) == "go") {
 #ifndef HCE
 			std::cout << "info string Using " << NNUE_PATH << " for evaluation" << std::endl;

@@ -38,20 +38,20 @@ void accumulator_sub(const Network &net, Accumulator &acc, uint16_t index) {
 	}
 }
 
-int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm) {
+int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket) {
 	/// TODO: vectorize
 	int32_t score = 0;
 	for (int i = 0; i < HL_SIZE; i++) {
 		int input = std::clamp((int)stm.val[i], 0, QA);
-		int weight = input * net.output_weights[i];
+		int weight = input * net.output_weights[nbucket][i];
 		score += input * weight;
 
 		input = std::clamp((int)ntm.val[i], 0, QA);
-		weight = input * net.output_weights[HL_SIZE + i];
+		weight = input * net.output_weights[nbucket][HL_SIZE + i];
 		score += input * weight;
 	}
 	score /= QA;
-	score += net.output_bias;
+	score += net.output_bias[nbucket];
 	score *= SCALE;
 	score /= QA * QB;
 	return score;
