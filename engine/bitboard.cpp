@@ -402,7 +402,7 @@ void Board::make_move(Move move) {
 		halfmove = -1;
 	}
 
-	if (piece_boards[move.src()] & 0b111 == PAWN)
+	if ((mailbox[move.src()] & 0b111) == PAWN)
 		halfmove = -1;
 
 	if (move.data == 0) {
@@ -723,10 +723,6 @@ void Board::unmake_move() {
 	// 	}
 	// 	abort();
 	// }
-}
-
-uint64_t Board::hash() const {
-	return zobrist;
 }
 
 void Board::recompute_hash() {
