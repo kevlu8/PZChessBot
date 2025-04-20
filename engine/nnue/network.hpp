@@ -3,7 +3,7 @@
 #include "../includes.hpp"
 
 #define INPUT_SIZE 768
-#define HL_SIZE 128
+#define HL_SIZE 256
 #define SCALE 400
 #define QA 255
 #define QB 64
