@@ -59,7 +59,7 @@ __attribute__((constructor)) void init_mvvlva() {
 			if (i == KING)
 				MVV_LVA[i][j] = VALUE_INFINITE;
 			else
-				MVV_LVA[i][j] = PieceValue[i] * 8 - PieceValue[j];
+				MVV_LVA[i][j] = PieceValue[i] * 12 - PieceValue[j];
 		}
 	}
 }
@@ -186,9 +186,6 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 		} else if (move == killer[1][depth]) {
 			score += 5000; // Second killer move bonus
 		}
-		// board.make_move(move);
-		// score = eval(board) * side;
-		// board.unmake_move();
 		scores.push_back({move, score});
 	}
 	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
