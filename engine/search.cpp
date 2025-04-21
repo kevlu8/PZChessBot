@@ -151,6 +151,8 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	return best;
 }
 
+Move killer[2][MAX_PLY]; // Killer moves
+
 /**
  * Order the moves based on the TTable entry, and then by static evaluation. The issue with this
  * is that the static evaluation is arguably a lot slower than than using other metrics, but somehow
@@ -174,14 +176,19 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 	for (Move &move : moves) {
 		if (move == entry) continue; // Don't add the TT move again
 		Value score = 0;
-		// if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
-		// 	score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
-		// } else if (move.type() == PROMOTION) {
-		// 	score = PieceValue[move.promotion() + KNIGHT] - PawnValue;
-		// }
-		board.make_move(move);
-		score = eval(board) * side;
-		board.unmake_move();
+		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
+			score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
+		} else if (move.type() == PROMOTION) {
+			score = PieceValue[move.promotion() + KNIGHT] - PawnValue;
+		}
+		if (move == killer[0][depth]) {
+			score += 10000; // Killer move bonus
+		} else if (move == killer[1][depth]) {
+			score += 5000; // Second killer move bonus
+		}
+		// board.make_move(move);
+		// score = eval(board) * side;
+		// board.unmake_move();
 		scores.push_back({move, score});
 	}
 	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
@@ -331,6 +338,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		if (score >= beta) {
 			board.ttable.store(board.zobrist, best, depth, LOWER_BOUND, best_move, board.halfmove);
+			killer[1][depth] = killer[0][depth];
+			killer[0][depth] = move; // Store the killer move
 			return best;
 		}
 
