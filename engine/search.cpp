@@ -184,7 +184,7 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 			score = PieceValue[move.promotion() + KNIGHT] - PawnValue;
 		} else {
 			// Non-capture, non-promotion, so check history
-			// score = history[board.side][move.src()][move.dst()];
+			score = history[board.side][move.src()][move.dst()];
 		}
 		if (move == killer[0][depth]) {
 			score += 1000; // Killer move bonus
