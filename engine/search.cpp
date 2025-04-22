@@ -39,9 +39,6 @@ uint16_t reduction(int i, int d) {
 	if (d <= 1 || i <= 1)
 		return 1; // Don't reduce on nodes that lead to leaves since the TT doesn't provide info
 	return 0.77 + log2(i) * log2(d) / 2.36;
-	// if (i > 24) return 3;
-	// if (i > 12) return 2;
-	// return 1;
 }
 
 /**
@@ -64,9 +61,22 @@ __attribute__((constructor)) void init_mvvlva() {
 	}
 }
 
-Move killer[2][MAX_PLY]; // Killer moves
+/**
+ * Killer moves are a heuristic for move ordering that helps sort consistently good moves.
+ * What is a killer move? It's a move that has been successful in the past, i.e. it has
+ * caused a beta cutoff in the past. We store two killer moves per depth, and we add
+ * bonuses to the killer moves in the move ordering function.
+ */
+Move killer[2][MAX_PLY];
 
-Value history[2][64][64]; // History heuristic for move ordering
+/**
+ * The history heuristic is a move ordering heuristic that helps sort quiet moves.
+ * It works by storing its effectiveness in the past through beta cutoffs.
+ * We store a history table for each side indexed by [src][dst].
+ * 
+ * TODO: check if overflows are possible
+ */
+Value history[2][64][64];
 
 /**
  * Perform the quiescence search
@@ -156,13 +166,17 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 }
 
 /**
- * Order the moves based on the TTable entry, and then by static evaluation. The issue with this
- * is that the static evaluation is arguably a lot slower than than using other metrics, but somehow
- * SPRTs seem to indicate that this is the best way to do it.
+ * Order the moves based on various factors.
+ * First, we check if we have a TTable entry for this position. If we do, we add it to the
+ * beginning of the list, since it is almost definitely the best move. Then, the other moves
+ * are sorted based on:
+ * - MVV_LVA (most valuable victim, least valuable attacker) for captures
+ * - Piece value for promotions
+ * - History heuristic for quiet moves
+ * - Killer moves (moves that have caused a beta cutoff in the past)
  * 
- * TODO:
- * - Use MVV_LVA for captures and promotions
- * - Killers and history heuristics
+ * TODO: 
+ * - Counter-move history (moves that have refuted other moves in the past)
  */
 pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Move> &moves, int side, int depth, bool &entry_exists) {
 	pzstd::vector<std::pair<Move, Value>> scores;
@@ -308,8 +322,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				 * PV Search (principal variation)
 				 * 
 				 * Assuming our move ordering is good, there probably won't be any moves past
-				 * the top 3 that are better than those top 3 moves. So, we run a reduced-depth
-				 * null-window search on those moves (a much shorter search) to ensure that they
+				 * the first one that is better than that first move. So, we run a reduced-depth
+				 * null-window search on later moves (a much shorter search) to ensure that they
 				 * are bad moves. 
 				 * 
 				 * However, if the move turns out to be better than expected, we run a full-window
@@ -341,7 +355,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (score >= beta) {
 			board.ttable.store(board.zobrist, best, depth, LOWER_BOUND, best_move, board.halfmove);
 			killer[1][depth] = killer[0][depth];
-			killer[0][depth] = move;
+			killer[0][depth] = move; // Update killer moves
 			if (!(board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()))) { // Not a capture
 				history[board.side][move.src()][move.dst()] += depth * depth;
 			}
@@ -546,9 +560,6 @@ std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
 	for (int d = 1; d <= depth; d++) {
 		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
 		if (eval != -VALUE_INFINITE && aspiration_enabled) {
-			// Aspiration window values are rather large because our eval function
-			// does not return values in centipawns, but rather in closer to ~1/400
-			// So this window size is actually around 50 centipawns
 			alpha = eval - ASPIRATION_WINDOW;
 			beta = eval + ASPIRATION_WINDOW;
 		}

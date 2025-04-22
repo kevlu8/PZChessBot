@@ -22,14 +22,14 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 	bool online = argc == 2 && std::string(argv[1]) == "--online";
-	std::cout << "PZChessBot v" << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
+	std::cout << "PZChessBot " << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
 	std::string command;
 	Board board = Board(TT_SIZE);
 	init_network();
 	std::thread searchthread;
 	while (getline(std::cin, command)) {
 		if (command == "uci") {
-			std::cout << "id name PZChessBot v" << VERSION << std::endl;
+			std::cout << "id name PZChessBot " << VERSION << std::endl;
 			std::cout << "id author kevlu8 and wdotmathree" << std::endl;
 			std::cout << "option name Hash type spin default 16 min 1 max 1024" << std::endl;
 			std::cout << "option name Threads type spin default 1 min 1 max 1" << std::endl; // Not implemented yet
@@ -56,7 +56,6 @@ int main(int argc, char *argv[]) {
 				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTEntry);
 			}
 		} else if (command == "ucinewgame") {
-			/// TODO: reset transposition table
 			board = Board(TT_SIZE);
 		} else if (command.substr(0, 8) == "position") {
 			// either `position startpos` or `position fen ...`
