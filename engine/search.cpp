@@ -59,7 +59,7 @@ __attribute__((constructor)) void init_mvvlva() {
 			if (i == KING)
 				MVV_LVA[i][j] = VALUE_INFINITE;
 			else
-				MVV_LVA[i][j] = PieceValue[i] * 8 - PieceValue[j];
+				MVV_LVA[i][j] = PieceValue[i] * 12 - PieceValue[j];
 		}
 	}
 }
@@ -184,7 +184,7 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 			score = PieceValue[move.promotion() + KNIGHT] - PawnValue;
 		} else {
 			// Non-capture, non-promotion, so check history
-			score = history[board.side][move.src()][move.dst()];
+			// score = history[board.side][move.src()][move.dst()];
 		}
 		if (move == killer[0][depth]) {
 			score += 1000; // Killer move bonus
@@ -447,6 +447,17 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 	early_exit = exit_allowed = false;
 	start = clock();
 	mxtime = time;
+	
+	// Clear killer moves and history heuristic
+	for (int i = 0; i < MAX_PLY; i++) {
+		killer[0][i] = killer[1][i] = NullMove;
+	}
+
+	for (int i = 0; i < 64; i++) {
+		for (int j = 0; j < 64; j++) {
+			history[0][i][j] = history[1][i][j] = 0;
+		}
+	}
 
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
@@ -517,6 +528,17 @@ std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
 	nodes = seldepth = 0;
 	early_exit = exit_allowed = false;
 	start = clock();
+
+	// Clear killer moves and history heuristic
+	for (int i = 0; i < MAX_PLY; i++) {
+		killer[0][i] = killer[1][i] = NullMove;
+	}
+
+	for (int i = 0; i < 64; i++) {
+		for (int j = 0; j < 64; j++) {
+			history[0][i][j] = history[1][i][j] = 0;
+		}
+	}
 
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
