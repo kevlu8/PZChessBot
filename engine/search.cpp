@@ -59,10 +59,14 @@ __attribute__((constructor)) void init_mvvlva() {
 			if (i == KING)
 				MVV_LVA[i][j] = VALUE_INFINITE;
 			else
-				MVV_LVA[i][j] = PieceValue[i] * 8 - PieceValue[j];
+				MVV_LVA[i][j] = PieceValue[i] * 12 - PieceValue[j];
 		}
 	}
 }
+
+Move killer[2][MAX_PLY]; // Killer moves
+
+Value history[2][64][64]; // History heuristic for move ordering
 
 /**
  * Perform the quiescence search
@@ -174,14 +178,19 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 	for (Move &move : moves) {
 		if (move == entry) continue; // Don't add the TT move again
 		Value score = 0;
-		// if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
-		// 	score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
-		// } else if (move.type() == PROMOTION) {
-		// 	score = PieceValue[move.promotion() + KNIGHT] - PawnValue;
-		// }
-		board.make_move(move);
-		score = eval(board) * side;
-		board.unmake_move();
+		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
+			score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
+		} else if (move.type() == PROMOTION) {
+			score = PieceValue[move.promotion() + KNIGHT] - PawnValue;
+		} else {
+			// Non-capture, non-promotion, so check history
+			score = history[board.side][move.src()][move.dst()];
+		}
+		if (move == killer[0][depth]) {
+			score += 1000; // Killer move bonus
+		} else if (move == killer[1][depth]) {
+			score += 500; // Second killer move bonus
+		}
 		scores.push_back({move, score});
 	}
 	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
@@ -331,6 +340,11 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		if (score >= beta) {
 			board.ttable.store(board.zobrist, best, depth, LOWER_BOUND, best_move, board.halfmove);
+			killer[1][depth] = killer[0][depth];
+			killer[0][depth] = move;
+			if (!(board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()))) { // Not a capture
+				history[board.side][move.src()][move.dst()] += depth * depth;
+			}
 			return best;
 		}
 
@@ -409,6 +423,8 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 
 		if (score >= beta) {
 			board.ttable.store(board.zobrist, best_score, depth, LOWER_BOUND, best_move, board.halfmove);
+			killer[1][depth] = killer[0][depth];
+			killer[0][depth] = move;
 			return {best_move, best_score};
 		}
 
@@ -431,6 +447,17 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 	early_exit = exit_allowed = false;
 	start = clock();
 	mxtime = time;
+	
+	// Clear killer moves and history heuristic
+	for (int i = 0; i < MAX_PLY; i++) {
+		killer[0][i] = killer[1][i] = NullMove;
+	}
+
+	for (int i = 0; i < 64; i++) {
+		for (int j = 0; j < 64; j++) {
+			history[0][i][j] = history[1][i][j] = 0;
+		}
+	}
 
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
@@ -501,6 +528,17 @@ std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
 	nodes = seldepth = 0;
 	early_exit = exit_allowed = false;
 	start = clock();
+
+	// Clear killer moves and history heuristic
+	for (int i = 0; i < MAX_PLY; i++) {
+		killer[0][i] = killer[1][i] = NullMove;
+	}
+
+	for (int i = 0; i < 64; i++) {
+		for (int j = 0; j < 64; j++) {
+			history[0][i][j] = history[1][i][j] = 0;
+		}
+	}
 
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
