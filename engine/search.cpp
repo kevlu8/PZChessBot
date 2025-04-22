@@ -78,6 +78,9 @@ Move killer[2][MAX_PLY];
  */
 Value history[2][64][64];
 
+Move pvtable[MAX_PLY][MAX_PLY];
+int pvlen[MAX_PLY];
+
 /**
  * Perform the quiescence search
  * 
@@ -211,7 +214,9 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 	return scores;
 }
 
-Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false) {
+Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, int ply = 1) {
+	pvlen[ply] = 0;
+
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
 		return (VALUE_MATE) * side;
@@ -246,7 +251,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (depth <= 0) {
 		// Reached the maximum depth, perform quiescence search
-		return quiesce(board, alpha, beta, side, 0);
+		return quiesce(board, alpha, beta, side, ply);
 	}
 
 	// Check for TTable cutoff
@@ -269,7 +274,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 */
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
-		Value null_score = -__recurse(board, depth - NMP_R_VALUE, -beta, -beta + 1, -side, pv);
+		Value null_score = -__recurse(board, depth - NMP_R_VALUE, -beta, -beta + 1, -side, pv, ply+1);
 		board.unmake_move();
 		if (null_score >= beta)
 			return null_score;
@@ -330,12 +335,12 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				 * full-depth re-search. This, however, doesn't happen often enough to slow down
 				 * the search.
 				 */
-				score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side);
+				score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side, 0, ply+1);
 				if (score > alpha) {
-					score = -__recurse(board, depth - 1, -beta, -alpha, -side);
+					score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0, ply+1);
 				}
 			} else {
-				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1);
+				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1, ply+1);
 			}
 		}
 
@@ -347,6 +352,13 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (score > best) {
 			if (score > alpha) {
 				alpha = score;
+				if (score < beta) {
+					pvtable[ply][0] = move;
+					pvlen[ply] = pvlen[ply+1]+1;
+					for (int i = 0; i < pvlen[ply+1]; i++) {
+						pvtable[ply][i+1] = pvtable[ply+1][i];
+					}
+				}
 			}
 			best = score;
 			best_move = move;
@@ -428,6 +440,11 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		board.unmake_move();
 
 		if (score > best_score) {
+			pvtable[0][0] = move;
+			pvlen[0] = pvlen[1]+1;
+			for (int i = 0; i < pvlen[1]; i++) {
+				pvtable[0][i+1] = pvtable[1][i];
+			}
 			if (score > alpha) {
 				alpha = score;
 			}
@@ -455,6 +472,14 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	return {best_move, best_score};
 }
 
+void __print_pv(bool omit_last = 0) { // Need to omit last to prevent illegal moves during mates
+	const int ROOT_PLY = 0;
+	for (int i = 0; i < pvlen[ROOT_PLY] - omit_last; i++) {
+		if (pvtable[ROOT_PLY][i] == NullMove) break;
+		std::cout << pvtable[ROOT_PLY][i].to_string() << ' ';
+	}
+}
+
 std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 	std::cout << std::fixed << std::setprecision(0);
 	nodes = seldepth = 0;
@@ -465,6 +490,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 	// Clear killer moves and history heuristic
 	for (int i = 0; i < MAX_PLY; i++) {
 		killer[0][i] = killer[1][i] = NullMove;
+		pvlen[i] = 0;
 	}
 
 	for (int i = 0; i < 64; i++) {
@@ -514,13 +540,15 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 #ifndef NOUCI
 		if (!quiet) {
 			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
-				std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
-						<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
-						<< (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+				std::cout << "info depth " << d << " seldepth " << seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
+						<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
+				__print_pv(1);
+				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			} else {
-				std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
-						<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
-						<< (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+				std::cout << "info depth " << d << " seldepth " << seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
+						<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
+				__print_pv();
+				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			}
 		}
 #endif
@@ -546,6 +574,7 @@ std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
 	// Clear killer moves and history heuristic
 	for (int i = 0; i < MAX_PLY; i++) {
 		killer[0][i] = killer[1][i] = NullMove;
+		pvlen[i] = 0;
 	}
 
 	for (int i = 0; i < 64; i++) {
@@ -583,13 +612,15 @@ std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
 #ifndef NOUCI
 		if (!quiet) {
 			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
-				std::cout << "info depth " << d << " seldepth " << d + seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
-						<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
-						<< (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+				std::cout << "info depth " << d << " seldepth " << seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
+						<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
+				__print_pv(1);
+				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			} else {
-				std::cout << "info depth " << d << " seldepth " << d + seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
-						<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << best_move.to_string() << " hashfull "
-						<< (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+				std::cout << "info depth " << d << " seldepth " << seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
+						<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
+				__print_pv();
+				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			}
 		}
 #endif
