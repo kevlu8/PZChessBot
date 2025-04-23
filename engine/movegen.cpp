@@ -482,7 +482,7 @@ Value Board::see(Square sq) {
 		goto found;
 	}
 
-	found:
+found:
 	if (atk != NO_PIECETYPE) {
 		make_move(Move::make<MoveType::NORMAL>(atksq, sq));
 		val = std::max(0, PieceValue[atk & 7] - see(sq));
@@ -498,4 +498,37 @@ Value Board::see_capture(Move move) {
 	val = PieceValue[victim] - see(move.src());
 	unmake_move();
 	return val;
+}
+
+Bitboard rook_attacks(Square sq, Bitboard occ) {
+	uint32_t idx = rook_magics[sq].offset + _pext_u64(occ, rook_magics[sq].mask);
+	return rook_movetable[idx];
+}
+
+Bitboard bishop_attacks(Square sq, Bitboard occ) {
+	uint32_t idx = bishop_magics[sq].offset + _pext_u64(occ, bishop_magics[sq].mask);
+	return bishop_movetable[idx];
+}
+
+Bitboard queen_attacks(Square sq, Bitboard occ) {
+	uint32_t idx = rook_magics[sq].offset + _pext_u64(occ, rook_magics[sq].mask);
+	Bitboard rook = rook_movetable[idx];
+	idx = bishop_magics[sq].offset + _pext_u64(occ, bishop_magics[sq].mask);
+	Bitboard bishop = bishop_movetable[idx];
+	return rook | bishop;
+}
+
+Bitboard knight_attacks(Square sq) {
+	return knight_movetable[sq];
+}
+
+Bitboard king_attacks(Square sq) {
+	return king_movetable[sq];
+}
+
+Bitboard pawn_attacks(Square sq, bool color) {
+	if (color == WHITE)
+		return ((square_bits(Square(sq + 7)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq + 9)) & 0xfefefefefefefefe));
+	else
+		return ((square_bits(Square(sq - 7)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq - 9)) & 0xfefefefefefefefe));
 }
