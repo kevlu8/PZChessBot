@@ -78,6 +78,14 @@ Move killer[2][MAX_PLY];
  */
 Value history[2][64][64];
 
+/**
+ * The counter-move heuristic is a move ordering heuristic that helps sort moves that
+ * have refuted other moves in the past. It works by storing the move upon a beta cutoff.
+ */
+Move cmh[2][64][64];
+
+Move line[MAX_PLY]; // Currently searched line
+
 Move pvtable[MAX_PLY][MAX_PLY];
 int pvlen[MAX_PLY];
 
@@ -181,7 +189,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
  * TODO: 
  * - Counter-move history (moves that have refuted other moves in the past)
  */
-pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Move> &moves, int side, int depth, bool &entry_exists) {
+pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Move> &moves, int side, int depth, int ply, bool &entry_exists) {
 	pzstd::vector<std::pair<Move, Value>> scores;
 	// If we have a TTable entry *at all* for this position, we should use it
 	// Even if it falls outside of our alpha-beta window, it probably provides a decent move
@@ -207,6 +215,9 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 			score += 1000; // Killer move bonus
 		} else if (move == killer[1][depth]) {
 			score += 500; // Second killer move bonus
+		}
+		if (ply && move == cmh[board.side][line[ply-1].src()][line[ply-1].dst()]) {
+			score += 1000; // Counter-move bonus
 		}
 		scores.push_back({move, score});
 	}
@@ -286,7 +297,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	board.legal_moves(moves);
 
 	bool entry_exists = false;
-	pzstd::vector<std::pair<Move, Value>> scores = order_moves(board, moves, side, depth, entry_exists);
+	pzstd::vector<std::pair<Move, Value>> scores = order_moves(board, moves, side, depth, ply, entry_exists);
 
 	// Reverse futility pruning
 	// if (!in_check && entry_exists && !pv) {
@@ -307,6 +318,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	for (int i = 0; i < moves.size(); i++) {
 		Move &move = scores[i].first;
+		line[ply] = move;
 		board.make_move(move);
 
 		Value score;
@@ -370,6 +382,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			killer[0][depth] = move; // Update killer moves
 			if (!(board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()))) { // Not a capture
 				history[board.side][move.src()][move.dst()] += depth * depth;
+				cmh[board.side][line[ply-1].src()][line[ply-1].dst()] = move; // Update counter-move history
 			}
 			return best;
 		}
@@ -409,10 +422,11 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	board.legal_moves(moves);
 
 	bool entry_exists = false;
-	pzstd::vector<std::pair<Move, Value>> scores = order_moves(board, moves, side, depth, entry_exists);
+	pzstd::vector<std::pair<Move, Value>> scores = order_moves(board, moves, side, depth, 0, entry_exists);
 
 	for (int i = 0; i < moves.size(); i++) { // Skip the TT move if it's not legal
 		Move &move = scores[i].first;
+		line[0] = move;
 		board.make_move(move);
 		Value score;
 		if (board.threefold()) {
