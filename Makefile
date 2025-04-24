@@ -2,7 +2,7 @@ EXE ?= pzchessbot
 EVALFILE ?= nnue.bin
 
 CXX := g++
-CXXFLAGS := -std=c++17 -march=native -DNNUE_PATH=\"$(EVALFILE)\"
+CXXFLAGS := -std=c++17 -march=native -DNNUE_PATH=\"$(EVALFILE)\" -DHCE
 RELEASEFLAGS = -O3
 DEBUGFLAGS = -g -fsanitize=address,undefined
 
