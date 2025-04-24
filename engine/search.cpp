@@ -299,6 +299,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	bool entry_exists = false;
 	pzstd::vector<std::pair<Move, Value>> scores = order_moves(board, moves, side, depth, ply, entry_exists);
 
+	if (depth > 5 && !entry_exists) {
+		depth -= 2; // Internal iterative reductions
+	}
+
 	// Reverse futility pruning
 	// if (!in_check && entry_exists && !pv) {
 	// 	/**
