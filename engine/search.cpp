@@ -252,8 +252,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Threefold or 50 move rule
-	if (board.threefold() || board.halfmove >= 100)
+	if (board.threefold() || board.halfmove >= 100) {
 		return 0;
+	}
 
 	bool in_check = false;
 	if (board.side == WHITE) {
@@ -546,6 +547,8 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 		eval = result.second;
 		best_move = result.first;
 
+		seldepth = std::max(seldepth, d);
+
 #ifndef NOUCI
 		if (!quiet) {
 			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
@@ -617,6 +620,8 @@ std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
 			break;
 		eval = result.second;
 		best_move = result.first;
+
+		seldepth = std::max(seldepth, d);
 
 #ifndef NOUCI
 		if (!quiet) {
