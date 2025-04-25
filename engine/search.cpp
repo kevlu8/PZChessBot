@@ -251,6 +251,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			return VALUE_MATE - 1;
 	}
 
+	// Threefold or 50 move rule
+	if (board.threefold() || board.halfmove >= 100)
+		return 0;
+
 	bool in_check = false;
 	if (board.side == WHITE) {
 		in_check = wcontrol.second > 0;
@@ -326,38 +330,25 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		board.make_move(move);
 
 		Value score;
-		if (board.threefold()) {
-			score = 0; // Draw by repetition
-			// Make sure we're not in check or this is an illegal move
-			if (board.side == WHITE) {
-				// Black just played a move, so we check that white doesn't control black's king
-				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])).first)
-					score = -VALUE_MATE;
-			} else {
-				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second)
-					score = -VALUE_MATE;
+		if (i > 0) {
+			/**
+			 * PV Search (principal variation)
+			 * 
+			 * Assuming our move ordering is good, there probably won't be any moves past
+			 * the first one that is better than that first move. So, we run a reduced-depth
+			 * null-window search on later moves (a much shorter search) to ensure that they
+			 * are bad moves. 
+			 * 
+			 * However, if the move turns out to be better than expected, we run a full-window
+			 * full-depth re-search. This, however, doesn't happen often enough to slow down
+			 * the search.
+			 */
+			score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side, 0, ply+1);
+			if (score > alpha) {
+				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0, ply+1);
 			}
 		} else {
-			if (i > 0) {
-				/**
-				 * PV Search (principal variation)
-				 * 
-				 * Assuming our move ordering is good, there probably won't be any moves past
-				 * the first one that is better than that first move. So, we run a reduced-depth
-				 * null-window search on later moves (a much shorter search) to ensure that they
-				 * are bad moves. 
-				 * 
-				 * However, if the move turns out to be better than expected, we run a full-window
-				 * full-depth re-search. This, however, doesn't happen often enough to slow down
-				 * the search.
-				 */
-				score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side, 0, ply+1);
-				if (score > alpha) {
-					score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0, ply+1);
-				}
-			} else {
-				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1, ply+1);
-			}
+			score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1, ply+1);
 		}
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
