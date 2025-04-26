@@ -166,6 +166,14 @@ void Board::load_fen(std::string fen) {
 		inputIdx += 2;
 	}
 
+	// Get halfmove clock
+	halfmove = 0;
+	while (inputIdx < fen.size() && std::isdigit(fen[inputIdx])) {
+		halfmove *= 10;
+		halfmove += fen[inputIdx] - '0';
+		inputIdx++;
+	}
+
 	// Ignore the rest (who cares anyways)
 
 	// Recompute hash

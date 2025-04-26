@@ -236,9 +236,6 @@ Value eval(Board &board) {
 		// Likewise, if white has no king, this is mate for black
 		return -VALUE_MATE;
 	}
-	if (board.halfmove >= 100) {
-		return 0; // Draw by 50 moves
-	}
 
 	// Query the NNUE network
 	for (uint16_t i = 0; i < 64; i++) {
