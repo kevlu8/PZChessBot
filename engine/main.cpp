@@ -149,8 +149,10 @@ int main(int argc, char *argv[]) {
 					res = search_depth(board, depth);
 				else if (nodes != -1)
 					res = search_nodes(board, nodes);
-				else
+				else {
+					mx_nodes = 1e18;
 					res = search(board, timemgmt(timeleft, inc, online));
+				}
 				std::cout << "bestmove " << res.first.to_string() << std::endl;
 			});
 		}
