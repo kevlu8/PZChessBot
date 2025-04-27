@@ -42,6 +42,16 @@ struct TTable {
 		tsize = 0;
 	}
 
+	TTable &operator=(const TTable &o) {
+		if (this != &o) {
+			delete[] TT;
+			TT_SIZE = o.TT_SIZE;
+			TT = new TTEntry[TT_SIZE];
+			tsize = 0;
+		}
+		return *this;
+	}
+
 	void store(uint64_t key, Value eval, uint8_t depth, TTFlag flag, Move best_move, uint8_t age);
 
 	TTEntry *probe(uint64_t key, Value alpha, Value beta, Value depth);
