@@ -174,7 +174,13 @@ void Board::load_fen(std::string fen) {
 		inputIdx++;
 	}
 
-	// Ignore the rest (who cares anyways)
+	// Get fullmove number
+	fullmove = 1;
+	while (inputIdx < fen.size() && std::isdigit(fen[inputIdx])) {
+		fullmove *= 10;
+		fullmove += fen[inputIdx] - '0';
+		inputIdx++;
+	}
 
 	// Recompute hash
 	recompute_hash();
@@ -215,7 +221,15 @@ std::string Board::get_fen() const {
 		if (castling & BLACK_OOO)
 			res += "q";
 	}
-	return res; // Shortened fen (no ep, halfmove, etc) since we don't need those in datagen
+	if (ep_square == SQ_NONE) {
+		res += '-';
+	} else {
+		res += (char)('a' + (ep_square & 0b111));
+		res += (char)('1' + (ep_square >> 3));
+	}
+	res += ' ' + std::to_string(halfmove);
+	res += ' ' + std::to_string(fullmove);
+	return res;
 }
 
 bool Board::sanity_check(char *print) {

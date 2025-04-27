@@ -63,6 +63,7 @@ struct Board {
 	Bitboard piece_boards[8] = {0};
 	bool side = WHITE;
 	uint8_t halfmove = 0;
+	uint16_t fullmove = 1;
 	uint8_t castling = 0xf; // 1111
 	Square ep_square = SQ_NONE;
 	uint64_t zobrist = 0;
