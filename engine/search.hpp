@@ -9,8 +9,9 @@
 // Eval per ply threshold for RFP
 // RFP stops searching if our position is so good that
 // we can afford to lose RFP_THRESHOLD eval units per ply
-// and still be in a better position
-#define RFP_THRESHOLD (200 * CP_SCALE_FACTOR)
+// and still be in a better position. The lower the value,
+// the more aggressive RFP is.
+#define RFP_THRESHOLD (150 * CP_SCALE_FACTOR)
 
 // Aspiration window size(s)
 // The aspiration window is the range of values we search
