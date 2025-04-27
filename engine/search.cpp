@@ -4,7 +4,7 @@
 
 uint64_t nodes = 0; // Node count
 int seldepth = 0; // Maximum searched depth, including quiescence search
-uint64_t mx_nodes = 1e18; // Maximum nodes to search
+std::atomic<uint64_t> mx_nodes = 1e18; // Maximum nodes to search
 uint64_t mxtime = 1000; // Maximum time to search in milliseconds
 bool early_exit = false, exit_allowed = false; // Whether or not to exit the search, and if we are allowed to exit (so we don't exit on the depth 1)
 clock_t start = 0;
@@ -506,6 +506,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 	for (int i = 0; i < 64; i++) {
 		for (int j = 0; j < 64; j++) {
 			history[0][i][j] = history[1][i][j] = 0;
+			cmh[0][i][j] = cmh[1][i][j] = NullMove;
 		}
 	}
 
@@ -592,6 +593,7 @@ std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
 	for (int i = 0; i < 64; i++) {
 		for (int j = 0; j < 64; j++) {
 			history[0][i][j] = history[1][i][j] = 0;
+			cmh[0][i][j] = cmh[1][i][j] = NullMove;
 		}
 	}
 

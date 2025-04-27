@@ -5,6 +5,7 @@
 #include "movegen.hpp"
 #include "ttable.hpp"
 #include <algorithm>
+#include <atomic>
 
 // Eval per ply threshold for RFP
 // RFP stops searching if our position is so good that

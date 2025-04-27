@@ -35,20 +35,11 @@ struct TTable {
 
 	~TTable() { delete[] TT; }
 
-	// TTable(const TTable &o) {
-	// 	TT = new TTEntry[TT_SIZE];
-	// 	std::copy(o.TT, o.TT + TT_SIZE, TT);
-	// 	tsize = 0;
-	// }
-
-	TTable &operator=(const TTable &o) {
-		if (this != &o) {
-			delete[] TT;
-			TT_SIZE = o.TT_SIZE;
-			TT = new TTEntry[TT_SIZE];
-			tsize = 0;
-		}
-		return *this;
+	TTable(const TTable &o) {
+		TT_SIZE = o.TT_SIZE;
+		TT = new TTEntry[TT_SIZE];
+		std::copy(o.TT, o.TT + TT_SIZE, TT);
+		tsize = 0;
 	}
 
 	void store(uint64_t key, Value eval, uint8_t depth, TTFlag flag, Move best_move, uint8_t age);

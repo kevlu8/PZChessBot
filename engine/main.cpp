@@ -9,7 +9,15 @@
 #include "movetimings.hpp"
 #include "search.hpp"
 
+extern std::atomic<uint64_t> mx_nodes;
+
 int TT_SIZE = DEFAULT_TT_SIZE;
+
+void stop(std::thread &searchthread) {
+	mx_nodes = 0;
+	if (searchthread.joinable())
+		searchthread.join();
+}
 
 int main(int argc, char *argv[]) {
 	if (argc == 2 && std::string(argv[1]) == "bench") {
@@ -31,7 +39,7 @@ int main(int argc, char *argv[]) {
 		if (command == "uci") {
 			std::cout << "id name PZChessBot " << VERSION << std::endl;
 			std::cout << "id author kevlu8 and wdotmathree" << std::endl;
-			std::cout << "option name Hash type spin default 16 min 1 max 1024" << std::endl;
+			std::cout << "option name Hash type spin default 16 min 1 max 2048" << std::endl;
 			std::cout << "option name Threads type spin default 1 min 1 max 1" << std::endl; // Not implemented yet
 			std::cout << "uciok" << std::endl;
 		} else if (command == "isready") {
@@ -48,16 +56,23 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			if (optionname == "Hash") {
-				int optionint = std::stoi(optionvalue);
-				if (optionint < 1 || optionint > 1024) {
-					std::cerr << "Invalid hash size: " << optionint << std::endl;
+				try {
+					int optionint = std::stoi(optionvalue);
+					if (optionint < 1 || optionint > 2048) {
+						std::cerr << "Invalid hash size: " << optionint << std::endl;
+						continue;
+					}
+					TT_SIZE = (size_t)optionint * 1024 * 1024 / sizeof(TTable::TTEntry);
+				} catch (std::invalid_argument &e) {
+					std::cerr << "Invalid hash size: " << optionvalue << std::endl;
 					continue;
 				}
-				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTEntry);
 			}
 		} else if (command == "ucinewgame") {
+			stop(searchthread);
 			board = Board(TT_SIZE);
 		} else if (command.substr(0, 8) == "position") {
+			stop(searchthread);
 			// either `position startpos` or `position fen ...`
 			if (command.find("startpos") != std::string::npos) {
 				board = Board(TT_SIZE);
@@ -77,12 +92,10 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		} else if (command == "quit") {
+			stop(searchthread);
 			break;
 		} else if (command == "stop") {
-			// stop the search thread
-			// if (searchthread.joinable()) {
-			// 	searchthread.join();
-			// }
+			stop(searchthread);
 		} else if (command == "eval") {
 			std::array<Value, 8> score = debug_eval(board);
 			board.print_board();
@@ -96,6 +109,7 @@ int main(int argc, char *argv[]) {
 				std::cout << std::endl;
 			}
 		} else if (command.substr(0, 2) == "go") {
+			stop(searchthread);
 #ifndef HCE
 			std::cout << "info string Using " << NNUE_PATH << " for evaluation" << std::endl;
 #endif
@@ -127,16 +141,18 @@ int main(int argc, char *argv[]) {
 			}
 			int timeleft = board.side ? btime : wtime;
 			int inc = board.side ? binc : winc;
-			std::pair<Move, Value> res;
-			if (inf)
-				res = search(board);
-			else if (depth != -1)
-				res = search_depth(board, depth);
-			else if (nodes != -1)
-				res = search_nodes(board, nodes);
-			else
-				res = search(board, timemgmt(timeleft, inc, online));
-			std::cout << "bestmove " << res.first.to_string() << std::endl;
+			searchthread = std::thread([&]() {
+				std::pair<Move, Value> res;
+				if (inf) {
+					res = search_nodes(board, 1e18);
+				} else if (depth != -1)
+					res = search_depth(board, depth);
+				else if (nodes != -1)
+					res = search_nodes(board, nodes);
+				else
+					res = search(board, timemgmt(timeleft, inc, online));
+				std::cout << "bestmove " << res.first.to_string() << std::endl;
+			});
 		}
 	}
 }
