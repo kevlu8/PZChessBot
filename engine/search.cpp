@@ -275,6 +275,21 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (cutoff)
 		return cutoff->eval;
 
+	// Reverse futility pruning
+	if (!in_check && !pv && depth <= 3) {
+		/**
+		 * The idea is that if we are winning by such a large margin that we can afford to lose
+		 * RFP_THRESHOLD * depth eval units per ply, we can return the current eval.
+		 * 
+		 * We need to make sure that we aren't in check (since we might get mated) and that the
+		 * TT entry exists (so that the current position is actually good).
+		 */
+		int cur_eval = eval(board) * side; // TODO: Use the TT entry instead of the eval function?
+		int margin = RFP_THRESHOLD * depth;
+		if (cur_eval >= beta + margin)
+			return cur_eval - margin;
+	}
+
 	// Null-move pruning
 	if (!in_check) {
 		/**
@@ -306,21 +321,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (depth > 5 && !entry_exists) {
 		depth -= 2; // Internal iterative reductions
-	}
-
-	// Reverse futility pruning
-	if (!in_check && !pv && depth <= 3) {
-		/**
-		 * The idea is that if we are winning by such a large margin that we can afford to lose
-		 * RFP_THRESHOLD * depth eval units per ply, we can return the current eval.
-		 * 
-		 * We need to make sure that we aren't in check (since we might get mated) and that the
-		 * TT entry exists (so that the current position is actually good).
-		 */
-		int cur_eval = eval(board) * side; // TODO: Use the TT entry instead of the eval function?
-		int margin = RFP_THRESHOLD * depth;
-		if (cur_eval >= beta + margin)
-			return cur_eval;
 	}
 
 	Move best_move = NullMove;
