@@ -349,7 +349,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0, ply+1);
 			}
 		} else {
-			score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1, ply+1);
+			score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
 		}
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
