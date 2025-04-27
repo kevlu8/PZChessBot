@@ -291,7 +291,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Null-move pruning
-	if (!in_check) {
+	if (!in_check && _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) >= 8) {
 		/**
 		 * This works off the *null-move observation*.
 		 * 
