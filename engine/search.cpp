@@ -54,7 +54,7 @@ __attribute__((constructor)) void init_mvvlva() {
 	for (int i = 0; i < 6; i++) {
 		for (int j = 0; j < 6; j++) {
 			if (i == KING)
-				MVV_LVA[i][j] = VALUE_INFINITE;
+				MVV_LVA[i][j] = QueenValue * 12 + 1; // Prioritize over all other captures
 			else
 				MVV_LVA[i][j] = PieceValue[i] * 12 - PieceValue[j];
 		}
@@ -425,26 +425,13 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		line[0] = move;
 		board.make_move(move);
 		Value score;
-		if (board.threefold()) {
-			score = 0; // Draw by repetition
-			// Make sure we're not in check or this is an illegal move
-			if (board.side == WHITE) {
-				// Black just played a move, so we check that white doesn't control black's king
-				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])).first)
-					score = -VALUE_MATE;
-			} else {
-				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second)
-					score = -VALUE_MATE;
+		if (i > 0) {
+			score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side);
+			if (score > alpha) {
+				score = -__recurse(board, depth - 1, -beta, -alpha, -side);
 			}
 		} else {
-			if (i > 0) {
-				score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side);
-				if (score > alpha) {
-					score = -__recurse(board, depth - 1, -beta, -alpha, -side);
-				}
-			} else {
-				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1);
-			}
+			score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1);
 		}
 
 		board.unmake_move();
