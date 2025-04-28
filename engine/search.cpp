@@ -294,18 +294,18 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (!in_check) {
 		/**
 		 * This works off the *null-move observation*.
-		 * 
+		 *
 		 * The general idea is that a null move will almost always be worse than the best move
 		 * in a given position. So, if we can play a suboptimal move (in this case the null move)
 		 * and still be winning, we were probably winning in the first place.
-		 * 
+		 *
 		 * The only issue with this approach is that it will fail in Zugzwang positions. There's
 		 * really no good way of preventing this except for disabling NMP in positions where there
 		 * are probably Zugzwangs (e.g. endgames).
 		 */
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
-		Value null_score = -__recurse(board, depth - NMP_R_VALUE, -beta, -beta + 1, -side, pv, ply+1);
+		Value null_score = -__recurse(board, depth - NMP_R_VALUE, -beta, -beta + 1, -side, pv, ply + 1);
 		board.unmake_move();
 		if (null_score >= beta)
 			return null_score;

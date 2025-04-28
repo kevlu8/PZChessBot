@@ -532,12 +532,7 @@ void Board::make_move(Move move) {
 				tmp_ep_square = SQ_NONE;
 		}
 	}
-	// Update EP square
-	if (ep_square != SQ_NONE)
-		zobrist ^= zobrist_ep[ep_square & 0b111];
-	if (tmp_ep_square != SQ_NONE)
-		zobrist ^= zobrist_ep[tmp_ep_square & 0b111];
-	ep_square = tmp_ep_square;
+	fullmove += side;
 	// Switch sides
 	side = !side;
 	zobrist ^= zobrist_side;
@@ -546,7 +541,13 @@ void Board::make_move(Move move) {
 
 	halfmove++;
 
+	// Update EP square
+	if (ep_square != SQ_NONE)
+		zobrist ^= zobrist_ep[ep_square & 0b111];
 	hash_hist.push_back(zobrist);
+	if (tmp_ep_square != SQ_NONE)
+		zobrist ^= zobrist_ep[tmp_ep_square & 0b111];
+	ep_square = tmp_ep_square;
 
 #ifdef HASHCHECK
 	old_hash = zobrist;
@@ -599,6 +600,8 @@ void Board::unmake_move() {
 	// Switch sides first
 	side = !side;
 	zobrist ^= zobrist_side;
+
+	fullmove -= side;
 
 	HistoryEntry prev = move_hist.top();
 	move_hist.pop();
@@ -761,6 +764,9 @@ void Board::recompute_hash() {
 
 bool Board::threefold() {
 	int cnt = 0;
+	uint64_t target = zobrist;
+	if (ep_square != SQ_NONE)
+		target ^= zobrist_ep[ep_square & 0b111];
 	for (const uint64_t h : hash_hist) {
 		if (h == zobrist)
 			cnt++;
