@@ -1,0 +1,180 @@
+[INFO  ] [19:14:13.180071] <                    > fastchess --- fastchess alpha 1.4.0 20250421-dcf2241
+[INFO  ] [19:14:13.180125] <                    > fastchess --- Setting seed to: 7273752231201343562
+[INFO  ] [19:14:13.310345] <                    > fastchess --- Indexing opening suite...
+[INFO  ] [19:14:13.316792] <                    > fastchess --- Starting tournament...
+[WARN  ] [19:14:30.665667] <     139958782240448> fastchess --- Engine a loses on time
+[WARN  ] [19:14:36.088604] <     139958790633152> fastchess --- Engine b loses on time
+[WARN  ] [19:14:52.985102] <     139958900868800> fastchess --- Engine a loses on time
+[WARN  ] [19:14:58.106856] <                    > fastchess --- Warning; Illegal pv move f3e5 from b
+Info; info depth 8 seldepth 17 score cp -25 nodes 38182 nps 891832 pv e5f3 e1e2 f3e5 e2e1 e5f3 e1e2 f3e5 f1g2 c8d7 f4h5 hashfull 2 time 45
+Position; startpos
+Moves; d2d4 g8f6 c1g5 c7c5 g5f6 g7f6 d4d5 d8b6 d1c1 e7e6 b1c3 f6f5 e2e3 d7d6 g2g3 b8d7 a2a4 f8g7 g1e2 d7e5 a4a5 b6c7 e2f4 e5f3 e1e2 g7c3 b2c3 f3e5 e2e1 
+[WARN  ] [19:14:58.263282] <                    > fastchess --- Warning; Illegal pv move f3e5 from a
+Info; info depth 7 seldepth 16 score cp 35 nodes 10423 nps 572787 pv e1e2 f3e5 e2e1 e5f3 e1e2 f3e5 f1g2 c8d7 hashfull 0 time 20
+Position; startpos
+Moves; d2d4 g8f6 c1g5 c7c5 g5f6 g7f6 d4d5 d8b6 d1c1 e7e6 b1c3 f6f5 e2e3 d7d6 g2g3 b8d7 a2a4 f8g7 g1e2 d7e5 a4a5 b6c7 e2f4 e5f3 e1e2 g7c3 b2c3 f3e5 e2e1 e5f3 
+[WARN  ] [19:14:58.263355] <                    > fastchess --- Warning; Illegal pv move f3e5 from a
+Info; info depth 8 seldepth 16 score cp 29 nodes 15981 nps 659228 pv e1e2 f3e5 e2e1 e5f3 e1e2 f3e5 h2h4 c8d7 e2e1 hashfull 0 time 26
+Position; startpos
+Moves; d2d4 g8f6 c1g5 c7c5 g5f6 g7f6 d4d5 d8b6 d1c1 e7e6 b1c3 f6f5 e2e3 d7d6 g2g3 b8d7 a2a4 f8g7 g1e2 d7e5 a4a5 b6c7 e2f4 e5f3 e1e2 g7c3 b2c3 f3e5 e2e1 e5f3 
+[WARN  ] [19:14:58.263373] <                    > fastchess --- Warning; Illegal pv move f3e5 from a
+Info; info depth 9 seldepth 16 score cp 35 nodes 23209 nps 801388 pv e1e2 f3e5 e2e1 e5f3 e1e2 f3e5 f1g2 c8d7 hashfull 1 time 33
+Position; startpos
+Moves; d2d4 g8f6 c1g5 c7c5 g5f6 g7f6 d4d5 d8b6 d1c1 e7e6 b1c3 f6f5 e2e3 d7d6 g2g3 b8d7 a2a4 f8g7 g1e2 d7e5 a4a5 b6c7 e2f4 e5f3 e1e2 g7c3 b2c3 f3e5 e2e1 e5f3 
+[WARN  ] [19:14:58.442078] <                    > fastchess --- Warning; Illegal pv move f3e5 from b
+Info; info depth 6 seldepth 15 score cp -35 nodes 12400 nps 582899 pv f3e5 e2e1 e5f3 e1e2 f3e5 f1g2 c8d7 hashfull 0 time 24
+Position; startpos
+Moves; d2d4 g8f6 c1g5 c7c5 g5f6 g7f6 d4d5 d8b6 d1c1 e7e6 b1c3 f6f5 e2e3 d7d6 g2g3 b8d7 a2a4 f8g7 g1e2 d7e5 a4a5 b6c7 e2f4 e5f3 e1e2 g7c3 b2c3 f3e5 e2e1 e5f3 e1e2 
+[WARN  ] [19:14:58.442144] <                    > fastchess --- Warning; Illegal pv move f3e5 from b
+Info; info depth 7 seldepth 15 score cp -29 nodes 17201 nps 633181 pv f3e5 e2e1 e5f3 e1e2 f3e5 h2h4 c8d7 e2e1 hashfull 0 time 31
+Position; startpos
+Moves; d2d4 g8f6 c1g5 c7c5 g5f6 g7f6 d4d5 d8b6 d1c1 e7e6 b1c3 f6f5 e2e3 d7d6 g2g3 b8d7 a2a4 f8g7 g1e2 d7e5 a4a5 b6c7 e2f4 e5f3 e1e2 g7c3 b2c3 f3e5 e2e1 e5f3 e1e2 
+[WARN  ] [19:14:58.767419] <                    > fastchess --- Warning; Illegal pv move f3e5 from b
+Info; info depth 8 seldepth 17 score cp -26 nodes 31132 nps 748383 pv e5f3 e1e2 f3e5 f1g2 c8d7 a1b1 c7a5 hashfull 1 time 46
+Position; startpos
+Moves; d2d4 g8f6 c1g5 c7c5 g5f6 g7f6 d4d5 d8b6 d1c1 e7e6 b1c3 f6f5 e2e3 d7d6 g2g3 b8d7 a2a4 f8g7 g1e2 d7e5 a4a5 b6c7 e2f4 e5f3 e1e2 g7c3 b2c3 f3e5 e2e1 e5f3 e1e2 f3e5 e2e1 
+[WARN  ] [19:15:10.007964] <     139958790633152> fastchess --- Engine a loses on time
+[WARN  ] [19:15:19.695206] <     139958782240448> fastchess --- Engine a loses on time
+[WARN  ] [19:15:21.816764] <     139958900868800> fastchess --- Engine b loses on time
+[WARN  ] [19:15:23.564103] <     139958773847744> fastchess --- Engine a loses on time
+[WARN  ] [19:15:24.269893] <     139958824203968> fastchess --- Engine a loses on time
+[WARN  ] [19:15:27.940987] <     139958807418560> fastchess --- Engine a loses on time
+[WARN  ] [19:15:34.485296] <     139958790633152> fastchess --- Engine b loses on time
+[WARN  ] [19:15:42.994388] <     139958799025856> fastchess --- Engine a loses on time
+[WARN  ] [19:15:43.886760] <     139958807418560> fastchess --- Engine b loses on time
+[WARN  ] [19:15:48.348725] <     139958782240448> fastchess --- Engine b loses on time
+[WARN  ] [19:15:48.872355] <     139958815811264> fastchess --- Engine a loses on time
+[WARN  ] [19:15:50.399842] <     139958790633152> fastchess --- Engine a loses on time
+[WARN  ] [19:15:58.464212] <     139958807418560> fastchess --- Engine b loses on time
+[WARN  ] [19:15:59.191893] <     139958799025856> fastchess --- Engine a loses on time
+[WARN  ] [19:16:04.677265] <     139958900868800> fastchess --- Engine b loses on time
+[WARN  ] [19:16:05.049208] <     139958782240448> fastchess --- Engine a loses on time
+[WARN  ] [19:16:14.066464] <     139958807418560> fastchess --- Engine b loses on time
+[WARN  ] [19:16:19.499826] <     139958799025856> fastchess --- Engine a loses on time
+[WARN  ] [19:16:23.646185] <     139958900868800> fastchess --- Engine b loses on time
+[WARN  ] [19:16:32.083362] <     139958807418560> fastchess --- Engine a loses on time
+[WARN  ] [19:16:43.263786] <     139958773847744> fastchess --- Engine a loses on time
+[WARN  ] [19:16:46.263975] <     139958815811264> fastchess --- Engine b loses on time
+[WARN  ] [19:16:48.901450] <     139958824203968> fastchess --- Engine b loses on time
+[WARN  ] [19:16:49.292697] <     139958790633152> fastchess --- Engine b loses on time
+[WARN  ] [19:16:57.560719] <     139958799025856> fastchess --- Engine b loses on time
+[WARN  ] [19:17:00.619705] <     139958782240448> fastchess --- Engine b loses on time
+[WARN  ] [19:17:11.480181] <     139958824203968> fastchess --- Engine a loses on time
+[WARN  ] [19:17:15.811512] <     139958799025856> fastchess --- Engine b loses on time
+[WARN  ] [19:17:19.010532] <     139958773847744> fastchess --- Engine b loses on time
+[WARN  ] [19:17:32.126096] <                    > fastchess --- Warning; Illegal pv move c5d6 from b
+Info; info depth 10 seldepth 20 score cp -137 nodes 136892 nps 1372035 pv c5d6 e5e3 d6c5 e3e5 c5d6 e5e3 d6c5 e3e5 c5d6 hashfull 5 time 103
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 
+[WARN  ] [19:17:32.126188] <                    > fastchess --- Warning; Illegal pv move c5d6 from b
+Info; info depth 11 seldepth 21 score cp -173 nodes 213518 nps 1497594 pv c5d6 e5e3 d6c5 e3e5 c5d6 e5e3 d6c5 e3e5 c5d6 hashfull 8 time 148
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 
+[WARN  ] [19:17:32.497946] <                    > fastchess --- Warning; Illegal pv move c5d6 from b
+Info; info depth 10 seldepth 19 score cp 0 nodes 100993 nps 1057640 pv d6c5 e3e5 c5d6 e5e3 d6c5 e3e5 c5d6 e5e3 d6c5 hashfull 3 time 98
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 
+[WARN  ] [19:17:32.863378] <                    > fastchess --- Warning; Illegal pv move d8e7 from b
+Info; info depth 10 seldepth 20 score cp -136 nodes 148896 nps 1259376 pv c5d6 e5e3 d6c5 e3e5 d8e7 h3e6 f7e6 f3d4 c5d4 e5d4 hashfull 6 time 120
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 e3e5 
+[WARN  ] [19:17:33.044500] <                    > fastchess --- Warning; Illegal pv move e8g8 from a
+Info; info depth 4 seldepth 13 score cp 177 nodes 4280 nps 284404 pv e5e3 d6c5 e3e5 e8g8 hashfull 0 time 18
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 e3e5 c5d6 
+[WARN  ] [19:17:33.044587] <                    > fastchess --- Warning; Illegal pv move d8e7 from a
+Info; info depth 9 seldepth 18 score cp 136 nodes 64130 nps 1013176 pv e5e3 d6c5 e3e5 d8e7 h3e6 f7e6 f3d4 c5d4 e5d4 hashfull 2 time 67
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 e3e5 c5d6 
+[WARN  ] [19:17:33.044636] <                    > fastchess --- Warning; Illegal pv move c5d6 from a
+Info; info depth 10 seldepth 20 score cp 157 nodes 99945 nps 1100413 pv e5e3 d6c5 e3e5 c5d6 e5e3 a6c5 f3d4 e8g8 h3e6 f7e6 hashfull 3 time 98
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 e3e5 c5d6 
+[WARN  ] [19:17:33.044656] <                    > fastchess --- Warning; Illegal pv move c5d6 from a
+Info; info depth 11 seldepth 21 score cp 185 nodes 179915 nps 1281199 pv e5e3 d6c5 e3e5 c5d6 e5e3 d6c5 e3e5 d8e7 h3e6 f7e6 e1g1 hashfull 7 time 144
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 e3e5 c5d6 
+[WARN  ] [19:17:33.217553] <                    > fastchess --- Warning; Illegal pv move c5d6 from b
+Info; info depth 6 seldepth 17 score cp -109 nodes 17123 nps 621412 pv d6c5 e3e5 c5d6 e5e3 d6c5 e3e5 hashfull 0 time 30
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 e3e5 c5d6 e5e3 
+[WARN  ] [19:17:33.217622] <                    > fastchess --- Warning; Illegal pv move e8g8 from b
+Info; info depth 7 seldepth 17 score cp -177 nodes 28728 nps 833517 pv d6c5 e3e5 e8g8 g5f6 d8f6 hashfull 0 time 36
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 e3e5 c5d6 e5e3 
+[WARN  ] [19:17:33.217646] <                    > fastchess --- Warning; Illegal pv move d8e7 from b
+Info; info depth 8 seldepth 17 score cp -136 nodes 42493 nps 1007564 pv d6c5 e3e5 d8e7 h3e6 f7e6 f3d4 c5d4 e5d4 hashfull 1 time 47
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 e3e5 c5d6 e5e3 
+[WARN  ] [19:17:33.635808] <                    > fastchess --- Warning; Illegal pv move d8e7 from b
+Info; info depth 11 seldepth 24 score cp 185 nodes 252991 nps 1560931 pv e5e3 d6c5 e3e5 c5d6 e5e3 d6c5 e3e5 d8e7 h3e6 f7e6 e1g1 hashfull 9 time 166
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 
+[WARN  ] [19:17:33.824553] <                    > fastchess --- Warning; Illegal pv move c5d6 from a
+Info; info depth 10 seldepth 22 score cp -109 nodes 127892 nps 1236603 pv d6c5 e3e5 c5d6 e5e3 d6c5 e3e5 c5d6 e5e3 d6c5 hashfull 4 time 104
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 
+[WARN  ] [19:17:34.001229] <                    > fastchess --- Warning; Illegal pv move d8e7 from b
+Info; info depth 11 seldepth 25 score cp 136 nodes 247890 nps 1681819 pv e3e5 c5d6 e5e3 d6c5 e3e5 d8e7 h3e6 f7e6 f3d4 c5d4 e5d4 hashfull 10 time 152
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 
+[WARN  ] [19:17:34.185818] <                    > fastchess --- Warning; Illegal pv move c5d6 from a
+Info; info depth 10 seldepth 20 score cp -157 nodes 199031 nps 1240695 pv c5d6 e5e3 d6c5 e3e5 c5d6 e5e3 a6c5 f3d4 e8g8 d4e6 hashfull 8 time 165
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 e3e5 
+[WARN  ] [19:17:34.362442] <                    > fastchess --- Warning; Illegal pv move e8g8 from b
+Info; info depth 4 seldepth 13 score cp 177 nodes 4286 nps 271369 pv e5e3 d6c5 e3e5 e8g8 hashfull 0 time 20
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 e3e5 c5d6 
+[WARN  ] [19:17:34.362526] <                    > fastchess --- Warning; Illegal pv move c5d6 from b
+Info; info depth 10 seldepth 20 score cp 157 nodes 101301 nps 1184918 pv e5e3 d6c5 e3e5 c5d6 e5e3 a6c5 f3d4 e8g8 d4e6 f7e6 hashfull 3 time 90
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 e3e5 c5d6 
+[WARN  ] [19:17:34.362567] <                    > fastchess --- Warning; Illegal pv move c5d6 from b
+Info; info depth 11 seldepth 22 score cp 157 nodes 163787 nps 1312196 pv e5e3 d6c5 e3e5 c5d6 e5e3 a6c5 f3d4 e8g8 h3e6 f7e6 d4e6 hashfull 6 time 130
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 e3e5 c5d6 
+[WARN  ] [19:17:34.537295] <                    > fastchess --- Warning; Illegal pv move c5d6 from a
+Info; info depth 6 seldepth 16 score cp -109 nodes 14270 nps 394559 pv d6c5 e3e5 c5d6 e5e3 d6c5 e3e5 hashfull 0 time 42
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 e3e5 c5d6 e5e3 
+[WARN  ] [19:17:34.537385] <                    > fastchess --- Warning; Illegal pv move c5d6 from a
+Info; info depth 7 seldepth 17 score cp -173 nodes 26036 nps 536659 pv d6c5 e3e5 c5d6 e5e3 a6c5 hashfull 0 time 53
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 e3e5 c5d6 e5e3 
+[WARN  ] [19:17:34.537406] <                    > fastchess --- Warning; Illegal pv move c5d6 from a
+Info; info depth 8 seldepth 17 score cp -137 nodes 52898 nps 794145 pv d6c5 e3e5 c5d6 e5e3 d6c5 e3e5 c5d6 e5e3 hashfull 1 time 70
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 e3e5 c5d6 e5e3 
+[WARN  ] [19:17:34.537424] <                    > fastchess --- Warning; Illegal pv move c5d6 from a
+Info; info depth 9 seldepth 18 score cp -173 nodes 66395 nps 864394 pv d6c5 e3e5 c5d6 e5e3 d6c5 e3e5 c5d6 e5e3 a6c5 hashfull 2 time 82
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 e3e5 c5d6 e5e3 
+[WARN  ] [19:17:34.537442] <                    > fastchess --- Warning; Illegal pv move c5d6 from a
+Info; info depth 10 seldepth 21 score cp -109 nodes 128935 nps 1115963 pv d6c5 e3e5 c5d6 e5e3 d6c5 e3e5 c5d6 e5e3 d6c5 hashfull 5 time 118
+Position; startpos
+Moves; c2c4 g8f6 b1c3 e7e5 g2g3 c7c6 d2d4 e5d4 d1d4 d7d5 g1f3 b8a6 c1g5 f8c5 d4e5 c8e6 c4d5 c6d5 f1h3 c5d6 e5e3 d6c5 e3e5 c5d6 e5e3 
+[WARN  ] [19:17:43.618900] <     139958824203968> fastchess --- Engine a loses on time
+[WARN  ] [19:17:46.488023] <     139958815811264> fastchess --- Engine b loses on time
+[WARN  ] [19:17:59.025087] <     139958782240448> fastchess --- Engine b loses on time
+[WARN  ] [19:18:09.797184] <     139958773847744> fastchess --- Engine a loses on time
+[WARN  ] [19:18:13.260018] <     139958790633152> fastchess --- Engine a loses on time
+[WARN  ] [19:18:46.245818] <     139958773847744> fastchess --- Engine a loses on time
+[WARN  ] [19:18:50.454992] <     139958799025856> fastchess --- Engine a loses on time
+[WARN  ] [19:19:34.156509] <                    > fastchess --- Warning; Illegal pv move g8h7 from b
+Info; info depth 5 seldepth 13 score cp 82 nodes 6772 nps 444182 pv c4d3 h7g8 d3c4 g8h7 c4d3 h7g8 d3c4 g8h7 c4d3 hashfull 0 time 18
+Position; startpos
+Moves; e2e4 e7e6 d2d4 d7d5 b1c3 g8f6 c1g5 f8e7 e4e5 f6d7 h2h4 e8g8 f2f4 c7c5 d4c5 b8c6 d1d2 f7f6 e5f6 d7f6 g1f3 h7h6 g5f6 e7f6 g2g3 e6e5 d2d5 d8d5 c3d5 e5f4 d5f4 c8g4 f1c4 g8h7 
+[WARN  ] [19:19:50.089944] <                    > fastchess --- Received signal, stopping tournament.
+[WARN  ] [19:19:50.380190] <     139958790633152> fastchess --- Engine a disconnects
+[WARN  ] [19:19:50.380320] <     139958790633152> fastchess --- Game 182 between b and a stalled / disconnected
+[INFO  ] [19:19:50.380377] <                    > fastchess --- 
+[INFO  ] [19:19:50.380394] <                    > fastchess --- Player: b
+[INFO  ] [19:19:50.380401] <                    > fastchess ---   Timeouts: 18
+[INFO  ] [19:19:50.380408] <                    > fastchess ---   Crashed: 0
+[INFO  ] [19:19:50.380414] <                    > fastchess --- Player: a
+[INFO  ] [19:19:50.380426] <                    > fastchess ---   Timeouts: 21
+[INFO  ] [19:19:50.380432] <                    > fastchess ---   Crashed: 0
+[INFO  ] [19:19:50.380439] <                    > fastchess --- 
+[INFO  ] [19:19:50.380781] <                    > fastchess --- Tournament was interrupted. To resume the tournament, run: ./fastchess -config file=config.json
+[INFO  ] [19:19:50.380802] <                    > fastchess --- Finished match

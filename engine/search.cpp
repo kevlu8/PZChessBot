@@ -469,11 +469,28 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	return {best_move, best_score};
 }
 
-void __print_pv(bool omit_last = 0) { // Need to omit last to prevent illegal moves during mates
+void __print_pv(Board board, bool omit_last = 0) { // Need to omit last to prevent illegal moves during mates
 	const int ROOT_PLY = 0;
 	for (int i = 0; i < pvlen[ROOT_PLY] - omit_last; i++) {
 		if (pvtable[ROOT_PLY][i] == NullMove) break;
+		board.make_move(pvtable[ROOT_PLY][i]);
+
+		auto wcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]));
+		auto bcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]));
+		if (board.side == WHITE) {
+			// If it is white to move and white controls black's king, it's mate
+			if (bcontrol.first > 0)
+				break;
+		} else {
+			// Likewise, the contrary also applies.
+			if (wcontrol.second > 0)
+				break;
+		}
+
 		std::cout << pvtable[ROOT_PLY][i].to_string() << ' ';
+
+		if (board.threefold())
+			break;
 	}
 }
 
@@ -541,12 +558,12 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
 				std::cout << "info depth " << d << " seldepth " << seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
 						<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
-				__print_pv(1);
+				__print_pv(board, 1);
 				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			} else {
 				std::cout << "info depth " << d << " seldepth " << seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
 						<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
-				__print_pv();
+				__print_pv(board);
 				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			}
 		}
@@ -615,12 +632,12 @@ std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
 			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
 				std::cout << "info depth " << d << " seldepth " << seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
 						<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
-				__print_pv(1);
+				__print_pv(board, 1);
 				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			} else {
 				std::cout << "info depth " << d << " seldepth " << seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
 						<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
-				__print_pv();
+				__print_pv(board);
 				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			}
 		}

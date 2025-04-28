@@ -103,6 +103,20 @@ struct Board {
 		recompute_hash();
 	};
 
+	Board(const Board &o) : ttable(o.ttable.TT_SIZE) {
+		std::copy(o.piece_boards, o.piece_boards + 8, piece_boards);
+		side = o.side;
+		halfmove = o.halfmove;
+		fullmove = o.fullmove;
+		castling = o.castling;
+		ep_square = o.ep_square;
+		zobrist = o.zobrist;
+		hash_hist = o.hash_hist;
+		std::copy(o.mailbox, o.mailbox + 8 * 8, mailbox);
+		move_hist = o.move_hist;
+		halfmove_hist = o.halfmove_hist;
+	}
+
 	void load_fen(std::string);
 	std::string get_fen() const;
 	void print_board() const;

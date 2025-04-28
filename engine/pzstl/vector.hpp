@@ -9,6 +9,13 @@ namespace pzstd {
 		T data[PZSTL_MAX_SIZE];
 		uint16_t sz = 0;
 
+		vector() = default;
+
+		vector(const vector &o) {
+			sz = o.sz;
+			std::copy(o.data, o.data + sz, data);
+		}
+
 		void push_back(T value) noexcept {
 			data[sz++] = value;
 		}
@@ -58,6 +65,13 @@ namespace pzstd {
 	struct largevector {
 		T data[1024];
 		uint16_t sz = 0;
+
+		largevector() = default;
+
+		largevector(const largevector &o) {
+			sz = o.sz;
+			std::copy(o.data, o.data + sz, data);
+		}
 
 		void push_back(T value) noexcept {
 			data[sz++] = value;

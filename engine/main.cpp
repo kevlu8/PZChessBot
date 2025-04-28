@@ -137,6 +137,10 @@ int main(int argc, char *argv[]) {
 			else
 				res = search(board, timemgmt(timeleft, inc, online));
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
+		} else if (command == "printhash") {
+			for (auto x : board.hash_hist)
+				std::cout << std::hex << x << std::dec << ' ';
+			std::cout << std::endl << std::hex << board.zobrist << std::dec << std::endl;
 		}
 	}
 }
