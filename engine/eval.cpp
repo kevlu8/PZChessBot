@@ -247,7 +247,7 @@ Value eval(Board &board) {
 
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 	int32_t score = 0;
-	if (npieces > 10) {
+	if (npieces > 12) {
 		// Query the NNUE network
 		for (uint16_t i = 0; i < 64; i++) {
 			Piece piece = board.mailbox[i];
