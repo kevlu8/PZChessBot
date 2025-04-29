@@ -1,17 +1,12 @@
 #pragma once
 
 #include "bitboard.hpp"
-#include "nnue/network.hpp"
-#include "nnue/egnn.hpp"
 #include "includes.hpp"
-
-void init_network();
 
 Value eval(Board &board);
 
 std::array<Value, 8> debug_eval(Board &board);
 
-#ifdef HCE
 constexpr int pawn_heatmap[64] = {
 	//  a  b  c  d  e  f  g  h
 	0,	0,	0,	 0,	  0,   0,	0,	0, // 1
@@ -107,4 +102,3 @@ constexpr int pawn_endgame[64] = {
 	100, 100, 100, 100, 100, 100, 100, 100, // 7
 	0,	 0,	  0,   0,	0,	 0,	  0,   0, // 8
 };
-#endif

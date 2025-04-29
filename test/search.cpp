@@ -19,7 +19,6 @@ std::vector<std::tuple<std::string, int, std::string>> tests = {
 
 int main() {
 	int i = 1;
-	init_network();
 	for (auto [fen, depth, expected] : tests) {
 		Board board(fen);
 		std::pair<Move, Value> res = search(board, 3000);
