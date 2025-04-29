@@ -3,7 +3,7 @@
 #include "../includes.hpp"
 #include "network.hpp" // For definitions like INPUT_SIZE, etc
 
-#define EGHL_SIZE 64
+#define EGHL_SIZE 256
 
 struct EGAccumulator {
 	int16_t val[EGHL_SIZE] = {};
