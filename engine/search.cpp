@@ -414,6 +414,9 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	Move best_move = NullMove;
 	Value best_score = -VALUE_INFINITE;
 
+	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
+	bool use_egnn = npieces <= 10;
+
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
@@ -426,9 +429,9 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		board.make_move(move);
 		Value score;
 		if (i > 0) {
-			score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side);
+			score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side, 0);
 			if (score > alpha) {
-				score = -__recurse(board, depth - 1, -beta, -alpha, -side);
+				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0);
 			}
 		} else {
 			score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1);

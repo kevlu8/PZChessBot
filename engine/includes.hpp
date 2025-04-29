@@ -47,6 +47,10 @@ constexpr Value VALUE_MAX = QueenValue * 9 + (KnightValue + BishopValue + RookVa
 #define NNUE_PATH "nnue.bin"
 #endif
 
+#ifndef EGNN_PATH
+#define EGNN_PATH "egnn.bin"
+#endif
+
 #define CLOCKS_PER_MS (CLOCKS_PER_SEC / 1000)
 
 enum PieceType : uint8_t { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, NO_PIECETYPE };
