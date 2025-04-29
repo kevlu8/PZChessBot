@@ -10,29 +10,29 @@ static constexpr Value multipawn_lookup[7] = {0, 0, 20, 40, 80, 160, 320};
  * @details The 8 boards map out an 8-bit signed binary number that represents how good or bad a square is for a piece type.
  * @details 127 is the best square for a piece, -128 is the worst.
  */
-Bitboard PAWN_SQUARES[8];
-Bitboard KNIGHT_SQUARES[8];
-Bitboard BISHOP_SQUARES[8];
-Bitboard ROOK_SQUARES[8];
-Bitboard QUEEN_SQUARES[8];
-Bitboard KING_SQUARES[8];
-Bitboard KING_ENDGAME_SQUARES[8];
-Bitboard PAWN_ENDGAME_SQUARES[8];
+Bitboard PAWN_SQUARES[16];
+Bitboard KNIGHT_SQUARES[16];
+Bitboard BISHOP_SQUARES[16];
+Bitboard ROOK_SQUARES[16];
+Bitboard QUEEN_SQUARES[16];
+Bitboard KING_SQUARES[16];
+Bitboard KING_ENDGAME_SQUARES[16];
+Bitboard PAWN_ENDGAME_SQUARES[16];
 
 Bitboard PASSED_PAWN_MASKS[2][64];
 
 __attribute__((constructor)) constexpr void gen_lookups() {
 	// Convert heatmaps
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < 16; i++) {
 		for (int j = 0; j < 64; j++) {
-			PAWN_SQUARES[7 - i] |= (((Bitboard)pawn_heatmap[j] >> i) & 1) << j;
-			KNIGHT_SQUARES[7 - i] |= (((Bitboard)knight_heatmap[j] >> i) & 1) << j;
-			BISHOP_SQUARES[7 - i] |= (((Bitboard)bishop_heatmap[j] >> i) & 1) << j;
-			ROOK_SQUARES[7 - i] |= (((Bitboard)rook_heatmap[j] >> i) & 1) << j;
-			QUEEN_SQUARES[7 - i] |= (((Bitboard)queen_heatmap[j] >> i) & 1) << j;
-			KING_SQUARES[7 - i] |= (((Bitboard)king_heatmap[j] >> i) & 1) << j;
-			KING_ENDGAME_SQUARES[7 - i] |= (((Bitboard)endgame_heatmap[j] >> i) & 1) << j;
-			PAWN_ENDGAME_SQUARES[7 - i] |= (((Bitboard)pawn_endgame[j] >> i) & 1) << j;
+			PAWN_SQUARES[15 - i] |= (((Bitboard)pawn_heatmap[j] >> i) & 1) << j;
+			KNIGHT_SQUARES[15 - i] |= (((Bitboard)knight_heatmap[j] >> i) & 1) << j;
+			BISHOP_SQUARES[15 - i] |= (((Bitboard)bishop_heatmap[j] >> i) & 1) << j;
+			ROOK_SQUARES[15 - i] |= (((Bitboard)rook_heatmap[j] >> i) & 1) << j;
+			QUEEN_SQUARES[15 - i] |= (((Bitboard)queen_heatmap[j] >> i) & 1) << j;
+			KING_SQUARES[15 - i] |= (((Bitboard)king_heatmap[j] >> i) & 1) << j;
+			KING_ENDGAME_SQUARES[15 - i] |= (((Bitboard)endgame_heatmap[j] >> i) & 1) << j;
+			PAWN_ENDGAME_SQUARES[15 - i] |= (((Bitboard)pawn_endgame[j] >> i) & 1) << j;
 		}
 	}
 
@@ -102,7 +102,7 @@ Value eval(Board &board) {
 #endif
 	}
 
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < 16; i++) {
 		pawn_acc = pawn_acc * 2 + _mm_popcnt_u64(boards[0] & pawn[i]);
 		knight_acc = knight_acc * 2 + _mm_popcnt_u64(boards[1] & KNIGHT_SQUARES[i]);
 		bishop_acc = bishop_acc * 2 + _mm_popcnt_u64(boards[2] & BISHOP_SQUARES[i]);
