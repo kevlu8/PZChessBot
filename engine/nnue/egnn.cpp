@@ -39,7 +39,7 @@ int32_t nnue_eval(const EGNetwork &net, const EGAccumulator &stm, const EGAccumu
 		score += input * weight;
 
 		input = std::clamp((int)ntm.val[i], 0, QA);
-		weight = input * net.output_weights[HL_SIZE + i];
+		weight = input * net.output_weights[EGHL_SIZE + i];
 		score += input * weight;
 	}
 	score /= QA;
