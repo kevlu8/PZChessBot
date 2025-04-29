@@ -102,7 +102,7 @@ int pvlen[MAX_PLY];
  * - Late move reduction (instead of reducing depth, we reduce the search window)
  * - Static exchange evaluation (don't search moves that lose material, see https://www.chessprogramming.org/Static_Exchange_Evaluation)
  */
-Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
+Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool use_egnn) {
 	nodes++;
 
 	if (early_exit) return 0;
@@ -118,7 +118,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	}
 
 	seldepth = std::max(depth, seldepth);
-	Value stand_pat = eval(board) * side;
+	Value stand_pat = eval(board, use_egnn) * side;
 
 	// If it's a mate, stop here since there's no point in searching further
 	if (stand_pat == VALUE_MATE || stand_pat == -VALUE_MATE)
@@ -157,7 +157,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 		// }
 
 		board.make_move(move);
-		Value score = -quiesce(board, -beta, -alpha, -side, depth + 1);
+		Value score = -quiesce(board, -beta, -alpha, -side, depth + 1, use_egnn);
 		board.unmake_move();
 
 		if (score >= VALUE_MATE_MAX_PLY)
@@ -225,7 +225,7 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 	return scores;
 }
 
-Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, int ply = 1) {
+Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, int ply = 1, bool use_egnn = false) {
 	pvlen[ply] = 0;
 
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
@@ -267,7 +267,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (depth <= 0) {
 		// Reached the maximum depth, perform quiescence search
-		return quiesce(board, alpha, beta, side, ply);
+		return quiesce(board, alpha, beta, side, ply, use_egnn);
 	}
 
 	// Check for TTable cutoff
@@ -284,7 +284,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * We need to make sure that we aren't in check (since we might get mated) and that the
 		 * TT entry exists (so that the current position is actually good).
 		 */
-		int cur_eval = eval(board) * side; // TODO: Use the TT entry instead of the eval function?
+		int cur_eval = eval(board, use_egnn) * side; // TODO: Use the TT entry instead of the eval function?
 		int margin = RFP_THRESHOLD * depth;
 		if (cur_eval >= beta + margin)
 			return cur_eval - margin;
@@ -305,7 +305,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 */
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
-		Value null_score = -__recurse(board, depth - NMP_R_VALUE, -beta, -beta + 1, -side, pv, ply+1);
+		Value null_score = -__recurse(board, depth - NMP_R_VALUE, -beta, -beta + 1, -side, pv, ply+1, use_egnn);
 		board.unmake_move();
 		if (null_score >= beta)
 			return null_score;
@@ -344,12 +344,12 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * full-depth re-search. This, however, doesn't happen often enough to slow down
 			 * the search.
 			 */
-			score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side, 0, ply+1);
+			score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side, 0, ply+1, use_egnn);
 			if (score > alpha) {
-				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0, ply+1);
+				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0, ply+1, use_egnn);
 			}
 		} else {
-			score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
+			score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1, use_egnn);
 		}
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
@@ -414,6 +414,9 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	Move best_move = NullMove;
 	Value best_score = -VALUE_INFINITE;
 
+	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
+	bool use_egnn = npieces <= 10;
+
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
@@ -426,12 +429,12 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		board.make_move(move);
 		Value score;
 		if (i > 0) {
-			score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side);
+			score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side, 0, 1, use_egnn);
 			if (score > alpha) {
-				score = -__recurse(board, depth - 1, -beta, -alpha, -side);
+				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0, 1, use_egnn);
 			}
 		} else {
-			score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1);
+			score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1, 1, use_egnn);
 		}
 
 		board.unmake_move();

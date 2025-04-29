@@ -7,7 +7,7 @@
 
 void init_network();
 
-Value eval(Board &board);
+Value eval(Board &board, bool use_egnn = false);
 
 std::array<Value, 8> debug_eval(Board &board);
 

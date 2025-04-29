@@ -235,7 +235,7 @@ std::array<Value, 8> debug_eval(Board &board) {
 	return {eval(board), 0, 0, 0, 0, 0, 0, 0};
 }
 #else
-Value eval(Board &board) {
+Value eval(Board &board, bool use_egnn) {
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
 		return VALUE_MATE;
@@ -247,7 +247,7 @@ Value eval(Board &board) {
 
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 	int32_t score = 0;
-	if (npieces > 10) {
+	if (!use_egnn) {
 		// Query the NNUE network
 		for (uint16_t i = 0; i < 64; i++) {
 			Piece piece = board.mailbox[i];
