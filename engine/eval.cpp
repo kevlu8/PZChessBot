@@ -120,11 +120,6 @@ Value eval(Board &board) {
 	piecesquare += pawn_acc + knight_acc + bishop_acc + rook_acc + queen_acc + king_acc;
 	piecesquare -= pawn_acc_black + knight_acc_black + bishop_acc_black + rook_acc_black + queen_acc_black + king_acc_black;
 
-	castling += (board.castling & WHITE_OO) ? 5 : 0;
-	castling += (board.castling & WHITE_OOO) ? 5 : 0;
-	castling -= (board.castling & BLACK_OO) ? 5 : 0;
-	castling -= (board.castling & BLACK_OOO) ? 5 : 0;
-
 	bishop_pair += _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(WHITE)]) >= 2 ? 30 : 0;
 	bishop_pair -= _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(BLACK)]) >= 2 ? 30 : 0;
 
@@ -202,7 +197,7 @@ Value eval(Board &board) {
 
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 
-	return ((int)material * 3 + (int)piecesquare + (int)castling + (int)bishop_pair + (int)king_safety * 2 + (int)tempo_bonus + (int)pawn_structure) *
+	return ((int)material * 3 + (int)piecesquare * 2 + (int)bishop_pair + (int)king_safety * 2 + (int)tempo_bonus + (int)pawn_structure) *
 		   multi(npieces);
 }
 
