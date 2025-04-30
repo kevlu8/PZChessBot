@@ -18,6 +18,10 @@ Bitboard QUEEN_SQUARES[8];
 Bitboard KING_SQUARES[8];
 Bitboard KING_ENDGAME_SQUARES[8];
 Bitboard PAWN_ENDGAME_SQUARES[8];
+Bitboard KNIGHT_ENDGAME_SQUARES[8];
+Bitboard BISHOP_ENDGAME_SQUARES[8];
+Bitboard ROOK_ENDGAME_SQUARES[8];
+Bitboard QUEEN_ENDGAME_SQUARES[8];
 
 Bitboard PASSED_PAWN_MASKS[2][64];
 
@@ -31,8 +35,12 @@ __attribute__((constructor)) constexpr void gen_lookups() {
 			ROOK_SQUARES[7 - i] |= (((Bitboard)rook_heatmap[j] >> i) & 1) << j;
 			QUEEN_SQUARES[7 - i] |= (((Bitboard)queen_heatmap[j] >> i) & 1) << j;
 			KING_SQUARES[7 - i] |= (((Bitboard)king_heatmap[j] >> i) & 1) << j;
-			KING_ENDGAME_SQUARES[7 - i] |= (((Bitboard)endgame_heatmap[j] >> i) & 1) << j;
+			KING_ENDGAME_SQUARES[7 - i] |= (((Bitboard)king_endgame[j] >> i) & 1) << j;
 			PAWN_ENDGAME_SQUARES[7 - i] |= (((Bitboard)pawn_endgame[j] >> i) & 1) << j;
+			KNIGHT_ENDGAME_SQUARES[7 - i] |= (((Bitboard)knight_endgame[j] >> i) & 1) << j;
+			BISHOP_ENDGAME_SQUARES[7 - i] |= (((Bitboard)bishop_endgame[j] >> i) & 1) << j;
+			ROOK_ENDGAME_SQUARES[7 - i] |= (((Bitboard)rook_endgame[j] >> i) & 1) << j;
+			QUEEN_ENDGAME_SQUARES[7 - i] |= (((Bitboard)queen_endgame[j] >> i) & 1) << j;
 		}
 	}
 
@@ -44,32 +52,12 @@ __attribute__((constructor)) constexpr void gen_lookups() {
 	}
 }
 
-float multi(int x) {
-	// If there are fewer pieces on the board, we should raise the magnitude of the eval
-	// This allows for the engine to prioritize trading pieces when ahead, especially in the endgame
-	// The main caveat is that this may cause the engine to draw by insufficient material
-	int diff = std::min(32 - x, 20); // Number of pieces taken off the board
-	return 1.0 + 0.02 * diff;
-}
-
-
-Value eval(Board &board) {
-	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
-		// If black has no king, this is mate for white
-		return VALUE_MATE;
-	}
-	if (!(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])) {
-		// Likewise, if white has no king, this is mate for black
-		return -VALUE_MATE;
-	}
-
+Value mg_eval(Board &board) {
 	Value material = 0;
 	Value piecesquare = 0;
-	Value castling = 0;
 	Value bishop_pair = 0;
 	Value king_safety = 0;
 	Value tempo_bonus = 0;
-	Value pawn_structure = 0;
 
 	material += PawnValue * _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)]);
 	material += KnightValue * _mm_popcnt_u64(board.piece_boards[KNIGHT] & board.piece_boards[OCC(WHITE)]);
@@ -82,12 +70,9 @@ Value eval(Board &board) {
 	material -= RookValue * _mm_popcnt_u64(board.piece_boards[ROOK] & board.piece_boards[OCC(BLACK)]);
 	material -= QueenValue * _mm_popcnt_u64(board.piece_boards[QUEEN] & board.piece_boards[OCC(BLACK)]);
 
-	// Decide between normal vs endgame king map
-	const Bitboard *funny = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) >= 10 ? KING_SQUARES : KING_ENDGAME_SQUARES;
-	const Bitboard *pawn = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) >= 10 ? PAWN_SQUARES : PAWN_ENDGAME_SQUARES;
 	// Initialize accumulators
-	int8_t pawn_acc, knight_acc, bishop_acc, rook_acc, queen_acc, king_acc;
-	int8_t pawn_acc_black, knight_acc_black, bishop_acc_black, rook_acc_black, queen_acc_black, king_acc_black;
+	Value pawn_acc, knight_acc, bishop_acc, rook_acc, queen_acc, king_acc;
+	Value pawn_acc_black, knight_acc_black, bishop_acc_black, rook_acc_black, queen_acc_black, king_acc_black;
 	pawn_acc = knight_acc = bishop_acc = rook_acc = queen_acc = king_acc = 0;
 	pawn_acc_black = knight_acc_black = bishop_acc_black = rook_acc_black = queen_acc_black = king_acc_black = 0;
 
@@ -103,27 +88,22 @@ Value eval(Board &board) {
 	}
 
 	for (int i = 0; i < 8; i++) {
-		pawn_acc = pawn_acc * 2 + _mm_popcnt_u64(boards[0] & pawn[i]);
+		pawn_acc = pawn_acc * 2 + _mm_popcnt_u64(boards[0] & PAWN_SQUARES[i]);
 		knight_acc = knight_acc * 2 + _mm_popcnt_u64(boards[1] & KNIGHT_SQUARES[i]);
 		bishop_acc = bishop_acc * 2 + _mm_popcnt_u64(boards[2] & BISHOP_SQUARES[i]);
 		rook_acc = rook_acc * 2 + _mm_popcnt_u64(boards[3] & ROOK_SQUARES[i]);
 		queen_acc = queen_acc * 2 + _mm_popcnt_u64(boards[4] & QUEEN_SQUARES[i]);
-		king_acc = king_acc * 2 + _mm_popcnt_u64(boards[5] & funny[i]);
+		king_acc = king_acc * 2 + _mm_popcnt_u64(boards[5] & KING_SQUARES[i]);
 
-		pawn_acc_black = pawn_acc_black * 2 + _mm_popcnt_u64(boards[6] & pawn[i]);
+		pawn_acc_black = pawn_acc_black * 2 + _mm_popcnt_u64(boards[6] & PAWN_SQUARES[i]);
 		knight_acc_black = knight_acc_black * 2 + _mm_popcnt_u64(boards[7] & KNIGHT_SQUARES[i]);
 		bishop_acc_black = bishop_acc_black * 2 + _mm_popcnt_u64(boards[8] & BISHOP_SQUARES[i]);
 		rook_acc_black = rook_acc_black * 2 + _mm_popcnt_u64(boards[9] & ROOK_SQUARES[i]);
 		queen_acc_black = queen_acc_black * 2 + _mm_popcnt_u64(boards[10] & QUEEN_SQUARES[i]);
-		king_acc_black = king_acc_black * 2 + _mm_popcnt_u64(boards[11] & funny[i]);
+		king_acc_black = king_acc_black * 2 + _mm_popcnt_u64(boards[11] & KING_SQUARES[i]);
 	}
 	piecesquare += pawn_acc + knight_acc + bishop_acc + rook_acc + queen_acc + king_acc;
 	piecesquare -= pawn_acc_black + knight_acc_black + bishop_acc_black + rook_acc_black + queen_acc_black + king_acc_black;
-
-	castling += (board.castling & WHITE_OO) ? 5 : 0;
-	castling += (board.castling & WHITE_OOO) ? 5 : 0;
-	castling -= (board.castling & BLACK_OO) ? 5 : 0;
-	castling -= (board.castling & BLACK_OOO) ? 5 : 0;
 
 	bishop_pair += _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(WHITE)]) >= 2 ? 30 : 0;
 	bishop_pair -= _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(BLACK)]) >= 2 ? 30 : 0;
@@ -173,6 +153,57 @@ Value eval(Board &board) {
 
 	tempo_bonus += board.side == WHITE ? 10 : -10;
 
+	return ((int)material * 3 + (int)piecesquare + (int)bishop_pair + (int)king_safety + (int)tempo_bonus);
+}
+
+Value eg_eval(Board &board) {
+	Value material = 0;
+	Value piecesquare = 0;
+	Value pawn_structure = 0;
+
+	material += PawnValue * _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)]);
+	material += KnightValue * _mm_popcnt_u64(board.piece_boards[KNIGHT] & board.piece_boards[OCC(WHITE)]);
+	material += BishopValue * _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(WHITE)]);
+	material += RookValue * _mm_popcnt_u64(board.piece_boards[ROOK] & board.piece_boards[OCC(WHITE)]);
+	material += QueenValue * _mm_popcnt_u64(board.piece_boards[QUEEN] & board.piece_boards[OCC(WHITE)]);
+	material -= PawnValue * _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)]);
+	material -= KnightValue * _mm_popcnt_u64(board.piece_boards[KNIGHT] & board.piece_boards[OCC(BLACK)]);
+	material -= BishopValue * _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(BLACK)]);
+	material -= RookValue * _mm_popcnt_u64(board.piece_boards[ROOK] & board.piece_boards[OCC(BLACK)]);
+	material -= QueenValue * _mm_popcnt_u64(board.piece_boards[QUEEN] & board.piece_boards[OCC(BLACK)]);
+
+	// Initialize accumulators
+	Value pawn_acc, knight_acc, bishop_acc, rook_acc, queen_acc;
+	Value pawn_acc_black, knight_acc_black, bishop_acc_black, rook_acc_black, queen_acc_black;
+	pawn_acc = knight_acc = bishop_acc = rook_acc = queen_acc = 0;
+	pawn_acc_black = knight_acc_black = bishop_acc_black = rook_acc_black = queen_acc_black = 0;
+	// Precompute piece boards (flipping for black)
+	Bitboard boards[12];
+	for (int i = 0; i < 6; i++) {
+		boards[i] = board.piece_boards[i] & board.piece_boards[OCC(WHITE)];
+#ifndef WINDOWS
+		boards[i + 6] = __bswap_64(board.piece_boards[i] & board.piece_boards[OCC(BLACK)]);
+#else
+		boards[i + 6] = _byteswap_ulong(board.piece_boards[i] & board.piece_boards[OCC(BLACK)]);
+#endif
+	}
+
+	for (int i = 0; i < 8; i++) {
+		pawn_acc = pawn_acc * 2 + _mm_popcnt_u64(boards[0] & PAWN_ENDGAME_SQUARES[i]);
+		knight_acc = knight_acc * 2 + _mm_popcnt_u64(boards[1] & KNIGHT_ENDGAME_SQUARES[i]);
+		bishop_acc = bishop_acc * 2 + _mm_popcnt_u64(boards[2] & BISHOP_ENDGAME_SQUARES[i]);
+		rook_acc = rook_acc * 2 + _mm_popcnt_u64(boards[3] & ROOK_ENDGAME_SQUARES[i]);
+		queen_acc = queen_acc * 2 + _mm_popcnt_u64(boards[4] & QUEEN_ENDGAME_SQUARES[i]);
+
+		pawn_acc_black = pawn_acc_black * 2 + _mm_popcnt_u64(boards[6] & PAWN_ENDGAME_SQUARES[i]);
+		knight_acc_black = knight_acc_black * 2 + _mm_popcnt_u64(boards[7] & KNIGHT_ENDGAME_SQUARES[i]);
+		bishop_acc_black = bishop_acc_black * 2 + _mm_popcnt_u64(boards[8] & BISHOP_ENDGAME_SQUARES[i]);
+		rook_acc_black = rook_acc_black * 2 + _mm_popcnt_u64(boards[9] & ROOK_ENDGAME_SQUARES[i]);
+		queen_acc_black = queen_acc_black * 2 + _mm_popcnt_u64(boards[10] & QUEEN_ENDGAME_SQUARES[i]);
+	}
+	piecesquare += pawn_acc + knight_acc + bishop_acc + rook_acc + queen_acc;
+	piecesquare -= pawn_acc_black + knight_acc_black + bishop_acc_black + rook_acc_black + queen_acc_black;
+
 	for (Bitboard mask = 0x0101010101010101; mask & 0xff; mask <<= 1) {
 		// Doubled pawns
 		pawn_structure -= multipawn_lookup[_mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)] & mask)];
@@ -200,10 +231,25 @@ Value eval(Board &board) {
 		pawns = _blsr_u64(pawns);
 	}
 
-	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
+	return ((int)material * 3 + (int)piecesquare + (int)pawn_structure);
+}
 
-	return ((int)material * 3 + (int)piecesquare + (int)castling + (int)bishop_pair + (int)king_safety * 2 + (int)tempo_bonus + (int)pawn_structure) *
-		   multi(npieces);
+Value eval(Board &board) {
+	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
+		// If black has no king, this is mate for white
+		return VALUE_MATE;
+	}
+	if (!(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])) {
+		// Likewise, if white has no king, this is mate for black
+		return -VALUE_MATE;
+	}
+
+	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
+	int phase = std::min(npieces, 24);
+
+	Value mg = mg_eval(board), eg = eg_eval(board);
+
+	return (mg * phase + eg * (24 - phase)) / 24;
 }
 
 std::array<Value, 8> debug_eval(Board &board) {
