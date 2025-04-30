@@ -212,9 +212,9 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 			score = history[board.side][move.src()][move.dst()];
 		}
 		if (move == killer[0][depth]) {
-			score += 1000; // Killer move bonus
+			score += 1500; // Killer move bonus
 		} else if (move == killer[1][depth]) {
-			score += 500; // Second killer move bonus
+			score += 800; // Second killer move bonus
 		}
 		if (ply && move == cmh[board.side][line[ply-1].src()][line[ply-1].dst()]) {
 			score += 1000; // Counter-move bonus
