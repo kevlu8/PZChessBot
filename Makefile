@@ -1,13 +1,12 @@
 EXE ?= pzchessbot
-EVALFILE ?= nnue.bin
 
 CXX := g++
-CXXFLAGS := -std=c++17 -march=native -DNNUE_PATH=\"$(EVALFILE)\" -DHCE
+CXXFLAGS := -std=c++17 -march=native -DHCE
 RELEASEFLAGS = -O3
 DEBUGFLAGS = -g -fsanitize=address,undefined
 
-SRCS := $(wildcard engine/*.cpp engine/nnue/*.cpp)
-HDRS := $(wildcard engine/*.hpp engine/nnue/*.hpp)
+SRCS := $(wildcard engine/*.cpp)
+HDRS := $(wildcard engine/*.hpp)
 OBJS := $(SRCS:.cpp=.o)
 
 .PHONY: release debug clean

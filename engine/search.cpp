@@ -54,7 +54,7 @@ __attribute__((constructor)) void init_mvvlva() {
 	for (int i = 0; i < 6; i++) {
 		for (int j = 0; j < 6; j++) {
 			if (i == KING)
-				MVV_LVA[i][j] = VALUE_INFINITE;
+				MVV_LVA[i][j] = QueenValue * 12 + 1; // Prioritize over all other captures
 			else
 				MVV_LVA[i][j] = PieceValue[i] * 12 - PieceValue[j];
 		}
@@ -251,6 +251,11 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			return VALUE_MATE - 1;
 	}
 
+	// Threefold or 50 move rule
+	if (board.threefold() || board.halfmove >= 100) {
+		return 0;
+	}
+
 	bool in_check = false;
 	if (board.side == WHITE) {
 		in_check = wcontrol.second > 0;
@@ -270,8 +275,23 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (cutoff)
 		return cutoff->eval;
 
+	// Reverse futility pruning
+	if (!in_check && !pv && depth <= 3) {
+		/**
+		 * The idea is that if we are winning by such a large margin that we can afford to lose
+		 * RFP_THRESHOLD * depth eval units per ply, we can return the current eval.
+		 * 
+		 * We need to make sure that we aren't in check (since we might get mated) and that the
+		 * TT entry exists (so that the current position is actually good).
+		 */
+		int cur_eval = eval(board) * side; // TODO: Use the TT entry instead of the eval function?
+		int margin = RFP_THRESHOLD * depth;
+		if (cur_eval >= beta + margin)
+			return cur_eval - margin;
+	}
+
 	// Null-move pruning
-	if (!in_check) {
+	if (!in_check && _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) >= 8) {
 		/**
 		 * This works off the *null-move observation*.
 		 * 
@@ -299,20 +319,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	bool entry_exists = false;
 	pzstd::vector<std::pair<Move, Value>> scores = order_moves(board, moves, side, depth, ply, entry_exists);
 
-	// Reverse futility pruning
-	// if (!in_check && entry_exists && !pv) {
-	// 	/**
-	// 	 * The idea is that if we are winning by such a large margin that we can afford to lose
-	// 	 * RFP_THRESHOLD * depth eval units per ply, we can return the current eval.
-	// 	 * 
-	// 	 * We need to make sure that we aren't in check (since we might get mated) and that the
-	// 	 * TT entry exists (so that the current position is actually good).
-	// 	 */
-	// 	int cur_eval = eval(board) * side; // TODO: Use the TT entry instead of the eval function?
-	// 	int margin = RFP_THRESHOLD * depth;
-	// 	if (cur_eval >= beta + margin)
-	// 		return cur_eval;
-	// }
+	if (depth > 5 && !entry_exists) {
+		depth -= 2; // Internal iterative reductions
+	}
 
 	Move best_move = NullMove;
 
@@ -322,38 +331,25 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		board.make_move(move);
 
 		Value score;
-		if (board.threefold()) {
-			score = 0; // Draw by repetition
-			// Make sure we're not in check or this is an illegal move
-			if (board.side == WHITE) {
-				// Black just played a move, so we check that white doesn't control black's king
-				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])).first)
-					score = -VALUE_MATE;
-			} else {
-				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second)
-					score = -VALUE_MATE;
+		if (i > 0) {
+			/**
+			 * PV Search (principal variation)
+			 * 
+			 * Assuming our move ordering is good, there probably won't be any moves past
+			 * the first one that is better than that first move. So, we run a reduced-depth
+			 * null-window search on later moves (a much shorter search) to ensure that they
+			 * are bad moves. 
+			 * 
+			 * However, if the move turns out to be better than expected, we run a full-window
+			 * full-depth re-search. This, however, doesn't happen often enough to slow down
+			 * the search.
+			 */
+			score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side, 0, ply+1);
+			if (score > alpha) {
+				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0, ply+1);
 			}
 		} else {
-			if (i > 0) {
-				/**
-				 * PV Search (principal variation)
-				 * 
-				 * Assuming our move ordering is good, there probably won't be any moves past
-				 * the first one that is better than that first move. So, we run a reduced-depth
-				 * null-window search on later moves (a much shorter search) to ensure that they
-				 * are bad moves. 
-				 * 
-				 * However, if the move turns out to be better than expected, we run a full-window
-				 * full-depth re-search. This, however, doesn't happen often enough to slow down
-				 * the search.
-				 */
-				score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side, 0, ply+1);
-				if (score > alpha) {
-					score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0, ply+1);
-				}
-			} else {
-				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1, ply+1);
-			}
+			score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
 		}
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
@@ -418,6 +414,9 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	Move best_move = NullMove;
 	Value best_score = -VALUE_INFINITE;
 
+	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
+	bool use_egnn = npieces <= 10;
+
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
@@ -429,26 +428,13 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		line[0] = move;
 		board.make_move(move);
 		Value score;
-		if (board.threefold()) {
-			score = 0; // Draw by repetition
-			// Make sure we're not in check or this is an illegal move
-			if (board.side == WHITE) {
-				// Black just played a move, so we check that white doesn't control black's king
-				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])).first)
-					score = -VALUE_MATE;
-			} else {
-				if (board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second)
-					score = -VALUE_MATE;
+		if (i > 0) {
+			score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side, 0);
+			if (score > alpha) {
+				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0);
 			}
 		} else {
-			if (i > 0) {
-				score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side);
-				if (score > alpha) {
-					score = -__recurse(board, depth - 1, -beta, -alpha, -side);
-				}
-			} else {
-				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1);
-			}
+			score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1);
 		}
 
 		board.unmake_move();
@@ -551,6 +537,8 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 		eval = result.second;
 		best_move = result.first;
 
+		seldepth = std::max(seldepth, d);
+
 #ifndef NOUCI
 		if (!quiet) {
 			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
@@ -622,6 +610,8 @@ std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
 			break;
 		eval = result.second;
 		best_move = result.first;
+
+		seldepth = std::max(seldepth, d);
 
 #ifndef NOUCI
 		if (!quiet) {

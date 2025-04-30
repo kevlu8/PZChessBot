@@ -15,7 +15,7 @@
 
 #include "pzstl/vector.hpp"
 
-#define VERSION "v20250421T23"
+#define VERSION "v20250427T15"
 
 typedef uint64_t Bitboard;
 
@@ -41,10 +41,6 @@ constexpr Value VALUE_MAX = QueenValue * 9 + (KnightValue + BishopValue + RookVa
 #define CP_SCALE_FACTOR 4
 #else
 #define CP_SCALE_FACTOR 1
-#endif
-
-#ifndef NNUE_PATH
-#define NNUE_PATH "nnue.bin"
 #endif
 
 #define CLOCKS_PER_MS (CLOCKS_PER_SEC / 1000)

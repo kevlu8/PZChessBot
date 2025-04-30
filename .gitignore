@@ -50,3 +50,4 @@ stockfish/
 nnue_test
 engine/*.bin
 *bullet*
+*.txt
