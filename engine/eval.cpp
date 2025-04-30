@@ -186,7 +186,7 @@ Value mg_eval(Board &board) {Value material = 0;
 		pawns = _blsr_u64(pawns);
 	}
 
-	return ((int)material * 3 + (int)piecesquare + (int)castling + (int)bishop_pair + (int)king_safety * 2 + (int)tempo_bonus + (int)pawn_structure);
+	return ((int)material + (int)piecesquare + (int)castling + (int)bishop_pair + (int)king_safety + (int)tempo_bonus + (int)pawn_structure);
 }
 
 Value eg_eval(Board &board) {
@@ -194,16 +194,16 @@ Value eg_eval(Board &board) {
 	Value piecesquare = 0;
 	Value pawn_structure = 0;
 
-	material += PawnValue * _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)]);
-	material += KnightValue * _mm_popcnt_u64(board.piece_boards[KNIGHT] & board.piece_boards[OCC(WHITE)]);
-	material += BishopValue * _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(WHITE)]);
-	material += RookValue * _mm_popcnt_u64(board.piece_boards[ROOK] & board.piece_boards[OCC(WHITE)]);
-	material += QueenValue * _mm_popcnt_u64(board.piece_boards[QUEEN] & board.piece_boards[OCC(WHITE)]);
-	material -= PawnValue * _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)]);
-	material -= KnightValue * _mm_popcnt_u64(board.piece_boards[KNIGHT] & board.piece_boards[OCC(BLACK)]);
-	material -= BishopValue * _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(BLACK)]);
-	material -= RookValue * _mm_popcnt_u64(board.piece_boards[ROOK] & board.piece_boards[OCC(BLACK)]);
-	material -= QueenValue * _mm_popcnt_u64(board.piece_boards[QUEEN] & board.piece_boards[OCC(BLACK)]);
+	material += PawnValueEg * _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)]);
+	material += KnightValueEg * _mm_popcnt_u64(board.piece_boards[KNIGHT] & board.piece_boards[OCC(WHITE)]);
+	material += BishopValueEg * _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(WHITE)]);
+	material += RookValueEg * _mm_popcnt_u64(board.piece_boards[ROOK] & board.piece_boards[OCC(WHITE)]);
+	material += QueenValueEg * _mm_popcnt_u64(board.piece_boards[QUEEN] & board.piece_boards[OCC(WHITE)]);
+	material -= PawnValueEg * _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)]);
+	material -= KnightValueEg * _mm_popcnt_u64(board.piece_boards[KNIGHT] & board.piece_boards[OCC(BLACK)]);
+	material -= BishopValueEg * _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(BLACK)]);
+	material -= RookValueEg * _mm_popcnt_u64(board.piece_boards[ROOK] & board.piece_boards[OCC(BLACK)]);
+	material -= QueenValueEg * _mm_popcnt_u64(board.piece_boards[QUEEN] & board.piece_boards[OCC(BLACK)]);
 
 	// Initialize accumulators
 	Value pawn_acc, knight_acc, bishop_acc, rook_acc, queen_acc;
@@ -264,7 +264,7 @@ Value eg_eval(Board &board) {
 		pawns = _blsr_u64(pawns);
 	}
 
-	return ((int)material * 3 + (int)piecesquare + (int)pawn_structure);
+	return ((int)material + (int)piecesquare + (int)pawn_structure);
 }
 
 Value eval(Board &board) {

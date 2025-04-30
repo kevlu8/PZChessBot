@@ -37,11 +37,13 @@ constexpr Value RookValue = 525;
 constexpr Value QueenValue = 1000;
 constexpr Value VALUE_MAX = QueenValue * 9 + (KnightValue + BishopValue + RookValue) * 2;
 
-#ifdef HCE
-#define CP_SCALE_FACTOR 4
-#else
+constexpr Value PawnValueEg = 120;
+constexpr Value KnightValueEg = 300;
+constexpr Value BishopValueEg = 320;
+constexpr Value RookValueEg = 500;
+constexpr Value QueenValueEg = 950;
+
 #define CP_SCALE_FACTOR 1
-#endif
 
 #define CLOCKS_PER_MS (CLOCKS_PER_SEC / 1000)
 
