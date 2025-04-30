@@ -280,7 +280,8 @@ Value eval(Board &board) {
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 	int phase = std::min(npieces, 24);
 
-	Value mg = mg_eval(board), eg = eg_eval(board);
+	Value mg = mg_eval(board), eg = 0;
+	if (phase < 24) eg = eg_eval(board);
 
 	return (mg * phase + eg * (24 - phase)) / 24;
 }
