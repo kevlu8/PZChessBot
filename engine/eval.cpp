@@ -10,37 +10,37 @@ static constexpr Value multipawn_lookup[7] = {0, 0, 20, 40, 80, 160, 320};
  * @details The 8 boards map out an 8-bit signed binary number that represents how good or bad a square is for a piece type.
  * @details 127 is the best square for a piece, -128 is the worst.
  */
-Bitboard PAWN_SQUARES[8];
-Bitboard KNIGHT_SQUARES[8];
-Bitboard BISHOP_SQUARES[8];
-Bitboard ROOK_SQUARES[8];
-Bitboard QUEEN_SQUARES[8];
-Bitboard KING_SQUARES[8];
-Bitboard KING_ENDGAME_SQUARES[8];
-Bitboard PAWN_ENDGAME_SQUARES[8];
-Bitboard KNIGHT_ENDGAME_SQUARES[8];
-Bitboard BISHOP_ENDGAME_SQUARES[8];
-Bitboard ROOK_ENDGAME_SQUARES[8];
-Bitboard QUEEN_ENDGAME_SQUARES[8];
+Bitboard PAWN_SQUARES[16];
+Bitboard KNIGHT_SQUARES[16];
+Bitboard BISHOP_SQUARES[16];
+Bitboard ROOK_SQUARES[16];
+Bitboard QUEEN_SQUARES[16];
+Bitboard KING_SQUARES[16];
+Bitboard KING_ENDGAME_SQUARES[16];
+Bitboard PAWN_ENDGAME_SQUARES[16];
+Bitboard KNIGHT_ENDGAME_SQUARES[16];
+Bitboard BISHOP_ENDGAME_SQUARES[16];
+Bitboard ROOK_ENDGAME_SQUARES[16];
+Bitboard QUEEN_ENDGAME_SQUARES[16];
 
 Bitboard PASSED_PAWN_MASKS[2][64];
 
 __attribute__((constructor)) constexpr void gen_lookups() {
 	// Convert heatmaps
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < 16; i++) {
 		for (int j = 0; j < 64; j++) {
-			PAWN_SQUARES[7 - i] |= (((Bitboard)pawn_heatmap[j] >> i) & 1) << j;
-			KNIGHT_SQUARES[7 - i] |= (((Bitboard)knight_heatmap[j] >> i) & 1) << j;
-			BISHOP_SQUARES[7 - i] |= (((Bitboard)bishop_heatmap[j] >> i) & 1) << j;
-			ROOK_SQUARES[7 - i] |= (((Bitboard)rook_heatmap[j] >> i) & 1) << j;
-			QUEEN_SQUARES[7 - i] |= (((Bitboard)queen_heatmap[j] >> i) & 1) << j;
-			KING_SQUARES[7 - i] |= (((Bitboard)king_heatmap[j] >> i) & 1) << j;
-			KING_ENDGAME_SQUARES[7 - i] |= (((Bitboard)king_endgame[j] >> i) & 1) << j;
-			PAWN_ENDGAME_SQUARES[7 - i] |= (((Bitboard)pawn_endgame[j] >> i) & 1) << j;
-			KNIGHT_ENDGAME_SQUARES[7 - i] |= (((Bitboard)knight_endgame[j] >> i) & 1) << j;
-			BISHOP_ENDGAME_SQUARES[7 - i] |= (((Bitboard)bishop_endgame[j] >> i) & 1) << j;
-			ROOK_ENDGAME_SQUARES[7 - i] |= (((Bitboard)rook_endgame[j] >> i) & 1) << j;
-			QUEEN_ENDGAME_SQUARES[7 - i] |= (((Bitboard)queen_endgame[j] >> i) & 1) << j;
+			PAWN_SQUARES[15 - i] |= (((Bitboard)pawn_heatmap[j] >> i) & 1) << j;
+			KNIGHT_SQUARES[15 - i] |= (((Bitboard)knight_heatmap[j] >> i) & 1) << j;
+			BISHOP_SQUARES[15 - i] |= (((Bitboard)bishop_heatmap[j] >> i) & 1) << j;
+			ROOK_SQUARES[15 - i] |= (((Bitboard)rook_heatmap[j] >> i) & 1) << j;
+			QUEEN_SQUARES[15 - i] |= (((Bitboard)queen_heatmap[j] >> i) & 1) << j;
+			KING_SQUARES[15 - i] |= (((Bitboard)king_heatmap[j] >> i) & 1) << j;
+			KING_ENDGAME_SQUARES[15 - i] |= (((Bitboard)king_endgame[j] >> i) & 1) << j;
+			PAWN_ENDGAME_SQUARES[15 - i] |= (((Bitboard)pawn_endgame[j] >> i) & 1) << j;
+			KNIGHT_ENDGAME_SQUARES[15 - i] |= (((Bitboard)knight_endgame[j] >> i) & 1) << j;
+			BISHOP_ENDGAME_SQUARES[15 - i] |= (((Bitboard)bishop_endgame[j] >> i) & 1) << j;
+			ROOK_ENDGAME_SQUARES[15 - i] |= (((Bitboard)rook_endgame[j] >> i) & 1) << j;
+			QUEEN_ENDGAME_SQUARES[15 - i] |= (((Bitboard)queen_endgame[j] >> i) & 1) << j;
 		}
 	}
 
@@ -52,12 +52,13 @@ __attribute__((constructor)) constexpr void gen_lookups() {
 	}
 }
 
-Value mg_eval(Board &board) {
-	Value material = 0;
+Value mg_eval(Board &board) {Value material = 0;
 	Value piecesquare = 0;
+	Value castling = 0;
 	Value bishop_pair = 0;
 	Value king_safety = 0;
 	Value tempo_bonus = 0;
+	Value pawn_structure = 0;
 
 	material += PawnValue * _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)]);
 	material += KnightValue * _mm_popcnt_u64(board.piece_boards[KNIGHT] & board.piece_boards[OCC(WHITE)]);
@@ -87,7 +88,7 @@ Value mg_eval(Board &board) {
 #endif
 	}
 
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < 16; i++) {
 		pawn_acc = pawn_acc * 2 + _mm_popcnt_u64(boards[0] & PAWN_SQUARES[i]);
 		knight_acc = knight_acc * 2 + _mm_popcnt_u64(boards[1] & KNIGHT_SQUARES[i]);
 		bishop_acc = bishop_acc * 2 + _mm_popcnt_u64(boards[2] & BISHOP_SQUARES[i]);
@@ -104,6 +105,11 @@ Value mg_eval(Board &board) {
 	}
 	piecesquare += pawn_acc + knight_acc + bishop_acc + rook_acc + queen_acc + king_acc;
 	piecesquare -= pawn_acc_black + knight_acc_black + bishop_acc_black + rook_acc_black + queen_acc_black + king_acc_black;
+
+	castling += (board.castling & WHITE_OO) ? 5 : 0;
+	castling += (board.castling & WHITE_OOO) ? 5 : 0;
+	castling -= (board.castling & BLACK_OO) ? 5 : 0;
+	castling -= (board.castling & BLACK_OOO) ? 5 : 0;
 
 	bishop_pair += _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(WHITE)]) >= 2 ? 30 : 0;
 	bishop_pair -= _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(BLACK)]) >= 2 ? 30 : 0;
@@ -153,7 +159,34 @@ Value mg_eval(Board &board) {
 
 	tempo_bonus += board.side == WHITE ? 10 : -10;
 
-	return ((int)material * 3 + (int)piecesquare + (int)bishop_pair + (int)king_safety + (int)tempo_bonus);
+	for (Bitboard mask = 0x0101010101010101; mask & 0xff; mask <<= 1) {
+		// Doubled pawns
+		pawn_structure -= multipawn_lookup[_mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)] & mask)];
+		pawn_structure += multipawn_lookup[_mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)] & mask)];
+
+		// Isolated pawns
+		if (mask & 0b01111110) {
+			if ((board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)] & ((mask << 1) | (mask >> 1))) == 0)
+				pawn_structure -= _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)] & mask) ? 60 : 0;
+			if ((board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)] & ((mask << 1) | (mask >> 1))) == 0)
+				pawn_structure += _mm_popcnt_u64(board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)] & mask) ? 60 : 0;
+		}
+	}
+
+	Bitboard pawns = board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)];
+	while (pawns) {
+		int sq = _tzcnt_u64(pawns);
+		pawn_structure += (board.piece_boards[PAWN] & PASSED_PAWN_MASKS[WHITE][sq]) == 0 ? 80 : 0;
+		pawns = _blsr_u64(pawns);
+	}
+	pawns = board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)];
+	while (pawns) {
+		int sq = _tzcnt_u64(pawns);
+		pawn_structure -= (board.piece_boards[PAWN] & PASSED_PAWN_MASKS[BLACK][sq]) == 0 ? 80 : 0;
+		pawns = _blsr_u64(pawns);
+	}
+
+	return ((int)material * 3 + (int)piecesquare + (int)castling + (int)bishop_pair + (int)king_safety * 2 + (int)tempo_bonus + (int)pawn_structure);
 }
 
 Value eg_eval(Board &board) {
@@ -188,7 +221,7 @@ Value eg_eval(Board &board) {
 #endif
 	}
 
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < 16; i++) {
 		pawn_acc = pawn_acc * 2 + _mm_popcnt_u64(boards[0] & PAWN_ENDGAME_SQUARES[i]);
 		knight_acc = knight_acc * 2 + _mm_popcnt_u64(boards[1] & KNIGHT_ENDGAME_SQUARES[i]);
 		bishop_acc = bishop_acc * 2 + _mm_popcnt_u64(boards[2] & BISHOP_ENDGAME_SQUARES[i]);
