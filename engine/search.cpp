@@ -212,9 +212,9 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 			score = history[board.side][move.src()][move.dst()];
 		}
 		if (move == killer[0][depth]) {
-			score += 1000; // Killer move bonus
+			score += 1500; // Killer move bonus
 		} else if (move == killer[1][depth]) {
-			score += 500; // Second killer move bonus
+			score += 800; // Second killer move bonus
 		}
 		if (ply && move == cmh[board.side][line[ply-1].src()][line[ply-1].dst()]) {
 			score += 1000; // Counter-move bonus
@@ -374,8 +374,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		if (score >= beta) {
 			board.ttable.store(board.zobrist, best, depth, LOWER_BOUND, best_move, board.halfmove);
-			killer[1][depth] = killer[0][depth];
-			killer[0][depth] = move; // Update killer moves
+			if (killer[0][depth] != move) {
+				killer[1][depth] = killer[0][depth];
+				killer[0][depth] = move; // Update killer moves
+			}
 			if (!(board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()))) { // Not a capture
 				history[board.side][move.src()][move.dst()] += depth * depth;
 				cmh[board.side][line[ply-1].src()][line[ply-1].dst()] = move; // Update counter-move history
@@ -454,8 +456,10 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 
 		if (score >= beta) {
 			board.ttable.store(board.zobrist, best_score, depth, LOWER_BOUND, best_move, board.halfmove);
-			killer[1][depth] = killer[0][depth];
-			killer[0][depth] = move;
+			if (killer[0][depth] != move) {
+				killer[1][depth] = killer[0][depth];
+				killer[0][depth] = move;
+			}
 			return {best_move, best_score};
 		}
 
