@@ -51,3 +51,4 @@ nnue_test
 engine/*.bin
 *bullet*
 *.txt
+nnue[0-9]*.bin

@@ -1,15 +1,8 @@
 #include "includes.hpp"
 
 #include <atomic>
-#include <chrono>
-#include <condition_variable>
-#include <csignal>
-#include <mutex>
-#include <queue>
-#include <sched.h>
 #include <sstream>
 #include <thread>
-#include <vector>
 
 #include "bitboard.hpp"
 #include "eval.hpp"
@@ -18,237 +11,79 @@
 #include "search.hpp"
 
 #define OUT_FILE "data.bullet.txt"
-#define FIXED_NODES 500000 // Around 25ms per move, adjust accordingly
-
-// Thread-safe queue for storing generated game data
-class SafeQueue {
-private:
-	std::queue<std::string> queue_;
-	std::mutex mutex_;
-	std::condition_variable cond_;
-
-public:
-	void push(const std::string &data) {
-		std::lock_guard<std::mutex> lock(mutex_);
-		queue_.push(data);
-		cond_.notify_one();
-	}
-
-	bool pop(std::string &data) {
-		std::unique_lock<std::mutex> lock(mutex_);
-		if (queue_.empty()) {
-			return false;
-		}
-		data = queue_.front();
-		queue_.pop();
-		return true;
-	}
-
-	bool empty() {
-		std::lock_guard<std::mutex> lock(mutex_);
-		return queue_.empty();
-	}
-
-	size_t size() {
-		std::lock_guard<std::mutex> lock(mutex_);
-		return queue_.size();
-	}
-
-	void wait_and_pop(std::string &data) {
-		std::unique_lock<std::mutex> lock(mutex_);
-		cond_.wait(lock, [this] { return !queue_.empty(); });
-		data = queue_.front();
-		queue_.pop();
-	}
-};
-
-// Global variables
-SafeQueue gameDataQueue;
-std::atomic<int> totalPositions(0);
-std::atomic<int> totalGames(0);
-std::atomic<bool> shouldStop(false);
-std::atomic<bool> stopWriter(false);
-std::mutex printMutex;
-
-// Worker thread function to generate games
-void generateGames(int worker_id) {
-#ifndef WINDOWS
-	cpu_set_t mask;
-	CPU_ZERO(&mask);
-	CPU_SET(worker_id, &mask);
-	sched_setaffinity(0, sizeof(mask), &mask);
-#endif
-
-	while (!shouldStop.load()) {
-		Board board = Board();
-		// Generate ~5 random moves to start the game
-		for (int i = 0; i < 6; i++) {
-			pzstd::vector<Move> moves;
-			board.legal_moves(moves);
-			if (moves.size() == 0) {
-				continue; // Skip this game and start a new one
-			}
-			board.make_move(moves[rand() % moves.size()]);
-		}
-
-		// Self play time!
-		Value eval = 0;
-		pzstd::largevector<std::pair<std::string, Value>> game; // fen, eval
-		std::string res = "";
-
-		while (abs(eval) < VALUE_MATE_MAX_PLY) {
-			if ((game.size() >= 100 && abs(eval) < 100) || game.size() >= 400) {
-				// Probably drawn, stop the game
-				res = "0.5";
-				break;
-			}
-
-			// Search for a move
-			std::pair<Move, Value> result = search_nodes(board, FIXED_NODES);
-
-			// Get the eval
-			eval = result.second;
-			if (board.side == BLACK)
-				eval *= -1;
-
-			if (eval >= VALUE_MATE_MAX_PLY) {
-				res = "1.0";
-				break;
-			} else if (eval <= -VALUE_MATE_MAX_PLY) {
-				res = "0.0";
-				break;
-			}
-
-			game.push_back({board.get_fen(), eval});
-
-			// Make the move
-			board.make_move(result.first);
-		}
-
-		// Format the game data for writing
-		std::stringstream gameData;
-		for (auto &entry : game) {
-			// [fen] | [eval] | [result]
-			gameData << entry.first << " | " << entry.second / CP_SCALE_FACTOR << " | " << res << "\n";
-		}
-
-		// Push to the queue for writing
-		if (game.size() > 0) {
-			gameDataQueue.push(gameData.str());
-			totalPositions += game.size();
-			totalGames++;
-		}
-	}
-	std::cout << "Worker " << worker_id << " finished." << std::endl;
-}
-
-// Writer thread function to handle file I/O
-void writerThread(std::ofstream &outfile) {
-	std::string data;
-	while (!stopWriter.load() || !gameDataQueue.empty()) {
-		if (gameDataQueue.pop(data)) {
-			outfile << data;
-			outfile.flush(); // Ensure data is written to disk
-		} else {
-			std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Prevent CPU spinning
-		}
-	}
-	std::cout << "Writer thread finished." << std::endl;
-}
-
-// Monitoring thread to print statistics
-void monitorThread(std::chrono::steady_clock::time_point start) {
-	auto prev = std::chrono::steady_clock::now();
-	while (!stopWriter.load()) {
-		// Use wall clock time instead of CPU time
-		auto now = std::chrono::steady_clock::now();
-
-		// Update stats every 5 minutes
-		if (now - prev < std::chrono::seconds(300)) {
-			continue; // Skip if not enough time has passed
-		}
-		prev = now;
-
-		int positions = totalPositions.load();
-		int games = totalGames.load();
-
-		double elapsedSecs = std::chrono::duration<double>(now - start).count();
-
-		std::lock_guard<std::mutex> lock(printMutex);
-		std::cout << "Generated " << positions << " positions in " << games << " games in " << elapsedSecs << "s" << std::endl;
-		std::cout << "Positions / second: ~" << (positions / elapsedSecs) << std::endl;
-		std::cout << "Queue size: " << gameDataQueue.size() << std::endl << std::endl;
-
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-	}
-}
-
-// Signal handler function
-void signalHandler(int signal) {
-	std::cout << "Stopping threads, please wait..." << std::endl;
-	shouldStop.store(true);
-}
+#define FIXED_NODES 15000
+#define NPOS 1'000'000
 
 int main(int argc, char *argv[]) {
-	// Data generation script
-	std::ofstream outfile(OUT_FILE, std::ios::app); // Append mode in case of restart
+    // Data generation script
+    std::ofstream outfile(OUT_FILE);
+    std::cout << "PZChessBot " << VERSION << " data generation script" << std::endl;
+    srand(time(NULL));
 
-	const int NUM_THREADS = std::thread::hardware_concurrency();
+    init_network();
 
-	std::cout << "PZChessBot v" << VERSION << " parallelized data generation script" << std::endl;
-	std::cout << "Using " << NUM_THREADS << " worker threads" << std::endl;
-	std::cout << "I'm going to generate as much data as I can, until you stop me. Press Ctrl+C to stop." << std::endl << std::endl;
+    std::cout << "startpos eval: ";
+    {
+        Board board = Board();
+        std::array<Value, 8> score = debug_eval(board);
+        for (int i = 0; i < 8; i++) {
+            std::cout << score[i] << " ";
+        }
+        std::cout << std::endl;
+    }
 
-	// Set up random seed - different for each run
-	srand(time(NULL));
-
-	// Start timing using wall clock time
-	auto start = std::chrono::steady_clock::now();
-
-	// Set up signal handler for clean shutdown
-	std::signal(SIGINT, signalHandler);
-
-	// Create writer thread
-	std::thread writer(writerThread, std::ref(outfile));
-
-	// Create monitor thread
-	std::thread monitor(monitorThread, start);
-
-	// Create worker threads
-	std::vector<std::thread> workers;
-	for (int i = 0; i < NUM_THREADS; i++) {
-		workers.push_back(std::thread(generateGames, i));
-	}
-
-	// Join threads when done (this won't happen unless SIGINT is received)
-	for (auto &worker : workers) {
-		if (worker.joinable()) {
-			worker.join();
-		}
-	}
-
-	// Stop the writer thread
-	stopWriter.store(true);
-
-	if (monitor.joinable()) {
-		monitor.join();
-	}
-
-	if (writer.joinable()) {
-		writer.join();
-	}
-
-	// Final stats using wall clock time
-	auto end = std::chrono::steady_clock::now();
-	double elapsedSecs = std::chrono::duration<double>(end - start).count();
-
-	int positions = totalPositions.load();
-	int games = totalGames.load();
-
-	std::cout << "Final stats:" << std::endl;
-	std::cout << "Generated " << positions << " positions in " << games << " games in " << elapsedSecs << "s" << std::endl;
-	std::cout << "Positions / second: " << (positions / elapsedSecs) << std::endl;
-
+    // Go!
+    clock_t start = clock();
+    int positions = 0, games = 0;
+    while (positions < NPOS) {
+        Board board = Board();
+        for (int i = 0; i < 8; i++) {
+            pzstd::vector<Move> moves;
+            board.legal_moves(moves);
+            board.make_move(moves[rand() % moves.size()]);
+        }
+        // Self play time!
+        Value eval = 0;
+        pzstd::largevector<std::pair<std::string, Value>> game; // fen, eval
+        std::string res = "";
+        while (abs(eval) < VALUE_MATE_MAX_PLY) {
+            if ((game.size() >= 100 && abs(eval) < 100) || game.size() >= 400) {
+                // Probably drawn, stop the game
+                res = "0.5";
+                break;
+            }
+            // Search for a move
+            std::pair<Move, Value> result = search_nodes(board, FIXED_NODES);
+            // Get the eval
+            eval = result.second;
+            if (eval >= VALUE_MATE_MAX_PLY) {
+                res = "1.0";
+                break;
+            } else if (eval <= -VALUE_MATE_MAX_PLY) {
+                res = "0.0";
+                break;
+            }
+			Value white_centric_eval = board.side == WHITE ? eval : -eval;
+            game.push_back({board.get_fen(), white_centric_eval});
+            // Make the move
+            board.make_move(result.first);
+        }
+        // Write the game to the file
+        for (auto &entry : game) {
+            // [fen] | [eval] | [result]
+            outfile << entry.first << " | " << entry.second / CP_SCALE_FACTOR << " | " << res << std::endl;
+        }
+        positions += game.size();
+        games++;
+        if (games % 50 == 0) {
+            std::cout << "Generated " << positions << " positions in " << games << " games in " << (clock() - start) / CLOCKS_PER_SEC << "s" << std::endl;
+            std::cout << "Positions / second: " << (positions / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " ";
+            std::cout << "Time to end: " << ((double)(clock() - start) / CLOCKS_PER_SEC) * (NPOS - positions) / positions << "s" << std::endl;
+        }
+    }
+	std::cout << "Finished." << std::endl;
+	std::cout << "Generated " << positions << " positions in " << games << " games in " << (clock() - start) / CLOCKS_PER_SEC << "s" << std::endl;
+	std::cout << "Positions / second: " << (positions / ((double)(clock() - start) / CLOCKS_PER_SEC)) << std::endl;
 	outfile.close();
 	return 0;
 }
