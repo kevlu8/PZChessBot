@@ -336,7 +336,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * PV Search (principal variation)
 			 * 
 			 * Assuming our move ordering is good, there probably won't be any moves past
-			 * the first one that is better than that first move. So, we run a reduced-depth
+			 * the first one that are better than that first move. So, we run a reduced-depth
 			 * null-window search on later moves (a much shorter search) to ensure that they
 			 * are bad moves. 
 			 * 
@@ -346,7 +346,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 */
 			score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side, 0, ply+1);
 			if (score > alpha) {
-				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0, ply+1);
+				score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
 			}
 		} else {
 			score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
