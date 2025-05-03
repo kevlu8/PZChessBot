@@ -17,7 +17,7 @@ int main(int argc, char *argv[]) {
         std::cerr << "Usage: " << argv[0] << " [NPOS] [NODES] [OUTPUT_FILE] [SEED]" << std::endl;
         return 1;
     }
-    int NPOS = std::stoi(argv[1]) * 2;
+    int NPOS = std::stoi(argv[1]);
     int FIXED_NODES = std::stoi(argv[2]);
     std::string OUT_FILE = argv[3];
     int SEED = std::stoi(argv[4]);
@@ -64,13 +64,14 @@ int main(int argc, char *argv[]) {
         std::string res = "";
         int plies = 0;
         while (abs(eval) < VALUE_MATE_MAX_PLY) {
-            if ((plies >= 100 && abs(eval) < 100) || plies >= 400) {
+            if (board.threefold() || board.halfmove >= 100 || (plies >= 100 && abs(eval) < 100) || plies >= 400) {
                 // Probably drawn, stop the game
                 res = "0.5";
                 break;
             }
             // Search for a move
             std::pair<Move, Value> result = search_nodes(board, FIXED_NODES);
+            // std::pair<Move, Value> result = search_depth(board, 7);
             // Get the eval
             eval = result.second;
             if (eval >= VALUE_MATE_MAX_PLY) {

@@ -215,7 +215,15 @@ std::string Board::get_fen() const {
 		if (castling & BLACK_OOO)
 			res += "q";
 	}
-	return res; // Shortened fen (no ep, halfmove, etc) since we don't need those in datagen
+	if (ep_square == SQ_NONE) {
+		res += '-';
+	} else {
+		res += (char)('a' + (ep_square & 0b111));
+		res += (char)('1' + (ep_square >> 3));
+	}
+	res += ' ' + std::to_string((int)halfmove);
+	res += ' ' + std::to_string((int)halfmove_hist.size());
+	return res;
 }
 
 bool Board::sanity_check(char *print) {

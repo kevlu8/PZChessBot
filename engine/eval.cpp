@@ -2,9 +2,7 @@
 
 Accumulator w_acc, b_acc;
 Network nnue_network;
-EGAccumulator w_acc_egnn, b_acc_egnn;
-EGNetwork egnn_network;
-Piece prev_mailbox[64] = {}, preveg_mailbox[64] = {};
+Piece prev_mailbox[64] = {};
 
 #ifdef HCE
 extern Bitboard king_movetable[64];
@@ -68,12 +66,6 @@ void init_network() {
 		b_acc.val[i] = nnue_network.accumulator_biases[i];
 	}
 	std::fill(prev_mailbox, prev_mailbox + 64, NO_PIECE);
-	egnn_network.load();
-	for (int i = 0; i < EGHL_SIZE; i++) {
-		w_acc_egnn.val[i] = egnn_network.accumulator_biases[i];
-		b_acc_egnn.val[i] = egnn_network.accumulator_biases[i];
-	}
-	std::fill(preveg_mailbox, preveg_mailbox + 64, NO_PIECE);
 #endif
 }
 
@@ -381,42 +373,6 @@ std::array<Value, 8> debug_eval(Board &board) {
 			score[i] = -nnue_eval(nnue_network, b_acc, w_acc);
 		}
 	}
-
-	// Get EGNN evaluation as well
-	for (uint16_t i = 0; i < 64; i++) {
-		Piece piece = board.mailbox[i];
-		Piece prev_piece = preveg_mailbox[i];
-		if (piece == prev_piece)
-			continue; // No change
-		bool side = piece >> 3; // 1 = black, 0 = white
-		bool prev_side = prev_piece >> 3; // 1 = black, 0 = white
-		PieceType pt = PieceType(piece & 7);
-		PieceType prev_pt = PieceType(prev_piece & 7);
-
-		if (piece != NO_PIECE) {
-			// Add to accumulator
-			uint16_t w_index = calculate_index((Square)i, pt, side, 0);
-			accumulator_add(egnn_network, w_acc_egnn, w_index);
-			uint16_t b_index = calculate_index((Square)i, pt, side, 1);
-			accumulator_add(egnn_network, b_acc_egnn, b_index);
-		}
-
-		if (prev_piece != NO_PIECE) {
-			// Subtract from accumulator
-			uint16_t w_index = calculate_index((Square)i, prev_pt, prev_side, 0);
-			accumulator_sub(egnn_network, w_acc_egnn, w_index);
-			uint16_t b_index = calculate_index((Square)i, prev_pt, prev_side, 1);
-			accumulator_sub(egnn_network, b_acc_egnn, w_index);
-		}
-	}
-	memcpy(preveg_mailbox, board.mailbox, sizeof(preveg_mailbox));
-	int32_t egnn_score = 0;
-	if (board.side == WHITE) {
-		egnn_score = nnue_eval(egnn_network, w_acc_egnn, b_acc_egnn);
-	} else {
-		egnn_score = -nnue_eval(egnn_network, b_acc_egnn, w_acc_egnn);
-	}
-	score[0] = egnn_score; // Since bucket 0 is no longer used
 	return score;
 }
 #endif

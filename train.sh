@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ulimit -c unlimited # debug
-for it in {5..50}
+for it in {13..50}
 do
 	make clean # Remove previous iteration of network
 	make -j # Recompile
@@ -9,7 +9,7 @@ do
 	do
 		# Usage: ./pzchessbot [NPOS] [NODES] [OUTFILE]
 		seed=$((it * 32 + i)) # Generate a unique seed for each part
-		./pzchessbot 7000000 5000 data.bullet.part$i.txt $seed &
+		./pzchessbot 1000000 10000 data.bullet.part$i.txt $seed &
 	done
 	wait # Wait for all processes to finish
 	cat data.bullet.part*.txt > data.bullet.txt # Combine all parts into one file
