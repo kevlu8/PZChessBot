@@ -247,7 +247,7 @@ Value eval(Board &board) {
 
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 	int32_t score = 0;
-	if (npieces > 12) {
+	// if (npieces > 12) {
 		// Query the NNUE network
 		for (uint16_t i = 0; i < 64; i++) {
 			Piece piece = board.mailbox[i];
@@ -281,47 +281,47 @@ Value eval(Board &board) {
 		int nbucket = (npieces - 2) / 4;
 
 		if (board.side == WHITE) {
-			score = nnue_eval(nnue_network, w_acc, b_acc, nbucket);
+			score = nnue_eval(nnue_network, w_acc, b_acc);
 		} else {
-			score = -nnue_eval(nnue_network, b_acc, w_acc, nbucket);
+			score = -nnue_eval(nnue_network, b_acc, w_acc);
 		}
-	} else {
-		// Rely on the EGNN to evaluate endgame positions
-		for (uint16_t i = 0; i < 64; i++) {
-			Piece piece = board.mailbox[i];
-			Piece prev_piece = preveg_mailbox[i];
-			if (piece == prev_piece)
-				continue; // No change
-			bool side = piece >> 3; // 1 = black, 0 = white
-			bool prev_side = prev_piece >> 3; // 1 = black, 0 = white
-			PieceType pt = PieceType(piece & 7);
-			PieceType prev_pt = PieceType(prev_piece & 7);
+	// } else {
+	// 	// Rely on the EGNN to evaluate endgame positions
+	// 	for (uint16_t i = 0; i < 64; i++) {
+	// 		Piece piece = board.mailbox[i];
+	// 		Piece prev_piece = preveg_mailbox[i];
+	// 		if (piece == prev_piece)
+	// 			continue; // No change
+	// 		bool side = piece >> 3; // 1 = black, 0 = white
+	// 		bool prev_side = prev_piece >> 3; // 1 = black, 0 = white
+	// 		PieceType pt = PieceType(piece & 7);
+	// 		PieceType prev_pt = PieceType(prev_piece & 7);
 
-			if (piece != NO_PIECE) {
-				// Add to accumulator
-				uint16_t w_index = calculate_index((Square)i, pt, side, 0);
-				accumulator_add(egnn_network, w_acc_egnn, w_index);
-				uint16_t b_index = calculate_index((Square)i, pt, side, 1);
-				accumulator_add(egnn_network, b_acc_egnn, b_index);
-			}
+	// 		if (piece != NO_PIECE) {
+	// 			// Add to accumulator
+	// 			uint16_t w_index = calculate_index((Square)i, pt, side, 0);
+	// 			accumulator_add(egnn_network, w_acc_egnn, w_index);
+	// 			uint16_t b_index = calculate_index((Square)i, pt, side, 1);
+	// 			accumulator_add(egnn_network, b_acc_egnn, b_index);
+	// 		}
 
-			if (prev_piece != NO_PIECE) {
-				// Subtract from accumulator
-				uint16_t w_index = calculate_index((Square)i, prev_pt, prev_side, 0);
-				accumulator_sub(egnn_network, w_acc_egnn, w_index);
-				uint16_t b_index = calculate_index((Square)i, prev_pt, prev_side, 1);
-				accumulator_sub(egnn_network, b_acc_egnn, b_index);
-			}
-		}
+	// 		if (prev_piece != NO_PIECE) {
+	// 			// Subtract from accumulator
+	// 			uint16_t w_index = calculate_index((Square)i, prev_pt, prev_side, 0);
+	// 			accumulator_sub(egnn_network, w_acc_egnn, w_index);
+	// 			uint16_t b_index = calculate_index((Square)i, prev_pt, prev_side, 1);
+	// 			accumulator_sub(egnn_network, b_acc_egnn, b_index);
+	// 		}
+	// 	}
 
-		memcpy(preveg_mailbox, board.mailbox, sizeof(preveg_mailbox));
+	// 	memcpy(preveg_mailbox, board.mailbox, sizeof(preveg_mailbox));
 
-		if (board.side == WHITE) {
-			score = nnue_eval(egnn_network, w_acc_egnn, b_acc_egnn);
-		} else {
-			score = -nnue_eval(egnn_network, b_acc_egnn, w_acc_egnn);
-		}
-	}
+	// 	if (board.side == WHITE) {
+	// 		score = nnue_eval(egnn_network, w_acc_egnn, b_acc_egnn);
+	// 	} else {
+	// 		score = -nnue_eval(egnn_network, b_acc_egnn, w_acc_egnn);
+	// 	}
+	// }
 	return score;
 }
 
@@ -374,11 +374,11 @@ std::array<Value, 8> debug_eval(Board &board) {
 	if (board.side == WHITE) {
 		// score = nnue_eval(nnue_network, w_acc, b_acc, nbucket);
 		for (int i = 0; i < 8; i++) {
-			score[i] = nnue_eval(nnue_network, w_acc, b_acc, i);
+			score[i] = nnue_eval(nnue_network, w_acc, b_acc);
 		}
 	} else {
 		for (int i = 0; i < 8; i++) {
-			score[i] = -nnue_eval(nnue_network, b_acc, w_acc, i);
+			score[i] = -nnue_eval(nnue_network, b_acc, w_acc);
 		}
 	}
 

@@ -3,6 +3,7 @@
 #include <atomic>
 #include <sstream>
 #include <thread>
+#include <vector>
 
 #include "bitboard.hpp"
 #include "eval.hpp"
@@ -10,15 +11,20 @@
 #include "movetimings.hpp"
 #include "search.hpp"
 
-#define OUT_FILE "data.bullet.txt"
-#define FIXED_NODES 15000
-#define NPOS 1'000'000
-
 int main(int argc, char *argv[]) {
-    // Data generation script
-    std::ofstream outfile(OUT_FILE);
+    // ./a.out [NPOS] [NODES] [OUTPUT_FILE] [SEED]
+    if (argc != 5) {
+        std::cerr << "Usage: " << argv[0] << " [NPOS] [NODES] [OUTPUT_FILE] [SEED]" << std::endl;
+        return 1;
+    }
+    int NPOS = std::stoi(argv[1]) * 2;
+    int FIXED_NODES = std::stoi(argv[2]);
+    std::string OUT_FILE = argv[3];
+    int SEED = std::stoi(argv[4]);
+    // Open file w/ append
+    std::ofstream outfile(OUT_FILE, std::ios::app);
     std::cout << "PZChessBot " << VERSION << " data generation script" << std::endl;
-    srand(time(NULL));
+    srand(SEED);
 
     init_network();
 
@@ -37,17 +43,28 @@ int main(int argc, char *argv[]) {
     int positions = 0, games = 0;
     while (positions < NPOS) {
         Board board = Board();
-        for (int i = 0; i < 8; i++) {
+        bool restart = false;
+        for (int i = 0; i < 10; i++) {
             pzstd::vector<Move> moves;
             board.legal_moves(moves);
+            if (moves.size() == 0) {
+                restart = true;
+                break;
+            }
             board.make_move(moves[rand() % moves.size()]);
         }
+        if (_mm_popcnt_u64(board.piece_boards[KING]) != 2) {
+            // If somehow a side is missing a king, restart
+            restart = true;
+        }
+        if (restart) continue;
         // Self play time!
         Value eval = 0;
-        pzstd::largevector<std::pair<std::string, Value>> game; // fen, eval
+        std::vector<std::pair<std::string, Value>> game; // fen, eval
         std::string res = "";
+        int plies = 0;
         while (abs(eval) < VALUE_MATE_MAX_PLY) {
-            if ((game.size() >= 100 && abs(eval) < 100) || game.size() >= 400) {
+            if ((plies >= 100 && abs(eval) < 100) || plies >= 400) {
                 // Probably drawn, stop the game
                 res = "0.5";
                 break;
@@ -64,7 +81,12 @@ int main(int argc, char *argv[]) {
                 break;
             }
 			Value white_centric_eval = board.side == WHITE ? eval : -eval;
-            game.push_back({board.get_fen(), white_centric_eval});
+            
+            bool capture = result.first.dst() & board.piece_boards[OPPOCC(board.side)];
+
+            plies++;
+
+            if (!capture) game.push_back({board.get_fen(), white_centric_eval});
             // Make the move
             board.make_move(result.first);
         }
@@ -78,7 +100,7 @@ int main(int argc, char *argv[]) {
         if (games % 50 == 0) {
             std::cout << "Generated " << positions << " positions in " << games << " games in " << (clock() - start) / CLOCKS_PER_SEC << "s" << std::endl;
             std::cout << "Positions / second: " << (positions / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " ";
-            std::cout << "Time to end: " << ((double)(clock() - start) / CLOCKS_PER_SEC) * (NPOS - positions) / positions << "s" << std::endl;
+            std::cout << "Time to end: " << ((double)(clock() - start) / CLOCKS_PER_SEC) * (NPOS - positions) / (positions+1) << "s" << std::endl;
         }
     }
 	std::cout << "Finished." << std::endl;

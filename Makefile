@@ -4,7 +4,7 @@ EVALFILE ?= nnue.bin
 CXX := g++
 CXXFLAGS := -std=c++17 -march=native -DNNUE_PATH=\"$(EVALFILE)\"
 RELEASEFLAGS = -O3
-DEBUGFLAGS = -g -fsanitize=address,undefined
+DEBUGFLAGS = -g -O0
 
 SRCS := $(wildcard engine/*.cpp engine/nnue/*.cpp)
 HDRS := $(wildcard engine/*.hpp engine/nnue/*.hpp)

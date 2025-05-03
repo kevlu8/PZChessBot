@@ -60,9 +60,17 @@ namespace pzstd {
 		uint16_t sz = 0;
 
 		void push_back(T value) noexcept {
+			if (sz >= 1024) {
+				std::cerr << "Attempt to push_back to largevector with size >= 1024" << std::endl;
+				return;
+			}
 			data[sz++] = value;
 		}
 		void pop_back() noexcept {
+			if (sz == 0) {
+				std::cerr << "Attempt to pop_back from largevector with size 0" << std::endl;
+				return;
+			}
 			sz--;
 		}
 		void clear() {

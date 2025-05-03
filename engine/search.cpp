@@ -161,7 +161,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 		board.unmake_move();
 
 		if (score >= VALUE_MATE_MAX_PLY)
-			score = score - (uint16_t(score >> 15) << 1) - 1; // Fixes "mate 0" bug
+			score = score - (uint32_t(score >> 31) << 1) - 1; // Fixes "mate 0" bug
 
 		if (score > best) {
 			if (score > alpha)
@@ -353,7 +353,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
-			score = score - (uint16_t(score >> 15) << 1) - 1; // Mate score fix
+			score = score - (uint32_t(score >> 31) << 1) - 1; // Mate score fix
 
 		board.unmake_move();
 

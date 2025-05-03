@@ -3,8 +3,8 @@
 #include "../includes.hpp"
 
 #define INPUT_SIZE 768
-#define HL_SIZE 256
-#define NBUCKETS 8
+#define HL_SIZE 32
+#define NBUCKETS 1
 #define SCALE 400
 #define QA 255
 #define QB 64
@@ -16,8 +16,8 @@ struct Accumulator {
 struct Network {
 	int16_t accumulator_weights[INPUT_SIZE][HL_SIZE];
 	int16_t accumulator_biases[HL_SIZE];
-	int16_t output_weights[NBUCKETS][2 * HL_SIZE];
-	int16_t output_bias[NBUCKETS];
+	int16_t output_weights[2 * HL_SIZE];
+	int16_t output_bias;
 
 	void load();
 };
@@ -28,4 +28,4 @@ void accumulator_add(const Network &net, Accumulator &acc, uint16_t index);
 
 void accumulator_sub(const Network &net, Accumulator &acc, uint16_t index);
 
-int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket);
+int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm);
