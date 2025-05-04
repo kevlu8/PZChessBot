@@ -3,7 +3,7 @@ import numpy as np
 # Replace these with your actual dimensions
 ACCUMULATOR_WEIGHTS_SHAPE = (32, 768)
 ACCUMULATOR_BIASES_SHAPE = (32,)
-OUTPUT_WEIGHTS_SHAPE = (32,)
+OUTPUT_WEIGHTS_SHAPE = (1, 32,)
 OUTPUT_BIAS_SHAPE = (1,)
 
 # Random value ranges
