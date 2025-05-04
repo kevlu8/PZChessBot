@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ulimit -c unlimited # debug
-for it in {13..50}
+for it in {1..50}
 do
 	make clean # Remove previous iteration of network
 	make -j # Recompile

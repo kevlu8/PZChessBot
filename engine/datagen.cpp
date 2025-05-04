@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
         std::string res = "";
         int plies = 0;
         while (abs(eval) < VALUE_MATE_MAX_PLY) {
-            if (board.threefold() || board.halfmove >= 100 || (plies >= 100 && abs(eval) < 100) || plies >= 400) {
+            if (board.threefold() || board.halfmove >= 100 || (plies >= 100 && abs(eval) < 100) || plies >= 200) {
                 // Probably drawn, stop the game
                 res = "0.5";
                 break;
@@ -74,14 +74,14 @@ int main(int argc, char *argv[]) {
             // std::pair<Move, Value> result = search_depth(board, 7);
             // Get the eval
             eval = result.second;
-            if (eval >= VALUE_MATE_MAX_PLY) {
+			Value white_centric_eval = board.side == WHITE ? eval : -eval;
+            if (white_centric_eval >= VALUE_MATE_MAX_PLY) {
                 res = "1.0";
                 break;
-            } else if (eval <= -VALUE_MATE_MAX_PLY) {
+            } else if (white_centric_eval <= -VALUE_MATE_MAX_PLY) {
                 res = "0.0";
                 break;
             }
-			Value white_centric_eval = board.side == WHITE ? eval : -eval;
             
             bool capture = result.first.dst() & board.piece_boards[OPPOCC(board.side)];
 
