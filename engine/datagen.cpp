@@ -11,11 +11,22 @@
 #include "movetimings.hpp"
 #include "search.hpp"
 
+std::vector<std::string> book;
+int book_idx = 0;
+
 int main(int argc, char *argv[]) {
-    // ./a.out [NPOS] [NODES] [OUTPUT_FILE] [SEED]
-    if (argc != 5) {
-        std::cerr << "Usage: " << argv[0] << " [NPOS] [NODES] [OUTPUT_FILE] [SEED]" << std::endl;
+    // ./a.out [NPOS] [NODES] [OUTPUT_FILE] [SEED] [BOOK-FILE]
+    if (argc < 5) {
+        std::cerr << "Usage: " << argv[0] << " [NPOS] [NODES] [OUTPUT_FILE] [SEED] [BOOK-FILE (opt)]" << std::endl;
         return 1;
+    }
+    if (argc == 6) {
+        // book file specified
+        std::ifstream book_file(argv[5]);
+        std::string line;
+        while (std::getline(book_file, line)) {
+            book.push_back(line); // all contains fens
+        }
     }
     int NPOS = std::stoi(argv[1]);
     int FIXED_NODES = std::stoi(argv[2]);
@@ -43,21 +54,25 @@ int main(int argc, char *argv[]) {
     int positions = 0, games = 0;
     while (positions < NPOS) {
         Board board = Board();
-        bool restart = false;
-        for (int i = 0; i < 10; i++) {
-            pzstd::vector<Move> moves;
-            board.legal_moves(moves);
-            if (moves.size() == 0) {
-                restart = true;
-                break;
+        if (book_idx >= book.size()) {
+            bool restart = false;
+            for (int i = 0; i < 10; i++) {
+                pzstd::vector<Move> moves;
+                board.legal_moves(moves);
+                if (moves.size() == 0) {
+                    restart = true;
+                    break;
+                }
+                board.make_move(moves[rand() % moves.size()]);
             }
-            board.make_move(moves[rand() % moves.size()]);
+            if (_mm_popcnt_u64(board.piece_boards[KING]) != 2) {
+                // If somehow a side is missing a king, restart
+                restart = true;
+            }
+            if (restart) continue;
+        } else {
+            board = Board(book[book_idx++]);
         }
-        if (_mm_popcnt_u64(board.piece_boards[KING]) != 2) {
-            // If somehow a side is missing a king, restart
-            restart = true;
-        }
-        if (restart) continue;
         // Self play time!
         Value eval = 0;
         std::vector<std::pair<std::string, Value>> game; // fen, eval

@@ -159,7 +159,7 @@ void Board::load_fen(std::string fen) {
 	}
 
 	// Load EP square
-	if (fen[inputIdx] != '-') {
+	if (inputIdx < fen.size() && fen[inputIdx] != '-') {
 		ep_square = Square((fen[inputIdx] - 'a') + 8 * (fen[inputIdx + 1] - '1'));
 		inputIdx += 3;
 	} else {
