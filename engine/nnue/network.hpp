@@ -3,8 +3,8 @@
 #include "../includes.hpp"
 
 #define INPUT_SIZE 768
-#define HL_SIZE 256
-#define NBUCKETS 1
+#define HL_SIZE 2048
+#define NBUCKETS 8
 #define SCALE 400
 #define QA 255
 #define QB 64
@@ -28,4 +28,4 @@ void accumulator_add(const Network &net, Accumulator &acc, uint16_t index);
 
 void accumulator_sub(const Network &net, Accumulator &acc, uint16_t index);
 
-int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm);
+int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket);

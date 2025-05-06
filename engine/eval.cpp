@@ -273,9 +273,9 @@ Value eval(Board &board) {
 		int nbucket = (npieces - 2) / 4;
 
 		if (board.side == WHITE) {
-			score = nnue_eval(nnue_network, w_acc, b_acc);
+			score = nnue_eval(nnue_network, w_acc, b_acc, nbucket);
 		} else {
-			score = -nnue_eval(nnue_network, b_acc, w_acc);
+			score = -nnue_eval(nnue_network, b_acc, w_acc, nbucket);
 		}
 	// } else {
 	// 	// Rely on the EGNN to evaluate endgame positions
@@ -364,13 +364,12 @@ std::array<Value, 8> debug_eval(Board &board) {
 
 	std::array<Value, 8> score = {};
 	if (board.side == WHITE) {
-		// score = nnue_eval(nnue_network, w_acc, b_acc, nbucket);
 		for (int i = 0; i < 8; i++) {
-			score[i] = nnue_eval(nnue_network, w_acc, b_acc);
+			score[i] = nnue_eval(nnue_network, w_acc, b_acc, i);
 		}
 	} else {
 		for (int i = 0; i < 8; i++) {
-			score[i] = -nnue_eval(nnue_network, b_acc, w_acc);
+			score[i] = -nnue_eval(nnue_network, b_acc, w_acc, i);
 		}
 	}
 	return score;

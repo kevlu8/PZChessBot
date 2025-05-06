@@ -6,8 +6,8 @@ make -j # Recompile
 for i in {0..7}
 do
 	# Usage: ./pzchessbot [NPOS] [NODES] [OUTFILE]
-	seed=$((50000 + i)) # Generate a unique seed for each part
-	./pzchessbot 3000000 10000 data.bullet.part$i.txt $seed &
+	seed=$((2323 + i)) # Generate a unique seed for each part
+	./pzchessbot 1000000000 10000 data.bullet.part$i.txt $seed &
 done
 wait # Wait for all processes to finish
 cat data.bullet.part*.txt > data.bullet.txt # Combine all parts into one file

@@ -38,7 +38,7 @@ void accumulator_sub(const Network &net, Accumulator &acc, uint16_t index) {
 	}
 }
 
-int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm) {
+int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket) {
 	/// TODO: vectorize
 	int32_t score = 0;
 	for (int i = 0; i < HL_SIZE; i++) {
