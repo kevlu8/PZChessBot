@@ -15,7 +15,7 @@
 
 #include "pzstl/vector.hpp"
 
-#define VERSION "v20250427T15"
+#define VERSION "v2.0"
 
 typedef uint64_t Bitboard;
 
