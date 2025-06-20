@@ -185,8 +185,6 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
  * - Piece value for promotions
  * - History heuristic for quiet moves
  * - Killer moves (moves that have caused a beta cutoff in the past)
- * 
- * TODO: 
  * - Counter-move history (moves that have refuted other moves in the past)
  */
 pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Move> &moves, int side, int depth, int ply, bool &entry_exists) {
@@ -392,7 +390,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	// Stalemate detection
 	if (best == -VALUE_MATE + 2) {
 		// If our engine thinks we are mated but we are not in check, we are stalemated
-		// TODO: Is this buggy?
 		if (board.side == WHITE) {
 			if (!board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second)
 				best = 0;
@@ -508,33 +505,37 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 	bool aspiration_enabled = true;
 	for (int d = 1; d <= MAX_PLY; d++) {
 		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
+		Value window_size = ASPIRATION_WINDOW;
+		
 		if (eval != -VALUE_INFINITE && aspiration_enabled) {
 			/**
 			 * Aspiration windows work by searching a small window around the expected value
 			 * of the position. By having a smaller window, our search runs faster. 
 			 * 
-			 * However, if we fail either high or low out of this window, we need to re-search
-			 * on a larger window.
-			 * 
-			 * TODO:
-			 * - Incremental window size, i.e. we don't search to VALUE_INFINITE but instead 
-			 * gradually increase the window size
+			 * If we fail either high or low out of this window, we gradually expand the
+			 * window size, eventually getting to a full-width search.
 			 */
-			alpha = eval - ASPIRATION_WINDOW;
-			beta = eval + ASPIRATION_WINDOW;
+			alpha = eval - window_size;
+			beta = eval + window_size;
 		}
+		
 		auto result = __search(board, d, alpha, beta, board.side ? -1 : 1);
-		// Check for fail-high or fail-low
-		bool research = result.second >= beta || result.second <= alpha;
-		if (result.second >= beta) {
-			beta = VALUE_INFINITE;
-		}
-		if (result.second <= alpha) {
-			alpha = -VALUE_INFINITE;
-		}
-		if (research) {
-			// If we failed, re-search
+		
+		// Gradually expand the window if we fail high or low
+		while ((result.second >= beta || result.second <= alpha) && window_size < VALUE_INFINITE / 4) {
+			if (result.second >= beta) {
+				// Fail high - expand upper bound
+				beta = eval + window_size * 2;
+				if (beta >= VALUE_INFINITE / 4) beta = VALUE_INFINITE;
+			}
+			if (result.second <= alpha) {
+				// Fail low - expand lower bound  
+				alpha = eval - window_size * 2;
+				if (alpha <= -VALUE_INFINITE / 4) alpha = -VALUE_INFINITE;
+			}
+			window_size *= 2;
 			result = __search(board, d, alpha, beta, board.side ? -1 : 1);
+			if (early_exit) break;
 		}
 		if (early_exit)
 			break;
@@ -594,21 +595,30 @@ std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
 	bool aspiration_enabled = true;
 	for (int d = 1; d <= depth; d++) {
 		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
+		Value window_size = ASPIRATION_WINDOW;
+		
 		if (eval != -VALUE_INFINITE && aspiration_enabled) {
-			alpha = eval - ASPIRATION_WINDOW;
-			beta = eval + ASPIRATION_WINDOW;
+			alpha = eval - window_size;
+			beta = eval + window_size;
 		}
+		
 		auto result = __search(board, d, alpha, beta, board.side ? -1 : 1);
-		// Check for fail-high or fail-low
-		bool research = result.second >= beta || result.second <= alpha;
-		if (result.second >= beta) {
-			beta = VALUE_INFINITE;
-		}
-		if (result.second <= alpha) {
-			alpha = -VALUE_INFINITE;
-		}
-		if (research) {
+		
+		// Gradually expand the window if we fail high or low
+		while ((result.second >= beta || result.second <= alpha) && window_size < VALUE_INFINITE / 4) {
+			if (result.second >= beta) {
+				// Fail high - expand upper bound
+				beta = eval + window_size * 2;
+				if (beta >= VALUE_INFINITE / 4) beta = VALUE_INFINITE;
+			}
+			if (result.second <= alpha) {
+				// Fail low - expand lower bound
+				alpha = eval - window_size * 2;
+				if (alpha <= -VALUE_INFINITE / 4) alpha = -VALUE_INFINITE;
+			}
+			window_size *= 2;
 			result = __search(board, d, alpha, beta, board.side ? -1 : 1);
+			if (early_exit) break;
 		}
 		if (early_exit)
 			break;
