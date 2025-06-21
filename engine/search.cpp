@@ -273,6 +273,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (cutoff)
 		return cutoff->eval;
 
+	Value cur_eval = 0;
+	if (!in_check) cur_eval = eval(board) * side;
+
 	// Reverse futility pruning
 	if (!in_check && !pv && depth <= 3) {
 		/**
@@ -282,7 +285,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * We need to make sure that we aren't in check (since we might get mated) and that the
 		 * TT entry exists (so that the current position is actually good).
 		 */
-		int cur_eval = eval(board) * side; // TODO: Use the TT entry instead of the eval function?
 		int margin = RFP_THRESHOLD * depth;
 		if (cur_eval >= beta + margin)
 			return cur_eval - margin;
@@ -326,6 +328,20 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	for (int i = 0; i < moves.size(); i++) {
 		Move &move = scores[i].first;
 		line[ply] = move;
+
+		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
+		bool promo = (move.type() == PROMOTION);
+
+		if (depth == 1 && i > 0 && !in_check && !capt && !promo && abs(alpha) < VALUE_MATE_MAX_PLY && abs(beta) < VALUE_MATE_MAX_PLY) {
+			/**
+			 * Futility pruning
+			 * 
+			 * If we are at the leaf of the search, we can prune moves that are
+			 * probably not going to be better than alpha.
+			 */
+			if (cur_eval + FUTILITY_THRESHOLD < alpha) continue;
+		}
+
 		board.make_move(move);
 
 		Value score;
