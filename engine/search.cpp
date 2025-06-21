@@ -130,6 +130,13 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	if (stand_pat > alpha)
 		alpha = stand_pat;
 
+	bool in_check = false;
+	if (board.side == WHITE) {
+		in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6])).second;
+	} else {
+		in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first;
+	}
+
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
@@ -142,7 +149,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 			scores.push_back({move, score});
 		} else if (move.type() == PROMOTION) {
 			scores.push_back({move, PieceValue[move.promotion() + KNIGHT] - PawnValue});
-		}
+		} else if (in_check) scores.push_back({move, 0}); // (Try to) search check evasions
 	}
 	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
 
