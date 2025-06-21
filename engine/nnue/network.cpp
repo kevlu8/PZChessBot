@@ -39,17 +39,55 @@ void accumulator_sub(const Network &net, Accumulator &acc, uint16_t index) {
 }
 
 int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket) {
-	/// TODO: vectorize
-	int32_t score = 0;
-	for (int i = 0; i < HL_SIZE; i++) {
-		int input = std::clamp((int)stm.val[i], 0, QA);
-		int weight = input * net.output_weights[nbucket][i];
-		score += input * weight;
+	__m256i sum = _mm256_setzero_si256();
+	const __m256i zero = _mm256_setzero_si256();
+	const __m256i qa_vec = _mm256_set1_epi16(QA);
 
-		input = std::clamp((int)ntm.val[i], 0, QA);
-		weight = input * net.output_weights[nbucket][HL_SIZE + i];
-		score += input * weight;
+	for (int i = 0; i < HL_SIZE; i += 16) {
+		__m256i stm_vals = _mm256_loadu_si256((__m256i*)&stm.val[i]);
+		__m256i ntm_vals = _mm256_loadu_si256((__m256i*)&ntm.val[i]);
+
+		stm_vals = _mm256_max_epi16(stm_vals, zero);
+		stm_vals = _mm256_min_epi16(stm_vals, qa_vec);
+
+		ntm_vals = _mm256_max_epi16(ntm_vals, zero);
+		ntm_vals = _mm256_min_epi16(ntm_vals, qa_vec);
+
+		__m256i stm_weights = _mm256_loadu_si256((__m256i*)&net.output_weights[nbucket][i]);
+		__m256i ntm_weights = _mm256_loadu_si256((__m256i*)&net.output_weights[nbucket][HL_SIZE + i]);
+
+		__m256i stm_prod_lo = _mm256_mullo_epi16(stm_vals, stm_weights);
+		__m256i stm_prod_hi = _mm256_mulhi_epi16(stm_vals, stm_weights);
+
+		__m256i ntm_prod_lo = _mm256_mullo_epi16(ntm_vals, ntm_weights);
+		__m256i ntm_prod_hi = _mm256_mulhi_epi16(ntm_vals, ntm_weights);
+
+		__m256i stm_lo_32 = _mm256_unpacklo_epi16(stm_prod_lo, stm_prod_hi);
+		__m256i stm_hi_32 = _mm256_unpackhi_epi16(stm_prod_lo, stm_prod_hi);
+		__m256i ntm_lo_32 = _mm256_unpacklo_epi16(ntm_prod_lo, ntm_prod_hi);
+		__m256i ntm_hi_32 = _mm256_unpackhi_epi16(ntm_prod_lo, ntm_prod_hi);
+
+		__m256i stm_vals_lo = _mm256_unpacklo_epi16(stm_vals, zero);
+		__m256i stm_vals_hi = _mm256_unpackhi_epi16(stm_vals, zero);
+		__m256i ntm_vals_lo = _mm256_unpacklo_epi16(ntm_vals, zero);
+		__m256i ntm_vals_hi = _mm256_unpackhi_epi16(ntm_vals, zero);
+
+		stm_lo_32 = _mm256_mullo_epi32(stm_lo_32, stm_vals_lo);
+		stm_hi_32 = _mm256_mullo_epi32(stm_hi_32, stm_vals_hi);
+		ntm_lo_32 = _mm256_mullo_epi32(ntm_lo_32, ntm_vals_lo);
+		ntm_hi_32 = _mm256_mullo_epi32(ntm_hi_32, ntm_vals_hi);
+
+		sum = _mm256_add_epi32(sum, stm_lo_32);
+		sum = _mm256_add_epi32(sum, stm_hi_32);
+		sum = _mm256_add_epi32(sum, ntm_lo_32);
+		sum = _mm256_add_epi32(sum, ntm_hi_32);
 	}
+
+	__m128i sum_128 = _mm_add_epi32(_mm256_extracti128_si256(sum, 0), _mm256_extracti128_si256(sum, 1));
+	sum_128 = _mm_add_epi32(sum_128, _mm_shuffle_epi32(sum_128, _MM_SHUFFLE(2, 3, 0, 1)));
+	sum_128 = _mm_add_epi32(sum_128, _mm_shuffle_epi32(sum_128, _MM_SHUFFLE(1, 0, 3, 2)));
+	int32_t score = _mm_cvtsi128_si32(sum_128);
+	
 	score /= QA;
 	score += net.output_bias[nbucket];
 	score *= SCALE;
