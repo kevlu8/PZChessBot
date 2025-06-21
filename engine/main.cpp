@@ -33,6 +33,20 @@ int main(int argc, char *argv[]) {
 			std::cout << "id author kevlu8 and wdotmathree" << std::endl;
 			std::cout << "option name Hash type spin default 16 min 1 max 1024" << std::endl;
 			std::cout << "option name Threads type spin default 1 min 1 max 1" << std::endl; // Not implemented yet
+			std::cout << "option name lmr_a type string default 0.77" << std::endl;
+			std::cout << "option name lmr_b type string default 2.36" << std::endl;
+			std::cout << "option name mvv_lva_mult type spin default 12 min 1 max 100" << std::endl;
+			std::cout << "option name killer1 type spin default 1500 min 0 max 10000" << std::endl;
+			std::cout << "option name killer2 type spin default 800 min 0 max 10000" << std::endl;
+			std::cout << "option name cmh type spin default 1000 min 0 max 10000" << std::endl;
+			std::cout << "option name rfp_depth type spin default 3 min 1 max 10" << std::endl;
+			std::cout << "option name rfp_thresh type spin default 150 min 0 max 1000" << std::endl;
+			std::cout << "option name nmp_pieces type spin default 8 min 1 max 16" << std::endl;
+			std::cout << "option name nmp_depth type spin default 3 min 1 max 10" << std::endl;
+			std::cout << "option name iir_depth type spin default 5 min 1 max 10" << std::endl;
+			std::cout << "option name iir_red type spin default 2 min 1 max 10" << std::endl;
+			std::cout << "option name fut_thresh type spin default 300 min 0 max 1000" << std::endl;
+			std::cout << "option name aspir_window type spin default 50 min 1 max 1000" << std::endl;
 			std::cout << "uciok" << std::endl;
 		} else if (command == "isready") {
 			std::cout << "readyok" << std::endl;
@@ -54,7 +68,7 @@ int main(int argc, char *argv[]) {
 					continue;
 				}
 				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTEntry);
-			}
+			} else handleoption(optionname, optionvalue);
 		} else if (command == "ucinewgame") {
 			board = Board(TT_SIZE);
 		} else if (command.substr(0, 8) == "position") {

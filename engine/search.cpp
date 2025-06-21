@@ -9,6 +9,40 @@ uint64_t mxtime = 1000; // Maximum time to search in milliseconds
 bool early_exit = false, exit_allowed = false; // Whether or not to exit the search, and if we are allowed to exit (so we don't exit on the depth 1)
 clock_t start = 0;
 
+struct EngineConfiguration {
+	double lmr_a = 0.77;
+	double lmr_b = 2.36;
+	int mvv_lva_mult = 12;
+	int killer1 = 1500;
+	int killer2 = 800;
+	int cmh = 1000;
+	int rfp_depth = 3;
+	int rfp_thresh = 150;
+	int nmp_pieces = 8;
+	int nmp_depth = 3;
+	int iir_depth = 5;
+	int iir_red = 2;
+	int fut_thresh = 300;
+	int aspir_window = 50;
+} ec;
+
+void handleoption(const std::string &option, const std::string &value) {
+	if (option == "lmr_a") ec.lmr_a = std::stod(value);
+	else if (option == "lmr_b") ec.lmr_b = std::stod(value);
+	else if (option == "mvv_lva_mult") ec.mvv_lva_mult = std::stoi(value);
+	else if (option == "killer1") ec.killer1 = std::stoi(value);
+	else if (option == "killer2") ec.killer2 = std::stoi(value);
+	else if (option == "cmh") ec.cmh = std::stoi(value);
+	else if (option == "rfp_depth") ec.rfp_depth = std::stoi(value);
+	else if (option == "rfp_thresh") ec.rfp_thresh = std::stoi(value);
+	else if (option == "nmp_pieces") ec.nmp_pieces = std::stoi(value);
+	else if (option == "nmp_depth") ec.nmp_depth = std::stoi(value);
+	else if (option == "iir_depth") ec.iir_depth = std::stoi(value);
+	else if (option == "iir_red") ec.iir_red = std::stoi(value);
+	else if (option == "fut_thresh") ec.fut_thresh = std::stoi(value);
+	else if (option == "aspir_window") ec.aspir_window = std::stoi(value);
+}
+
 uint64_t perft(Board &board, int depth) {
 	// If white's turn is beginning and black is in check
 	if (board.side == WHITE && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first)
@@ -31,14 +65,13 @@ uint64_t perft(Board &board, int depth) {
 
 /**
  * Determines the amount of depth to reduce the search by, given the move's index and the remaining depth
- * 
- * Currently, the function is very gentle because our move ordering is not ideal.
+ *
  * See https://www.chessprogramming.org/Late_Move_Reductions
  */
 uint16_t reduction(int i, int d) {
 	if (d <= 1 || i <= 1)
 		return 1; // Don't reduce on nodes that lead to leaves since the TT doesn't provide info
-	return 0.77 + log2(i) * log2(d) / 2.36;
+	return std::max((uint16_t)1, (uint16_t)(ec.lmr_a + log2(i) * log2(d) / ec.lmr_b));
 }
 
 /**
@@ -54,9 +87,9 @@ __attribute__((constructor)) void init_mvvlva() {
 	for (int i = 0; i < 6; i++) {
 		for (int j = 0; j < 6; j++) {
 			if (i == KING)
-				MVV_LVA[i][j] = QueenValue * 12 + 1; // Prioritize over all other captures
+				MVV_LVA[i][j] = QueenValue * ec.mvv_lva_mult + 1; // Prioritize over all other captures
 			else
-				MVV_LVA[i][j] = PieceValue[i] * 12 - PieceValue[j];
+				MVV_LVA[i][j] = PieceValue[i] * ec.mvv_lva_mult - PieceValue[j];
 		}
 	}
 }
@@ -141,7 +174,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 			score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
 			scores.push_back({move, score});
 		} else if (move.type() == PROMOTION) {
-			scores.push_back({move, PieceValue[move.promotion() + KNIGHT] - PawnValue});
+			scores.push_back({move, PieceValue[move.promotion() + KNIGHT] * ec.mvv_lva_mult - PawnValue});
 		}
 	}
 	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
@@ -204,18 +237,18 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
 			score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
 		} else if (move.type() == PROMOTION) {
-			score = PieceValue[move.promotion() + KNIGHT] - PawnValue;
+			score = PieceValue[move.promotion() + KNIGHT] * ec.mvv_lva_mult - PawnValue;
 		} else {
 			// Non-capture, non-promotion, so check history
 			score = history[board.side][move.src()][move.dst()];
 		}
 		if (move == killer[0][depth]) {
-			score += 1500; // Killer move bonus
+			score += ec.killer1; // Killer move bonus
 		} else if (move == killer[1][depth]) {
-			score += 800; // Second killer move bonus
+			score += ec.killer2; // Second killer move bonus
 		}
 		if (ply && move == cmh[board.side][line[ply-1].src()][line[ply-1].dst()]) {
-			score += 1000; // Counter-move bonus
+			score += ec.cmh; // Counter-move bonus
 		}
 		scores.push_back({move, score});
 	}
@@ -277,7 +310,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (!in_check) cur_eval = eval(board) * side;
 
 	// Reverse futility pruning
-	if (!in_check && !pv && depth <= 3) {
+	if (!in_check && !pv && depth <= ec.rfp_depth) {
 		/**
 		 * The idea is that if we are winning by such a large margin that we can afford to lose
 		 * RFP_THRESHOLD * depth eval units per ply, we can return the current eval.
@@ -285,13 +318,13 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * We need to make sure that we aren't in check (since we might get mated) and that the
 		 * TT entry exists (so that the current position is actually good).
 		 */
-		int margin = RFP_THRESHOLD * depth;
+		int margin = ec.rfp_thresh * depth;
 		if (cur_eval >= beta + margin)
 			return cur_eval - margin;
 	}
 
 	// Null-move pruning
-	if (!in_check && _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) >= 8) {
+	if (!in_check && _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) >= ec.nmp_pieces) {
 		/**
 		 * This works off the *null-move observation*.
 		 * 
@@ -305,7 +338,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 */
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
-		Value null_score = -__recurse(board, depth - NMP_R_VALUE, -beta, -beta + 1, -side, pv, ply+1);
+		Value null_score = -__recurse(board, depth - ec.nmp_depth, -beta, -beta + 1, -side, pv, ply+1);
 		board.unmake_move();
 		if (null_score >= beta)
 			return null_score;
@@ -319,8 +352,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	bool entry_exists = false;
 	pzstd::vector<std::pair<Move, Value>> scores = order_moves(board, moves, side, depth, ply, entry_exists);
 
-	if (depth > 5 && !entry_exists) {
-		depth -= 2; // Internal iterative reductions
+	if (depth > ec.iir_depth && !entry_exists) {
+		depth -= ec.iir_red; // Internal iterative reductions
 	}
 
 	Move best_move = NullMove;
@@ -339,7 +372,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * If we are at the leaf of the search, we can prune moves that are
 			 * probably not going to be better than alpha.
 			 */
-			if (cur_eval + FUTILITY_THRESHOLD < alpha) continue;
+			if (cur_eval + ec.fut_thresh < alpha) continue;
 		}
 
 		board.make_move(move);
@@ -521,7 +554,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 	bool aspiration_enabled = true;
 	for (int d = 1; d <= MAX_PLY; d++) {
 		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
-		Value window_size = ASPIRATION_WINDOW;
+		Value window_size = ec.aspir_window;
 		
 		if (eval != -VALUE_INFINITE && aspiration_enabled) {
 			/**
@@ -616,7 +649,7 @@ std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
 	bool aspiration_enabled = true;
 	for (int d = 1; d <= depth; d++) {
 		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
-		Value window_size = ASPIRATION_WINDOW;
+		Value window_size = ec.aspir_window;
 		
 		if (eval != -VALUE_INFINITE && aspiration_enabled) {
 			alpha = eval - window_size;
