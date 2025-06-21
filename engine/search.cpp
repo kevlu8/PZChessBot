@@ -503,6 +503,8 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
 	bool aspiration_enabled = true;
+	bool eval_stable = true;
+	Value prev_eval = -VALUE_INFINITE;
 	for (int d = 1; d <= MAX_PLY; d++) {
 		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
 		Value window_size = ASPIRATION_WINDOW;
@@ -542,6 +544,16 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 		best_move = result.first;
 		
 		seldepth = std::max(seldepth, d);
+
+		if (d > 6 && prev_eval != -VALUE_INFINITE) eval_stable = abs(eval - prev_eval) < 150;
+		prev_eval = eval;
+
+		if (d > 6 && !eval_stable && mxtime > 100 && mxtime < time * 1.4) {
+			// We have an unstable eval, so we search for longer
+			// The second term in the condition is to prevent using too much time when we are in time trouble
+			// The third term is to prevent using too much time
+			mxtime *= 1.2;
+		}
 		
 		#ifndef NOUCI
 		if (!quiet) {
