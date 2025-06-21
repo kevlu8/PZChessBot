@@ -537,34 +537,39 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 			result = __search(board, d, alpha, beta, board.side ? -1 : 1);
 			if (early_exit) break;
 		}
-		if (early_exit)
-			break;
+		if (early_exit) break;
 		eval = result.second;
 		best_move = result.first;
-
+		
 		seldepth = std::max(seldepth, d);
-
-#ifndef NOUCI
+		
+		#ifndef NOUCI
 		if (!quiet) {
 			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
 				std::cout << "info depth " << d << " seldepth " << seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
-						<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
+				<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
 				__print_pv(1);
 				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			} else {
 				std::cout << "info depth " << d << " seldepth " << seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
-						<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
+				<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
 				__print_pv();
 				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			}
 		}
-#endif
-
+		#endif
+		
 		exit_allowed = true;
-
+		
 		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
 			return {best_move, eval};
 			// We don't need to search further, we found mate
+		}
+
+		int time_elapsed = (clock() - start) / CLOCKS_PER_MS;
+		if (time_elapsed > mxtime / 2) {
+			// We probably won't be able to complete the next ID loop
+			break;
 		}
 	}
 
