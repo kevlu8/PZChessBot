@@ -467,6 +467,11 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 
 	for (int i = 0; i < moves.size(); i++) { // Skip the TT move if it's not legal
 		Move &move = scores[i].first;
+
+		if (depth >= 20 && nodes >= 10'000'000) {
+			std::cout << "info depth " << depth << " currmove " << move.to_string() << " currmovenumber " << i+1 << std::endl;
+		}
+
 		line[0] = move;
 		board.make_move(move);
 		Value score;

@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
 		Board board = Board(TT_SIZE);
 		init_network();
 		uint64_t start = clock();
-		search_depth(board, 10, true);
+		search_depth(board, 12);
 		uint64_t end = clock();
 		std::cout << nodes << " nodes " << (nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
 		return 0;
