@@ -89,6 +89,11 @@ Move line[MAX_PLY]; // Currently searched line
 Move pvtable[MAX_PLY][MAX_PLY];
 int pvlen[MAX_PLY];
 
+void update_history(bool side, Square from, Square to, Value bonus) {
+	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
+	history[side][from][to] += cbonus - history[side][from][to] * abs(bonus) / MAX_HISTORY;
+}
+
 /**
  * Perform the quiescence search
  * 
@@ -325,6 +330,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	Move best_move = NullMove;
 
+	pzstd::vector<Move> quiets;
+
 	for (int i = 0; i < moves.size(); i++) {
 		Move &move = scores[i].first;
 		line[ply] = move;
@@ -393,7 +400,11 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				killer[0][depth] = move; // Update killer moves
 			}
 			if (!(board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()))) { // Not a capture
-				history[board.side][move.src()][move.dst()] += depth * depth;
+				const Value bonus = depth * depth;
+				update_history(board.side, move.src(), move.dst(), bonus);
+				for (auto &qmove : quiets) {
+					update_history(board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
+				}
 				cmh[board.side][line[ply-1].src()][line[ply-1].dst()] = move; // Update counter-move history
 			}
 			return best;
@@ -401,6 +412,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		if (early_exit)
 			break;
+
+		if (!capt && !promo) quiets.push_back(move);
 	}
 
 	// Stalemate detection
