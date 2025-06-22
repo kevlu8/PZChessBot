@@ -77,6 +77,7 @@ Move killer[2][MAX_PLY];
  * TODO: check if overflows are possible
  */
 Value history[2][64][64];
+Value capthist[6][6][64]; // [piece][captured piece][dst]
 
 /**
  * The counter-move heuristic is a move ordering heuristic that helps sort moves that
@@ -92,6 +93,11 @@ int pvlen[MAX_PLY];
 void update_history(bool side, Square from, Square to, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
 	history[side][from][to] += cbonus - history[side][from][to] * abs(bonus) / MAX_HISTORY;
+}
+
+void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonus) {
+	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
+	capthist[piece][captured][dst] += cbonus - capthist[piece][captured][dst] * abs(bonus) / MAX_HISTORY;
 }
 
 /**
@@ -207,7 +213,8 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 		if (move == entry) continue; // Don't add the TT move again
 		Value score = 0;
 		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
-			score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
+			// score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
+			score = PieceValue[board.mailbox[move.dst()] & 7] + capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
 		} else if (move.type() == PROMOTION) {
 			score = PieceValue[move.promotion() + KNIGHT] - PawnValue;
 		} else {
@@ -330,7 +337,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	Move best_move = NullMove;
 
-	pzstd::vector<Move> quiets;
+	pzstd::vector<Move> quiets, captures;
 
 	for (int i = 0; i < moves.size(); i++) {
 		Move &move = scores[i].first;
@@ -406,6 +413,12 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 					update_history(board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
 				}
 				cmh[board.side][line[ply-1].src()][line[ply-1].dst()] = move; // Update counter-move history
+			} else {
+				const Value bonus = depth * depth;
+				update_capthist(PieceType(board.mailbox[move.src()] & 7), PieceType(board.mailbox[move.dst()] & 7), move.dst(), bonus);
+				for (auto &cmove : captures) {
+					update_capthist(PieceType(board.mailbox[cmove.src()] & 7), PieceType(board.mailbox[cmove.dst()] & 7), cmove.dst(), -bonus);
+				}
 			}
 			return best;
 		}
@@ -414,6 +427,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			break;
 
 		if (!capt && !promo) quiets.push_back(move);
+		else if (capt) captures.push_back(move);
 	}
 
 	// Stalemate detection
