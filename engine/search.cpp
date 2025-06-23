@@ -54,9 +54,9 @@ __attribute__((constructor)) void init_mvvlva() {
 	for (int i = 0; i < 6; i++) {
 		for (int j = 0; j < 6; j++) {
 			if (i == KING)
-				MVV_LVA[i][j] = QueenValue * 12 + 1; // Prioritize over all other captures
+				MVV_LVA[i][j] = QueenValue * 13 + 1; // Prioritize over all other captures
 			else
-				MVV_LVA[i][j] = PieceValue[i] * 12 - PieceValue[j];
+				MVV_LVA[i][j] = PieceValue[i] * 13 - PieceValue[j];
 		}
 	}
 }
@@ -222,12 +222,12 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 			score = history[board.side][move.src()][move.dst()];
 		}
 		if (move == killer[0][depth]) {
-			score += 1500; // Killer move bonus
+			score += 1461; // Killer move bonus
 		} else if (move == killer[1][depth]) {
-			score += 800; // Second killer move bonus
+			score += 831; // Second killer move bonus
 		}
 		if (ply && move == cmh[board.side][line[ply-1].src()][line[ply-1].dst()]) {
-			score += 1000; // Counter-move bonus
+			score += 1003; // Counter-move bonus
 		}
 		scores.push_back({move, score});
 	}
@@ -331,7 +331,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	bool entry_exists = false;
 	pzstd::vector<std::pair<Move, Value>> scores = order_moves(board, moves, side, depth, ply, entry_exists);
 
-	if (depth > 5 && !entry_exists) {
+	if (depth > 4 && !entry_exists) {
 		depth -= 2; // Internal iterative reductions
 	}
 
@@ -346,14 +346,15 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
 		bool promo = (move.type() == PROMOTION);
 
-		if (depth == 1 && i > 0 && !in_check && !capt && !promo && abs(alpha) < VALUE_MATE_MAX_PLY && abs(beta) < VALUE_MATE_MAX_PLY) {
+		if (depth <= 2 && i > 0 && !in_check && !capt && !promo && abs(alpha) < VALUE_MATE_MAX_PLY && abs(beta) < VALUE_MATE_MAX_PLY) {
 			/**
 			 * Futility pruning
 			 * 
 			 * If we are at the leaf of the search, we can prune moves that are
 			 * probably not going to be better than alpha.
 			 */
-			if (cur_eval + FUTILITY_THRESHOLD < alpha) continue;
+			if (depth == 1 && cur_eval + FUTILITY_THRESHOLD < alpha) continue;
+			if (depth == 2 && cur_eval + FUTILITY_THRESHOLD2 < alpha) continue;
 		}
 
 		board.make_move(move);
@@ -407,14 +408,14 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				killer[0][depth] = move; // Update killer moves
 			}
 			if (!(board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()))) { // Not a capture
-				const Value bonus = depth * depth;
+				const Value bonus = 1.53 * depth * depth + 0.87 * depth + 0.65;
 				update_history(board.side, move.src(), move.dst(), bonus);
 				for (auto &qmove : quiets) {
 					update_history(board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
 				}
 				cmh[board.side][line[ply-1].src()][line[ply-1].dst()] = move; // Update counter-move history
 			} else {
-				const Value bonus = depth * depth;
+				const Value bonus = 1.82 * depth * depth + 0.49 * depth + 0.39;
 				update_capthist(PieceType(board.mailbox[move.src()] & 7), PieceType(board.mailbox[move.dst()] & 7), move.dst(), bonus);
 				for (auto &cmove : captures) {
 					update_capthist(PieceType(board.mailbox[cmove.src()] & 7), PieceType(board.mailbox[cmove.dst()] & 7), cmove.dst(), -bonus);
@@ -615,7 +616,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 		}
 
 		int time_elapsed = (clock() - start) / CLOCKS_PER_MS;
-		if (time_elapsed > mxtime / 2) {
+		if (time_elapsed > mxtime * 0.52) {
 			// We probably won't be able to complete the next ID loop
 			break;
 		}
