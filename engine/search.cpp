@@ -289,7 +289,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (!in_check) cur_eval = eval(board) * side;
 
 	// Reverse futility pruning
-	if (!in_check && !pv && depth <= 3) {
+	if (!in_check && !pv) {
 		/**
 		 * The idea is that if we are winning by such a large margin that we can afford to lose
 		 * RFP_THRESHOLD * depth eval units per ply, we can return the current eval.
