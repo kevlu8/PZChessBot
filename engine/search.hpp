@@ -11,13 +11,13 @@
 // we can afford to lose RFP_THRESHOLD eval units per ply
 // and still be in a better position. The lower the value,
 // the more aggressive RFP is.
-#define RFP_THRESHOLD (128 * CP_SCALE_FACTOR)
+#define RFP_THRESHOLD (131 * CP_SCALE_FACTOR)
 
 // Aspiration window size(s)
 // The aspiration window is the range of values we search
 // for the best move. If we fail to find the best move in
 // this range, we expand the window.
-#define ASPIRATION_WINDOW (43 * CP_SCALE_FACTOR)
+#define ASPIRATION_WINDOW (36 * CP_SCALE_FACTOR)
 
 // Null-move pruning reduction value
 // This is the amount of depth we reduce the search by
@@ -30,7 +30,8 @@
 
 // Futility pruning threshold
 // This is the threshold for futility pruning (in centipawns)
-#define FUTILITY_THRESHOLD (300 * CP_SCALE_FACTOR)
+#define FUTILITY_THRESHOLD (312 * CP_SCALE_FACTOR)
+#define FUTILITY_THRESHOLD2 (678 * CP_SCALE_FACTOR)
 
 extern uint64_t nodes;
 
