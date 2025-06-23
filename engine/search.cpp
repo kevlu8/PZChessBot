@@ -31,8 +31,7 @@ uint64_t perft(Board &board, int depth) {
 
 /**
  * Determines the amount of depth to reduce the search by, given the move's index and the remaining depth
- * 
- * Currently, the function is very gentle because our move ordering is not ideal.
+ *
  * See https://www.chessprogramming.org/Late_Move_Reductions
  */
 uint16_t reduction(int i, int d) {
@@ -42,11 +41,11 @@ uint16_t reduction(int i, int d) {
 }
 
 /**
- * MVV_LVA (most-valuable-victim:least-valuable-attacker) is a metric for move ordering that helps
+ * MVV_LVA (most valuable victim - least valuable attacker) is a metric for move ordering that helps
  * sort captures and promotions. We basically sort high-value captures first, and low-value captures
  * last.
  * 
- * This is currently not used because somehow static eval sorting is outperforming it.
+ * Currently only used in quiescence search in favor of MVV+CaptHist in the main search
  */
 Value MVV_LVA[6][6];
 
@@ -74,14 +73,21 @@ Move killer[2][MAX_PLY];
  * It works by storing its effectiveness in the past through beta cutoffs.
  * We store a history table for each side indexed by [src][dst].
  * 
- * TODO: check if overflows are possible
+ * TODO: check if overflows are possible (probably not?)
  */
 Value history[2][64][64];
+
+/**
+ * Capture history is a heuristic similar to the history heuristic, but it's used for
+ * captures. It basically replaces LVA.
+ */
 Value capthist[6][6][64]; // [piece][captured piece][dst]
 
 /**
  * The counter-move heuristic is a move ordering heuristic that helps sort moves that
  * have refuted other moves in the past. It works by storing the move upon a beta cutoff.
+ * 
+ * TODO: am I even implementing this correctly?
  */
 Move cmh[2][64][64];
 
@@ -90,6 +96,9 @@ Move line[MAX_PLY]; // Currently searched line
 Move pvtable[MAX_PLY][MAX_PLY];
 int pvlen[MAX_PLY];
 
+/**
+ * Use the history gravity formula to update our history values
+ */
 void update_history(bool side, Square from, Square to, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
 	history[side][from][to] += cbonus - history[side][from][to] * abs(bonus) / MAX_HISTORY;
@@ -108,10 +117,11 @@ void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonu
  * In this function, we search only captures and promotions, and return the best score.
  * 
  * TODO:
- * - Search for checks and check evasions
+ * - Search for checks and check evasions (every time I've tried this it has lost tons of elo)
  * - Delta pruning (sort of like futility pruning, see https://www.chessprogramming.org/Delta_Pruning)
- * - Late move reduction (instead of reducing depth, we reduce the search window)
+ * - Late move reduction (instead of reducing depth, we reduce the search window) (not a known technique, maybe worth trying?)
  * - Static exchange evaluation (don't search moves that lose material, see https://www.chessprogramming.org/Static_Exchange_Evaluation)
+ * (every time I have tried SEE it has also lost elo, but it's prob because our SEE impl is not good)
  */
 Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	nodes++;
@@ -132,6 +142,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	Value stand_pat = eval(board) * side;
 
 	// If it's a mate, stop here since there's no point in searching further
+	// TODO: can we rely on mate scores in qsearch?
 	if (stand_pat == VALUE_MATE || stand_pat == -VALUE_MATE)
 		return stand_pat;
 
@@ -144,7 +155,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
-	// Sort captures and promotions (ideally we should be using MVV_LVA here)
+	// Sort captures and promotions
 	pzstd::vector<std::pair<Move, Value>> scores;
 	for (Move &move : moves) {
 		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
@@ -192,7 +203,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
  * First, we check if we have a TTable entry for this position. If we do, we add it to the
  * beginning of the list, since it is almost definitely the best move. Then, the other moves
  * are sorted based on:
- * - MVV_LVA (most valuable victim, least valuable attacker) for captures
+ * - MVV+CaptHist for captures
  * - Piece value for promotions
  * - History heuristic for quiet moves
  * - Killer moves (moves that have caused a beta cutoff in the past)
@@ -247,7 +258,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		return (-VALUE_MATE) * side;
 	}
 
-	// Control on white king and black king respectively. First is white's control, second is that of black
+	// Control on white king and black king respectively
 	auto wcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]));
 	auto bcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]));
 	
@@ -294,8 +305,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * The idea is that if we are winning by such a large margin that we can afford to lose
 		 * RFP_THRESHOLD * depth eval units per ply, we can return the current eval.
 		 * 
-		 * We need to make sure that we aren't in check (since we might get mated) and that the
-		 * TT entry exists (so that the current position is actually good).
+		 * We need to make sure that we aren't in check (since we might get mated)
 		 */
 		int margin = RFP_THRESHOLD * depth;
 		if (cur_eval >= beta + margin)
@@ -456,9 +466,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
 	Move best_move = NullMove;
 	Value best_score = -VALUE_INFINITE;
-
-	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
-	bool use_egnn = npieces <= 10;
 
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
