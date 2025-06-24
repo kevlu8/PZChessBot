@@ -34,10 +34,15 @@ uint64_t perft(Board &board, int depth) {
  *
  * See https://www.chessprogramming.org/Late_Move_Reductions
  */
-uint16_t reduction(int i, int d) {
-	if (d <= 1 || i <= 1)
-		return 1; // Don't reduce on nodes that lead to leaves since the TT doesn't provide info
-	return 0.77 + log2(i) * log2(d) / 2.36;
+uint16_t reduction[250][MAX_PLY];
+
+__attribute__((constructor)) void init_lmr(int i, int d) {
+	for (int i = 0; i < 250; i++) {
+		for (int d = 0; d < MAX_PLY; d++) {
+			if (d <= 1 || i <= 1) reduction[i][d] = 1;
+			else reduction[i][d] = 0.77 + log2(i) * log2(d) / 2.36;
+		}
+	}
 }
 
 /**
@@ -383,7 +388,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * full-depth re-search. This, however, doesn't happen often enough to slow down
 			 * the search.
 			 */
-			score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side, 0, ply+1);
+			score = -__recurse(board, depth - reduction[i][depth], -alpha - 1, -alpha, -side, 0, ply+1);
 			if (score > alpha) {
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
 			}
@@ -484,7 +489,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		board.make_move(move);
 		Value score;
 		if (i > 0) {
-			score = -__recurse(board, depth - reduction(i, depth), -alpha - 1, -alpha, -side, 0);
+			score = -__recurse(board, depth - reduction[i][depth], -alpha - 1, -alpha, -side, 0);
 			if (score > alpha) {
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0);
 			}
