@@ -16,12 +16,12 @@ void Network::load() {
 	memcpy(&output_bias, ptr, sizeof(output_bias));
 }
 
-int calculate_index(Square sq, PieceType pt, bool side, bool perspective) {
+int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nbucket) {
 	if (perspective) {
 		side = !side;
 		sq = (Square)(sq ^ 56);
 	}
-	return side * 64 * 6 + pt * 64 + sq;
+	return nbucket * INPUT_SIZE + side * 64 * 6 + pt * 64 + sq;
 }
 
 void accumulator_add(const Network &net, Accumulator &acc, uint16_t index) {
