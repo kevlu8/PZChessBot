@@ -235,23 +235,24 @@ Value eval(Board &board) {
 		return -VALUE_MATE;
 	}
 
-	// Clear accumulators
-	if (bs.refresh) {
-		for (int i = 0; i < HL_SIZE; i++) {
-			bs.w_acc.val[i] = nnue_network.accumulator_biases[i];
-			bs.b_acc.val[i] = nnue_network.accumulator_biases[i];
-		}
-		for (int i = 0; i < 64; i++) bs.mailbox[i] = NO_PIECE;
-		bs.refresh = false;
-	}
-
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 	int32_t score = 0;
 	// Query the NNUE network
 	Square wkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]);
 	Square bkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]);
-	int winbucket = wkingsq / 2;
-	int binbucket = (bkingsq ^ 56) / 2;
+	int winbucket = IBUCKET_LAYOUT[wkingsq];
+	int binbucket = IBUCKET_LAYOUT[bkingsq ^ 56];
+
+	if (winbucket != bs.wbucket || binbucket != bs.bbucket) {
+		for (int i = 0; i < HL_SIZE; i++) {
+			bs.w_acc.val[i] = nnue_network.accumulator_biases[i];
+			bs.b_acc.val[i] = nnue_network.accumulator_biases[i];
+		}
+		for (int i = 0; i < 64; i++) bs.mailbox[i] = NO_PIECE;
+		bs.wbucket = winbucket;
+		bs.bbucket = binbucket;
+	}
+
 	for (uint16_t i = 0; i < 64; i++) {
 		Piece piece = board.mailbox[i];
 		Piece prevpiece = bs.mailbox[i];
@@ -303,19 +304,20 @@ std::array<Value, 8> debug_eval(Board &board) {
 		return {0, 0, 0, 0, 0, 0, 0, 0}; // Draw by 50 moves
 	}
 
-	if (bs.refresh) {
+	Square wkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]);
+	Square bkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]);
+	int winbucket = IBUCKET_LAYOUT[wkingsq];
+	int binbucket = IBUCKET_LAYOUT[bkingsq ^ 56];
+
+	if (winbucket != bs.wbucket || binbucket != bs.bbucket) {
 		for (int i = 0; i < HL_SIZE; i++) {
 			bs.w_acc.val[i] = nnue_network.accumulator_biases[i];
 			bs.b_acc.val[i] = nnue_network.accumulator_biases[i];
 		}
 		for (int i = 0; i < 64; i++) bs.mailbox[i] = NO_PIECE;
-		bs.refresh = false;
+		bs.wbucket = winbucket;
+		bs.bbucket = binbucket;
 	}
-
-	Square wkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]);
-	Square bkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]);
-	int winbucket = wkingsq / 2;
-	int binbucket = (bkingsq ^ 56) / 2;
 
 	// Query the NNUE network
 	for (uint16_t i = 0; i < 64; i++) {
