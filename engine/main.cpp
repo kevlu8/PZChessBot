@@ -9,6 +9,8 @@
 #include "movetimings.hpp"
 #include "search.hpp"
 
+BoardState bs;
+
 int TT_SIZE = DEFAULT_TT_SIZE;
 
 int main(int argc, char *argv[]) {

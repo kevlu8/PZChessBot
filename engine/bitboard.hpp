@@ -3,6 +3,7 @@
 #include "includes.hpp"
 #include "move.hpp"
 #include "ttable.hpp"
+#include "boardstate.hpp"
 
 // Selects the occupancy array by xoring 6 with side (white: false = 0 ^ 6 = 6, black: true = 1 ^ 6 = 7)
 #define OCC(side) (6 ^ (side))

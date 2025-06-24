@@ -52,3 +52,4 @@ engine/*.bin
 *bullet*
 *.txt
 pzchessbot-linux-avx2-x86_64
+*.bin

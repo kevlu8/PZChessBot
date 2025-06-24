@@ -386,6 +386,11 @@ void Board::make_move(Move move) {
 	halfmove_hist.push(halfmove);
 	Square tmp_ep_square = SQ_NONE;
 
+	if ((mailbox[move.src()] & 7) == KING) {
+		// TODO: implement more logic behind checking if the king actually left a bucket
+		bs.refresh = true;
+	}
+
 	// Handle captures
 	if (move.data != 0 && (piece_boards[OPPOCC(side)] & square_bits(move.dst()))) { // If opposite occupancy bit set on destination (capture)
 		// Remove whatever piece it was
@@ -589,6 +594,11 @@ void Board::unmake_move() {
 	HistoryEntry prev = move_hist.top();
 	move_hist.pop();
 	Move move = prev.move();
+
+	if ((mailbox[move.dst()] & 7) == KING) {
+		bs.refresh = true;
+	}
+
 	if (move.data == 0) {
 		// Null move, do nothing on the board, but recover metadata
 	} else if (move.type() == PROMOTION) {
