@@ -3,6 +3,7 @@
 #include "bitboard.hpp"
 #include "nnue/network.hpp"
 #include "includes.hpp"
+#include "boardstate.hpp"
 
 void init_network();
 
