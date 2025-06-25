@@ -33,6 +33,11 @@
 #define FUTILITY_THRESHOLD (312 * CP_SCALE_FACTOR)
 #define FUTILITY_THRESHOLD2 (678 * CP_SCALE_FACTOR)
 
+// Correction history table size
+#define CORRHIST_SZ 32768
+#define CORRHIST_GRAIN 256
+#define CORRHIST_WEIGHT 256
+
 extern uint64_t nodes;
 
 std::pair<Move, Value> search(Board &board, int64_t time = 1e9, bool quiet = false);

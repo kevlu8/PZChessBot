@@ -119,4 +119,6 @@ struct Board {
 	void recompute_hash();
 
 	bool threefold();
+
+	uint64_t pawn_struct_hash();
 };

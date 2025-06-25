@@ -89,6 +89,13 @@ Value history[2][64][64];
 Value capthist[6][6][64]; // [piece][captured piece][dst]
 
 /**
+ * Static Evaluation Correction History (CorrHist) is a heuristic that "corrects"
+ * the static evaluation towards the actual evaluation of the position, based on
+ * a variety of factors (e.g. pawn structure, minor pieces, etc)
+ */
+Value corrhist_ps[2][CORRHIST_SZ]; // [side][pawn hash]
+
+/**
  * The counter-move heuristic is a move ordering heuristic that helps sort moves that
  * have refuted other moves in the past. It works by storing the move upon a beta cutoff.
  * 
@@ -112,6 +119,21 @@ void update_history(bool side, Square from, Square to, Value bonus) {
 void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
 	capthist[piece][captured][dst] += cbonus - capthist[piece][captured][dst] * abs(bonus) / MAX_HISTORY;
+}
+
+void update_corrhist(bool side, uint64_t hash, Value diff, int depth) {
+	const Value sdiff = diff * CORRHIST_GRAIN;
+	const Value weight = std::min(depth*depth, 128);
+	Value &corr = corrhist_ps[side][hash % CORRHIST_SZ];
+	corr = (corr * (CORRHIST_WEIGHT - weight) + sdiff * weight) / CORRHIST_WEIGHT;
+	corr = std::clamp(corr, (Value)(-MAX_HISTORY), MAX_HISTORY);
+}
+
+void apply_correction(bool side, uint64_t hash, Value &eval) {
+	if (abs(eval) >= VALUE_MATE_MAX_PLY)
+		return; // Don't apply correction if we are already at a mate score
+	const Value corr = corrhist_ps[side][hash % CORRHIST_SZ];
+	eval = std::clamp(eval + corr / CORRHIST_GRAIN, -VALUE_MATE_MAX_PLY + 1, VALUE_MATE_MAX_PLY - 1);
 }
 
 /**
@@ -145,6 +167,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 
 	seldepth = std::max(depth, seldepth);
 	Value stand_pat = eval(board) * side;
+	apply_correction(board.side, board.pawn_struct_hash(), stand_pat);
 
 	// If it's a mate, stop here since there's no point in searching further
 	// TODO: can we rely on mate scores in qsearch?
@@ -302,7 +325,14 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		return cutoff->eval;
 
 	Value cur_eval = 0;
-	if (!in_check) cur_eval = eval(board) * side;
+	Value raw_eval = 0; // For CorrHist
+	uint64_t pawn_hash = 0;
+	if (!in_check) {
+		pawn_hash = board.pawn_struct_hash();
+		cur_eval = eval(board) * side;
+		raw_eval = cur_eval;
+		apply_correction(board.side, pawn_hash, cur_eval);
+	}
 
 	// Reverse futility pruning
 	if (!in_check && !pv) {
@@ -422,14 +452,15 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				killer[1][depth] = killer[0][depth];
 				killer[0][depth] = move; // Update killer moves
 			}
-			if (!(board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()))) { // Not a capture
+			if (!capt) { // Not a capture
 				const Value bonus = 1.53 * depth * depth + 0.87 * depth + 0.65;
 				update_history(board.side, move.src(), move.dst(), bonus);
 				for (auto &qmove : quiets) {
 					update_history(board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
 				}
 				cmh[board.side][line[ply-1].src()][line[ply-1].dst()] = move; // Update counter-move history
-			} else {
+				if (!in_check && !promo && best > raw_eval) update_corrhist(board.side, pawn_hash, best - raw_eval, depth);
+			} else { // Capture
 				const Value bonus = 1.82 * depth * depth + 0.49 * depth + 0.39;
 				update_capthist(PieceType(board.mailbox[move.src()] & 7), PieceType(board.mailbox[move.dst()] & 7), move.dst(), bonus);
 				for (auto &cmove : captures) {
@@ -444,6 +475,13 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		if (!capt && !promo) quiets.push_back(move);
 		else if (capt) captures.push_back(move);
+	}
+
+	bool best_iscapture = (board.piece_boards[OPPOCC(board.side)] & square_bits(best_move.dst()));
+	bool best_ispromo = (best_move.type() == PROMOTION);
+	if (!in_check && !best_iscapture && !best_ispromo && !(best < alpha && best >= raw_eval)) {
+		// Best move is a quiet move, update CorrHist
+		update_corrhist(board.side, pawn_hash, best - raw_eval, depth);
 	}
 
 	// Stalemate detection
@@ -558,6 +596,12 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 	for (int i = 0; i < 64; i++) {
 		for (int j = 0; j < 64; j++) {
 			history[0][i][j] = history[1][i][j] = 0;
+		}
+	}
+
+	for (int i = 0; i < 2; i++) {
+		for (int j = 0; j < CORRHIST_SZ; j++) {
+			corrhist_ps[i][j] = 0;
 		}
 	}
 

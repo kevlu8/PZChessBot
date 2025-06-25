@@ -756,3 +756,16 @@ bool Board::threefold() {
 	}
 	return false;
 }
+
+uint64_t Board::pawn_struct_hash() {
+	uint64_t hash = 0;
+	Bitboard pawns = piece_boards[PAWN];
+	
+	while (pawns) {
+		int sq = __builtin_ctzll(pawns);
+		hash ^= zobrist_square[sq][mailbox[sq]];
+		pawns &= pawns - 1;
+	}
+	
+	return hash;
+}

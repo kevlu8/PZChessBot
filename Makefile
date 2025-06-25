@@ -2,8 +2,8 @@ EXE ?= pzchessbot
 EVALFILE ?= nnue.bin
 
 CXX := g++
-CXXFLAGS := -std=c++17 -static -DNNUE_PATH=\"$(EVALFILE)\" -mavx2 -mbmi2 -mbmi -mavx -m64 -mpopcnt -mlzcnt
-RELEASEFLAGS = -O3
+CXXFLAGS := -std=c++17 -DNNUE_PATH=\"$(EVALFILE)\" -mavx2 -mbmi2 -mbmi -mavx -m64 -mpopcnt -mlzcnt
+RELEASEFLAGS = -O3 -static
 DEBUGFLAGS = -g -fsanitize=address,undefined
 
 SRCS := $(wildcard engine/*.cpp engine/nnue/*.cpp)
