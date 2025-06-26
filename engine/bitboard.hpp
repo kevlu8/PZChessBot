@@ -67,6 +67,7 @@ struct Board {
 	uint8_t castling = 0xf; // 1111
 	Square ep_square = SQ_NONE;
 	uint64_t zobrist = 0;
+	uint64_t pawn_hash = 0;
 	TTable ttable;
 	pzstd::largevector<uint64_t> hash_hist;
 
@@ -119,4 +120,6 @@ struct Board {
 	void recompute_hash();
 
 	bool threefold();
+
+	uint64_t pawn_struct_hash();
 };

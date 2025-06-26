@@ -374,9 +374,11 @@ void Board::make_move(Move move) {
 
 #ifdef HASHCHECK
 	uint64_t old_hash = zobrist;
+	uint64_t old_pawn_hash = pawn_hash;
 	recompute_hash();
-	if (old_hash != zobrist) {
+	if (old_hash != zobrist || old_pawn_hash != pawn_hash) {
 		std::cerr << "Hash mismatch before move: expected " << zobrist << " got " << old_hash << '\n';
+		std::cerr << "Or, pawn hash mismatch before move: expected " << pawn_hash << " got " << old_pawn_hash << '\n';
 		abort();
 	}
 #endif
@@ -393,6 +395,9 @@ void Board::make_move(Move move) {
 		piece_boards[piece] ^= square_bits(move.dst());
 		piece_boards[OPPOCC(side)] ^= square_bits(move.dst());
 		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]];
+		if ((mailbox[move.dst()] & 7) == PAWN) {
+			pawn_hash ^= zobrist_square[move.dst()][mailbox[move.dst()]];
+		}
 
 		if (piece == ROOK) {
 			if (move.dst() == SQ_A1)
@@ -416,6 +421,7 @@ void Board::make_move(Move move) {
 	} else if (move.type() == PROMOTION) {
 		// Remove the pawn on the src and add the piece on the dst
 		zobrist ^= zobrist_square[move.src()][mailbox[move.src()]];
+		pawn_hash ^= zobrist_square[move.src()][mailbox[move.src()]];
 		mailbox[move.src()] = NO_PIECE;
 		mailbox[move.dst()] = Piece(move.promotion() + ((!!side) << 3) + KNIGHT);
 		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]];
@@ -426,6 +432,8 @@ void Board::make_move(Move move) {
 		// Remove the pawn on the src and the taken pawn, then add the pawn on the dst
 		zobrist ^= zobrist_square[move.src()][mailbox[move.src()]] ^ zobrist_square[move.dst()][mailbox[move.src()]];
 		zobrist ^= zobrist_square[(move.src() & 0b111000) | (move.dst() & 0b111)][mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)]]; // Taken pawn
+		pawn_hash ^= zobrist_square[move.src()][mailbox[move.src()]] ^ zobrist_square[move.dst()][mailbox[move.src()]];
+		pawn_hash ^= zobrist_square[(move.src() & 0b111000) | (move.dst() & 0b111)][mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)]];
 		mailbox[move.dst()] = mailbox[move.src()];
 		mailbox[move.src()] = NO_PIECE;
 		mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)] = NO_PIECE;
@@ -491,6 +499,10 @@ void Board::make_move(Move move) {
 		uint8_t piece = mailbox[move.src()] & 0b111;
 		// Update mailbox repr first
 		zobrist ^= zobrist_square[move.src()][mailbox[move.src()]] ^ zobrist_square[move.dst()][mailbox[move.src()]];
+		if (piece == PAWN) {
+			pawn_hash ^= zobrist_square[move.src()][mailbox[move.src()]];
+			pawn_hash ^= zobrist_square[move.dst()][mailbox[move.src()]];
+		}
 		mailbox[move.dst()] = mailbox[move.src()];
 		mailbox[move.src()] = NO_PIECE;
 		// Update piece and occupancy bitboard
@@ -534,10 +546,13 @@ void Board::make_move(Move move) {
 
 #ifdef HASHCHECK
 	old_hash = zobrist;
+	old_pawn_hash = pawn_hash;
 	recompute_hash();
-	if (zobrist != old_hash) {
+	if (zobrist != old_hash || pawn_hash != old_pawn_hash) {
 		print_board();
-		std::cerr << "Hash mismatch after make: expected " << zobrist << " got " << old_hash << std::endl;
+		std::cerr << "Hash mismatch after make: expected " << old_hash << " got " << zobrist << std::endl;
+		std::cerr << "Or, pawn hash mismatch after make: expected " << old_pawn_hash << " got " << pawn_hash << std::endl;
+		std::cerr << "Move: " << move.to_string() << std::endl;
 		abort();
 	}
 #endif
@@ -571,9 +586,11 @@ void Board::unmake_move() {
 
 #ifdef HASHCHECK
 	uint64_t old_hash = zobrist;
+	uint64_t old_pawn_hash = pawn_hash;
 	recompute_hash();
-	if (old_hash != zobrist) {
+	if (old_hash != zobrist || old_pawn_hash != pawn_hash) {
 		std::cerr << "Hash mismatch before unmake: expected " << zobrist << " got " << old_hash << '\n';
+		std::cerr << "Or, pawn hash mismatch before unmake: expected " << pawn_hash << " got " << old_pawn_hash << '\n';
 		abort();
 	}
 #endif
@@ -596,6 +613,7 @@ void Board::unmake_move() {
 		mailbox[move.src()] = Piece(PAWN + ((!!side) << 3));
 		mailbox[move.dst()] = prev.prev_piece();
 		zobrist ^= zobrist_square[move.src()][mailbox[move.src()]];
+		pawn_hash ^= zobrist_square[move.src()][mailbox[move.src()]];
 		piece_boards[PAWN] ^= square_bits(move.src());
 		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
 		piece_boards[((move.data >> 12) & 0b11) + KNIGHT] ^= square_bits(move.dst());
@@ -609,10 +627,12 @@ void Board::unmake_move() {
 	} else if (move.type() == EN_PASSANT) {
 		// Remove the pawn on the dst and add the pawn on the src and the taken pawn
 		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]] ^ zobrist_square[move.src()][mailbox[move.dst()]];
+		pawn_hash ^= zobrist_square[move.dst()][mailbox[move.dst()]] ^ zobrist_square[move.src()][mailbox[move.dst()]];
 		mailbox[move.src()] = mailbox[move.dst()];
 		mailbox[move.dst()] = NO_PIECE;
 		mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)] = Piece(WHITE_PAWN + ((!side) << 3));
 		zobrist ^= zobrist_square[(move.src() & 0b111000) | (move.dst() & 0b111)][mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)]]; // Taken pawn
+		pawn_hash ^= zobrist_square[(move.src() & 0b111000) | (move.dst() & 0b111)][mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)]];
 		piece_boards[PAWN] ^= square_bits(move.src()) | square_bits(move.dst()) | square_bits(Rank(move.src() >> 3), File(move.dst() & 0b111));
 		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
 		piece_boards[OPPOCC(side)] ^= square_bits(Rank(move.src() >> 3), File(move.dst() & 0b111));
@@ -672,6 +692,13 @@ void Board::unmake_move() {
 		// Update mailbox repr first
 		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]] ^ zobrist_square[move.src()][mailbox[move.dst()]];
 		zobrist ^= zobrist_square[move.dst()][prev.prev_piece()];
+		if (piece == PAWN) {
+			pawn_hash ^= zobrist_square[move.dst()][mailbox[move.dst()]];
+			pawn_hash ^= zobrist_square[move.src()][mailbox[move.dst()]];
+		}
+		if ((prev.prev_piece() & 7) == PAWN) {
+			pawn_hash ^= zobrist_square[move.dst()][prev.prev_piece()];
+		}
 		mailbox[move.src()] = mailbox[move.dst()];
 		mailbox[move.dst()] = prev.prev_piece();
 		// Update piece and occupancy bitboard
@@ -702,10 +729,12 @@ void Board::unmake_move() {
 
 #ifdef HASHCHECK
 	old_hash = zobrist;
+	old_pawn_hash = pawn_hash;
 	recompute_hash();
-	if (zobrist != old_hash) {
+	if (zobrist != old_hash || pawn_hash != old_pawn_hash) {
 		print_board();
 		std::cerr << "Hash mismatch after unmake: expected " << zobrist << " got " << old_hash << '\n';
+		std::cerr << "Or, pawn hash mismatch after unmake: expected " << pawn_hash << " got " << old_pawn_hash << '\n';
 		std::cerr << prev.move().to_string() << std::endl;
 		abort();
 	}
@@ -734,8 +763,12 @@ void Board::unmake_move() {
 
 void Board::recompute_hash() {
 	zobrist = 0;
+	pawn_hash = 0;
 	for (int i = 0; i < 64; i++) {
 		zobrist ^= zobrist_square[i][mailbox[i]];
+		if ((mailbox[i] & 7) == PAWN) {
+			pawn_hash ^= zobrist_square[i][mailbox[i]];
+		}
 	}
 	zobrist ^= zobrist_castling[castling];
 	if (ep_square != SQ_NONE) {
@@ -753,4 +786,8 @@ bool Board::threefold() {
 			return true;
 	}
 	return false;
+}
+
+uint64_t Board::pawn_struct_hash() {
+	return pawn_hash;
 }
