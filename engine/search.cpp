@@ -136,7 +136,7 @@ void apply_correction(bool side, uint64_t pshash, uint64_t mathash, Value &eval)
 		return; // Don't apply correction if we are already at a mate score
 	const Value pscorr = corrhist_ps[side][pshash % CORRHIST_SZ];
 	const Value matcorr = corrhist_mat[side][mathash % CORRHIST_SZ];
-	const Value corr = pscorr + matcorr;
+	const Value corr = (pscorr + matcorr) / 2;
 	eval = std::clamp(eval + corr / CORRHIST_GRAIN, -VALUE_MATE_MAX_PLY + 1, VALUE_MATE_MAX_PLY - 1);
 }
 
