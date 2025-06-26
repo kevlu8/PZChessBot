@@ -395,7 +395,6 @@ void Board::make_move(Move move) {
 		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]];
 
 		if (piece == ROOK) {
-			uint8_t old_castling = castling;
 			if (move.dst() == SQ_A1)
 				castling &= ~WHITE_OOO;
 			else if (move.dst() == SQ_H1)
@@ -404,7 +403,6 @@ void Board::make_move(Move move) {
 				castling &= ~BLACK_OOO;
 			else if (move.dst() == SQ_H8)
 				castling &= ~BLACK_OO;
-			zobrist ^= zobrist_castling[old_castling] ^ zobrist_castling[castling];
 		}
 
 		halfmove = -1;
