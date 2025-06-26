@@ -121,5 +121,6 @@ struct Board {
 
 	bool threefold();
 
-	uint64_t pawn_struct_hash();
+	uint64_t pawn_struct_hash() const;
+	uint64_t material_hash() const;
 };

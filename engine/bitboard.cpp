@@ -788,6 +788,15 @@ bool Board::threefold() {
 	return false;
 }
 
-uint64_t Board::pawn_struct_hash() {
+uint64_t Board::pawn_struct_hash() const {
 	return pawn_hash;
+}
+
+uint64_t Board::material_hash() const {
+	int npawns = _mm_popcnt_u64(piece_boards[PAWN]);
+	int nknights = _mm_popcnt_u64(piece_boards[KNIGHT]);
+	int nbishops = _mm_popcnt_u64(piece_boards[BISHOP]);
+	int nrooks = _mm_popcnt_u64(piece_boards[ROOK]);
+	int nqueens = _mm_popcnt_u64(piece_boards[QUEEN]);
+	return npawns * 23 + nknights * 29 * 23 + nbishops * 31 * 29 * 23 + nrooks * 37 * 31 * 29 * 23 + nqueens * 41 * 37 * 31 * 29 * 23;
 }
