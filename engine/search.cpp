@@ -94,6 +94,7 @@ Value capthist[6][6][64]; // [piece][captured piece][dst]
  * a variety of factors (e.g. pawn structure, minor pieces, etc)
  */
 Value corrhist_ps[2][CORRHIST_SZ]; // [side][pawn hash]
+Value corrhist_mat[2][CORRHIST_SZ]; // [side][material hash]
 
 /**
  * The counter-move heuristic is a move ordering heuristic that helps sort moves that
@@ -121,18 +122,21 @@ void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonu
 	capthist[piece][captured][dst] += cbonus - capthist[piece][captured][dst] * abs(bonus) / MAX_HISTORY;
 }
 
-void update_corrhist(bool side, uint64_t hash, Value diff, int depth) {
+void update_corrhist(bool side, uint64_t pshash, uint64_t mathash, Value diff, int depth) {
 	const Value sdiff = diff * CORRHIST_GRAIN;
 	const Value weight = std::min(depth*depth, 128);
-	Value &corr = corrhist_ps[side][hash % CORRHIST_SZ];
-	corr = (corr * (CORRHIST_WEIGHT - weight) + sdiff * weight) / CORRHIST_WEIGHT;
-	corr = std::clamp(corr, (Value)(-MAX_HISTORY), MAX_HISTORY);
+	Value &pscorr = corrhist_ps[side][pshash % CORRHIST_SZ];
+	pscorr = std::clamp((pscorr * (CORRHIST_WEIGHT - weight) + sdiff * weight) / CORRHIST_WEIGHT, -MAX_HISTORY, (int)MAX_HISTORY);
+	Value &matcorr = corrhist_mat[side][mathash % CORRHIST_SZ];
+	matcorr = std::clamp((matcorr * (CORRHIST_WEIGHT - weight) + sdiff * weight) / CORRHIST_WEIGHT, -MAX_HISTORY, (int)MAX_HISTORY);
 }
 
-void apply_correction(bool side, uint64_t hash, Value &eval) {
+void apply_correction(bool side, uint64_t pshash, uint64_t mathash, Value &eval) {
 	if (abs(eval) >= VALUE_MATE_MAX_PLY)
 		return; // Don't apply correction if we are already at a mate score
-	const Value corr = corrhist_ps[side][hash % CORRHIST_SZ];
+	const Value pscorr = corrhist_ps[side][pshash % CORRHIST_SZ];
+	const Value matcorr = corrhist_mat[side][mathash % CORRHIST_SZ];
+	const Value corr = pscorr + matcorr;
 	eval = std::clamp(eval + corr / CORRHIST_GRAIN, -VALUE_MATE_MAX_PLY + 1, VALUE_MATE_MAX_PLY - 1);
 }
 
@@ -167,7 +171,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 
 	seldepth = std::max(depth, seldepth);
 	Value stand_pat = eval(board) * side;
-	apply_correction(board.side, board.pawn_struct_hash(), stand_pat);
+	apply_correction(board.side, board.pawn_struct_hash(), board.material_hash(), stand_pat);
 
 	// If it's a mate, stop here since there's no point in searching further
 	// TODO: can we rely on mate scores in qsearch?
@@ -331,7 +335,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		pawn_hash = board.pawn_struct_hash();
 		cur_eval = eval(board) * side;
 		raw_eval = cur_eval;
-		apply_correction(board.side, pawn_hash, cur_eval);
+		apply_correction(board.side, pawn_hash, board.material_hash(), cur_eval);
 	}
 
 	// Reverse futility pruning
@@ -459,7 +463,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 					update_history(board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
 				}
 				cmh[board.side][line[ply-1].src()][line[ply-1].dst()] = move; // Update counter-move history
-				if (!in_check && !promo && best > raw_eval) update_corrhist(board.side, pawn_hash, best - raw_eval, depth);
+				if (!in_check && !promo && best > raw_eval) update_corrhist(board.side, pawn_hash, board.material_hash(), best - raw_eval, depth);
 			} else { // Capture
 				const Value bonus = 1.82 * depth * depth + 0.49 * depth + 0.39;
 				update_capthist(PieceType(board.mailbox[move.src()] & 7), PieceType(board.mailbox[move.dst()] & 7), move.dst(), bonus);
@@ -481,7 +485,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	bool best_ispromo = (best_move.type() == PROMOTION);
 	if (!in_check && !best_iscapture && !best_ispromo && !(best < alpha && best >= raw_eval)) {
 		// Best move is a quiet move, update CorrHist
-		update_corrhist(board.side, pawn_hash, best - raw_eval, depth);
+		update_corrhist(board.side, pawn_hash, board.material_hash(), best - raw_eval, depth);
 	}
 
 	// Stalemate detection
