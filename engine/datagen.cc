@@ -99,7 +99,7 @@ void generateGames(int worker_id) {
 		std::string res = "";
 
 		while (abs(eval) < VALUE_MATE_MAX_PLY) {
-			if ((game.size() >= 20 && eval == 0) || (game.size() >= 100 && abs(eval) < 100) || game.size() >= 400) {
+			if ((game.size() >= 100 && abs(eval) < 100) || game.size() >= 400) {
 				// Probably drawn, stop the game
 				res = "0.5";
 				break;
