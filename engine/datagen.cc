@@ -81,7 +81,7 @@ void generateGames(int worker_id) {
 
 	while (!shouldStop.load()) {
 		Board board = Board();
-		// Generate ~5 random moves to start the game
+		// Generate random moves to start the game
 		for (int i = 0; i < 8; i++) {
 			pzstd::vector<Move> moves;
 			board.legal_moves(moves);
@@ -97,7 +97,7 @@ void generateGames(int worker_id) {
 		std::string res = "";
 
 		while (abs(eval) < VALUE_MATE_MAX_PLY) {
-			if ((game.size() >= 100 && abs(eval) < 100) || game.size() >= 400) {
+			if (eval == 0 || (game.size() >= 100 && abs(eval) < 100) || game.size() >= 400) {
 				// Probably drawn, stop the game
 				res = "0.5";
 				break;
@@ -115,7 +115,7 @@ void generateGames(int worker_id) {
 			// Get the eval
 			eval = result.second;
 			if (board.side == BLACK)
-				eval *= -1;
+				eval *= -1; // change eval to white perspective
 
 			if (eval >= VALUE_MATE_MAX_PLY) {
 				res = "1.0";
@@ -125,7 +125,18 @@ void generateGames(int worker_id) {
 				break;
 			}
 
-			game.push_back({board.get_fen(), eval});
+			bool in_check = false;
+			if (board.side == WHITE) {
+				in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second > 0;
+			} else {
+				in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])).first > 0;
+			}
+			bool is_capture = (board.piece_boards[OPPOCC(board.side)] & square_bits(result.first.dst()));
+
+			if (!in_check && !is_capture && result.first.type() == NORMAL && abs(eval) <= 10000) {
+				// don't generate data that is scuffed
+				game.push_back({board.get_fen(), eval});
+			}
 
 			// Make the move
 			board.make_move(result.first);
