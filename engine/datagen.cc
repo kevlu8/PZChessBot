@@ -82,7 +82,7 @@ void generateGames(int worker_id) {
 	while (!shouldStop.load()) {
 		Board board = Board();
 		// Generate ~5 random moves to start the game
-		for (int i = 0; i < 6; i++) {
+		for (int i = 0; i < 8; i++) {
 			pzstd::vector<Move> moves;
 			board.legal_moves(moves);
 			if (moves.size() == 0) {
@@ -99,6 +99,12 @@ void generateGames(int worker_id) {
 		while (abs(eval) < VALUE_MATE_MAX_PLY) {
 			if ((game.size() >= 100 && abs(eval) < 100) || game.size() >= 400) {
 				// Probably drawn, stop the game
+				res = "0.5";
+				break;
+			}
+
+			if (board.threefold() || board.halfmove >= 100) {
+				// Threefold repetition or 50-move rule
 				res = "0.5";
 				break;
 			}
