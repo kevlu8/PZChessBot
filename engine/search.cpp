@@ -187,20 +187,28 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
+	TTable::TTEntry *tt_entry = board.ttable.probe(board.zobrist, VALUE_INFINITE, -VALUE_INFINITE, -1);
+	Move tt_move = NullMove;
+	if (tt_entry) tt_move = tt_entry->best_move;
+
 	// Sort captures and promotions
 	pzstd::vector<std::pair<Move, Value>> scores;
 	for (Move &move : moves) {
 		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
 			Value score = 0;
 			score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
+			if (move == tt_move) score = VALUE_INFINITE;
 			scores.push_back({move, score});
 		} else if (move.type() == PROMOTION) {
-			scores.push_back({move, PieceValue[move.promotion() + KNIGHT] - PawnValue});
+			Value score = PieceValue[move.promotion() + KNIGHT] - PawnValue;
+			if (move == tt_move) score = VALUE_INFINITE;
+			scores.push_back({move, score});
 		}
 	}
 	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
 
 	Value best = stand_pat;
+	Move best_move = NullMove;
 
 	for (int i = 0; i < scores.size(); i++) {
 		Move &move = scores[i].first;
@@ -221,9 +229,19 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 			if (score > alpha)
 				alpha = score;
 			best = score;
+			best_move = move;
 		}
 		if (score >= beta) {
+			board.ttable.store(board.zobrist, score, 0, UPPER_BOUND, move, board.halfmove);
 			return best;
+		}
+	}
+
+	if (best_move != NullMove) {
+		if (best <= alpha) {
+			board.ttable.store(board.zobrist, best, 0, LOWER_BOUND, best_move, board.halfmove);
+		} else {
+			board.ttable.store(board.zobrist, best, 0, EXACT, best_move, board.halfmove);
 		}
 	}
 
