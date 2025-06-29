@@ -99,7 +99,7 @@ void generateGames(int worker_id) {
 		std::string res = "";
 
 		while (abs(eval) < VALUE_MATE_MAX_PLY) {
-			if (eval == 0 || (game.size() >= 100 && abs(eval) < 100) || game.size() >= 400) {
+			if ((game.size() >= 20 && eval == 0) || (game.size() >= 100 && abs(eval) < 100) || game.size() >= 400) {
 				// Probably drawn, stop the game
 				res = "0.5";
 				break;
@@ -214,7 +214,7 @@ int main(int argc, char *argv[]) {
 
 	const int NUM_THREADS = std::thread::hardware_concurrency();
 
-	std::cout << "PZChessBot v" << VERSION << " parallelized data generation script" << std::endl;
+	std::cout << "PZChessBot " << VERSION << " parallelized data generation script" << std::endl;
 	std::cout << "Using " << NUM_THREADS << " worker threads" << std::endl;
 	std::cout << "I'm going to generate as much data as I can, until you stop me. Press Ctrl+C to stop." << std::endl << std::endl;
 
