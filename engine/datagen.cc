@@ -18,7 +18,9 @@
 #include "search.hpp"
 
 #define OUT_FILE "data.bullet.txt"
-#define FIXED_NODES 500000 // Around 25ms per move, adjust accordingly
+#define FIXED_NODES 10000
+
+BoardState bs;
 
 // Thread-safe queue for storing generated game data
 class SafeQueue {
