@@ -40,10 +40,10 @@
 
 extern uint64_t nodes;
 
-std::pair<Move, Value> search(Board &board, int64_t time = 1e9, bool quiet = false);
+std::pair<Move, Value> search(Board &board, BoardState &bs, int64_t time = 1e9, bool quiet = false);
 
-std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet = false);
+std::pair<Move, Value> search_depth(Board &board, int depth, BoardState &bs, bool quiet = false);
 
-std::pair<Move, Value> search_nodes(Board &board, uint64_t nodes);
+std::pair<Move, Value> search_nodes(Board &board, uint64_t nodes, BoardState &bs);
 
 uint64_t perft(Board &board, int depth);

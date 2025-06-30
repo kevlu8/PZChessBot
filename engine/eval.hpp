@@ -5,11 +5,11 @@
 #include "includes.hpp"
 #include "boardstate.hpp"
 
-void init_network();
+void init_network(BoardState bs[]);
 
-Value eval(Board &board);
+Value eval(Board &board, BoardState &bs);
 
-std::array<Value, 8> debug_eval(Board &board);
+std::array<Value, 8> debug_eval(Board &board, BoardState &bs);
 
 #ifdef HCE
 constexpr int pawn_heatmap[64] = {

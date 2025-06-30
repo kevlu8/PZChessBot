@@ -57,12 +57,14 @@ float multi(int x) {
 }
 #endif
 
-void init_network() {
+void init_network(BoardState bs[]) {
 #ifndef HCE
 	nnue_network.load();
-	for (int i = 0; i < HL_SIZE; i++) {
-		bs.w_acc.val[i] = nnue_network.accumulator_biases[i];
-		bs.b_acc.val[i] = nnue_network.accumulator_biases[i];
+	for (int j = 0; j < 64; j++) {
+		for (int i = 0; i < HL_SIZE; i++) {
+			bs[j].w_acc.val[i] = nnue_network.accumulator_biases[i];
+			bs[j].b_acc.val[i] = nnue_network.accumulator_biases[i];
+		}
 	}
 #endif
 }
@@ -225,7 +227,7 @@ std::array<Value, 8> debug_eval(Board &board) {
 	return {eval(board), 0, 0, 0, 0, 0, 0, 0};
 }
 #else
-Value eval(Board &board) {
+Value eval(Board &board, BoardState &bs) {
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
 		return VALUE_MATE;
@@ -291,7 +293,7 @@ Value eval(Board &board) {
 	return score;
 }
 
-std::array<Value, 8> debug_eval(Board &board) {
+std::array<Value, 8> debug_eval(Board &board, BoardState &bs) {
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
 		return {VALUE_MATE, 0, 0, 0, 0, 0, 0, 0};

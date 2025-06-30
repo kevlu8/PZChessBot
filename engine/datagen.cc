@@ -21,7 +21,7 @@
 #define FIXED_NODES 10000
 const int TT_SIZE = DEFAULT_TT_SIZE;
 
-BoardState bs;
+BoardState bs[64]; // boardstates for each thread
 
 // Thread-safe queue for storing generated game data
 class SafeQueue {
@@ -113,7 +113,7 @@ void generateGames(int worker_id) {
 			}
 
 			// Search for a move
-			std::pair<Move, Value> result = search_nodes(board, FIXED_NODES);
+			std::pair<Move, Value> result = search_nodes(board, FIXED_NODES, bs[worker_id]);
 
 			if (result.first == NullMove) {
 				bool in_check = false;
@@ -228,12 +228,12 @@ void signalHandler(int signal) {
 }
 
 int main(int argc, char *argv[]) {
-	init_network();
+	init_network(bs); // Initialize the neural network
 	// Data generation script
-	std::ofstream outfile(argv[1], std::ios::app); // Append mode in case of restart
+	std::ofstream outfile(OUT_FILE, std::ios::app); // Append mode in case of restart
 
-	// const int NUM_THREADS = std::thread::hardware_concurrency();
-	const int NUM_THREADS = 1;
+	const int NUM_THREADS = std::thread::hardware_concurrency();
+	// const int NUM_THREADS = 8;
 
 	std::cout << "PZChessBot " << VERSION << " parallelized data generation script" << std::endl;
 	std::cout << "Using " << NUM_THREADS << " worker threads" << std::endl;
