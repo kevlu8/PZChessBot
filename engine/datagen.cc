@@ -183,14 +183,34 @@ void generateGames(int worker_id) {
 // Writer thread function to handle file I/O
 void writerThread(std::ofstream &outfile) {
 	std::string data;
+	std::string buffer;
+	const size_t BUFFER_SIZE = 64 * 1024 * 1024; // 64MB buffer
+	auto lastFlush = std::chrono::steady_clock::now();
+	const auto FLUSH_INTERVAL = std::chrono::seconds(30); // Flush every 30 seconds
+	
 	while (!stopWriter.load() || !gameDataQueue.empty()) {
 		if (gameDataQueue.pop(data)) {
-			outfile << data;
-			outfile.flush(); // Ensure data is written to disk
+			buffer += data;
+			
+			// Flush if buffer is large enough or enough time has passed
+			auto now = std::chrono::steady_clock::now();
+			if (buffer.size() >= BUFFER_SIZE || (now - lastFlush) >= FLUSH_INTERVAL) {
+				outfile << buffer;
+				outfile.flush();
+				buffer.clear();
+				lastFlush = now;
+			}
 		} else {
 			std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Prevent CPU spinning
 		}
 	}
+	
+	// Final flush of remaining data
+	if (!buffer.empty()) {
+		outfile << buffer;
+		outfile.flush();
+	}
+	
 	std::cout << "Writer thread finished." << std::endl;
 }
 
