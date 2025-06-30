@@ -38,12 +38,62 @@
 #define CORRHIST_GRAIN 256
 #define CORRHIST_WEIGHT 256
 
-extern uint64_t nodes;
+struct SearchParams {
+	uint64_t nodes = 0;
+	int seldepth = 0;
+	uint64_t mx_nodes = 1e18;
+	uint64_t mxtime = 1000;
+	bool early_exit = false, exit_allowed = false;
+	clock_t start = 0;
+	Move killer[2][MAX_PLY];
+	Value history[2][64][64]; // [side][src][dst]
+	Value capthist[6][6][64]; // [piece][captured piece][dst]
+	Value corrhist_ps[2][CORRHIST_SZ]; // [side][pawn hash]
+	Value corrhist_mat[2][CORRHIST_SZ]; // [side][material hash]
+	Move cmh[2][64][64]; // [side][src][dst]
+	Move line[MAX_PLY]; // Currently searched line
+	Move pvtable[MAX_PLY][MAX_PLY]; // [ply][move index]
+	int pvlen[MAX_PLY]; // [ply] length of the principal variation at that ply
 
-std::pair<Move, Value> search(Board &board, BoardState &bs, int64_t time = 1e9, bool quiet = false);
+	void clear() {
+		for (int i = 0; i < 2; i++) {
+			for (int j = 0; j < 64; j++) {
+				for (int k = 0; k < 64; k++) {
+					history[i][j][k] = 0;
+					cmh[i][j][k] = NullMove;
+				}
+			}
+			for (int j = 0; j < 6; j++) {
+				for (int k = 0; k < 6; k++) {
+					for (int l = 0; l < 64; l++) {
+						capthist[j][k][l] = 0;
+					}
+				}
+			}
+			for (int j = 0; j < CORRHIST_SZ; j++) {
+				corrhist_ps[i][j] = corrhist_mat[i][j] = 0;
+			}
+		}
+		for (int i = 0; i < MAX_PLY; i++) {
+			pvlen[i] = 0;
+			for (int j = 0; j < MAX_PLY; j++) {
+				pvtable[i][j] = NullMove;
+			}
+		}
+		for (int i = 0; i < 2; i++) {
+			for (int j = 0; j < MAX_PLY; j++) {
+				killer[i][j] = NullMove;
+			}
+		}
+	}
 
-std::pair<Move, Value> search_depth(Board &board, int depth, BoardState &bs, bool quiet = false);
+	SearchParams() {
+		clear();
+	}
+};
 
-std::pair<Move, Value> search_nodes(Board &board, uint64_t nodes, BoardState &bs);
+std::pair<Move, Value> search(Board &board, SearchParams &params, BoardState &bs, int64_t time = 1e9, bool quiet = false);
+
+std::pair<Move, Value> search_nodes(Board &board, SearchParams &params, uint64_t nodes, BoardState &bs);
 
 uint64_t perft(Board &board, int depth);

@@ -22,6 +22,7 @@
 const int TT_SIZE = DEFAULT_TT_SIZE;
 
 BoardState bs[64]; // boardstates for each thread
+SearchParams params[64]; // search parameters for each thread
 
 // Thread-safe queue for storing generated game data
 class SafeQueue {
@@ -113,7 +114,8 @@ void generateGames(int worker_id) {
 			}
 
 			// Search for a move
-			std::pair<Move, Value> result = search_nodes(board, FIXED_NODES, bs[worker_id]);
+			std::pair<Move, Value> result = search_nodes(board, params[worker_id], FIXED_NODES, bs[worker_id]);
+			params[worker_id].clear(); // Reset search params for next iteration
 
 			if (result.first == NullMove) {
 				bool in_check = false;

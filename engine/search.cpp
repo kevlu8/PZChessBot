@@ -2,13 +2,6 @@
 
 #define MOVENUM(x) ((((#x)[1] - '1') << 12) | (((#x)[0] - 'a') << 8) | (((#x)[3] - '1') << 4) | ((#x)[2] - 'a'))
 
-uint64_t nodes = 0; // Node count
-int seldepth = 0; // Maximum searched depth, including quiescence search
-uint64_t mx_nodes = 1e18; // Maximum nodes to search
-uint64_t mxtime = 1000; // Maximum time to search in milliseconds
-bool early_exit = false, exit_allowed = false; // Whether or not to exit the search, and if we are allowed to exit (so we don't exit on the depth 1)
-clock_t start = 0;
-
 uint64_t perft(Board &board, int depth) {
 	// If white's turn is beginning and black is in check
 	if (board.side == WHITE && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first)
@@ -66,76 +59,32 @@ __attribute__((constructor)) void init_mvvlva() {
 }
 
 /**
- * Killer moves are a heuristic for move ordering that helps sort consistently good moves.
- * What is a killer move? It's a move that has been successful in the past, i.e. it has
- * caused a beta cutoff in the past. We store two killer moves per depth, and we add
- * bonuses to the killer moves in the move ordering function.
- */
-Move killer[2][MAX_PLY];
-
-/**
- * The history heuristic is a move ordering heuristic that helps sort quiet moves.
- * It works by storing its effectiveness in the past through beta cutoffs.
- * We store a history table for each side indexed by [src][dst].
- * 
- * TODO: check if overflows are possible (probably not?)
- */
-Value history[2][64][64];
-
-/**
- * Capture history is a heuristic similar to the history heuristic, but it's used for
- * captures. It basically replaces LVA.
- */
-Value capthist[6][6][64]; // [piece][captured piece][dst]
-
-/**
- * Static Evaluation Correction History (CorrHist) is a heuristic that "corrects"
- * the static evaluation towards the actual evaluation of the position, based on
- * a variety of factors (e.g. pawn structure, minor pieces, etc)
- */
-Value corrhist_ps[2][CORRHIST_SZ]; // [side][pawn hash]
-Value corrhist_mat[2][CORRHIST_SZ]; // [side][material hash]
-
-/**
- * The counter-move heuristic is a move ordering heuristic that helps sort moves that
- * have refuted other moves in the past. It works by storing the move upon a beta cutoff.
- * 
- * TODO: am I even implementing this correctly?
- */
-Move cmh[2][64][64];
-
-Move line[MAX_PLY]; // Currently searched line
-
-Move pvtable[MAX_PLY][MAX_PLY];
-int pvlen[MAX_PLY];
-
-/**
  * Use the history gravity formula to update our history values
  */
-void update_history(bool side, Square from, Square to, Value bonus) {
+void update_history(SearchParams &params, bool side, Square from, Square to, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
-	history[side][from][to] += cbonus - history[side][from][to] * abs(bonus) / MAX_HISTORY;
+	params.history[side][from][to] += cbonus - params.history[side][from][to] * abs(bonus) / MAX_HISTORY;
 }
 
-void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonus) {
+void update_capthist(SearchParams &params, PieceType piece, PieceType captured, Square dst, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
-	capthist[piece][captured][dst] += cbonus - capthist[piece][captured][dst] * abs(bonus) / MAX_HISTORY;
+	params.capthist[piece][captured][dst] += cbonus - params.capthist[piece][captured][dst] * abs(bonus) / MAX_HISTORY;
 }
 
-void update_corrhist(bool side, uint64_t pshash, uint64_t mathash, Value diff, int depth) {
+void update_corrhist(SearchParams &params, bool side, uint64_t pshash, uint64_t mathash, Value diff, int depth) {
 	const Value sdiff = diff * CORRHIST_GRAIN;
 	const Value weight = std::min(depth*depth, 128);
-	Value &pscorr = corrhist_ps[side][pshash % CORRHIST_SZ];
+	Value &pscorr = params.corrhist_ps[side][pshash % CORRHIST_SZ];
 	pscorr = std::clamp((pscorr * (CORRHIST_WEIGHT - weight) + sdiff * weight) / CORRHIST_WEIGHT, -MAX_HISTORY, (int)MAX_HISTORY);
-	Value &matcorr = corrhist_mat[side][mathash % CORRHIST_SZ];
+	Value &matcorr = params.corrhist_mat[side][mathash % CORRHIST_SZ];
 	matcorr = std::clamp((matcorr * (CORRHIST_WEIGHT - weight) + sdiff * weight) / CORRHIST_WEIGHT, -MAX_HISTORY, (int)MAX_HISTORY);
 }
 
-void apply_correction(bool side, uint64_t pshash, uint64_t mathash, Value &eval) {
+void apply_correction(SearchParams &params, bool side, uint64_t pshash, uint64_t mathash, Value &eval) {
 	if (abs(eval) >= VALUE_MATE_MAX_PLY)
 		return; // Don't apply correction if we are already at a mate score
-	const Value pscorr = corrhist_ps[side][pshash % CORRHIST_SZ];
-	const Value matcorr = corrhist_mat[side][mathash % CORRHIST_SZ];
+	const Value pscorr = params.corrhist_ps[side][pshash % CORRHIST_SZ];
+	const Value matcorr = params.corrhist_mat[side][mathash % CORRHIST_SZ];
 	const Value corr = (pscorr + matcorr) / 2;
 	eval = std::clamp(eval + corr / CORRHIST_GRAIN, -VALUE_MATE_MAX_PLY + 1, VALUE_MATE_MAX_PLY - 1);
 }
@@ -154,24 +103,24 @@ void apply_correction(bool side, uint64_t pshash, uint64_t mathash, Value &eval)
  * - Static exchange evaluation (don't search moves that lose material, see https://www.chessprogramming.org/Static_Exchange_Evaluation)
  * (every time I have tried SEE it has also lost elo, but it's prob because our SEE impl is not good)
  */
-Value quiesce(Board &board, BoardState &bs, Value alpha, Value beta, int side, int depth) {
-	nodes++;
+Value quiesce(Board &board, BoardState &bs, SearchParams &params, Value alpha, Value beta, int side, int depth) {
+	params.nodes++;
 
-	if (early_exit) return 0;
+	if (params.early_exit) return 0;
 
-	if (!(nodes & 4095)) {
+	if (!(params.nodes & 4095)) {
 		// Check for early exit
 		// We check every 4096 nodes to avoid slowing down the search too much
-		uint64_t time = (clock() - start) / CLOCKS_PER_MS;
-		if ((time > mxtime || nodes > mx_nodes) && exit_allowed) {
-			early_exit = true;
+		uint64_t time = (clock() - params.start) / CLOCKS_PER_MS;
+		if ((time > params.mxtime || params.nodes > params.mx_nodes) && params.exit_allowed) {
+			params.early_exit = true;
 			return 0;
 		}
 	}
 
-	seldepth = std::max(depth, seldepth);
+	params.seldepth = std::max(depth, params.seldepth);
 	Value stand_pat = eval(board, bs) * side;
-	apply_correction(board.side, board.pawn_struct_hash(), board.material_hash(), stand_pat);
+	apply_correction(params, board.side, board.pawn_struct_hash(), board.material_hash(), stand_pat);
 
 	// If it's a mate, stop here since there's no point in searching further
 	// TODO: can we rely on mate scores in qsearch?
@@ -211,7 +160,7 @@ Value quiesce(Board &board, BoardState &bs, Value alpha, Value beta, int side, i
 		// }
 
 		board.make_move(move);
-		Value score = -quiesce(board, bs, -beta, -alpha, -side, depth + 1);
+		Value score = -quiesce(board, bs, params, -beta, -alpha, -side, depth + 1);
 		board.unmake_move();
 
 		if (score >= VALUE_MATE_MAX_PLY)
@@ -241,7 +190,7 @@ Value quiesce(Board &board, BoardState &bs, Value alpha, Value beta, int side, i
  * - Killer moves (moves that have caused a beta cutoff in the past)
  * - Counter-move history (moves that have refuted other moves in the past)
  */
-pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Move> &moves, int side, int depth, int ply, bool &entry_exists) {
+pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Move> &moves, SearchParams &params, int side, int depth, int ply, bool &entry_exists) {
 	pzstd::vector<std::pair<Move, Value>> scores;
 	// If we have a TTable entry *at all* for this position, we should use it
 	// Even if it falls outside of our alpha-beta window, it probably provides a decent move
@@ -257,19 +206,19 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 		Value score = 0;
 		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
 			// score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
-			score = PieceValue[board.mailbox[move.dst()] & 7] + capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
+			score = PieceValue[board.mailbox[move.dst()] & 7] + params.capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
 		} else if (move.type() == PROMOTION) {
 			score = PieceValue[move.promotion() + KNIGHT] - PawnValue;
 		} else {
 			// Non-capture, non-promotion, so check history
-			score = history[board.side][move.src()][move.dst()];
+			score = params.history[board.side][move.src()][move.dst()];
 		}
-		if (move == killer[0][depth]) {
+		if (move == params.killer[0][depth]) {
 			score += 1461; // Killer move bonus
-		} else if (move == killer[1][depth]) {
+		} else if (move == params.killer[1][depth]) {
 			score += 831; // Second killer move bonus
 		}
-		if (ply && move == cmh[board.side][line[ply-1].src()][line[ply-1].dst()]) {
+		if (ply && move == params.cmh[board.side][params.line[ply-1].src()][params.line[ply-1].dst()]) {
 			score += 1003; // Counter-move bonus
 		}
 		scores.push_back({move, score});
@@ -278,8 +227,8 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 	return scores;
 }
 
-Value __recurse(Board &board, int depth, BoardState &bs, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, int ply = 1) {
-	pvlen[ply] = 0;
+Value __recurse(Board &board, int depth, BoardState &bs, SearchParams &params, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, int ply = 1) {
+	params.pvlen[ply] = 0;
 
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
@@ -320,7 +269,7 @@ Value __recurse(Board &board, int depth, BoardState &bs, Value alpha = -VALUE_IN
 
 	if (depth <= 0) {
 		// Reached the maximum depth, perform quiescence search
-		return quiesce(board, bs, alpha, beta, side, ply);
+		return quiesce(board, bs, params, alpha, beta, side, ply);
 	}
 
 	// Check for TTable cutoff
@@ -335,7 +284,7 @@ Value __recurse(Board &board, int depth, BoardState &bs, Value alpha = -VALUE_IN
 		pawn_hash = board.pawn_struct_hash();
 		cur_eval = eval(board, bs) * side;
 		raw_eval = cur_eval;
-		apply_correction(board.side, pawn_hash, board.material_hash(), cur_eval);
+		apply_correction(params, board.side, pawn_hash, board.material_hash(), cur_eval);
 	}
 
 	// Reverse futility pruning
@@ -368,7 +317,7 @@ Value __recurse(Board &board, int depth, BoardState &bs, Value alpha = -VALUE_IN
 		 */
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
-		Value null_score = -__recurse(board, depth - NMP_R_VALUE, bs, -beta, -beta + 1, -side, pv, ply+1);
+		Value null_score = -__recurse(board, depth - NMP_R_VALUE, bs, params, -beta, -beta + 1, -side, pv, ply+1);
 		board.unmake_move();
 		if (null_score >= beta)
 			return null_score;
@@ -380,7 +329,7 @@ Value __recurse(Board &board, int depth, BoardState &bs, Value alpha = -VALUE_IN
 	board.legal_moves(moves);
 
 	bool entry_exists = false;
-	pzstd::vector<std::pair<Move, Value>> scores = order_moves(board, moves, side, depth, ply, entry_exists);
+	pzstd::vector<std::pair<Move, Value>> scores = order_moves(board, moves, params, side, depth, ply, entry_exists);
 
 	if (depth > 4 && !entry_exists) {
 		depth -= 2; // Internal iterative reductions
@@ -392,7 +341,7 @@ Value __recurse(Board &board, int depth, BoardState &bs, Value alpha = -VALUE_IN
 
 	for (int i = 0; i < moves.size(); i++) {
 		Move &move = scores[i].first;
-		line[ply] = move;
+		params.line[ply] = move;
 
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
 		bool promo = (move.type() == PROMOTION);
@@ -424,12 +373,12 @@ Value __recurse(Board &board, int depth, BoardState &bs, Value alpha = -VALUE_IN
 			 * full-depth re-search. This, however, doesn't happen often enough to slow down
 			 * the search.
 			 */
-			score = -__recurse(board, depth - reduction[i][depth], bs, -alpha - 1, -alpha, -side, 0, ply+1);
+			score = -__recurse(board, depth - reduction[i][depth], bs, params, -alpha - 1, -alpha, -side, 0, ply+1);
 			if (score > alpha) {
-				score = -__recurse(board, depth - 1, bs, -beta, -alpha, -side, pv, ply+1);
+				score = -__recurse(board, depth - 1, bs, params, -beta, -alpha, -side, pv, ply+1);
 			}
 		} else {
-			score = -__recurse(board, depth - 1, bs, -beta, -alpha, -side, pv, ply+1);
+			score = -__recurse(board, depth - 1, bs, params, -beta, -alpha, -side, pv, ply+1);
 		}
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
@@ -441,10 +390,10 @@ Value __recurse(Board &board, int depth, BoardState &bs, Value alpha = -VALUE_IN
 			if (score > alpha) {
 				alpha = score;
 				if (score < beta) {
-					pvtable[ply][0] = move;
-					pvlen[ply] = pvlen[ply+1]+1;
-					for (int i = 0; i < pvlen[ply+1]; i++) {
-						pvtable[ply][i+1] = pvtable[ply+1][i];
+					params.pvtable[ply][0] = move;
+					params.pvlen[ply] = params.pvlen[ply+1]+1;
+					for (int i = 0; i < params.pvlen[ply+1]; i++) {
+						params.pvtable[ply][i+1] = params.pvtable[ply+1][i];
 					}
 				}
 			}
@@ -454,29 +403,29 @@ Value __recurse(Board &board, int depth, BoardState &bs, Value alpha = -VALUE_IN
 
 		if (score >= beta) {
 			board.ttable.store(board.zobrist, best, depth, LOWER_BOUND, best_move, board.halfmove);
-			if (killer[0][depth] != move) {
-				killer[1][depth] = killer[0][depth];
-				killer[0][depth] = move; // Update killer moves
+			if (params.killer[0][depth] != move) {
+				params.killer[1][depth] = params.killer[0][depth];
+				params.killer[0][depth] = move; // Update killer moves
 			}
 			if (!capt) { // Not a capture
 				const Value bonus = 1.53 * depth * depth + 0.87 * depth + 0.65;
-				update_history(board.side, move.src(), move.dst(), bonus);
+				update_history(params, board.side, move.src(), move.dst(), bonus);
 				for (auto &qmove : quiets) {
-					update_history(board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
+					update_history(params, board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
 				}
-				cmh[board.side][line[ply-1].src()][line[ply-1].dst()] = move; // Update counter-move history
-				if (!in_check && !promo && best > raw_eval) update_corrhist(board.side, pawn_hash, board.material_hash(), best - raw_eval, depth);
+				params.cmh[board.side][params.line[ply-1].src()][params.line[ply-1].dst()] = move; // Update counter-move history
+				if (!in_check && !promo && best > raw_eval) update_corrhist(params, board.side, pawn_hash, board.material_hash(), best - raw_eval, depth);
 			} else { // Capture
 				const Value bonus = 1.82 * depth * depth + 0.49 * depth + 0.39;
-				update_capthist(PieceType(board.mailbox[move.src()] & 7), PieceType(board.mailbox[move.dst()] & 7), move.dst(), bonus);
+				update_capthist(params, PieceType(board.mailbox[move.src()] & 7), PieceType(board.mailbox[move.dst()] & 7), move.dst(), bonus);
 				for (auto &cmove : captures) {
-					update_capthist(PieceType(board.mailbox[cmove.src()] & 7), PieceType(board.mailbox[cmove.dst()] & 7), cmove.dst(), -bonus);
+					update_capthist(params, PieceType(board.mailbox[cmove.src()] & 7), PieceType(board.mailbox[cmove.dst()] & 7), cmove.dst(), -bonus);
 				}
 			}
 			return best;
 		}
 
-		if (early_exit)
+		if (params.early_exit)
 			break;
 
 		if (!capt && !promo) quiets.push_back(move);
@@ -487,7 +436,7 @@ Value __recurse(Board &board, int depth, BoardState &bs, Value alpha = -VALUE_IN
 	bool best_ispromo = (best_move.type() == PROMOTION);
 	if (!in_check && !best_iscapture && !best_ispromo && !(best < alpha && best >= raw_eval)) {
 		// Best move is a quiet move, update CorrHist
-		update_corrhist(board.side, pawn_hash, board.material_hash(), best - raw_eval, depth);
+		update_corrhist(params, board.side, pawn_hash, board.material_hash(), best - raw_eval, depth);
 	}
 
 	// Stalemate detection
@@ -512,7 +461,7 @@ Value __recurse(Board &board, int depth, BoardState &bs, Value alpha = -VALUE_IN
 }
 
 // Search function from the first layer of moves
-std::pair<Move, Value> __search(Board &board, int depth, BoardState &bs, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
+std::pair<Move, Value> __search(Board &board, int depth, BoardState &bs, SearchParams &params, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
 	Move best_move = NullMove;
 	Value best_score = -VALUE_INFINITE;
 
@@ -520,34 +469,34 @@ std::pair<Move, Value> __search(Board &board, int depth, BoardState &bs, Value a
 	board.legal_moves(moves);
 
 	bool entry_exists = false;
-	pzstd::vector<std::pair<Move, Value>> scores = order_moves(board, moves, side, depth, 0, entry_exists);
+	pzstd::vector<std::pair<Move, Value>> scores = order_moves(board, moves, params, side, depth, 0, entry_exists);
 
 	for (int i = 0; i < moves.size(); i++) { // Skip the TT move if it's not legal
 		Move &move = scores[i].first;
 
-		if (depth >= 20 && nodes >= 10'000'000) {
+		if (depth >= 20 && params.nodes >= 10'000'000) {
 			std::cout << "info depth " << depth << " currmove " << move.to_string() << " currmovenumber " << i+1 << std::endl;
 		}
 
-		line[0] = move;
+		params.line[0] = move;
 		board.make_move(move);
 		Value score;
 		if (i > 0) {
-			score = -__recurse(board, depth - reduction[i][depth], bs, -alpha - 1, -alpha, -side, 0);
+			score = -__recurse(board, depth - reduction[i][depth], bs, params, -alpha - 1, -alpha, -side, 0);
 			if (score > alpha) {
-				score = -__recurse(board, depth - 1, bs, -beta, -alpha, -side, 0);
+				score = -__recurse(board, depth - 1, bs, params, -beta, -alpha, -side, 0);
 			}
 		} else {
-			score = -__recurse(board, depth - 1, bs, -beta, -alpha, -side, 1);
+			score = -__recurse(board, depth - 1, bs, params, -beta, -alpha, -side, 1);
 		}
 
 		board.unmake_move();
 
 		if (score > best_score) {
-			pvtable[0][0] = move;
-			pvlen[0] = pvlen[1]+1;
-			for (int i = 0; i < pvlen[1]; i++) {
-				pvtable[0][i+1] = pvtable[1][i];
+			params.pvtable[0][0] = move;
+			params.pvlen[0] = params.pvlen[1]+1;
+			for (int i = 0; i < params.pvlen[1]; i++) {
+				params.pvtable[0][i+1] = params.pvtable[1][i];
 			}
 			if (score > alpha) {
 				alpha = score;
@@ -558,14 +507,14 @@ std::pair<Move, Value> __search(Board &board, int depth, BoardState &bs, Value a
 
 		if (score >= beta) {
 			board.ttable.store(board.zobrist, best_score, depth, LOWER_BOUND, best_move, board.halfmove);
-			if (killer[0][depth] != move) {
-				killer[1][depth] = killer[0][depth];
-				killer[0][depth] = move;
+			if (params.killer[0][depth] != move) {
+				params.killer[1][depth] = params.killer[0][depth];
+				params.killer[0][depth] = move;
 			}
 			return {best_move, best_score};
 		}
 
-		if (early_exit)
+		if (params.early_exit)
 			break;
 	}
 
@@ -578,38 +527,20 @@ std::pair<Move, Value> __search(Board &board, int depth, BoardState &bs, Value a
 	return {best_move, best_score};
 }
 
-void __print_pv(bool omit_last = 0) { // Need to omit last to prevent illegal moves during mates
+void __print_pv(SearchParams &params, bool omit_last = 0) { // Need to omit last to prevent illegal moves during mates
 	const int ROOT_PLY = 0;
-	for (int i = 0; i < pvlen[ROOT_PLY] - omit_last; i++) {
-		if (pvtable[ROOT_PLY][i] == NullMove) break;
-		std::cout << pvtable[ROOT_PLY][i].to_string() << ' ';
+	for (int i = 0; i < params.pvlen[ROOT_PLY] - omit_last; i++) {
+		if (params.pvtable[ROOT_PLY][i] == NullMove) break;
+		std::cout << params.pvtable[ROOT_PLY][i].to_string() << ' ';
 	}
 }
 
-std::pair<Move, Value> search(Board &board, BoardState &bs, int64_t time, bool quiet) {
+std::pair<Move, Value> search(Board &board, SearchParams &params, BoardState &bs, int64_t time, bool quiet) {
 	std::cout << std::fixed << std::setprecision(0);
-	nodes = seldepth = 0;
-	early_exit = exit_allowed = false;
-	start = clock();
-	mxtime = time;
-	
-	// Clear killer moves and history heuristic
-	for (int i = 0; i < MAX_PLY; i++) {
-		killer[0][i] = killer[1][i] = NullMove;
-		pvlen[i] = 0;
-	}
-
-	for (int i = 0; i < 64; i++) {
-		for (int j = 0; j < 64; j++) {
-			history[0][i][j] = history[1][i][j] = 0;
-		}
-	}
-
-	for (int i = 0; i < 2; i++) {
-		for (int j = 0; j < CORRHIST_SZ; j++) {
-			corrhist_ps[i][j] = 0;
-		}
-	}
+	params.nodes = params.seldepth = 0;
+	params.early_exit = params.exit_allowed = false;
+	params.start = clock();
+	params.mxtime = time;
 
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
@@ -630,7 +561,7 @@ std::pair<Move, Value> search(Board &board, BoardState &bs, int64_t time, bool q
 			beta = eval + window_size;
 		}
 		
-		auto result = __search(board, d, bs, alpha, beta, board.side ? -1 : 1);
+		auto result = __search(board, d, bs, params, alpha, beta, board.side ? -1 : 1);
 		
 		// Gradually expand the window if we fail high or low
 		while ((result.second >= beta || result.second <= alpha) && window_size < VALUE_INFINITE / 4) {
@@ -645,40 +576,40 @@ std::pair<Move, Value> search(Board &board, BoardState &bs, int64_t time, bool q
 				if (alpha <= -VALUE_INFINITE / 4) alpha = -VALUE_INFINITE;
 			}
 			window_size *= 2;
-			result = __search(board, d, bs, alpha, beta, board.side ? -1 : 1);
-			if (early_exit) break;
+			result = __search(board, d, bs, params, alpha, beta, board.side ? -1 : 1);
+			if (params.early_exit) break;
 		}
-		if (early_exit) break;
+		if (params.early_exit) break;
 		eval = result.second;
 		best_move = result.first;
 		
-		seldepth = std::max(seldepth, d);
+		params.seldepth = std::max(params.seldepth, d);
 		
 		#ifndef NOUCI
 		if (!quiet) {
 			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
-				std::cout << "info depth " << d << " seldepth " << seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
-				<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
-				__print_pv(1);
-				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+				std::cout << "info depth " << d << " seldepth " << params.seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
+				<< params.nodes << " nps " << (params.nodes / ((double)(clock() - params.start) / CLOCKS_PER_SEC)) << " pv ";
+				__print_pv(params, 1);
+				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - params.start) / CLOCKS_PER_MS << std::endl;
 			} else {
-				std::cout << "info depth " << d << " seldepth " << seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
-				<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
-				__print_pv();
-				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+				std::cout << "info depth " << d << " seldepth " << params.seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << params.nodes << " nps "
+				<< (params.nodes / ((double)(clock() - params.start) / CLOCKS_PER_SEC)) << " pv ";
+				__print_pv(params);
+				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - params.start) / CLOCKS_PER_MS << std::endl;
 			}
 		}
 		#endif
 		
-		exit_allowed = true;
+		params.exit_allowed = true;
 		
 		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
 			return {best_move, eval};
 			// We don't need to search further, we found mate
 		}
 
-		int time_elapsed = (clock() - start) / CLOCKS_PER_MS;
-		if (time_elapsed > mxtime * 0.52) {
+		int time_elapsed = (clock() - params.start) / CLOCKS_PER_MS;
+		if (time_elapsed > params.mxtime * 0.52) {
 			// We probably won't be able to complete the next ID loop
 			break;
 		}
@@ -687,84 +618,8 @@ std::pair<Move, Value> search(Board &board, BoardState &bs, int64_t time, bool q
 	return {best_move, eval / CP_SCALE_FACTOR};
 }
 
-std::pair<Move, Value> search_depth(Board &board, BoardState &bs, int depth, bool quiet) {
-	mx_nodes = 1e18;
-	std::cout << std::fixed << std::setprecision(0);
-	nodes = seldepth = 0;
-	early_exit = exit_allowed = false;
-	start = clock();
-
-	// Clear killer moves and history heuristic
-	for (int i = 0; i < MAX_PLY; i++) {
-		killer[0][i] = killer[1][i] = NullMove;
-		pvlen[i] = 0;
-	}
-
-	for (int i = 0; i < 64; i++) {
-		for (int j = 0; j < 64; j++) {
-			history[0][i][j] = history[1][i][j] = 0;
-		}
-	}
-
-	Move best_move = NullMove;
-	Value eval = -VALUE_INFINITE;
-	bool aspiration_enabled = true;
-	for (int d = 1; d <= depth; d++) {
-		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
-		Value window_size = ASPIRATION_WINDOW;
-		
-		if (eval != -VALUE_INFINITE && aspiration_enabled) {
-			alpha = eval - window_size;
-			beta = eval + window_size;
-		}
-		
-		auto result = __search(board, d, bs, alpha, beta, board.side ? -1 : 1);
-		
-		// Gradually expand the window if we fail high or low
-		while ((result.second >= beta || result.second <= alpha) && window_size < VALUE_INFINITE / 4) {
-			if (result.second >= beta) {
-				// Fail high - expand upper bound
-				beta = eval + window_size * 2;
-				if (beta >= VALUE_INFINITE / 4) beta = VALUE_INFINITE;
-			}
-			if (result.second <= alpha) {
-				// Fail low - expand lower bound
-				alpha = eval - window_size * 2;
-				if (alpha <= -VALUE_INFINITE / 4) alpha = -VALUE_INFINITE;
-			}
-			window_size *= 2;
-			result = __search(board, d, bs, alpha, beta, board.side ? -1 : 1);
-			if (early_exit) break;
-		}
-		if (early_exit)
-			break;
-		eval = result.second;
-		best_move = result.first;
-
-		seldepth = std::max(seldepth, d);
-
-#ifndef NOUCI
-		if (!quiet) {
-			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
-				std::cout << "info depth " << d << " seldepth " << seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
-						<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
-				__print_pv(1);
-				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
-			} else {
-				std::cout << "info depth " << d << " seldepth " << seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
-						<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
-				__print_pv();
-				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
-			}
-		}
-#endif
-	}
-
-	return {best_move, eval / CP_SCALE_FACTOR};
-}
-
-std::pair<Move, Value> search_nodes(Board &board, uint64_t nodes, BoardState &bs) {
-	mx_nodes = nodes;
-	auto res = search(board, bs);
+std::pair<Move, Value> search_nodes(Board &board, SearchParams &params, uint64_t nodes, BoardState &bs) {
+	params.mx_nodes = nodes;
+	auto res = search(board, params, bs);
 	return res;
 } // Search for a given number of nodes
