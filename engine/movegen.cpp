@@ -466,7 +466,7 @@ Bitboard pawn_attacks(Square sq, bool color) {
 
 Bitboard Board::__lva(Square sq, int side, PieceType &p, Bitboard occ) const {
 	if (side == WHITE) {
-		Bitboard pawn = pawn_attacks(sq, WHITE) & piece_boards[PAWN] & piece_boards[OCC(WHITE)] & occ;
+		Bitboard pawn = pawn_attacks(sq, BLACK) & piece_boards[PAWN] & piece_boards[OCC(WHITE)] & occ;
 		if (pawn) {
 			p = PAWN;
 			return pawn & -pawn;
@@ -497,7 +497,7 @@ Bitboard Board::__lva(Square sq, int side, PieceType &p, Bitboard occ) const {
 			return king;
 		}
 	} else {
-		Bitboard pawn = pawn_attacks(sq, BLACK) & piece_boards[PAWN] & piece_boards[OCC(BLACK)] & occ;
+		Bitboard pawn = pawn_attacks(sq, WHITE) & piece_boards[PAWN] & piece_boards[OCC(BLACK)] & occ;
 		if (pawn) {
 			p = PAWN;
 			return pawn & -pawn;

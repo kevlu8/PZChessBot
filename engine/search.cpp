@@ -205,9 +205,11 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	for (int i = 0; i < scores.size(); i++) {
 		Move &move = scores[i].first;
 
-		Value see = board.see_capture(move);
-		if (see < 0) {
-			continue; // Don't search moves that lose material
+		if (move.type() != PROMOTION) {
+			Value see = board.see_capture(move);
+			if (see < 0) {
+				continue; // Don't search moves that lose material
+			}
 		}
 
 		board.make_move(move);
