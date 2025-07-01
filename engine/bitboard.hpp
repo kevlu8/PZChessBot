@@ -116,6 +116,7 @@ struct Board {
 	std::pair<int, int> control(int) const;
 	Value see(Square);
 	Value see_capture(Move);
+	Bitboard __lva(Square, int side, PieceType &p, Bitboard occ) const;
 
 	void recompute_hash();
 
