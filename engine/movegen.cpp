@@ -442,7 +442,7 @@ Value Board::see(Square sq) {
 	if (side == WHITE)
 		tmp = ((square_bits(Square(sq - 9)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq - 7)) & 0xfefefefefefefefe)) & piece_boards[PAWN] & piece_boards[OCC(WHITE)];
 	else
-		tmp = ((square_bits(Square(sq + 7)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq + 9)) & 0xfefefefefefefefe)) & piece_boards[PAWN] & piece_boards[OCC(WHITE)];
+		tmp = ((square_bits(Square(sq + 7)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq + 9)) & 0xfefefefefefefefe)) & piece_boards[PAWN] & piece_boards[OCC(BLACK)];
 	if (tmp) {
 		atk = PAWN;
 		atksq = Square(__tzcnt_u64(tmp));
@@ -482,6 +482,13 @@ Value Board::see(Square sq) {
 		goto found;
 	}
 
+	tmp = king_movetable[sq] & piece_boards[KING] & piece_boards[OCC(side)];
+	if (tmp) {
+		atk = KING;
+		atksq = Square(__tzcnt_u64(tmp));
+		goto found;
+	}
+
 found:
 	if (atk != NO_PIECETYPE) {
 		make_move(Move::make<MoveType::NORMAL>(atksq, sq));
@@ -495,7 +502,7 @@ Value Board::see_capture(Move move) {
 	Value val = 0;
 	PieceType victim = PieceType(mailbox[move.dst()] & 7);
 	make_move(move);
-	val = PieceValue[victim] - see(move.src());
+	val = PieceValue[victim] - see(move.dst());
 	unmake_move();
 	return val;
 }
