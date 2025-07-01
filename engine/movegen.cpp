@@ -431,82 +431,6 @@ std::pair<int, int> Board::control(int sq) const {
 	return {white, black};
 }
 
-Value Board::see(Square sq) {
-	Value val = 0;
-
-	Bitboard tmp;
-	PieceType atk = NO_PIECETYPE; // Get the least valuable attacker
-	Square atksq = SQ_NONE; // Get the square of the attacker
-	uint32_t idx;
-
-	if (side == WHITE)
-		tmp = ((square_bits(Square(sq - 9)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq - 7)) & 0xfefefefefefefefe)) & piece_boards[PAWN] & piece_boards[OCC(WHITE)];
-	else
-		tmp = ((square_bits(Square(sq + 7)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq + 9)) & 0xfefefefefefefefe)) & piece_boards[PAWN] & piece_boards[OCC(BLACK)];
-	if (tmp) {
-		atk = PAWN;
-		atksq = Square(__tzcnt_u64(tmp));
-		goto found;
-	}
-
-	tmp = knight_movetable[sq] & piece_boards[KNIGHT] & piece_boards[OCC(side)];
-	if (tmp) {
-		atk = KNIGHT;
-		atksq = Square(__tzcnt_u64(tmp));
-		goto found;
-	}
-
-	idx = bishop_magics[sq].offset + _pext_u64(piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)], bishop_magics[sq].mask);
-	tmp = bishop_movetable[idx] & piece_boards[BISHOP] & piece_boards[OCC(side)];
-	if (tmp) {
-		atk = BISHOP;
-		atksq = Square(__tzcnt_u64(tmp));
-		goto found;
-	}
-
-	idx = rook_magics[sq].offset + _pext_u64(piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)], rook_magics[sq].mask);
-	tmp = rook_movetable[idx] & piece_boards[ROOK] & piece_boards[OCC(side)];
-	if (tmp) {
-		atk = ROOK;
-		atksq = Square(__tzcnt_u64(tmp));
-		goto found;
-	}
-
-	idx = bishop_magics[sq].offset + _pext_u64(piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)], bishop_magics[sq].mask);
-	tmp = bishop_movetable[idx] & piece_boards[QUEEN] & piece_boards[OCC(side)];
-	idx = rook_magics[sq].offset + _pext_u64(piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)], rook_magics[sq].mask);
-	tmp |= rook_movetable[idx] & piece_boards[QUEEN] & piece_boards[OCC(side)];
-	if (tmp) {
-		atk = QUEEN;
-		atksq = Square(__tzcnt_u64(tmp));
-		goto found;
-	}
-
-	tmp = king_movetable[sq] & piece_boards[KING] & piece_boards[OCC(side)];
-	if (tmp) {
-		atk = KING;
-		atksq = Square(__tzcnt_u64(tmp));
-		goto found;
-	}
-
-found:
-	if (atk != NO_PIECETYPE) {
-		make_move(Move::make<MoveType::NORMAL>(atksq, sq));
-		val = std::max(0, PieceValue[atk & 7] - see(sq));
-		unmake_move();
-	}
-	return val;
-}
-
-Value Board::see_capture(Move move) {
-	Value val = 0;
-	PieceType victim = PieceType(mailbox[move.dst()] & 7);
-	make_move(move);
-	val = PieceValue[victim] - see(move.dst());
-	unmake_move();
-	return val;
-}
-
 Bitboard rook_attacks(Square sq, Bitboard occ) {
 	uint32_t idx = rook_magics[sq].offset + _pext_u64(occ, rook_magics[sq].mask);
 	return rook_movetable[idx];
@@ -538,4 +462,114 @@ Bitboard pawn_attacks(Square sq, bool color) {
 		return ((square_bits(Square(sq + 7)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq + 9)) & 0xfefefefefefefefe));
 	else
 		return ((square_bits(Square(sq - 7)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq - 9)) & 0xfefefefefefefefe));
+}
+
+Bitboard Board::__lva(Square sq, int side, PieceType &p, Bitboard occ) const {
+	if (side == WHITE) {
+		Bitboard pawn = pawn_attacks(sq, WHITE) & piece_boards[PAWN] & piece_boards[OCC(WHITE)] & occ;
+		if (pawn) {
+			p = PAWN;
+			return pawn & -pawn;
+		}
+		Bitboard knight = knight_attacks(sq) & piece_boards[KNIGHT] & piece_boards[OCC(WHITE)] & occ;
+		if (knight) {
+			p = KNIGHT;
+			return knight & -knight;
+		}
+		Bitboard bishop = bishop_attacks(sq, occ) & piece_boards[BISHOP] & piece_boards[OCC(WHITE)] & occ;
+		if (bishop) {
+			p = BISHOP;
+			return bishop & -bishop;
+		}
+		Bitboard rook = rook_attacks(sq, occ) & piece_boards[ROOK] & piece_boards[OCC(WHITE)] & occ;
+		if (rook) {
+			p = ROOK;
+			return rook & -rook;
+		}
+		Bitboard queen = queen_attacks(sq, occ) & piece_boards[QUEEN] & piece_boards[OCC(WHITE)] & occ;
+		if (queen) {
+			p = QUEEN;
+			return queen & -queen;
+		}
+		Bitboard king = king_attacks(sq) & piece_boards[KING] & piece_boards[OCC(WHITE)] & occ;
+		if (king) {
+			p = KING;
+			return king;
+		}
+	} else {
+		Bitboard pawn = pawn_attacks(sq, BLACK) & piece_boards[PAWN] & piece_boards[OCC(BLACK)] & occ;
+		if (pawn) {
+			p = PAWN;
+			return pawn & -pawn;
+		}
+		Bitboard knight = knight_attacks(sq) & piece_boards[KNIGHT] & piece_boards[OCC(BLACK)] & occ;
+		if (knight) {
+			p = KNIGHT;
+			return knight & -knight;
+		}
+		Bitboard bishop = bishop_attacks(sq, occ) & piece_boards[BISHOP] & piece_boards[OCC(BLACK)] & occ;
+		if (bishop) {
+			p = BISHOP;
+			return bishop & -bishop;
+		}
+		Bitboard rook = rook_attacks(sq, occ) & piece_boards[ROOK] & piece_boards[OCC(BLACK)] & occ;
+		if (rook) {
+			p = ROOK;
+			return rook & -rook;
+		}
+		Bitboard queen = queen_attacks(sq, occ) & piece_boards[QUEEN] & piece_boards[OCC(BLACK)] & occ;
+		if (queen) {
+			p = QUEEN;
+			return queen & -queen;
+		}
+		Bitboard king = king_attacks(sq) & piece_boards[KING] & piece_boards[OCC(BLACK)] & occ;
+		if (king) {
+			p = KING;
+			return king;
+		}
+	}
+	p = NO_PIECETYPE;
+	return 0;
+}
+
+Value Board::see_capture(Move move) {
+	Square src = move.src();
+	Square dst = move.dst();
+	PieceType atkr = PieceType(mailbox[src] & 7);
+	PieceType victim = PieceType(mailbox[dst] & 7);
+	int gain[32], d = 0;
+
+	if (victim == NO_PIECETYPE) {
+		return 0;
+	}
+
+	gain[d] = PieceValue[victim];
+
+	int side = (mailbox[src] & 8) >> 3; // 0 for white, 1 for black
+
+	Bitboard occ = piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)];
+	occ ^= square_bits(src);
+
+	PieceType next_attacker = atkr;
+	
+	do {
+		d++;
+		gain[d] = PieceValue[next_attacker] - gain[d - 1]; // Speculative gain
+
+		side ^= 1;
+
+		Bitboard attackers = __lva(dst, side, next_attacker, occ);
+		if (!attackers) break;
+
+		Square attacker_sq = Square(_tzcnt_u64(attackers));
+		occ ^= square_bits(attacker_sq);
+		
+	} while (true);
+	
+	// backtrack
+	while (--d) {
+		gain[d - 1] = -std::max(-gain[d - 1], gain[d]);
+	}
+	
+	return gain[0];
 }
