@@ -142,7 +142,7 @@ Value quiesce(Board &board, int side, Value alpha, Value beta, int ply = 0) {
 	return stand_pat;
 }
 
-Value negamax(Board &board, int depth, int side, int ply = 0, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE) {
+Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE) {
 	nodes++;
 
 	pvsz[ply] = 0;
@@ -188,6 +188,15 @@ Value negamax(Board &board, int depth, int side, int ply = 0, Value alpha = -VAL
 		return quiesce(board, side, alpha, beta, ply);
 	}
 
+	Value raw_eval = eval(board) * side;
+
+	if (!in_check && !pv_node && hash_move != NullMove && hash_move.type() != PROMOTION && !is_capture(hash_move, board)) {
+		// RFP
+		if (raw_eval >= beta + RFP_MARGIN * depth) {
+			return raw_eval - RFP_MARGIN * depth;
+		}
+	}
+
 	Value og_alpha = alpha; // Store original alpha for TT
 
 	Move best_move = NullMove;
@@ -206,13 +215,13 @@ Value negamax(Board &board, int depth, int side, int ply = 0, Value alpha = -VAL
 		board.make_move(m);
 		Value score = 0;
 		if (!m_idx) {
-			score = -negamax(board, depth - 1, -side, ply + 1, -beta, -alpha);
+			score = -negamax(board, depth - 1, -side, 1, ply + 1, -beta, -alpha);
 		} else {
 			// PVSearch
-			score = -negamax(board, depth - reduction[m_idx][depth], -side, ply + 1, -alpha - 1, -alpha);
+			score = -negamax(board, depth - reduction[m_idx][depth], -side, 0, ply + 1, -alpha - 1, -alpha);
 			if (score > alpha) {
 				// Move wasn't as bad as we thought, do a full search
-				score = -negamax(board, depth - 1, -side, ply + 1, -beta, -alpha);
+				score = -negamax(board, depth - 1, -side, 1, ply + 1, -beta, -alpha);
 			}
 		}
 		board.unmake_move();
@@ -300,7 +309,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int mx_depth, uint64_t
 			lo = cur_eval - lwindow_sz;
 			hi = cur_eval + hwindow_sz;
 		}
-		auto res = negamax(board, depth, board.side == WHITE ? 1 : -1, 0, lo, hi);
+		auto res = negamax(board, depth, board.side == WHITE ? 1 : -1, 1, 0, lo, hi);
 		while (!(lo < res && res < hi)) {
 			// If the result is outside the aspiration window, we need to widen it
 			// Luckily this won't happen when we are at infinite bounds therefore we don't need to handle that
@@ -318,7 +327,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int mx_depth, uint64_t
 				lo = -VALUE_INFINITE;
 				hi = VALUE_INFINITE;
 			}
-			res = negamax(board, depth, board.side == WHITE ? 1 : -1, 0, lo, hi);
+			res = negamax(board, depth, board.side == WHITE ? 1 : -1, 1, 0, lo, hi);
 			if (stop_search) {
 				// We didn't have enough time to finish this depth
 				break;

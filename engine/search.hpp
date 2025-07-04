@@ -24,6 +24,8 @@ constexpr Value MVV_LVA[7][7] = { // [victim][attacker]
 	{0, 0, 0, 0, 0, 0, 0} // No Piece
 };
 
+constexpr Value RFP_MARGIN = 150;
+
 constexpr int ASPIRATION_SIZE = 50;
 
 std::pair<Move, Value> search(Board &board, int64_t time = 1e18, int depth = MAX_PLY, uint64_t nodes = 1e18);
