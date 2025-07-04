@@ -29,12 +29,24 @@ Move pvtable[MAX_PLY][MAX_PLY];
 int pvsz[MAX_PLY];
 
 std::string format_pv() {
-	std::string result;
-	for (int i = 0; i < MAX_PLY && pvtable[0][i] != NullMove; i++) {
-		result += pvtable[0][i].to_string() + " ";
+	// std::string result;
+	// for (int i = 0; i < MAX_PLY && pvtable[0][i] != NullMove; i++) {
+	// 	result += pvtable[0][i].to_string() + " ";
+	// }
+	// if (!result.empty()) result.pop_back(); // remove trailing space
+	// return result;
+	return pvtable[0][0].to_string();
+}
+
+uint16_t reduction[250][MAX_PLY];
+
+__attribute__((constructor)) void init_reduction() {
+	for (int i = 0; i < 250; i++) {
+		for (int j = 0; j < MAX_PLY; j++) {
+			if (i <= 1 || j <= 1) reduction[i][j] = 1;
+			reduction[i][j] = std::max(1, int(0.77 + log(i) * log(j) / 2.36));
+		}
 	}
-	if (!result.empty()) result.pop_back(); // remove trailing space
-	return result;
 }
 
 Move killer[2][MAX_PLY];
@@ -189,9 +201,20 @@ Value negamax(Board &board, int depth, int side, int ply = 0, Value alpha = -VAL
 	pzstd::vector<Move> captures, quiets;
 	
 	Move m = NullMove;
+	int m_idx = 0;
 	while ((m = next_move(scores)) != NullMove) {
 		board.make_move(m);
-		Value score = -negamax(board, depth - 1, -side, ply + 1, -beta, -alpha);
+		Value score = 0;
+		if (!m_idx) {
+			score = -negamax(board, depth - 1, -side, ply + 1, -beta, -alpha);
+		} else {
+			// PVSearch
+			score = -negamax(board, depth - reduction[m_idx][depth], -side, ply + 1, -alpha - 1, -alpha);
+			if (score > alpha) {
+				// Move wasn't as bad as we thought, do a full search
+				score = -negamax(board, depth - 1, -side, ply + 1, -beta, -alpha);
+			}
+		}
 		board.unmake_move();
 
 		if (score >= VALUE_MATE_MAX_PLY) score--; // Adjust for mate in n ply
@@ -229,13 +252,15 @@ Value negamax(Board &board, int depth, int side, int ply = 0, Value alpha = -VAL
 			return best;
 		}
 
-		if (stop_search) return -VALUE_INFINITE;
+		if (stop_search) return 0;
 
 		if (is_capture(m, board)) {
 			captures.push_back(m);
 		} else if (m.type() != PROMOTION) {
 			quiets.push_back(m);
 		}
+
+		m_idx++;
 	}
 
 	if (abs(best) == VALUE_MATE - 1) {
@@ -262,13 +287,12 @@ std::pair<Move, Value> search(Board &board, int64_t time, int mx_depth, uint64_t
 	Move cur_move = NullMove;
 	Value cur_eval = -VALUE_INFINITE;
 
+	nodes = 0;
 	start_time = clock();
 	max_time = time;
 	stop_search = false;
 
 	for (int depth = 1; depth <= mx_depth; depth++) {
-		nodes = 0;
-
 		Value lo = -VALUE_INFINITE, hi = VALUE_INFINITE;
 		int lwindow_sz = ASPIRATION_SIZE, hwindow_sz = ASPIRATION_SIZE;
 		if (cur_eval != -VALUE_INFINITE) {
