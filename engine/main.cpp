@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
 		Board board = Board(TT_SIZE);
 		init_network();
 		uint64_t start = clock();
-		search_depth(board, 12);
+		search_depth(board, 6);
 		uint64_t end = clock();
 		std::cout << nodes << " nodes " << (nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
 		return 0;
@@ -132,10 +132,10 @@ int main(int argc, char *argv[]) {
 			std::pair<Move, Value> res;
 			if (inf)
 				res = search(board);
-			else if (depth != -1)
-				res = search_depth(board, depth);
-			else if (nodes != -1)
-				res = search_nodes(board, nodes);
+			// else if (depth != -1)
+			// 	res = search_depth(board, depth);
+			// else if (nodes != -1)
+			// 	res = search_nodes(board, nodes);
 			else
 				res = search(board, timemgmt(timeleft, inc, online));
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
