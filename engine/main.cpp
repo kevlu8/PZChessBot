@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
 		uint64_t start = clock();
 		search_depth(board, 6);
 		uint64_t end = clock();
-		std::cout << nodes << " nodes " << (nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
+		std::cout << nodes << " nodes " << int(nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
 		return 0;
 	}
 	bool online = argc == 2 && std::string(argv[1]) == "--online";

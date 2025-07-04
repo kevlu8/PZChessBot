@@ -48,13 +48,23 @@ pzstd::vector<std::pair<Move, Value>> assign_values(pzstd::vector<Move> &moves, 
 	pzstd::vector<std::pair<Move, Value>> scores;
 	for (Move &m : moves) {
 		if (is_capture(m, board)) {
-			scores.push_back({ m, MVV_LVA[board.mailbox[m.src()] & 7][board.mailbox[m.dst()] & 7] + MVV_LVA_C });
+			scores.push_back({ m, MVV_LVA[board.mailbox[m.dst()] & 7][board.mailbox[m.src()] & 7] + MVV_LVA_C });
 		} else {
 			Value score = 0;
 			if (m == killer[0][ply]) score += 1500;
 			else if (m == killer[1][ply]) score += 1000;
 			score += history[board.side][m.src()][m.dst()];
 			scores.push_back({ m, score });
+		}
+	}
+	return scores;
+}
+
+pzstd::vector<std::pair<Move, Value>> assign_values_qs(pzstd::vector<Move> &moves, Board &board) {
+	pzstd::vector<std::pair<Move, Value>> scores;
+	for (Move &m : moves) {
+		if (is_capture(m, board)) {
+			scores.push_back({ m, MVV_LVA[board.mailbox[m.dst()] & 7][board.mailbox[m.src()] & 7] + MVV_LVA_C });
 		}
 	}
 	return scores;
@@ -73,6 +83,34 @@ Move next_move(pzstd::vector<std::pair<Move, Value>> &moves) {
 	}
 	moves[idx] = { NullMove, -VALUE_INFINITE }; // Remove the best move from the list
 	return best;
+}
+
+Value quiesce(Board &board, int side, Value alpha, Value beta, int ply = 0) {
+	Value stand_pat = eval(board) * side;
+	if (stand_pat >= beta) return beta;
+	if (stand_pat > alpha) alpha = stand_pat;
+
+	pzstd::vector<Move> moves;
+	board.legal_moves(moves);
+
+	pzstd::vector<std::pair<Move, Value>> scores = assign_values_qs(moves, board);
+
+	Move m = NullMove;
+	while ((m = next_move(scores)) != NullMove) {
+		board.make_move(m);
+		Value score = -quiesce(board, -side, -beta, -alpha, ply + 1);
+		board.unmake_move();
+
+		if (score > stand_pat) {
+			stand_pat = score;
+			if (score > alpha) {
+				alpha = score;
+			}
+		}
+		if (score >= beta) return beta;
+	}
+
+	return stand_pat;
 }
 
 std::pair<Move, Value> negamax(Board &board, int depth, int side, int ply = 0, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE) {
@@ -100,7 +138,7 @@ std::pair<Move, Value> negamax(Board &board, int depth, int side, int ply = 0, V
 	}
 
 	if (depth <= 0) {
-		return { NullMove, eval(board) * side };
+		return { NullMove, quiesce(board, side, alpha, beta, ply) };
 	}
 
 	Move best_move = NullMove;
