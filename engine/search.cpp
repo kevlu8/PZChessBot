@@ -93,6 +93,7 @@ pzstd::vector<std::pair<Move, Value>> assign_values_qs(pzstd::vector<Move> &move
 	pzstd::vector<std::pair<Move, Value>> scores;
 	for (Move &m : moves) {
 		if (is_capture(m, board)) {
+			if (board.see_capture(m) < 0) continue; // Skip moves that lose material
 			scores.push_back({ m, MVV_LVA[board.mailbox[m.dst()] & 7][board.mailbox[m.src()] & 7] + MVV_LVA_C });
 		}
 	}
@@ -359,7 +360,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int mx_depth, uint64_t
 			cur_move = best_move;
 			cur_eval = best;
 
-			std::cout << "info depth " << depth << " score " << score_to_string(best) << " pv " << format_pv() << " nodes " << nodes << " time " << int(time_elapsed) << " nps " << int(nodes * 1000 / time_elapsed) << std::endl;
+			std::cout << "info depth " << depth << " score cp " << score_to_string(best) << " pv " << format_pv() << " nodes " << nodes << " time " << int(time_elapsed) << " nps " << int(nodes * 1000 / time_elapsed) << std::endl;
 		}
 	}
 
