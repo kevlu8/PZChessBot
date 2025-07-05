@@ -38,6 +38,12 @@ std::string format_pv() {
 	return pvtable[0][0].to_string();
 }
 
+uint64_t nodecnt[64][64]; // Nodes per move
+
+void clear_nodecnt() {
+	for (int i = 0; i < 64; i++) for (int j = 0; j < 64; j++) nodecnt[i][j] = 0;
+}
+
 uint16_t reduction[250][MAX_PLY];
 
 __attribute__((constructor)) void init_reduction() {
@@ -225,6 +231,8 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 	Move m = NullMove;
 	int m_idx = 0;
 	while ((m = next_move(scores)) != NullMove) {
+		uint64_t prev_nodes = nodes;
+
 		board.make_move(m);
 		Value score = 0;
 		if (!m_idx) {
@@ -238,6 +246,13 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 			}
 		}
 		board.unmake_move();
+
+		uint64_t cur_nodes = nodes - prev_nodes;
+
+		if (ply == 0) {
+			nodecnt[m.src()][m.dst()] += cur_nodes;
+			nodecnt[0][0] += cur_nodes; // Total nodes searched
+		}
 
 		if (score >= VALUE_MATE_MAX_PLY) score--; // Adjust for mate in n ply
 		if (score <= -VALUE_MATE_MAX_PLY) score++;
@@ -315,6 +330,8 @@ std::pair<Move, Value> search(Board &board, int64_t time, int mx_depth, uint64_t
 	stop_search = false;
 
 	for (int depth = 1; depth <= mx_depth; depth++) {
+		clear_nodecnt();
+
 		Value lo = -VALUE_INFINITE, hi = VALUE_INFINITE;
 		int lwindow_sz = ASPIRATION_SIZE, hwindow_sz = ASPIRATION_SIZE;
 		if (cur_eval != -VALUE_INFINITE) {
@@ -363,7 +380,10 @@ std::pair<Move, Value> search(Board &board, int64_t time, int mx_depth, uint64_t
 			std::cout << "info depth " << depth << " score cp " << score_to_string(best) << " pv " << format_pv() << " nodes " << nodes << " time " << int(time_elapsed) << " nps " << int(nodes * 1000 / time_elapsed) << std::endl;
 		}
 
-		if (time_elapsed >= 0.5 * time) {
+		double nratio = nodecnt[cur_move.src()][cur_move.dst()] / (double)nodecnt[0][0]; // fraction of nodes used to search bm
+		double lim = 1.3 - nratio; // most nodes on best move -> use less time to search, vice versa
+
+		if (time_elapsed >= lim * time) {
 			// Soft limit
 			break;
 		}
