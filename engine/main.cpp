@@ -132,10 +132,10 @@ int main(int argc, char *argv[]) {
 			std::pair<Move, Value> res;
 			if (inf)
 				res = search(board);
-			// else if (depth != -1)
-			// 	res = search_depth(board, depth);
-			// else if (nodes != -1)
-			// 	res = search_nodes(board, nodes);
+			else if (depth != -1)
+				res = search(board, 1e18, depth, 1e18);
+			else if (nodes != -1)
+				res = search(board, 1e18, MAX_PLY, nodes);
 			else
 				res = search(board, timemgmt(timeleft, inc, online));
 			std::cout << "bestmove " << res.first.to_string() << std::endl;

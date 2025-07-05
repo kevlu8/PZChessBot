@@ -197,6 +197,18 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 		}
 	}
 
+	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) - 2; // Exclude kings
+	int npawns = _mm_popcnt_u64(board.piece_boards[PAWN]);
+	if (!in_check && npawns != npieces) {
+		// Not in check and not in a pawn endgame, run NMP
+		board.make_move(NullMove);
+		Value null_score = -negamax(board, depth - 4, -side, 0, ply + 1, -beta, -beta + 1);
+		board.unmake_move();
+		if (null_score >= beta) {
+			return null_score;
+		}
+	}
+
 	Value og_alpha = alpha; // Store original alpha for TT
 
 	Move best_move = NullMove;
