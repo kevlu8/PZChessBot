@@ -190,7 +190,7 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 
 	Value raw_eval = eval(board) * side;
 
-	if (!in_check && !pv_node && hash_move != NullMove && hash_move.type() != PROMOTION && !is_capture(hash_move, board)) {
+	if (!in_check && !pv_node) {
 		// RFP
 		if (raw_eval >= beta + RFP_MARGIN * depth) {
 			return raw_eval - RFP_MARGIN * depth;
