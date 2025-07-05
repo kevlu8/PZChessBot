@@ -381,7 +381,9 @@ std::pair<Move, Value> search(Board &board, int64_t time, int mx_depth, uint64_t
 		}
 
 		double nratio = nodecnt[cur_move.src()][cur_move.dst()] / (double)nodecnt[0][0]; // fraction of nodes used to search bm
-		double lim = 1.3 - nratio; // most nodes on best move -> use less time to search, vice versa
+		double lim = std::clamp(1 - nratio * 0.8, 0.1, 0.7); // most nodes on best move -> use less time to search, vice versa
+
+		// std::cout << "info string nratio = " << nratio << ", so we use max of " << int(lim * time) << " ms for next depth" << std::endl;
 
 		if (time_elapsed >= lim * time) {
 			// Soft limit
