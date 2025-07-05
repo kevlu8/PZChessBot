@@ -362,6 +362,11 @@ std::pair<Move, Value> search(Board &board, int64_t time, int mx_depth, uint64_t
 
 			std::cout << "info depth " << depth << " score cp " << score_to_string(best) << " pv " << format_pv() << " nodes " << nodes << " time " << int(time_elapsed) << " nps " << int(nodes * 1000 / time_elapsed) << std::endl;
 		}
+
+		if (time_elapsed >= 0.5 * time) {
+			// Soft limit
+			break;
+		}
 	}
 
 	return { cur_move, cur_eval };
