@@ -169,6 +169,8 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 		return 0;
 	}
 
+	if (in_check) depth++; // Check extensions
+
 	// Probe for TTable cutoffs
 	TTable::TTEntry *entry = board.ttable.probe(board.zobrist);
 	Move hash_move = NullMove;
