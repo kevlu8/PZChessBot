@@ -239,6 +239,8 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 		}
 		board.unmake_move();
 
+		if (stop_search) return 0;
+
 		if (score >= VALUE_MATE_MAX_PLY) score--; // Adjust for mate in n ply
 		if (score <= -VALUE_MATE_MAX_PLY) score++;
 
@@ -273,8 +275,6 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 			}
 			return best;
 		}
-
-		if (stop_search) return 0;
 
 		if (is_capture(m, board)) {
 			captures.push_back(m);
