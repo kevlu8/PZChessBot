@@ -49,8 +49,11 @@ __attribute__((constructor)) void init_reduction() {
 	}
 }
 
+SSEntry line[MAX_PLY];
+
 Move killer[2][MAX_PLY];
 Value history[2][64][64];
+Move cmh[2][64][64];
 
 void clear_tables() {
 	for (int i = 0; i < MAX_PLY; i++) {
@@ -60,6 +63,7 @@ void clear_tables() {
 	for (int i = 0; i < 64; i++) {
 		for (int j = 0; j < 64; j++) {
 			history[0][i][j] = history[1][i][j] = 0;
+			cmh[0][i][j] = cmh[1][i][j] = NullMove;
 		}
 	}
 }
@@ -83,6 +87,9 @@ pzstd::vector<std::pair<Move, Value>> assign_values(pzstd::vector<Move> &moves, 
 			if (m == killer[0][ply]) score += 1500;
 			else if (m == killer[1][ply]) score += 1000;
 			score += history[board.side][m.src()][m.dst()];
+			if (m == cmh[board.side][line[ply].move.src()][line[ply].move.dst()]) {
+				score += 1200; // Prefer moves that were previously played
+			}
 			scores.push_back({ m, score });
 		}
 	}
@@ -192,6 +199,8 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 	}
 
 	Value raw_eval = eval(board) * side;
+	if (!in_check) line[ply].eval = raw_eval;
+	else line[ply].eval = VALUE_NONE;
 
 	if (!in_check && !pv_node) {
 		// RFP
@@ -227,6 +236,7 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 	Move m = NullMove;
 	int m_idx = 0;
 	while ((m = next_move(scores)) != NullMove) {
+		line[ply+1].move = m;
 		board.make_move(m);
 		Value score = 0;
 		if (!m_idx) {
@@ -274,6 +284,7 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 				for (Move &q : quiets) {
 					update_history(board.side, q.src(), q.dst(), -bonus);
 				}
+				cmh[board.side][line[ply].move.src()][line[ply].move.dst()] = m;
 			}
 			return best;
 		}

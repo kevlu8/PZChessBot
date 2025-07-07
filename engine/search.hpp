@@ -11,6 +11,11 @@
 
 extern uint64_t nodes;
 
+struct SSEntry {
+	Move move;
+	Value eval;
+};
+
 constexpr Value MVV_LVA_C = 10000;
 
 constexpr Value MVV_LVA[7][7] = { // [victim][attacker]
