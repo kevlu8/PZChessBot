@@ -107,11 +107,12 @@ pzstd::vector<std::pair<Move, Value>> assign_values_qs(pzstd::vector<Move> &move
 	return scores;
 }
 
-Move next_move(pzstd::vector<std::pair<Move, Value>> &moves) {
+Move next_move(pzstd::vector<std::pair<Move, Value>> &moves, int &end_idx) {
+	if (end_idx == 0) return NullMove;
 	int idx = 0;
 	Move best = NullMove;
 	Value score = -VALUE_INFINITE;
-	for (int i = 0; i < moves.size(); i++) {
+	for (int i = 0; i < end_idx; i++) {
 		if (moves[i].second > score) {
 			score = moves[i].second;
 			best = moves[i].first;
@@ -119,6 +120,7 @@ Move next_move(pzstd::vector<std::pair<Move, Value>> &moves) {
 		}
 	}
 	moves[idx] = { NullMove, -VALUE_INFINITE }; // Remove the best move from the list
+	swap(moves[idx], moves[--end_idx]);
 	return best;
 }
 
@@ -133,7 +135,8 @@ Value quiesce(Board &board, int side, Value alpha, Value beta, int ply = 0) {
 	pzstd::vector<std::pair<Move, Value>> scores = assign_values_qs(moves, board);
 
 	Move m = NullMove;
-	while ((m = next_move(scores)) != NullMove) {
+	int end_idx = scores.size();
+	while ((m = next_move(scores, end_idx)) != NullMove) {
 		board.make_move(m);
 		Value score = -quiesce(board, -side, -beta, -alpha, ply + 1);
 		board.unmake_move();
@@ -234,8 +237,8 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 	pzstd::vector<Move> captures, quiets;
 	
 	Move m = NullMove;
-	int m_idx = 0;
-	while ((m = next_move(scores)) != NullMove) {
+	int m_idx = 0, end_idx = scores.size();
+	while ((m = next_move(scores, end_idx)) != NullMove) {
 		line[ply+1].move = m;
 		board.make_move(m);
 		Value score = 0;
