@@ -193,7 +193,7 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 
 	Value raw_eval = eval(board) * side;
 
-	if (!in_check && !pv_node) {
+	if (!in_check && !pv_node && abs(alpha) < VALUE_MATE_MAX_PLY && abs(beta) < VALUE_MATE_MAX_PLY) {
 		// RFP
 		if (raw_eval >= beta + RFP_MARGIN * depth) {
 			return raw_eval - RFP_MARGIN * depth;
