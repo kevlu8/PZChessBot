@@ -29,6 +29,8 @@ constexpr Value MVV_LVA[7][7] = { // [victim][attacker]
 	{0, 0, 0, 0, 0, 0, 0} // No Piece
 };
 
+constexpr Value FP_MARGIN = 300;
+
 constexpr Value RFP_MARGIN = 150;
 
 constexpr int ASPIRATION_SIZE = 50;

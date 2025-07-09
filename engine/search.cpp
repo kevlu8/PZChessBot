@@ -236,6 +236,14 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 	Move m = NullMove;
 	int m_idx = 0;
 	while ((m = next_move(scores)) != NullMove) {
+		bool is_capt = is_capture(m, board);
+		bool is_promo = m.type() == PROMOTION;
+
+		if (!in_check && !is_capt && !is_promo && m_idx > 0 && depth == 1 && abs(alpha) < VALUE_MATE_MAX_PLY && abs(beta) < VALUE_MATE_MAX_PLY) {
+			// Futility Pruning
+			if (raw_eval + FP_MARGIN < alpha) continue;
+		}
+
 		line[ply+1].move = m;
 		board.make_move(m);
 		Value score = 0;
