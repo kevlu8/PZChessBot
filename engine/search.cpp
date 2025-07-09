@@ -253,8 +253,11 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 			// PVSearch
 			score = -negamax(board, depth - reduction[m_idx][depth], -side, 0, ply + 1, -alpha - 1, -alpha);
 			if (score > alpha) {
-				// Move wasn't as bad as we thought, do a full search
-				score = -negamax(board, depth - 1, -side, 1, ply + 1, -beta, -alpha);
+				// Move wasn't as bad as we thought, do a full depth search
+				score = -negamax(board, depth - 1, -side, 1, ply + 1, -alpha - 1, -alpha);
+				if (score > alpha && score < beta) {
+					score = -negamax(board, depth - 1, -side, 1, ply + 1, -beta, -alpha); // Full search
+				}
 			}
 		}
 		board.unmake_move();
