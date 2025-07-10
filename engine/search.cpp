@@ -5,6 +5,22 @@ clock_t start_time = 0;
 uint64_t max_time = 0;
 bool stop_search = false;
 
+SearchSettings ss;
+
+void change_setting(const std::string &name, const std::string &value) {
+	if (name == "mvv_lva_c") ss.mvv_lva_c = std::stoi(value);
+	if (name == "killer1") ss.killer1 = std::stoi(value);
+	if (name == "killer2") ss.killer2 = std::stoi(value);
+	if (name == "cmh_bonus") ss.cmh_bonus = std::stoi(value);
+	if (name == "rfp_margin") ss.rfp_margin = std::stoi(value);
+	if (name == "nmp_r") ss.nmp_r = std::stoi(value);
+	if (name == "fp_margin") ss.fp_margin = std::stoi(value);
+	if (name == "hist_bonus") ss.hist_bonus = std::stoi(value);
+	if (name == "hist_bonus2") ss.hist_bonus2 = std::stoi(value);
+	if (name == "asp_size") ss.asp_size = std::stoi(value);
+	if (name == "soft_lim") ss.soft_lim = std::stod(value);
+}
+
 uint64_t perft(Board &board, int depth) {
 	// If white's turn is beginning and black is in check
 	if (board.side == WHITE && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first)
@@ -81,14 +97,14 @@ pzstd::vector<std::pair<Move, Value>> assign_values(pzstd::vector<Move> &moves, 
 			continue;
 		}
 		if (is_capture(m, board)) {
-			scores.push_back({ m, MVV_LVA[board.mailbox[m.dst()] & 7][board.mailbox[m.src()] & 7] + MVV_LVA_C });
+			scores.push_back({ m, MVV_LVA[board.mailbox[m.dst()] & 7][board.mailbox[m.src()] & 7] + ss.mvv_lva_c });
 		} else {
 			Value score = 0;
-			if (m == killer[0][ply]) score += 1500;
-			else if (m == killer[1][ply]) score += 1000;
+			if (m == killer[0][ply]) score += ss.killer1;
+			else if (m == killer[1][ply]) score += ss.killer2;
 			score += history[board.side][m.src()][m.dst()];
 			if (m == cmh[board.side][line[ply].move.src()][line[ply].move.dst()]) {
-				score += 1200; // Prefer moves that were previously played
+				score += ss.cmh_bonus; // Prefer moves that were previously played
 			}
 			scores.push_back({ m, score });
 		}
@@ -101,7 +117,7 @@ pzstd::vector<std::pair<Move, Value>> assign_values_qs(pzstd::vector<Move> &move
 	for (Move &m : moves) {
 		if (is_capture(m, board)) {
 			if (board.see_capture(m) < 0) continue; // Skip moves that lose material
-			scores.push_back({ m, MVV_LVA[board.mailbox[m.dst()] & 7][board.mailbox[m.src()] & 7] + MVV_LVA_C });
+			scores.push_back({ m, MVV_LVA[board.mailbox[m.dst()] & 7][board.mailbox[m.src()] & 7] + ss.mvv_lva_c });
 		}
 	}
 	return scores;
@@ -204,8 +220,8 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 
 	if (!in_check && !pv_node) {
 		// RFP
-		if (raw_eval >= beta + RFP_MARGIN * depth) {
-			return raw_eval - RFP_MARGIN * depth;
+		if (raw_eval >= beta + ss.rfp_margin * depth) {
+			return raw_eval - ss.rfp_margin * depth;
 		}
 	}
 
@@ -214,7 +230,7 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 	if (!in_check && npawns != npieces) {
 		// Not in check and not in a pawn endgame, run NMP
 		board.make_move(NullMove);
-		Value null_score = -negamax(board, depth - 4, -side, 0, ply + 1, -beta, -beta + 1);
+		Value null_score = -negamax(board, depth - ss.nmp_r, -side, 0, ply + 1, -beta, -beta + 1);
 		board.unmake_move();
 		if (null_score >= beta) {
 			return null_score;
@@ -241,7 +257,7 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 
 		if (!in_check && !is_capt && !is_promo && m_idx > 0 && depth == 1 && abs(alpha) < VALUE_MATE_MAX_PLY && abs(beta) < VALUE_MATE_MAX_PLY) {
 			// Futility Pruning
-			if (raw_eval + FP_MARGIN < alpha) continue;
+			if (raw_eval + ss.fp_margin < alpha) continue;
 		}
 
 		line[ply+1].move = m;
@@ -287,7 +303,7 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 					killer[1][ply] = killer[0][ply];
 					killer[0][ply] = m;
 				}
-				const Value bonus = depth * depth;
+				const Value bonus = depth * depth * ss.hist_bonus + depth * ss.hist_bonus2;
 				update_history(board.side, m.src(), m.dst(), bonus);
 				for (Move &q : quiets) {
 					update_history(board.side, q.src(), q.dst(), -bonus);
@@ -337,7 +353,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int mx_depth, uint64_t
 
 	for (int depth = 1; depth <= mx_depth; depth++) {
 		Value lo = -VALUE_INFINITE, hi = VALUE_INFINITE;
-		int lwindow_sz = ASPIRATION_SIZE, hwindow_sz = ASPIRATION_SIZE;
+		int lwindow_sz = ss.asp_size, hwindow_sz = ss.asp_size;
 		if (cur_eval != -VALUE_INFINITE) {
 			// Aspiration windows 
 			lo = cur_eval - lwindow_sz;
@@ -384,7 +400,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int mx_depth, uint64_t
 			std::cout << "info depth " << depth << " score cp " << score_to_string(best) << " pv " << format_pv() << " nodes " << nodes << " time " << int(time_elapsed) << " nps " << int(nodes * 1000 / time_elapsed) << std::endl;
 		}
 
-		if (time_elapsed >= 0.5 * time) {
+		if (time_elapsed >= ss.soft_lim * time) {
 			// Soft limit
 			break;
 		}

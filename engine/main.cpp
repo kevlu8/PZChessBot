@@ -35,6 +35,17 @@ int main(int argc, char *argv[]) {
 			std::cout << "id author kevlu8 and wdotmathree" << std::endl;
 			std::cout << "option name Hash type spin default 16 min 1 max 1024" << std::endl;
 			std::cout << "option name Threads type spin default 1 min 1 max 1" << std::endl; // Not implemented yet
+			std::cout << "option name mvv_lva_c type spin default 10000" << std::endl;
+			std::cout << "option name killer1 type spin default 1500" << std::endl;
+			std::cout << "option name killer2 type spin default 1000" << std::endl;
+			std::cout << "option name cmh_bonus type spin default 1200" << std::endl;
+			std::cout << "option name rfp_margin type spin default 150" << std::endl;
+			std::cout << "option name nmp_r type spin default 4" << std::endl;
+			std::cout << "option name fp_margin type spin default 300" << std::endl;
+			std::cout << "option name hist_bonus type spin default 1" << std::endl;
+			std::cout << "option name hist_bonus2 type spin default 0" << std::endl;
+			std::cout << "option name asp_size type spin default 50" << std::endl;
+			std::cout << "option name soft_lim type string default 0.5" << std::endl;
 			std::cout << "uciok" << std::endl;
 		} else if (command == "isready") {
 			std::cout << "readyok" << std::endl;
@@ -56,6 +67,8 @@ int main(int argc, char *argv[]) {
 					continue;
 				}
 				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTEntry);
+			} else {
+				change_setting(optionname, optionvalue);
 			}
 		} else if (command == "ucinewgame") {
 			board = Board(TT_SIZE);

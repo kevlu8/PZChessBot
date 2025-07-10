@@ -16,6 +16,24 @@ struct SSEntry {
 	Value eval;
 };
 
+struct SearchSettings {
+	int mvv_lva_c = 10000;
+	int killer1 = 1500;
+	int killer2 = 1000;
+	int cmh_bonus = 1200;
+	int rfp_margin = 150;
+	int nmp_r = 4;
+	int fp_margin = 300;
+	int hist_bonus = 1;
+	int hist_bonus2 = 0;
+	int asp_size = 50;
+	double soft_lim = 0.5;
+};
+
+extern SearchSettings ss;
+
+void change_setting(const std::string &name, const std::string &value);
+
 constexpr Value MVV_LVA_C = 10000;
 
 constexpr Value MVV_LVA[7][7] = { // [victim][attacker]
