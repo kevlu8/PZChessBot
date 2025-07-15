@@ -247,7 +247,7 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 	pzstd::vector<std::pair<Move, Value>> scores;
 	// If we have a TTable entry *at all* for this position, we should use it
 	// Even if it falls outside of our alpha-beta window, it probably provides a decent move
-	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist, VALUE_INFINITE, -VALUE_INFINITE, -1);
+	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
 	Move entry = tentry ? tentry->best_move : NullMove;
 	entry_exists = false;
 	if (entry != NullMove) {
@@ -326,16 +326,24 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Check for TTable cutoff
-	TTable::TTEntry *cutoff = board.ttable.probe(board.zobrist, alpha, beta, depth);
-	if (cutoff)
-		return cutoff->eval;
+	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
+	if (tentry && tentry->depth >= depth) {
+		// Check for cutoffs
+		if (tentry->flags == EXACT) {
+			return tentry->eval;
+		} else if (tentry->flags == LOWER_BOUND && tentry->eval >= beta) {
+			return tentry->eval;
+		} else if (tentry->flags == UPPER_BOUND && tentry->eval <= alpha) {
+			return tentry->eval;
+		}
+	}
 
 	Value cur_eval = 0;
 	Value raw_eval = 0; // For CorrHist
 	uint64_t pawn_hash = 0;
 	if (!in_check) {
 		pawn_hash = board.pawn_struct_hash();
-		cur_eval = eval(board) * side;
+		cur_eval = tentry ? tentry->eval : eval(board) * side;
 		raw_eval = cur_eval;
 		apply_correction(board.side, pawn_hash, board.material_hash(), cur_eval);
 	}
