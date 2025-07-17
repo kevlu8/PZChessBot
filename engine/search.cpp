@@ -243,7 +243,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
  * - Killer moves (moves that have caused a beta cutoff in the past)
  * - Counter-move history (moves that have refuted other moves in the past)
  */
-pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Move> &moves, int side, int depth, int ply, bool &entry_exists) {
+pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<Move> &moves, int side, int depth, int ply, bool &entry_exists) {
 	pzstd::vector<std::pair<Move, Value>> scores;
 	// If we have a TTable entry *at all* for this position, we should use it
 	// Even if it falls outside of our alpha-beta window, it probably provides a decent move
@@ -276,8 +276,24 @@ pzstd::vector<std::pair<Move, Value>> order_moves(Board &board, pzstd::vector<Mo
 		}
 		scores.push_back({move, score});
 	}
-	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
+	// std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
 	return scores;
+}
+
+Move next_move(pzstd::vector<std::pair<Move, Value>> &scores, int &end) {
+	if (end == 0) return NullMove; // Ran out
+	Move best_move = NullMove;
+	Value best_score = -VALUE_INFINITE;
+	int idx = 0;
+	for (int i = 0; i < end; i++) {
+		if (scores[i].second > best_score) {
+			best_score = scores[i].second;
+			best_move = scores[i].first;
+			idx = i;
+		}
+	}
+	swap(scores[idx], scores[--end]);
+	return best_move;
 }
 
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, int ply = 1) {
@@ -390,7 +406,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	board.legal_moves(moves);
 
 	bool entry_exists = false;
-	pzstd::vector<std::pair<Move, Value>> scores = order_moves(board, moves, side, depth, ply, entry_exists);
+	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, ply, entry_exists);
+	int end = scores.size();
 
 	if (depth > 4 && !entry_exists) {
 		depth -= 2; // Internal iterative reductions
@@ -400,8 +417,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	pzstd::vector<Move> quiets, captures;
 
-	for (int i = 0; i < moves.size(); i++) {
-		Move &move = scores[i].first;
+	Move move = NullMove;
+	int i = 0;
+	while ((move = next_move(scores, end)) != NullMove) {
 		line[ply] = move;
 
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
@@ -491,6 +509,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		if (!capt && !promo) quiets.push_back(move);
 		else if (capt) captures.push_back(move);
+		i++;
 	}
 
 	bool best_iscapture = (board.piece_boards[OPPOCC(board.side)] & square_bits(best_move.dst()));
@@ -530,11 +549,14 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	board.legal_moves(moves);
 
 	bool entry_exists = false;
-	pzstd::vector<std::pair<Move, Value>> scores = order_moves(board, moves, side, depth, 0, entry_exists);
+	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, 0, entry_exists);
 
-	for (int i = 0; i < moves.size(); i++) { // Skip the TT move if it's not legal
-		Move &move = scores[i].first;
-
+	// for (int i = 0; i < moves.size(); i++) { // Skip the TT move if it's not legal
+	// 	Move &move = scores[i].first;
+	Move move = NullMove;
+	int end = scores.size();
+	int i = 0;
+	while ((move = next_move(scores, end)) != NullMove) {
 		if (depth >= 20 && nodes >= 10'000'000) {
 			std::cout << "info depth " << depth << " currmove " << move.to_string() << " currmovenumber " << i+1 << std::endl;
 		}
@@ -577,6 +599,8 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 
 		if (early_exit)
 			break;
+
+		i++;
 	}
 
 	if (best_score <= alpha) {
