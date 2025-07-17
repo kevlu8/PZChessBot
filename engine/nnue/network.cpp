@@ -1,19 +1,19 @@
 #include "network.hpp"
 #include "incbin.h"
 
-extern "C" {
-	INCBIN(network_weights, NNUE_PATH);
-}
+// extern "C" {
+// 	INCBIN(network_weights, NNUE_PATH);
+// }
 
 void Network::load() {
-	char *ptr = (char *)gnetwork_weightsData;
-	memcpy(accumulator_weights, ptr, sizeof(accumulator_weights));
-	ptr += sizeof(accumulator_weights);
-	memcpy(accumulator_biases, ptr, sizeof(accumulator_biases));
-	ptr += sizeof(accumulator_biases);
-	memcpy(output_weights, ptr, sizeof(output_weights));
-	ptr += sizeof(output_weights);
-	memcpy(&output_bias, ptr, sizeof(output_bias));
+	// char *ptr = (char *)gnetwork_weightsData;
+	// memcpy(accumulator_weights, ptr, sizeof(accumulator_weights));
+	// ptr += sizeof(accumulator_weights);
+	// memcpy(accumulator_biases, ptr, sizeof(accumulator_biases));
+	// ptr += sizeof(accumulator_biases);
+	// memcpy(output_weights, ptr, sizeof(output_weights));
+	// ptr += sizeof(output_weights);
+	// memcpy(&output_bias, ptr, sizeof(output_bias));
 }
 
 int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nbucket) {

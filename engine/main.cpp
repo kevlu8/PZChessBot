@@ -16,7 +16,7 @@ int TT_SIZE = DEFAULT_TT_SIZE;
 int main(int argc, char *argv[]) {
 	if (argc == 2 && std::string(argv[1]) == "bench") {
 		Board board = Board(TT_SIZE);
-		init_network();
+		// init_network();
 		uint64_t start = clock();
 		search_depth(board, 12);
 		uint64_t end = clock();
@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
 	std::cout << "PZChessBot " << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
 	std::string command;
 	Board board = Board(TT_SIZE);
-	init_network();
+	// init_network();
 	std::thread searchthread;
 	while (getline(std::cin, command)) {
 		if (command == "uci") {
@@ -98,9 +98,6 @@ int main(int argc, char *argv[]) {
 				std::cout << std::endl;
 			}
 		} else if (command.substr(0, 2) == "go") {
-#ifndef HCE
-			std::cout << "info string Using " << NNUE_PATH << " for evaluation" << std::endl;
-#endif
 			// `go wtime ... btime ... winc ... binc ...`
 			// only care about wtime and btime
 			std::stringstream ss(command);
