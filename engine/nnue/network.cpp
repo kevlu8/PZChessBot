@@ -20,8 +20,8 @@ int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nb
 	if (nbucket & 1) {
 		// Flip the square
 		sq = (Square)(sq ^ 7);
-		nbucket /= 2;
 	}
+	nbucket /= 2;
 	if (perspective) {
 		side = !side;
 		sq = (Square)(sq ^ 56);
