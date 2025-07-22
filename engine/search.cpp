@@ -400,6 +400,18 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			return null_score;
 	}
 
+	if (!pv && !in_check && depth <= 3 && cur_eval + RAZOR_MARGIN * depth < alpha) {
+		/**
+		 * Razoring
+		 * 
+		 * If we are losing by a lot, check w/ qsearch to see if we could possibly improve.
+		 * If not, we can prune the search.
+		 */
+		Value razor_score = quiesce(board, alpha, beta, side, ply);
+		if (razor_score < alpha)
+			return razor_score;
+	}
+
 	Value best = -VALUE_INFINITE;
 
 	pzstd::vector<Move> moves;

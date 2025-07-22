@@ -33,6 +33,10 @@
 #define FUTILITY_THRESHOLD (312 * CP_SCALE_FACTOR)
 #define FUTILITY_THRESHOLD2 (678 * CP_SCALE_FACTOR)
 
+// Razoring margin
+// This is the margin for razoring (in centipawns)
+#define RAZOR_MARGIN (250 * CP_SCALE_FACTOR)
+
 // Correction history table size
 #define CORRHIST_SZ 32768
 #define CORRHIST_GRAIN 256
