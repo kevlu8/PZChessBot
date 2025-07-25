@@ -294,6 +294,11 @@ Move next_move(pzstd::vector<std::pair<Move, Value>> &scores, int &end) {
 }
 
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, int ply = 1) {
+	if (ply >= MAX_PLY) {
+		// ???
+		return quiesce(board, alpha, beta, side, depth);
+	}
+
 	pvlen[ply] = 0;
 
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
