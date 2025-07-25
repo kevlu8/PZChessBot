@@ -263,12 +263,12 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 			score = history[board.side][move.src()][move.dst()];
 		}
 		if (move == killer[0][depth]) {
-			score += 1461; // Killer move bonus
+			score += 1455; // Killer move bonus
 		} else if (move == killer[1][depth]) {
-			score += 831; // Second killer move bonus
+			score += 814; // Second killer move bonus
 		}
 		if (ply && move == cmh[board.side][line[ply-1].src()][line[ply-1].dst()]) {
-			score += 1003; // Counter-move bonus
+			score += 1021; // Counter-move bonus
 		}
 		scores.push_back({move, score});
 	}
@@ -493,7 +493,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				killer[0][depth] = move; // Update killer moves
 			}
 			if (!capt) { // Not a capture
-				const Value bonus = 1.53 * depth * depth + 0.87 * depth + 0.65;
+				const Value bonus = 1.56 * depth * depth + 0.91 * depth + 0.62;
 				update_history(board.side, move.src(), move.dst(), bonus);
 				for (auto &qmove : quiets) {
 					update_history(board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
@@ -501,7 +501,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				cmh[board.side][line[ply-1].src()][line[ply-1].dst()] = move; // Update counter-move history
 				if (!in_check && !promo && best > raw_eval) update_corrhist(board.side, pawn_hash, board.material_hash(), best - raw_eval, depth);
 			} else { // Capture
-				const Value bonus = 1.82 * depth * depth + 0.49 * depth + 0.39;
+				const Value bonus = 1.81 * depth * depth + 0.52 * depth + 0.40;
 				update_capthist(PieceType(board.mailbox[move.src()] & 7), PieceType(board.mailbox[move.dst()] & 7), move.dst(), bonus);
 				for (auto &cmove : captures) {
 					update_capthist(PieceType(board.mailbox[cmove.src()] & 7), PieceType(board.mailbox[cmove.dst()] & 7), cmove.dst(), -bonus);
@@ -718,7 +718,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 		}
 
 		int time_elapsed = (clock() - start) / CLOCKS_PER_MS;
-		if (time_elapsed > mxtime * 0.52) {
+		if (time_elapsed > mxtime * 0.5) {
 			// We probably won't be able to complete the next ID loop
 			break;
 		}

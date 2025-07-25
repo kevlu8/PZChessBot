@@ -17,7 +17,7 @@
 // The aspiration window is the range of values we search
 // for the best move. If we fail to find the best move in
 // this range, we expand the window.
-#define ASPIRATION_WINDOW (36 * CP_SCALE_FACTOR)
+#define ASPIRATION_WINDOW (32 * CP_SCALE_FACTOR)
 
 // Null-move pruning reduction value
 // This is the amount of depth we reduce the search by
@@ -30,12 +30,12 @@
 
 // Futility pruning threshold
 // This is the threshold for futility pruning (in centipawns)
-#define FUTILITY_THRESHOLD (312 * CP_SCALE_FACTOR)
-#define FUTILITY_THRESHOLD2 (678 * CP_SCALE_FACTOR)
+#define FUTILITY_THRESHOLD (304 * CP_SCALE_FACTOR)
+#define FUTILITY_THRESHOLD2 (692 * CP_SCALE_FACTOR)
 
 // Razoring margin
 // This is the margin for razoring (in centipawns)
-#define RAZOR_MARGIN (250 * CP_SCALE_FACTOR)
+#define RAZOR_MARGIN (241 * CP_SCALE_FACTOR)
 
 // Correction history table size
 #define CORRHIST_SZ 32768
