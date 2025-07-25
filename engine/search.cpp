@@ -104,7 +104,7 @@ Value corrhist_mat[2][CORRHIST_SZ]; // [side][material hash]
  */
 Move cmh[2][64][64];
 
-Move line[MAX_PLY]; // Currently searched line
+SSEntry line[MAX_PLY]; // Currently searched line
 
 Move pvtable[MAX_PLY][MAX_PLY];
 int pvlen[MAX_PLY];
@@ -267,7 +267,7 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 		} else if (move == killer[1][depth]) {
 			score += 831; // Second killer move bonus
 		}
-		if (ply && move == cmh[board.side][line[ply-1].src()][line[ply-1].dst()]) {
+		if (ply && move == cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()]) {
 			score += 1003; // Counter-move bonus
 		}
 		scores.push_back({move, score});
@@ -360,6 +360,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		apply_correction(board.side, pawn_hash, board.material_hash(), cur_eval);
 	}
 
+	line[ply].eval = cur_eval;
+
+	bool improving = (!in_check && ply >= 2) ? (cur_eval > line[ply-2].eval) : false;
+
 	// Reverse futility pruning
 	if (!in_check && !pv) {
 		/**
@@ -368,7 +372,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * 
 		 * We need to make sure that we aren't in check (since we might get mated)
 		 */
-		int margin = RFP_THRESHOLD * depth;
+		int margin = (RFP_THRESHOLD - improving * 30) * depth;
 		if (cur_eval >= beta + margin)
 			return cur_eval - margin;
 	}
@@ -376,7 +380,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	// Null-move pruning
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 	int npawns_and_kings = _mm_popcnt_u64(board.piece_boards[PAWN] | board.piece_boards[KING]);
-	if (!in_check && npieces != npawns_and_kings && cur_eval >= beta) { // Avoid NMP in pawn endgames
+	if (!in_check && npieces != npawns_and_kings && cur_eval >= (beta - improving * 50)) { // Avoid NMP in pawn endgames
 		/**
 		 * This works off the *null-move observation*.
 		 * 
@@ -426,7 +430,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	Move move = NullMove;
 	int i = 0;
 	while ((move = next_move(scores, end)) != NullMove) {
-		line[ply] = move;
+		line[ply].move = move;
 
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
 		bool promo = (move.type() == PROMOTION);
@@ -498,7 +502,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				for (auto &qmove : quiets) {
 					update_history(board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
 				}
-				cmh[board.side][line[ply-1].src()][line[ply-1].dst()] = move; // Update counter-move history
+				cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()] = move; // Update counter-move history
 				if (!in_check && !promo && best > raw_eval) update_corrhist(board.side, pawn_hash, board.material_hash(), best - raw_eval, depth);
 			} else { // Capture
 				const Value bonus = 1.82 * depth * depth + 0.49 * depth + 0.39;
@@ -567,7 +571,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 			std::cout << "info depth " << depth << " currmove " << move.to_string() << " currmovenumber " << i+1 << std::endl;
 		}
 
-		line[0] = move;
+		line[0].move = move;
 		board.make_move(move);
 		Value score;
 		if (i > 0) {

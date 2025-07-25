@@ -42,6 +42,12 @@
 #define CORRHIST_GRAIN 256
 #define CORRHIST_WEIGHT 256
 
+struct SSEntry {
+	Move move;
+	Value eval;
+	SSEntry() : move(NullMove), eval(0) {}
+};
+
 extern uint64_t nodes;
 
 std::pair<Move, Value> search(Board &board, int64_t time = 1e9, bool quiet = false);
