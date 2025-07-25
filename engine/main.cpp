@@ -1,4 +1,5 @@
 #include "includes.hpp"
+#include "tunable.hpp"
 
 #include <sstream>
 #include <thread>
@@ -14,6 +15,9 @@ BoardState bs;
 int TT_SIZE = DEFAULT_TT_SIZE;
 
 int main(int argc, char *argv[]) {
+	// Initialize tunable parameters
+	register_all_tunables();
+	
 	if (argc == 2 && std::string(argv[1]) == "bench") {
 		Board board = Board(TT_SIZE);
 		init_network();
@@ -35,6 +39,10 @@ int main(int argc, char *argv[]) {
 			std::cout << "id author kevlu8 and wdotmathree" << std::endl;
 			std::cout << "option name Hash type spin default 16 min 1 max 1024" << std::endl;
 			std::cout << "option name Threads type spin default 1 min 1 max 1" << std::endl; // Not implemented yet
+			
+			// Print all tunable parameters
+			TunableManager::instance().print_uci_options();
+			
 			std::cout << "uciok" << std::endl;
 		} else if (command == "isready") {
 			std::cout << "readyok" << std::endl;
@@ -56,6 +64,16 @@ int main(int argc, char *argv[]) {
 					continue;
 				}
 				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTEntry);
+			} else {
+				// Try to set a tunable parameter
+				try {
+					int value = std::stoi(optionvalue);
+					if (!TunableManager::instance().set_param(optionname, value)) {
+						std::cerr << "Unknown option: " << optionname << std::endl;
+					}
+				} catch (const std::exception& e) {
+					std::cerr << "Invalid value for option " << optionname << ": " << optionvalue << std::endl;
+				}
 			}
 		} else if (command == "ucinewgame") {
 			board = Board(TT_SIZE);

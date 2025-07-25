@@ -1,4 +1,5 @@
 #include "search.hpp"
+#include "tunable.hpp"
 
 #define MOVENUM(x) ((((#x)[1] - '1') << 12) | (((#x)[0] - 'a') << 8) | (((#x)[3] - '1') << 4) | ((#x)[2] - 'a'))
 
@@ -263,12 +264,12 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 			score = history[board.side][move.src()][move.dst()];
 		}
 		if (move == killer[0][depth]) {
-			score += 1461; // Killer move bonus
+			score += Killer1_Bonus; // Killer move bonus
 		} else if (move == killer[1][depth]) {
-			score += 831; // Second killer move bonus
+			score += Killer2_Bonus; // Second killer move bonus
 		}
 		if (ply && move == cmh[board.side][line[ply-1].src()][line[ply-1].dst()]) {
-			score += 1003; // Counter-move bonus
+			score += Counter_Bonus; // Counter-move bonus
 		}
 		scores.push_back({move, score});
 	}
@@ -330,7 +331,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		in_check = bcontrol.first > 0;
 	}
 
-	if (in_check) depth++; // Check extensions
+	if (in_check) depth += Check_Extension; // Check extensions
 
 	if (depth <= 0) {
 		// Reached the maximum depth, perform quiescence search
@@ -364,11 +365,11 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (!in_check && !pv) {
 		/**
 		 * The idea is that if we are winning by such a large margin that we can afford to lose
-		 * RFP_THRESHOLD * depth eval units per ply, we can return the current eval.
+		 * RFP_Threshold * depth eval units per ply, we can return the current eval.
 		 * 
 		 * We need to make sure that we aren't in check (since we might get mated)
 		 */
-		int margin = RFP_THRESHOLD * depth;
+		int margin = (RFP_Threshold * CP_SCALE_FACTOR) * depth;
 		if (cur_eval >= beta + margin)
 			return cur_eval - margin;
 	}
@@ -390,14 +391,14 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 */
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
-		Value null_score = -__recurse(board, depth - NMP_R_VALUE, -beta, -beta + 1, -side, pv, ply+1);
+		Value null_score = -__recurse(board, depth - NMP_Reduction, -beta, -beta + 1, -side, pv, ply+1);
 		board.unmake_move();
 		if (null_score >= beta)
 			return null_score;
 	}
 
 	// Razoring
-	if (!pv && !in_check && depth <= 3 && cur_eval + RAZOR_MARGIN * depth < alpha) {
+	if (!pv && !in_check && depth <= 3 && cur_eval + (Razor_Margin * CP_SCALE_FACTOR) * depth < alpha) {
 		/**
 		 * If we are losing by a lot, check w/ qsearch to see if we could possibly improve.
 		 * If not, we can prune the search.
@@ -415,8 +416,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, ply, tentry);
 	int end = scores.size();
 
-	if (depth > 4 && !tentry) {
-		depth -= 2; // Internal iterative reductions
+	if (depth > IIR_Depth && !tentry) {
+		depth -= IIR_Reduction; // Internal iterative reductions
 	}
 
 	Move best_move = NullMove;
@@ -438,8 +439,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * If we are at the leaf of the search, we can prune moves that are
 			 * probably not going to be better than alpha.
 			 */
-			if (depth == 1 && cur_eval + FUTILITY_THRESHOLD < alpha) continue;
-			if (depth == 2 && cur_eval + FUTILITY_THRESHOLD2 < alpha) continue;
+			if (depth == 1 && cur_eval + (Futility_Threshold1 * CP_SCALE_FACTOR) < alpha) continue;
+			if (depth == 2 && cur_eval + (Futility_Threshold2 * CP_SCALE_FACTOR) < alpha) continue;
 		}
 
 		board.make_move(move);
@@ -493,7 +494,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				killer[0][depth] = move; // Update killer moves
 			}
 			if (!capt) { // Not a capture
-				const Value bonus = 1.53 * depth * depth + 0.87 * depth + 0.65;
+				const Value bonus = (History_Bonus_A / 100.0) * depth * depth + (History_Bonus_B / 100.0) * depth + (History_Bonus_C / 100.0);
 				update_history(board.side, move.src(), move.dst(), bonus);
 				for (auto &qmove : quiets) {
 					update_history(board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
@@ -501,7 +502,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				cmh[board.side][line[ply-1].src()][line[ply-1].dst()] = move; // Update counter-move history
 				if (!in_check && !promo && best > raw_eval) update_corrhist(board.side, pawn_hash, board.material_hash(), best - raw_eval, depth);
 			} else { // Capture
-				const Value bonus = 1.82 * depth * depth + 0.49 * depth + 0.39;
+				const Value bonus = (Capture_Bonus_A / 100.0) * depth * depth + (Capture_Bonus_B / 100.0) * depth + (Capture_Bonus_C / 100.0);
 				update_capthist(PieceType(board.mailbox[move.src()] & 7), PieceType(board.mailbox[move.dst()] & 7), move.dst(), bonus);
 				for (auto &cmove : captures) {
 					update_capthist(PieceType(board.mailbox[cmove.src()] & 7), PieceType(board.mailbox[cmove.dst()] & 7), cmove.dst(), -bonus);
@@ -656,7 +657,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 	bool aspiration_enabled = true;
 	for (int d = 1; d <= MAX_PLY; d++) {
 		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
-		Value window_size = ASPIRATION_WINDOW;
+		Value window_size = Aspiration_Window * CP_SCALE_FACTOR;
 		
 		if (eval != -VALUE_INFINITE && aspiration_enabled) {
 			/**
@@ -718,7 +719,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 		}
 
 		int time_elapsed = (clock() - start) / CLOCKS_PER_MS;
-		if (time_elapsed > mxtime * 0.52) {
+		if (time_elapsed > mxtime * (Time_Factor / 100.0)) {
 			// We probably won't be able to complete the next ID loop
 			break;
 		}
@@ -751,7 +752,7 @@ std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
 	bool aspiration_enabled = true;
 	for (int d = 1; d <= depth; d++) {
 		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
-		Value window_size = ASPIRATION_WINDOW;
+		Value window_size = Aspiration_Window * CP_SCALE_FACTOR;
 		
 		if (eval != -VALUE_INFINITE && aspiration_enabled) {
 			alpha = eval - window_size;

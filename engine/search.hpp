@@ -4,40 +4,16 @@
 #include "eval.hpp"
 #include "movegen.hpp"
 #include "ttable.hpp"
+#include "tunable.hpp"
 #include <algorithm>
 
-// Eval per ply threshold for RFP
-// RFP stops searching if our position is so good that
-// we can afford to lose RFP_THRESHOLD eval units per ply
-// and still be in a better position. The lower the value,
-// the more aggressive RFP is.
-#define RFP_THRESHOLD (131 * CP_SCALE_FACTOR)
+// Dynamic tunable parameters - these are now defined in tunable.hpp
+// Access them using the global tunable variables
 
-// Aspiration window size(s)
-// The aspiration window is the range of values we search
-// for the best move. If we fail to find the best move in
-// this range, we expand the window.
-#define ASPIRATION_WINDOW (36 * CP_SCALE_FACTOR)
-
-// Null-move pruning reduction value
-// This is the amount of depth we reduce the search by
-// when we do a null-move search
-#define NMP_R_VALUE 4
-
-// Delta pruning threshold
-// This is the threshold for delta pruning (in centipawns)
+// Delta pruning threshold (still hardcoded as it's not commonly tuned)
 #define DELTA_THRESHOLD (300 * CP_SCALE_FACTOR)
 
-// Futility pruning threshold
-// This is the threshold for futility pruning (in centipawns)
-#define FUTILITY_THRESHOLD (312 * CP_SCALE_FACTOR)
-#define FUTILITY_THRESHOLD2 (678 * CP_SCALE_FACTOR)
-
-// Razoring margin
-// This is the margin for razoring (in centipawns)
-#define RAZOR_MARGIN (250 * CP_SCALE_FACTOR)
-
-// Correction history table size
+// Correction history table size (structural constants, not tunable)
 #define CORRHIST_SZ 32768
 #define CORRHIST_GRAIN 256
 #define CORRHIST_WEIGHT 256
