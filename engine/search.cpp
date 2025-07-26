@@ -462,7 +462,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * full-depth re-search. This, however, doesn't happen often enough to slow down
 			 * the search.
 			 */
-			score = -__recurse(board, depth - reduction[i][depth], -alpha - 1, -alpha, -side, 0, ply+1);
+			int r = reduction[i][depth];
+			r -= improving;
+			if (r < 1) r = 1; // ensure we don't die
+			score = -__recurse(board, depth - r, -alpha - 1, -alpha, -side, 0, ply+1);
 			if (score > alpha) {
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
 			}
