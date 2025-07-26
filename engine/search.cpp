@@ -243,19 +243,15 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
  * - Killer moves (moves that have caused a beta cutoff in the past)
  * - Counter-move history (moves that have refuted other moves in the past)
  */
-pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<Move> &moves, int side, int depth, int ply, bool &entry_exists) {
+pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<Move> &moves, int side, int depth, int ply, TTable::TTEntry *tentry) {
 	pzstd::vector<std::pair<Move, Value>> scores;
 	// If we have a TTable entry *at all* for this position, we should use it
 	// Even if it falls outside of our alpha-beta window, it probably provides a decent move
-	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
-	Move entry = tentry ? tentry->best_move : NullMove;
-	entry_exists = false;
-	if (entry != NullMove) {
-		scores.push_back({entry, VALUE_INFINITE}); // Make the TT move first
-		entry_exists = true;
+	if (tentry && tentry->best_move != NullMove) {
+		scores.push_back({tentry->best_move, VALUE_INFINITE}); // Make the TT move first
 	}
 	for (Move &move : moves) {
-		if (move == entry) continue; // Don't add the TT move again
+		if (tentry && move == tentry->best_move) continue; // Don't add the TT move again
 		Value score = 0;
 		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
 			// score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
@@ -380,7 +376,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	// Null-move pruning
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 	int npawns_and_kings = _mm_popcnt_u64(board.piece_boards[PAWN] | board.piece_boards[KING]);
-	if (!in_check && npieces != npawns_and_kings) { // Avoid NMP in pawn endgames
+	if (!in_check && npieces != npawns_and_kings && cur_eval >= beta) { // Avoid NMP in pawn endgames
 		/**
 		 * This works off the *null-move observation*.
 		 * 
@@ -400,16 +396,26 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			return null_score;
 	}
 
+	// Razoring
+	if (!pv && !in_check && depth <= 3 && cur_eval + RAZOR_MARGIN * depth < alpha) {
+		/**
+		 * If we are losing by a lot, check w/ qsearch to see if we could possibly improve.
+		 * If not, we can prune the search.
+		 */
+		Value razor_score = quiesce(board, alpha, beta, side, ply);
+		if (razor_score < alpha)
+			return razor_score;
+	}
+
 	Value best = -VALUE_INFINITE;
 
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
-	bool entry_exists = false;
-	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, ply, entry_exists);
+	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, ply, tentry);
 	int end = scores.size();
 
-	if (depth > 4 && !entry_exists) {
+	if (depth > 4 && !tentry) {
 		depth -= 2; // Internal iterative reductions
 	}
 
@@ -557,8 +563,8 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
-	bool entry_exists = false;
-	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, 0, entry_exists);
+	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
+	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, 0, tentry);
 
 	// for (int i = 0; i < moves.size(); i++) { // Skip the TT move if it's not legal
 	// 	Move &move = scores[i].first;
