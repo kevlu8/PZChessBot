@@ -55,20 +55,20 @@ int main(int argc, char *argv[]) {
 					std::cerr << "Invalid hash size: " << optionint << std::endl;
 					continue;
 				}
-				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTEntry);
+				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTBucket);
 			}
 		} else if (command == "ucinewgame") {
 			board = Board(TT_SIZE);
 		} else if (command.substr(0, 8) == "position") {
 			// either `position startpos` or `position fen ...`
 			if (command.find("startpos") != std::string::npos) {
-				board = Board(TT_SIZE);
+				board.reset_startpos();
 			} else if (command.find("fen") != std::string::npos) {
 				std::string fen = command.substr(command.find("fen") + 4);
 				if (fen.find("moves") != std::string::npos) {
 					fen = fen.substr(0, fen.find("moves"));
 				}
-				board = Board(fen, TT_SIZE);
+				board.reset(fen);
 			}
 			if (command.find("moves") != std::string::npos) {
 				std::string moves = command.substr(command.find("moves") + 6);
