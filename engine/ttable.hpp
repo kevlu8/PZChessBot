@@ -56,7 +56,7 @@ struct TTable {
 
 	void store(uint64_t key, Value eval, uint8_t depth, TTFlag flag, Move best_move, uint8_t age);
 
-	TTEntry *probe(uint64_t key, Value alpha=VALUE_INFINITE, Value beta=-VALUE_INFINITE, Value depth=0);
+	TTEntry *probe(uint64_t key, Value depth=0);
 
 	constexpr uint64_t size() const { return tsize; }
 	constexpr uint64_t mxsize() const { return TT_SIZE * 2; }
