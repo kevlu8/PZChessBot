@@ -237,16 +237,14 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
  * Move ordering priority:
  * 1. TTMove (highest priority)
  * 2. Captures + promotions (sorted by MVV+CaptHist)
- * 3. Killer moves
- * 4. Other moves (sorted by history heuristic + counter-move heuristic)
+ * 3. Quiets (sorted by history heuristic + counter-move heuristic + killer bonus)
  */
 pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<Move> &moves, int side, int depth, int ply, TTable::TTEntry *tentry) {
 	pzstd::vector<std::pair<Move, Value>> scores;
 
 	const Value TT_MOVE_BASE = VALUE_INFINITE;
-	const Value CAPTURE_PROMO_BASE = 10000; // max value: base + mvv[queen] + max_history + promo = 10000 + 1002 + 16384 + 1002 = 28388
-	const Value KILLER_BASE = 9000; // basically doesn't matter, just order the killers first and second
-	const Value QUIET_BASE = -10000; // max value: base + max_history + cmh bonus = -10000 + 16384 + 1021 = 7405
+	const Value CAPTURE_PROMO_BASE = 12000; // max value: base + mvv[queen] + max_history + promo = 12000 + 1002 + 16384 + 1002 = 30388
+	const Value QUIET_BASE = -6000; // max value: base + max_history + cmh bonus = -6000 + 16384 + 1021 = 11405
 
 	for (Move &move : moves) {
 		// 1. TTMove must be first (don't do this outside loop because zobrist collisions can lead to illegal moves)
@@ -268,17 +266,16 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 			} else if (promo) {
 				score += PieceValue[move.promotion() + KNIGHT] - PawnValue;
 			}
-		} else if (move == killer[0][depth]) {
-			// 3. First killer move
-			score = KILLER_BASE + 2;
-		} else if (move == killer[1][depth]) {
-			// 3. Second killer move  
-			score = KILLER_BASE + 1;
 		} else {
-			// 4. Quiet moves
+			// 3. Quiets
 			score = QUIET_BASE + history[board.side][move.src()][move.dst()];
 			if (ply && move == cmh[board.side][line[ply-1].src()][line[ply-1].dst()]) {
 				score += 1021; // Counter-move bonus
+			}
+			if (move == killer[0][ply]) {
+				score += 1500; // Killer bonus
+			} else if (move == killer[1][ply]) {
+				score += 800; // Second killer bonus
 			}
 		}
 
