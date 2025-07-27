@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
 					std::cerr << "Invalid hash size: " << optionint << std::endl;
 					continue;
 				}
-				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTEntry);
+				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTBucket);
 			}
 		} else if (command == "ucinewgame") {
 			board = Board(TT_SIZE);
