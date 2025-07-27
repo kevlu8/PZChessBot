@@ -252,13 +252,14 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 		// 1. TTMove must be first (don't do this outside loop because zobrist collisions can lead to illegal moves)
 		if (tentry && move == tentry->best_move) {
 			scores.push_back({move, TT_MOVE_BASE});
+			continue;
 		}
 
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
 		bool promo = (move.type() == PROMOTION);
 
 		Value score = 0;
-		
+
 		if (capt || promo) {
 			// 2. Captures + promotions
 			score = CAPTURE_PROMO_BASE;
@@ -280,7 +281,7 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 				score += 1021; // Counter-move bonus
 			}
 		}
-		
+
 		scores.push_back({move, score});
 	}
 	
