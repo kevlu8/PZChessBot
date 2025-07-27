@@ -104,6 +104,29 @@ struct Board {
 		recompute_hash();
 	};
 
+	void reset_startpos() {
+		piece_boards[0] = Rank2Bits | Rank7Bits;
+		piece_boards[1] = square_bits(SQ_B1) | square_bits(SQ_G1) | square_bits(SQ_B8) | square_bits(SQ_G8);
+		piece_boards[2] = square_bits(SQ_C1) | square_bits(SQ_F1) | square_bits(SQ_C8) | square_bits(SQ_F8);
+		piece_boards[3] = square_bits(SQ_A1) | square_bits(SQ_H1) | square_bits(SQ_A8) | square_bits(SQ_H8);
+		piece_boards[4] = square_bits(SQ_D1) | square_bits(SQ_D8);
+		piece_boards[5] = square_bits(SQ_E1) | square_bits(SQ_E8);
+		piece_boards[6] = Rank1Bits | Rank2Bits;
+		piece_boards[7] = Rank7Bits | Rank8Bits;
+		side = WHITE;
+		castling = 0xf; // 1111
+		ep_square = SQ_NONE;
+		move_hist = std::stack<HistoryEntry>();
+		halfmove_hist = std::stack<uint8_t>();
+		recompute_hash();
+	}
+
+	void reset(std::string fen) {
+		reset_startpos(); // just to clear histories and stuff
+		load_fen(fen);
+		recompute_hash();
+	}
+
 	void load_fen(std::string);
 	std::string get_fen() const;
 	void print_board() const;
