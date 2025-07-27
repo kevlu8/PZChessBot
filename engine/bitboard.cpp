@@ -180,6 +180,42 @@ void Board::load_fen(std::string fen) {
 	recompute_hash();
 }
 
+void Board::reset_board() {
+	memset(piece_boards, 0, sizeof(piece_boards));
+	piece_boards[0] = Rank2Bits | Rank7Bits;  // Pawns
+	piece_boards[1] = square_bits(SQ_B1) | square_bits(SQ_G1) | square_bits(SQ_B8) | square_bits(SQ_G8);  // Knights
+	piece_boards[2] = square_bits(SQ_C1) | square_bits(SQ_F1) | square_bits(SQ_C8) | square_bits(SQ_F8);  // Bishops
+	piece_boards[3] = square_bits(SQ_A1) | square_bits(SQ_H1) | square_bits(SQ_A8) | square_bits(SQ_H8);  // Rooks
+	piece_boards[4] = square_bits(SQ_D1) | square_bits(SQ_D8);  // Queens
+	piece_boards[5] = square_bits(SQ_E1) | square_bits(SQ_E8);  // Kings
+	piece_boards[6] = Rank1Bits | Rank2Bits;  // White occupancy
+	piece_boards[7] = Rank7Bits | Rank8Bits;  // Black occupancy
+
+	Piece starting_mailbox[64] = {
+		WHITE_ROOK, WHITE_KNIGHT, WHITE_BISHOP, WHITE_QUEEN, WHITE_KING, WHITE_BISHOP, WHITE_KNIGHT, WHITE_ROOK,
+		WHITE_PAWN, WHITE_PAWN,   WHITE_PAWN,   WHITE_PAWN,  WHITE_PAWN, WHITE_PAWN,   WHITE_PAWN,   WHITE_PAWN,
+		NO_PIECE,   NO_PIECE,     NO_PIECE,     NO_PIECE,    NO_PIECE,   NO_PIECE,     NO_PIECE,     NO_PIECE,
+		NO_PIECE,   NO_PIECE,     NO_PIECE,     NO_PIECE,    NO_PIECE,   NO_PIECE,     NO_PIECE,     NO_PIECE,
+		NO_PIECE,   NO_PIECE,     NO_PIECE,     NO_PIECE,    NO_PIECE,   NO_PIECE,     NO_PIECE,     NO_PIECE,
+		NO_PIECE,   NO_PIECE,     NO_PIECE,     NO_PIECE,    NO_PIECE,   NO_PIECE,     NO_PIECE,     NO_PIECE,
+		BLACK_PAWN, BLACK_PAWN,   BLACK_PAWN,   BLACK_PAWN,  BLACK_PAWN, BLACK_PAWN,   BLACK_PAWN,   BLACK_PAWN,
+		BLACK_ROOK, BLACK_KNIGHT, BLACK_BISHOP, BLACK_QUEEN, BLACK_KING, BLACK_BISHOP, BLACK_KNIGHT, BLACK_ROOK
+	};
+	memcpy(mailbox, starting_mailbox, sizeof(mailbox));
+
+	side = WHITE;
+	halfmove = 0;
+	castling = 0xf;  // 1111
+	ep_square = SQ_NONE;
+
+	while (!move_hist.empty()) move_hist.pop();
+	while (!halfmove_hist.empty()) halfmove_hist.pop();
+
+	hash_hist.clear();
+
+	recompute_hash();
+}
+
 std::string Board::get_fen() const {
 	std::string res = "";
 	for (int rank = RANK_8; rank >= 0; rank--) {
