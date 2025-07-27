@@ -248,63 +248,42 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 	const Value KILLER_BASE = 9000; // basically doesn't matter, just order the killers first and second
 	const Value QUIET_BASE = -10000; // max value: base + max_history + cmh bonus = -10000 + 16384 + 1021 = 7405
 
-	// 1. TTMove - highest priority
-	if (tentry && tentry->best_move != NullMove) {
-		scores.push_back({tentry->best_move, TT_MOVE_BASE});
-	}
-
-	pzstd::vector<Move> captures_promos;
-	pzstd::vector<Move> killers;
-	pzstd::vector<Move> quiets;
-
 	for (Move &move : moves) {
-		if (tentry && move == tentry->best_move) continue; // Skip TT move already added
-		
-		bool is_capture = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
-		bool is_promotion = (move.type() == PROMOTION);
-		bool is_killer = (move == killer[0][depth] || move == killer[1][depth]);
-		
-		if (is_capture || is_promotion) {
-			captures_promos.push_back(move);
-		} else if (is_killer) {
-			killers.push_back(move);
-		} else {
-			quiets.push_back(move);
+		// 1. TTMove must be first (don't do this outside loop because zobrist collisions can lead to illegal moves)
+		if (tentry && move == tentry->best_move) {
+			scores.push_back({move, TT_MOVE_BASE});
 		}
-	}
 
-	// 2. Captures + promotions
-	for (Move &move : captures_promos) {
-		Value score = CAPTURE_PROMO_BASE;
-		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
-			score += PieceValue[board.mailbox[move.dst()] & 7] + capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
-		} else if (move.type() == PROMOTION) {
-			score += PieceValue[move.promotion() + KNIGHT] - PawnValue;
-		}
-		scores.push_back({move, score});
-	}
+		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
+		bool promo = (move.type() == PROMOTION);
 
-	// 3. Killer moves
-	for (Move &move : killers) {
-		Value score = KILLER_BASE;
-		if (move == killer[0][depth]) {
-			score += 2;
+		Value score = 0;
+		
+		if (capt || promo) {
+			// 2. Captures + promotions
+			score = CAPTURE_PROMO_BASE;
+			if (capt) {
+				score += PieceValue[board.mailbox[move.dst()] & 7] + capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
+			} else if (promo) {
+				score += PieceValue[move.promotion() + KNIGHT] - PawnValue;
+			}
+		} else if (move == killer[0][depth]) {
+			// 3. First killer move
+			score = KILLER_BASE + 2;
 		} else if (move == killer[1][depth]) {
-			score += 1;
+			// 3. Second killer move  
+			score = KILLER_BASE + 1;
+		} else {
+			// 4. Quiet moves
+			score = QUIET_BASE + history[board.side][move.src()][move.dst()];
+			if (ply && move == cmh[board.side][line[ply-1].src()][line[ply-1].dst()]) {
+				score += 1021; // Counter-move bonus
+			}
 		}
+		
 		scores.push_back({move, score});
 	}
-
-	// 4. Other moves (sorted by history + counter-move heuristic)
-	for (Move &move : quiets) {
-		Value score = QUIET_BASE;
-		score += history[board.side][move.src()][move.dst()];
-		if (ply && move == cmh[board.side][line[ply-1].src()][line[ply-1].dst()]) {
-			score += 1021; // Counter-move bonus
-		}
-		scores.push_back({move, score});
-	}
-
+	
 	return scores;
 }
 
