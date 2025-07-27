@@ -234,45 +234,77 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 
 /**
  * Order the moves based on various factors.
- * First, we check if we have a TTable entry for this position. If we do, we add it to the
- * beginning of the list, since it is almost definitely the best move. Then, the other moves
- * are sorted based on:
- * - MVV+CaptHist for captures
- * - Piece value for promotions
- * - History heuristic for quiet moves
- * - Killer moves (moves that have caused a beta cutoff in the past)
- * - Counter-move history (moves that have refuted other moves in the past)
+ * Move ordering priority:
+ * 1. TTMove (highest priority)
+ * 2. Captures + promotions (sorted by MVV+CaptHist)
+ * 3. Killer moves
+ * 4. Other moves (sorted by history heuristic + counter-move heuristic)
  */
 pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<Move> &moves, int side, int depth, int ply, TTable::TTEntry *tentry) {
 	pzstd::vector<std::pair<Move, Value>> scores;
-	// If we have a TTable entry *at all* for this position, we should use it
-	// Even if it falls outside of our alpha-beta window, it probably provides a decent move
+
+	const Value TT_MOVE_BASE = VALUE_INFINITE;
+	const Value CAPTURE_PROMO_BASE = 10000; // max value: base + mvv[queen] + max_history + promo = 10000 + 1002 + 16384 + 1002 = 28388
+	const Value KILLER_BASE = 9000; // basically doesn't matter, just order the killers first and second
+	const Value QUIET_BASE = -10000; // max value: base + max_history + cmh bonus = -10000 + 16384 + 1021 = 7405
+
+	// 1. TTMove - highest priority
 	if (tentry && tentry->best_move != NullMove) {
-		scores.push_back({tentry->best_move, VALUE_INFINITE}); // Make the TT move first
+		scores.push_back({tentry->best_move, TT_MOVE_BASE});
 	}
+
+	pzstd::vector<Move> captures_promos;
+	pzstd::vector<Move> killers;
+	pzstd::vector<Move> quiets;
+
 	for (Move &move : moves) {
-		if (tentry && move == tentry->best_move) continue; // Don't add the TT move again
-		Value score = 0;
-		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
-			// score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
-			score = PieceValue[board.mailbox[move.dst()] & 7] + capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
-		} else if (move.type() == PROMOTION) {
-			score = PieceValue[move.promotion() + KNIGHT] - PawnValue;
+		if (tentry && move == tentry->best_move) continue; // Skip TT move already added
+		
+		bool is_capture = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
+		bool is_promotion = (move.type() == PROMOTION);
+		bool is_killer = (move == killer[0][depth] || move == killer[1][depth]);
+		
+		if (is_capture || is_promotion) {
+			captures_promos.push_back(move);
+		} else if (is_killer) {
+			killers.push_back(move);
 		} else {
-			// Non-capture, non-promotion, so check history
-			score = history[board.side][move.src()][move.dst()];
+			quiets.push_back(move);
 		}
+	}
+
+	// 2. Captures + promotions
+	for (Move &move : captures_promos) {
+		Value score = CAPTURE_PROMO_BASE;
+		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
+			score += PieceValue[board.mailbox[move.dst()] & 7] + capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
+		} else if (move.type() == PROMOTION) {
+			score += PieceValue[move.promotion() + KNIGHT] - PawnValue;
+		}
+		scores.push_back({move, score});
+	}
+
+	// 3. Killer moves
+	for (Move &move : killers) {
+		Value score = KILLER_BASE;
 		if (move == killer[0][depth]) {
-			score += 1455; // Killer move bonus
+			score += 2;
 		} else if (move == killer[1][depth]) {
-			score += 814; // Second killer move bonus
+			score += 1;
 		}
+		scores.push_back({move, score});
+	}
+
+	// 4. Other moves (sorted by history + counter-move heuristic)
+	for (Move &move : quiets) {
+		Value score = QUIET_BASE;
+		score += history[board.side][move.src()][move.dst()];
 		if (ply && move == cmh[board.side][line[ply-1].src()][line[ply-1].dst()]) {
 			score += 1021; // Counter-move bonus
 		}
 		scores.push_back({move, score});
 	}
-	// std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
+
 	return scores;
 }
 
