@@ -446,7 +446,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
 		bool promo = (move.type() == PROMOTION);
 
-		if (line[ply].excl == NullMove && depth >= 6 && tentry && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->flags != UPPER_BOUND) {
+		if (line[ply].excl == NullMove && depth >= 8 && tentry && move == tentry->best_move && tentry->depth >= depth - 2 && tentry->flags != UPPER_BOUND) {
 			// Singular extension
 			line[ply].excl = move;
 			Value singular_beta = tentry->eval - 2 * depth;
