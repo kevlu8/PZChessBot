@@ -8,6 +8,7 @@ uint64_t mx_nodes = 1e18; // Maximum nodes to search
 uint64_t mxtime = 1000; // Maximum time to search in milliseconds
 bool early_exit = false, exit_allowed = false; // Whether or not to exit the search, and if we are allowed to exit (so we don't exit on the depth 1)
 clock_t start = 0;
+int nsearches = 0, nsingular = 0; // Number of searches and singular searches (debug)
 
 uint64_t perft(Board &board, int depth) {
 	// If white's turn is beginning and black is in check
@@ -347,7 +348,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	// Check for TTable cutoff
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
-	if (tentry && tentry->depth >= depth) {
+	if (tentry && tentry->depth >= depth && line[ply].excl == NullMove) {
 		// Check for cutoffs
 		if (tentry->flags == EXACT) {
 			return tentry->eval;
@@ -441,22 +442,25 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			continue;
 		}
 
-		line[ply].move = move;
-
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
 		bool promo = (move.type() == PROMOTION);
-
+		
 		if (line[ply].excl == NullMove && depth >= 8 && tentry && move == tentry->best_move && tentry->depth >= depth - 2 && tentry->flags != UPPER_BOUND) {
 			// Singular extension
 			line[ply].excl = move;
 			Value singular_beta = tentry->eval - 2 * depth;
 			Value singular_score = __recurse(board, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, ply);
 			line[ply].excl = NullMove; // Reset exclusion move
-
+			
+			nsearches++;
+			
 			if (singular_score < singular_beta) {
 				singular = true;
+				nsingular++;
 			}
 		}
+
+		line[ply].move = move;
 
 		if (depth <= 2 && i > 0 && !in_check && !capt && !promo && abs(alpha) < VALUE_MATE_MAX_PLY && abs(beta) < VALUE_MATE_MAX_PLY) {
 			/**
@@ -514,7 +518,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 
 		if (score >= beta) {
-			board.ttable.store(board.zobrist, best, depth, LOWER_BOUND, best_move, board.halfmove);
+			if (line[ply].excl == NullMove) {
+				board.ttable.store(board.zobrist, best, depth, LOWER_BOUND, best_move, board.halfmove);
+			}
 			if (killer[0][depth] != move) {
 				killer[1][depth] = killer[0][depth];
 				killer[0][depth] = move; // Update killer moves
@@ -564,10 +570,12 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 	}
 
-	if (best <= alpha) {
-		board.ttable.store(board.zobrist, alpha, depth, UPPER_BOUND, best_move, board.halfmove);
-	} else {
-		board.ttable.store(board.zobrist, best, depth, EXACT, best_move, board.halfmove);
+	if (line[ply].excl == NullMove) {
+		if (best <= alpha) {
+			board.ttable.store(board.zobrist, alpha, depth, UPPER_BOUND, best_move, board.halfmove);
+		} else {
+			board.ttable.store(board.zobrist, best, depth, EXACT, best_move, board.halfmove);
+		}
 	}
 
 	return best;
@@ -734,6 +742,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 				__print_pv();
 				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			}
+			// std::cout << "info string singular searches: " << nsearches << " singulars: " << nsingular << " miss rate: " << (nsearches ? 100 - (nsingular * 100.0 / nsearches) : 0) << "%" << std::endl;
 		}
 		#endif
 		
