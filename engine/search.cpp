@@ -261,11 +261,10 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 		if (capt || promo) {
 			// 2. Captures + promotions
 			score = CAPTURE_PROMO_BASE;
-			if (capt) {
+			if (capt)
 				score += PieceValue[board.mailbox[move.dst()] & 7] + capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
-			} else if (promo) {
+			if (promo)
 				score += PieceValue[move.promotion() + KNIGHT] - PawnValue;
-			}
 		} else {
 			// 3. Quiets
 			score = QUIET_BASE + history[board.side][move.src()][move.dst()];
