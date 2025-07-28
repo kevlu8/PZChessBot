@@ -448,7 +448,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (line[ply].excl == NullMove && depth >= 8 && tentry && move == tentry->best_move && tentry->depth >= depth - 2 && tentry->flags != UPPER_BOUND) {
 			// Singular extension
 			line[ply].excl = move;
-			Value singular_beta = tentry->eval - 2 * depth;
+			Value singular_beta = tentry->eval - 6 * depth;
 			Value singular_score = __recurse(board, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, ply);
 			line[ply].excl = NullMove; // Reset exclusion move
 			
@@ -742,7 +742,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 				__print_pv();
 				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			}
-			// std::cout << "info string singular searches: " << nsearches << " singulars: " << nsingular << " miss rate: " << (nsearches ? 100 - (nsingular * 100.0 / nsearches) : 0) << "%" << std::endl;
+			std::cout << "info string singular searches: " << nsearches << " singulars: " << nsingular << " miss rate: " << (nsearches ? 100 - (nsingular * 100.0 / nsearches) : 0) << "%" << std::endl;
 		}
 		#endif
 		
