@@ -109,6 +109,10 @@ struct Board {
 	void print_board() const;
 	bool sanity_check(char *);
 
+	void reset_board();
+	void reset_startpos() { reset_board(); }
+	void reset(std::string fen) { reset_board(); load_fen(fen); }
+
 	void make_move(Move);
 	void unmake_move();
 
