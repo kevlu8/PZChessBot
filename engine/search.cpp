@@ -104,7 +104,7 @@ Value corrhist_mat[2][CORRHIST_SZ]; // [side][material hash]
  */
 Move cmh[2][64][64];
 
-Move line[MAX_PLY]; // Currently searched line
+SSEntry line[MAX_PLY]; // Currently searched line
 
 Move pvtable[MAX_PLY][MAX_PLY];
 int pvlen[MAX_PLY];
@@ -268,7 +268,7 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 		} else {
 			// 3. Quiets
 			score = QUIET_BASE + history[board.side][move.src()][move.dst()];
-			if (ply && move == cmh[board.side][line[ply-1].src()][line[ply-1].dst()]) {
+			if (ply && move == cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()]) {
 				score += 1021; // Counter-move bonus
 			}
 			if (move == killer[0][ply]) {
@@ -433,11 +433,30 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	Move move = NullMove;
 	int i = 0;
+	bool singular = false;
+
 	while ((move = next_move(scores, end)) != NullMove) {
-		line[ply] = move;
+		if (move == line[ply].excl) {
+			i++; // Necessary so we don't do full search
+			continue;
+		}
+
+		line[ply].move = move;
 
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
 		bool promo = (move.type() == PROMOTION);
+
+		if (line[ply].excl == NullMove && depth >= 6 && tentry && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->flags != UPPER_BOUND) {
+			// Singular extension
+			line[ply].excl = move;
+			Value singular_beta = tentry->eval - 2 * depth;
+			Value singular_score = __recurse(board, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, ply);
+			line[ply].excl = NullMove; // Reset exclusion move
+
+			if (singular_score < singular_beta) {
+				singular = true;
+			}
+		}
 
 		if (depth <= 2 && i > 0 && !in_check && !capt && !promo && abs(alpha) < VALUE_MATE_MAX_PLY && abs(beta) < VALUE_MATE_MAX_PLY) {
 			/**
@@ -471,7 +490,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
 			}
 		} else {
-			score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
+			score = -__recurse(board, depth - 1 + singular, -beta, -alpha, -side, pv, ply+1);
 		}
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
@@ -506,7 +525,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				for (auto &qmove : quiets) {
 					update_history(board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
 				}
-				cmh[board.side][line[ply-1].src()][line[ply-1].dst()] = move; // Update counter-move history
+				cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()] = move; // Update counter-move history
 				if (!in_check && !promo && best > raw_eval) update_corrhist(board.side, pawn_hash, board.material_hash(), best - raw_eval, depth);
 			} else { // Capture
 				const Value bonus = 1.81 * depth * depth + 0.52 * depth + 0.40;
@@ -575,7 +594,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 			std::cout << "info depth " << depth << " currmove " << move.to_string() << " currmovenumber " << i+1 << std::endl;
 		}
 
-		line[0] = move;
+		line[0].move = move;
 		board.make_move(move);
 		Value score;
 		if (i > 0) {
