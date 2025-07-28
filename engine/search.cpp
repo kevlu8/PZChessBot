@@ -439,6 +439,15 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
 		bool promo = (move.type() == PROMOTION);
 
+		if (!in_check && !capt && !promo && i > 5 + 2 * depth * depth) {
+			/**
+			 * Late Move Pruning
+			 * 
+			 * Just skip later moves that probably aren't good
+			 */
+			continue;
+		}
+
 		if (depth <= 2 && i > 0 && !in_check && !capt && !promo && abs(alpha) < VALUE_MATE_MAX_PLY && abs(beta) < VALUE_MATE_MAX_PLY) {
 			/**
 			 * Futility pruning
