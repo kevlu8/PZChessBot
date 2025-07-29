@@ -15,12 +15,24 @@ int TT_SIZE = DEFAULT_TT_SIZE;
 
 int main(int argc, char *argv[]) {
 	if (argc == 2 && std::string(argv[1]) == "bench") {
+		const std::pair<std::string, int> bench_positions[] = {
+			{"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 12},
+			{"rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq - 0 6", 15},
+			{"2r1r3/1b1Q1p1k/pb4q1/6p1/8/P1N3NP/2P2PP1/R3R1K1 b - - 0 29", 15},
+			{"k7/8/8/8/8/8/P7/K7 w - - 0 1", 20},
+			{"k7/8/8/8/8/8/8/K6R w - - 0 1", 20},
+		};
 		Board board = Board(TT_SIZE);
 		init_network();
+		uint64_t tot_nodes = 0;
 		uint64_t start = clock();
-		search_depth(board, 12);
+		for (const auto &[fen, depth] : bench_positions) {
+			board.reset(fen);
+			search_depth(board, depth);
+			tot_nodes += nodes;
+		}
 		uint64_t end = clock();
-		std::cout << nodes << " nodes " << (nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
+		std::cout << tot_nodes << " nodes " << (tot_nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
 		return 0;
 	}
 	bool online = argc == 2 && std::string(argv[1]) == "--online";
