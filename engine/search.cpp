@@ -754,7 +754,6 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 				__print_pv();
 				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			}
-			std::cout << "info string singular searches: " << nsearches << " singulars: " << nsingular << " miss rate: " << (nsearches ? 100 - (nsingular * 100.0 / nsearches) : 0) << "%" << std::endl;
 		}
 		#endif
 		
