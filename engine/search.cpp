@@ -471,6 +471,18 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			continue;
 		}
 
+		if (!in_check && !capt && !promo && depth <= 5) {
+			/**
+			 * History pruning
+			 * 
+			 * Skip moves with very bad history scores
+			 */
+			Value hist = history[board.side][move.src()][move.dst()];
+			if (hist < -HISTORY_MARGIN * depth) {
+				continue;
+			}
+		}
+
 		if (depth <= 2 && i > 0 && !in_check && !capt && !promo && abs(alpha) < VALUE_MATE_MAX_PLY && abs(beta) < VALUE_MATE_MAX_PLY) {
 			/**
 			 * Futility pruning
