@@ -38,6 +38,10 @@
 // This is the margin for razoring (in centipawns)
 #define RAZOR_MARGIN (241 * CP_SCALE_FACTOR)
 
+// History pruning margin
+// This is the margin for history pruning (in centipawns)
+#define HISTORY_MARGIN (4000 * CP_SCALE_FACTOR)
+
 // Correction history table size
 #define CORRHIST_SZ 32768
 #define CORRHIST_GRAIN 256
