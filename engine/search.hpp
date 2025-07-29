@@ -12,12 +12,13 @@
 // and still be in a better position. The lower the value,
 // the more aggressive RFP is.
 #define RFP_THRESHOLD (131 * CP_SCALE_FACTOR)
+#define RFP_IMPROVING (30 * CP_SCALE_FACTOR)
 
 // Aspiration window size(s)
 // The aspiration window is the range of values we search
 // for the best move. If we fail to find the best move in
 // this range, we expand the window.
-#define ASPIRATION_WINDOW (36 * CP_SCALE_FACTOR)
+#define ASPIRATION_WINDOW (32 * CP_SCALE_FACTOR)
 
 // Null-move pruning reduction value
 // This is the amount of depth we reduce the search by
@@ -30,13 +31,28 @@
 
 // Futility pruning threshold
 // This is the threshold for futility pruning (in centipawns)
-#define FUTILITY_THRESHOLD (312 * CP_SCALE_FACTOR)
-#define FUTILITY_THRESHOLD2 (678 * CP_SCALE_FACTOR)
+#define FUTILITY_THRESHOLD (304 * CP_SCALE_FACTOR)
+#define FUTILITY_THRESHOLD2 (692 * CP_SCALE_FACTOR)
+
+// Razoring margin
+// This is the margin for razoring (in centipawns)
+#define RAZOR_MARGIN (241 * CP_SCALE_FACTOR)
+
+// History pruning margin
+// This is the margin for history pruning (in centipawns)
+#define HISTORY_MARGIN (4000 * CP_SCALE_FACTOR)
 
 // Correction history table size
 #define CORRHIST_SZ 32768
 #define CORRHIST_GRAIN 256
 #define CORRHIST_WEIGHT 256
+
+struct SSEntry {
+	Move move;
+	Value eval;
+	Move excl;
+	SSEntry() : move(NullMove), eval(VALUE_NONE), excl(NullMove) {}
+};
 
 struct SearchParams {
 	uint64_t nodes = 0;
@@ -51,7 +67,7 @@ struct SearchParams {
 	Value corrhist_ps[2][CORRHIST_SZ]; // [side][pawn hash]
 	Value corrhist_mat[2][CORRHIST_SZ]; // [side][material hash]
 	Move cmh[2][64][64]; // [side][src][dst]
-	Move line[MAX_PLY]; // Currently searched line
+	SSEntry line[MAX_PLY]; // Currently searched line
 	Move pvtable[MAX_PLY][MAX_PLY]; // [ply][move index]
 	int pvlen[MAX_PLY]; // [ply] length of the principal variation at that ply
 
@@ -91,6 +107,8 @@ struct SearchParams {
 		clear();
 	}
 };
+
+std::pair<Move, Value> search(Board &board, int64_t time = 1e9, bool quiet = false);
 
 std::pair<Move, Value> search(Board &board, SearchParams &params, BoardState &bs, int64_t time = 1e9, bool quiet = false);
 
