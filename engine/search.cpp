@@ -382,7 +382,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * 
 		 * We need to make sure that we aren't in check (since we might get mated)
 		 */
-		int margin = RFP_THRESHOLD * depth;
+		int margin = (RFP_THRESHOLD - improving * RFP_IMPROVING) * depth;
 		if (cur_eval >= beta + margin)
 			return cur_eval - margin;
 	}
