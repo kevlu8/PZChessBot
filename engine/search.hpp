@@ -12,6 +12,7 @@
 // and still be in a better position. The lower the value,
 // the more aggressive RFP is.
 #define RFP_THRESHOLD (131 * CP_SCALE_FACTOR)
+#define RFP_IMPROVING (30 * CP_SCALE_FACTOR)
 
 // Aspiration window size(s)
 // The aspiration window is the range of values we search
