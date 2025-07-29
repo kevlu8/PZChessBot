@@ -439,7 +439,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	Move move = NullMove;
 	int i = 0;
-	bool singular = false;
+	int extension = 0;
 
 	while ((move = next_move(scores, end)) != NullMove) {
 		if (move == line[ply].excl) {
@@ -460,8 +460,11 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			nsearches++;
 			
 			if (singular_score < singular_beta) {
-				singular = true;
+				extension++;
 				nsingular++;
+			} else if (tentry->eval >= beta) {
+				// Negative extensions
+				extension -= 3;
 			}
 		}
 
@@ -520,7 +523,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
 			}
 		} else {
-			score = -__recurse(board, depth - 1 + singular, -beta, -alpha, -side, pv, ply+1);
+			score = -__recurse(board, depth - 1 + extension, -beta, -alpha, -side, pv, ply+1);
 		}
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
@@ -768,7 +771,6 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 				__print_pv();
 				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			}
-			std::cout << "info string singular searches: " << nsearches << " singulars: " << nsingular << " miss rate: " << (nsearches ? 100 - (nsingular * 100.0 / nsearches) : 0) << "%" << std::endl;
 		}
 		#endif
 		
