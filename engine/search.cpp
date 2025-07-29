@@ -369,6 +369,11 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		apply_correction(board.side, pawn_hash, board.material_hash(), cur_eval);
 	}
 
+	line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
+
+	bool improving = false;
+	if (!in_check && ply >= 3 && line[ply-2].eval != VALUE_NONE && cur_eval > line[ply-2].eval) improving = true;
+
 	// Reverse futility pruning
 	if (!in_check && !pv) {
 		/**
