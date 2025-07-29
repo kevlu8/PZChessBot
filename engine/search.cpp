@@ -210,6 +210,9 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 			Value see = board.see_capture(move);
 			if (see < 0) {
 				continue; // Don't search moves that lose material
+			} else {
+				// sort of like delta pruning but more safe
+				if (DELTA_THRESHOLD + 4 * see + stand_pat < alpha) continue;
 			}
 		}
 
