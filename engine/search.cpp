@@ -40,8 +40,8 @@ uint16_t reduction[250][MAX_PLY];
 __attribute__((constructor)) void init_lmr(int i, int d) {
 	for (int i = 0; i < 250; i++) {
 		for (int d = 0; d < MAX_PLY; d++) {
-			if (d <= 1 || i <= 1) reduction[i][d] = 1;
-			else reduction[i][d] = 0.77 + log2(i) * log2(d) / 2.36;
+			if (d <= 1 || i <= 1) reduction[i][d] = 1024;
+			else reduction[i][d] = (0.77 + log2(i) * log2(d) / 2.36) * 1024;
 		}
 	}
 }
@@ -364,6 +364,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	Value cur_eval = 0;
 	Value raw_eval = 0; // For CorrHist
+	Value mat_eval = simple_eval(board) * side; // For CorrHist
 	uint64_t pawn_hash = 0;
 	if (!in_check) {
 		pawn_hash = board.pawn_struct_hash();
@@ -521,7 +522,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * full-depth re-search. This, however, doesn't happen often enough to slow down
 			 * the search.
 			 */
-			score = -__recurse(board, depth - reduction[i][depth], -alpha - 1, -alpha, -side, 0, ply+1);
+			Value r = reduction[i][depth];
+			score = -__recurse(board, depth - r / 1024, -alpha - 1, -alpha, -side, 0, ply+1);
 			if (score > alpha) {
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
 			}
@@ -638,7 +640,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		board.make_move(move);
 		Value score;
 		if (i > 0) {
-			score = -__recurse(board, depth - reduction[i][depth], -alpha - 1, -alpha, -side, 0);
+			score = -__recurse(board, depth - reduction[i][depth] / 1024, -alpha - 1, -alpha, -side, 0);
 			if (score > alpha) {
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0);
 			}

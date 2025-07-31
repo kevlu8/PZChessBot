@@ -67,6 +67,15 @@ void init_network() {
 #endif
 }
 
+Value simple_eval(Board &board) {
+	Value score = 0;
+	for (int i = 0; i < 6; i++) {
+		score += PieceValue[i] * _mm_popcnt_u64(board.piece_boards[i] & board.piece_boards[OCC(WHITE)]);
+		score -= PieceValue[i] * _mm_popcnt_u64(board.piece_boards[i] & board.piece_boards[OCC(BLACK)]);
+	}
+	return score;
+}
+
 #ifdef HCE
 Value eval(Board &board) {
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
