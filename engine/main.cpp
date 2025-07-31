@@ -121,6 +121,7 @@ int main(int argc, char *argv[]) {
 			int depth = -1;
 			int nodes = -1;
 			bool inf = false;
+			int movetime = -1;
 			ss >> token;
 			while (ss >> token) {
 				if (token == "wtime") {
@@ -137,6 +138,8 @@ int main(int argc, char *argv[]) {
 					inf = true;
 				} else if (token == "nodes") {
 					ss >> nodes;
+				} else if (token == "movetime") {
+					ss >> movetime;
 				}
 			}
 			int timeleft = board.side ? btime : wtime;
@@ -148,6 +151,8 @@ int main(int argc, char *argv[]) {
 				res = search_depth(board, depth);
 			else if (nodes != -1)
 				res = search_nodes(board, nodes);
+			else if (movetime != -1)
+				res = search(board, movetime);
 			else
 				res = search(board, timemgmt(timeleft, inc, online));
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
