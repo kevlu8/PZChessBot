@@ -8,7 +8,6 @@ uint64_t mx_nodes = 1e18; // Maximum nodes to search
 uint64_t mxtime = 1000; // Maximum time to search in milliseconds
 bool early_exit = false, exit_allowed = false; // Whether or not to exit the search, and if we are allowed to exit (so we don't exit on the depth 1)
 clock_t start = 0;
-int nsearches = 0, nsingular = 0; // Number of searches and singular searches (debug)
 
 uint64_t perft(Board &board, int depth) {
 	// If white's turn is beginning and black is in check
@@ -78,8 +77,6 @@ Move killer[2][MAX_PLY];
  * The history heuristic is a move ordering heuristic that helps sort quiet moves.
  * It works by storing its effectiveness in the past through beta cutoffs.
  * We store a history table for each side indexed by [src][dst].
- * 
- * TODO: check if overflows are possible (probably not?)
  */
 Value history[2][64][64];
 
@@ -100,8 +97,6 @@ Value corrhist_mat[2][CORRHIST_SZ]; // [side][material hash]
 /**
  * The counter-move heuristic is a move ordering heuristic that helps sort moves that
  * have refuted other moves in the past. It works by storing the move upon a beta cutoff.
- * 
- * TODO: am I even implementing this correctly?
  */
 Move cmh[2][64][64];
 
@@ -123,6 +118,7 @@ void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonu
 	capthist[piece][captured][dst] += cbonus - capthist[piece][captured][dst] * abs(bonus) / MAX_HISTORY;
 }
 
+// Moving exponential average for corrhist
 void update_corrhist(bool side, uint64_t pshash, uint64_t mathash, Value diff, int depth) {
 	const Value sdiff = diff * CORRHIST_GRAIN;
 	const Value weight = std::min(depth*depth, 128);
@@ -150,10 +146,7 @@ void apply_correction(bool side, uint64_t pshash, uint64_t mathash, Value &eval)
  * 
  * TODO:
  * - Search for checks and check evasions (every time I've tried this it has lost tons of elo)
- * - Delta pruning (sort of like futility pruning, see https://www.chessprogramming.org/Delta_Pruning)
  * - Late move reduction (instead of reducing depth, we reduce the search window) (not a known technique, maybe worth trying?)
- * - Static exchange evaluation (don't search moves that lose material, see https://www.chessprogramming.org/Static_Exchange_Evaluation)
- * (every time I have tried SEE it has also lost elo, but it's prob because our SEE impl is not good)
  */
 Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	nodes++;
@@ -175,7 +168,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	apply_correction(board.side, board.pawn_struct_hash(), board.material_hash(), stand_pat);
 
 	// If it's a mate, stop here since there's no point in searching further
-	// TODO: can we rely on mate scores in qsearch?
+	// Theoretically shouldn't ever happen because of stand pat
 	if (stand_pat == VALUE_MATE || stand_pat == -VALUE_MATE)
 		return stand_pat;
 
@@ -211,7 +204,8 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 			if (see < 0) {
 				continue; // Don't search moves that lose material
 			} else {
-				// sort of like delta pruning but more safe
+				// QS Futility pruning
+				// use see score for added safety
 				if (DELTA_THRESHOLD + 4 * see + stand_pat < alpha) continue;
 			}
 		}
@@ -460,12 +454,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			Value singular_beta = tentry->eval - 6 * depth;
 			Value singular_score = __recurse(board, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, ply);
 			line[ply].excl = NullMove; // Reset exclusion move
-			
-			nsearches++;
-			
+
 			if (singular_score < singular_beta) {
 				extension++;
-				nsingular++;
 			} else if (tentry->eval >= beta) {
 				// Negative extensions
 				extension -= 3;
@@ -488,6 +479,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * History pruning
 			 * 
 			 * Skip moves with very bad history scores
+			 * Depth condition is necessary to avoid overflow
 			 */
 			Value hist = history[board.side][move.src()][move.dst()];
 			if (hist < -HISTORY_MARGIN * depth) {
@@ -626,8 +618,6 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
 	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, 0, tentry);
 
-	// for (int i = 0; i < moves.size(); i++) { // Skip the TT move if it's not legal
-	// 	Move &move = scores[i].first;
 	Move move = NullMove;
 	int end = scores.size();
 	int i = 0;
