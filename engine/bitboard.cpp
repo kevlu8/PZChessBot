@@ -251,7 +251,22 @@ std::string Board::get_fen() const {
 		if (castling & BLACK_OOO)
 			res += "q";
 	}
-	return res; // Shortened fen (no ep, halfmove, etc) since we don't need those in datagen
+	
+	// En passant square
+	if (ep_square == SQ_NONE) {
+		res += " - ";
+	} else {
+		res += 'a' + (ep_square & 0b111);
+		res += '1' + (ep_square >> 3);
+		res += ' ';
+	}
+	// Halfmove clock
+	res += std::to_string(halfmove);
+
+	// Fullmove number
+	res += ' ';
+	res += std::to_string((hash_hist.size() / 2) + 1);
+	return res;
 }
 
 bool Board::sanity_check(char *print) {
