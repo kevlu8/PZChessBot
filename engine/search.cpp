@@ -515,6 +515,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * the search.
 			 */
 			Value r = reduction[i][depth];
+			r -= 512 * pv;
+			if (r < 1024) r = 1024; // ensure at least 1 ply reduction
 			score = -__recurse(board, depth - r / 1024, -alpha - 1, -alpha, -side, 0, ply+1);
 			if (score > alpha) {
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
