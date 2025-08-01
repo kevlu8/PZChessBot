@@ -516,6 +516,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 */
 			Value r = reduction[i][depth];
 			r -= 512 * pv;
+			if (tentry && (board.piece_boards[OCC(board.side)] & square_bits(tentry->best_move.dst())))
+				// reduce more if tentry is a capture
+				r += 800;
 			if (r < 1024) r = 1024; // ensure at least 1 ply reduction
 			score = -__recurse(board, depth - r / 1024, -alpha - 1, -alpha, -side, 0, ply+1);
 			if (score > alpha) {
