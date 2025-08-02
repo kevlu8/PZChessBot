@@ -241,6 +241,7 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 	pzstd::vector<std::pair<Move, Value>> scores;
 
 	const Value TT_MOVE_BASE = VALUE_INFINITE;
+	const Value RECAPTURE_BASE = 31500;
 	const Value CAPTURE_PROMO_BASE = 12000; // max value: base + mvv[queen] + max_history + promo = 12000 + 1002 + 16384 + 1002 = 30388
 	const Value QUIET_BASE = -6000; // max value: base + max_history + cmh bonus = -6000 + 16384 + 1021 = 11405
 
@@ -259,9 +260,14 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 		if (capt || promo) {
 			// 2. Captures + promotions
 			score = CAPTURE_PROMO_BASE;
-			if (capt)
+			// Check if it's a recapture first (dst == line[ply-1].move.dst())
+			if (capt && line[ply-1].move.dst() == move.dst()) {
+				score = RECAPTURE_BASE;
+				score -= PieceValue[board.mailbox[move.src()]]; // more valuable piece = less viable recapture
+			}
+			else if (capt)
 				score += PieceValue[board.mailbox[move.dst()] & 7] + capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
-			if (promo)
+			else if (promo)
 				score += PieceValue[move.promotion() + KNIGHT] - PawnValue;
 		} else {
 			// 3. Quiets
