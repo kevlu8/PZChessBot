@@ -118,9 +118,9 @@ struct Board {
 
 	void legal_moves(pzstd::vector<Move> &) const;
 	std::pair<int, int> control(int) const;
-	Value see(Square);
 	Value see_capture(Move);
 	Bitboard __lva(Square, int side, PieceType &p, Bitboard occ) const;
+	bool is_pseudolegal(Move) const;
 
 	void recompute_hash();
 

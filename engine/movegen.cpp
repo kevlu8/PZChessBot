@@ -10,6 +10,9 @@ Bitboard king_movetable[64];
 Bitboard rook_movetable[102400];
 Bitboard bishop_movetable[5248];
 
+Bitboard rook_blockers[64][64];
+Bitboard bishop_blockers[64][64];
+
 MagicEntry rook_magics[64];
 MagicEntry bishop_magics[64];
 
@@ -18,39 +21,49 @@ void gen_rook_moves(int sq, Bitboard piece) {
 	int idx = 0;
 	Bitboard rank = 0x00000000000000ff;
 	Bitboard file = 0x0101010101010101;
-	uint32_t offset;
-	if (sq == 0)
-		offset = 0;
-	else
-		offset = rook_magics[sq].offset;
+	if (sq != 0)
+		idx = rook_magics[sq].offset;
+
+	Bitboard rankray = rank << (sq & 0b111000);
+	Bitboard fileray = file << (sq & 0b111);
+
+	Bitboard west = rankray & (piece - 1);
+	Bitboard south = fileray & (piece - 1);
+	Bitboard east = rankray ^ west ^ piece;
+	Bitboard north = fileray ^ south ^ piece;
 	do {
 		// Generate moves for this board (bitwise magic don't ask)
-		Bitboard rankray = rank << (sq & 0b111000);
-		Bitboard fileray = file << (sq & 0b111);
-
 		Bitboard moves = 0;
-		Bitboard west = rankray & (piece - 1);
 		if (west & board)
-			moves |= west & ~((1LL << (63 - _lzcnt_u64(west & board))) - 1);
+			moves |= west & ~((1ULL << (63 - _lzcnt_u64(west & board))) - 1);
 		else
 			moves |= west;
-		Bitboard south = fileray & (piece - 1);
 		if (south & board)
-			moves |= south & ~((1LL << (63 - _lzcnt_u64(south & board))) - 1);
+			moves |= south & ~((1ULL << (63 - _lzcnt_u64(south & board))) - 1);
 		else
 			moves |= south;
-		Bitboard east = rankray ^ west ^ piece;
 		moves |= east & _blsmsk_u64(east & board);
-		Bitboard north = fileray ^ south ^ piece;
 		moves |= north & _blsmsk_u64(north & board);
 
-		rook_movetable[offset + idx] = moves;
+		rook_movetable[idx] = moves;
 		// Prepare next board (this works i promise)
 		board = (board - rook_magics[sq].mask) & rook_magics[sq].mask;
 		idx++;
 	} while (board);
 	if (sq != 63)
-		rook_magics[sq + 1].offset = offset + idx;
+		rook_magics[sq + 1].offset = idx;
+
+	// Generate blocker masks for all moves
+	board = square_bits((Square)sq);
+	for (int dst = sq; dst < 64; dst++, board <<= 1) {
+		if (board & east) {
+			rook_blockers[sq][dst] = east & _blsmsk_u64(board);
+			rook_blockers[dst][sq] = rook_blockers[sq][dst];
+		} else if (board & north) {
+			rook_blockers[sq][dst] = north & _blsmsk_u64(board);
+			rook_blockers[dst][sq] = rook_blockers[sq][dst];
+		}
+	}
 }
 
 void gen_bishop_moves(int sq, Bitboard piece) {
@@ -58,60 +71,73 @@ void gen_bishop_moves(int sq, Bitboard piece) {
 	int idx = 0;
 	Bitboard diag = 0x8040201008040201;
 	Bitboard anti_diag = 0x0102040810204080;
-	uint32_t offset;
-	if (sq == 0)
-		offset = 0;
+
+	int shift = (sq & 0b111) - (sq >> 3);
+	Bitboard diagray;
+	if (shift >= 0)
+		diagray = (diag >> (shift * 8));
 	else
-		offset = bishop_magics[sq].offset;
+		diagray = (diag << (-shift * 8));
+	Bitboard antiray;
+	shift = 7 - (sq & 0b111) - (sq >> 3);
+	if (shift >= 0)
+		antiray = (anti_diag >> (shift * 8));
+	else
+		antiray = (anti_diag << (-shift * 8));
+	Bitboard sw = diagray & (piece - 1);
+	Bitboard se = antiray & (piece - 1);
+	Bitboard ne = diagray ^ sw ^ piece;
+	Bitboard nw = antiray ^ se ^ piece;
+	if (sq != 0)
+		idx = bishop_magics[sq].offset;
 	do {
 		// Generate moves for this board (bitwise magic don't ask)
-		int shift = (sq & 0b111) - (sq >> 3);
-		Bitboard diagray;
-		if (shift >= 0)
-			diagray = (diag >> (shift * 8));
-		else
-			diagray = (diag << (-shift * 8));
-		Bitboard antiray;
-		shift = 7 - (sq & 0b111) - (sq >> 3);
-		if (shift >= 0)
-			antiray = (anti_diag >> (shift * 8));
-		else
-			antiray = (anti_diag << (-shift * 8));
-
 		Bitboard moves = 0;
-		Bitboard sw = diagray & (piece - 1);
 		if (sw & board)
-			moves |= sw & ~((1LL << (63 - _lzcnt_u64(sw & board))) - 1);
+			moves |= sw & ~((1ULL << (63 - _lzcnt_u64(sw & board))) - 1);
 		else
 			moves |= sw;
-		Bitboard se = antiray & (piece - 1);
 		if (se & board)
-			moves |= se & ~((1LL << (63 - _lzcnt_u64(se & board))) - 1);
+			moves |= se & ~((1ULL << (63 - _lzcnt_u64(se & board))) - 1);
 		else
 			moves |= se;
-		Bitboard ne = diagray ^ sw ^ piece;
 		moves |= ne & _blsmsk_u64(ne & board);
-		Bitboard nw = antiray ^ se ^ piece;
 		moves |= nw & _blsmsk_u64(nw & board);
 
-		bishop_movetable[offset + idx] = moves;
+		bishop_movetable[idx] = moves;
 		// Prepare next board (this works i promise)
 		board = (board - bishop_magics[sq].mask) & bishop_magics[sq].mask;
 		idx++;
 	} while (board);
 	if (sq != 63)
-		bishop_magics[sq + 1].offset = offset + idx;
+		bishop_magics[sq + 1].offset = idx;
+
+	// Generate blocker masks for all moves
+	board = square_bits((Square)sq);
+	for (int dst = sq; dst < 64; dst++, board <<= 1) {
+		if (board & ne) {
+			bishop_blockers[sq][dst] = ne & _blsmsk_u64(board);
+			bishop_blockers[dst][sq] = bishop_blockers[sq][dst];
+		} else if (board & nw) {
+			bishop_blockers[sq][dst] = nw & _blsmsk_u64(board);
+			bishop_blockers[dst][sq] = bishop_blockers[sq][dst];
+		}
+	}
 }
 
 // This function is called before main()
 __attribute__((constructor)) void init_movetables() {
-	// Initialize trivial bitboards
+	// Ban illegal sliding piece moves by masking every square by default
+	memset(rook_blockers, 0xff, sizeof(rook_blockers));
+	memset(bishop_blockers, 0xff, sizeof(bishop_blockers));
+
+	// Initialize elementary bitboards
 	Bitboard rank = 0x00000000000000ff;
 	Bitboard file = 0x0101010101010101;
 	Bitboard diag = 0x8040201008040201;
 	Bitboard anti_diag = 0x0102040810204080;
 	Bitboard piece = square_bits(SQ_A1);
-	for (int i = 0; piece; piece <<= 1, i++) {
+	for (int i = 0; piece != 0; piece <<= 1, i++) {
 		// Knight
 		Bitboard hor1 = ((piece & ~FileHBits) << 1) | ((piece & ~FileABits) >> 1);
 		Bitboard hor2 = ((piece & ~FileHBits & ~FileGBits) << 2) | ((piece & ~FileABits & ~FileBBits) >> 2);
@@ -551,7 +577,7 @@ Value Board::see_capture(Move move) {
 	occ ^= square_bits(src);
 
 	PieceType next_attacker = atkr;
-	
+
 	do {
 		d++;
 		gain[d] = PieceValue[next_attacker] - gain[d - 1]; // Speculative gain
@@ -559,17 +585,74 @@ Value Board::see_capture(Move move) {
 		side ^= 1;
 
 		Bitboard attackers = __lva(dst, side, next_attacker, occ);
-		if (!attackers) break;
+		if (!attackers)
+			break;
 
 		Square attacker_sq = Square(_tzcnt_u64(attackers));
 		occ ^= square_bits(attacker_sq);
-		
+
 	} while (true);
-	
+
 	// backtrack
 	while (--d) {
 		gain[d - 1] = -std::max(-gain[d - 1], gain[d]);
 	}
-	
+
 	return gain[0];
+}
+
+bool Board::is_pseudolegal(Move move) const {
+	// Must be our piece to move
+	if ((mailbox[move.src()] >> 3) != side)
+		return false;
+
+	// Cannot take our own piece
+	if ((mailbox[move.src()] >> 3) == side)
+		return false;
+
+	switch (mailbox[move.src()] & 7) {
+	case QUEEN:
+		if (bishop_blockers[move.src()][move.dst()] & (piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)]))
+			return false;
+		[[fallthrough]];
+	case ROOK:
+		return (rook_blockers[move.src()][move.dst()] & (piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)])) == 0;
+	case BISHOP:
+		return (bishop_blockers[move.src()][move.dst()] & (piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)])) == 0;
+	case KNIGHT:
+		return knight_movetable[move.src()] & square_bits(move.dst());
+	case PAWN:
+		if (move.type() == EN_PASSANT) [[unlikely]] {
+			return move.dst() == ep_square;
+		} else if (move.type() == PROMOTION) [[unlikely]] {
+			return true;
+		} else [[likely]] {
+			if (side == WHITE) {
+				if (move.dst() - move.src() == 8)
+					return (square_bits(move.dst()) & piece_boards[OCC(BLACK)]) == 0;
+				if (move.dst() - move.src() == 7 || move.dst() - move.src() == 9)
+					return square_bits(move.dst()) & piece_boards[OCC(BLACK)];
+				if (move.dst() - move.src() == 16)
+					return move.src() <= SQ_H2;
+			} else {
+				if (move.src() - move.dst() == 8)
+					return (square_bits(move.dst()) & piece_boards[OCC(WHITE)]) == 0;
+				if (move.src() - move.dst() == 7 || move.src() - move.dst() == 9)
+					return square_bits(move.dst()) & piece_boards[OCC(WHITE)];
+				if (move.src() - move.dst() == 16)
+					return move.src() >= SQ_A7;
+			}
+			return false;
+		}
+		break;
+	case KING:
+		if (move.type() == CASTLING) [[unlikely]] {
+			int rights_idx = ((move.dst() & 0b001100) ^ 0b000100) >> 2;
+			return castling & (1 << rights_idx);
+		} else [[likely]] {
+			return king_movetable[move.src()] & square_bits(move.dst());
+		}
+		break;
+	}
+	return false;
 }
