@@ -3,7 +3,166 @@
 #include "bitboard.hpp"
 #include "search.hpp"
 
+extern Bitboard rook_blockers[64][64];
+extern Bitboard bishop_blockers[64][64];
+
 TEST_SUITE("Legality checking") {
+	TEST_CASE("Rook blockers") {
+		// Make sure a -> b is the same as b -> a
+		SUBCASE("Symmetry") {
+			bool passed = true;
+			for (Square src = SQ_A1; src <= SQ_H8; src++) {
+				for (Square dst = Square(src + 1); dst <= SQ_H8; dst++) {
+					if (src == dst)
+						continue;
+
+					CAPTURE(to_string(src));
+					CAPTURE(to_string(dst));
+					SHORT_EQ(passed, rook_blockers[src][dst], rook_blockers[dst][src]);
+				}
+			}
+			REQUIRE(passed);
+		}
+
+		// Make sure the source square is included in all illegal moves but not in any legal moves
+		SUBCASE("Legality") {
+			bool passed = true;
+			Bitboard rank = 0x00000000000000ff;
+			Bitboard file = 0x0101010101010101;
+			for (Square src = SQ_A1; src <= SQ_H8; src++) {
+				Bitboard rankray = rank << (src & 0b111000);
+				Bitboard fileray = file << (src & 0b111);
+				for (Square dst = Square(src + 1); dst <= SQ_H8; dst++) {
+					bool legal = false;
+					if (src != dst)
+						legal = square_bits(dst) & (rankray | fileray);
+
+					CAPTURE(to_string(src));
+					CAPTURE(to_string(dst));
+					if (legal) {
+						SHORT_EQ(passed, rook_blockers[src][dst] & square_bits(src), 0);
+					} else {
+						SHORT_NE(passed, rook_blockers[src][dst] & square_bits(src), 0);
+					}
+				}
+			}
+			REQUIRE(passed);
+		}
+
+		// Check for correctness
+		SUBCASE("Validity") {
+			// Rows
+			for (Rank r1 = RANK_1; r1 <= RANK_8; r1++) {
+				for (File f1 = FILE_A; f1 < FILE_H; f1++) {
+					Bitboard mask = 0;
+					for (File f2 = File(f1 + 1); f2 <= FILE_H; f2++) {
+						Square src = make_square(f1, r1);
+						Square dst = make_square(f2, r1);
+						CHECK_EQ(rook_blockers[src][dst], mask);
+						mask |= square_bits(dst);
+					}
+				}
+			}
+			// Cols
+			for (Rank r1 = RANK_1; r1 < RANK_8; r1++) {
+				for (File f1 = FILE_A; f1 <= FILE_H; f1++) {
+					Bitboard mask = 0;
+					for (Rank r2 = Rank(r1 + 1); r2 <= RANK_8; r2++) {
+						Square src = make_square(f1, r1);
+						Square dst = make_square(f1, r2);
+						CHECK_EQ(rook_blockers[src][dst], mask);
+						mask |= square_bits(dst);
+					}
+				}
+			}
+		}
+	}
+
+	TEST_CASE("Bishop blockers") {
+		// Make sure a -> b is the same as b -> a
+		SUBCASE("Symmetry") {
+			bool passed = true;
+			for (Square src = SQ_A1; src <= SQ_H8; src++) {
+				for (Square dst = Square(src + 1); dst <= SQ_H8; dst++) {
+					if (src == dst)
+						continue;
+
+					CAPTURE(to_string(src));
+					CAPTURE(to_string(dst));
+					SHORT_EQ(passed, bishop_blockers[src][dst], bishop_blockers[dst][src]);
+				}
+			}
+			REQUIRE(passed);
+		}
+
+		// Make sure the source square is included in all illegal moves but not in any legal moves
+		SUBCASE("Legality") {
+			bool passed = true;
+			Bitboard diag = 0x8040201008040201;
+			Bitboard anti = 0x0102040810204080;
+			for (Square src = SQ_A1; src <= SQ_H8; src++) {
+				int shift = (src & 0b111) - (src >> 3);
+				Bitboard diagray;
+				if (shift >= 0)
+					diagray = (diag >> (shift * 8));
+				else
+					diagray = (diag << (-shift * 8));
+				Bitboard antiray;
+				shift = 7 - (src & 0b111) - (src >> 3);
+				if (shift >= 0)
+					antiray = (anti >> (shift * 8));
+				else
+					antiray = (anti << (-shift * 8));
+				for (Square dst = Square(src + 1); dst <= SQ_H8; dst++) {
+					bool legal = false;
+					if (src != dst)
+						legal = square_bits(dst) & (diagray | antiray);
+
+					CAPTURE(to_string(src));
+					CAPTURE(to_string(dst));
+					if (legal) {
+						SHORT_EQ(passed, bishop_blockers[src][dst] & square_bits(src), 0);
+					} else {
+						SHORT_NE(passed, bishop_blockers[src][dst] & square_bits(src), 0);
+					}
+				}
+			}
+			REQUIRE(passed);
+		}
+
+		// Check for correctness
+		SUBCASE("Validity") {
+			// Diagonals
+			for (Rank r1 = RANK_2; r1 <= RANK_8; r1++) {
+				for (File f1 = FILE_B; f1 <= FILE_H; f1++) {
+					Bitboard mask = 0;
+					for (int off = 1; off <= std::min((int)r1, (int)f1); off++) {
+						Square src = make_square(f1, r1);
+						Square dst = make_square(File(f1 - off), Rank(r1 - off));
+						CAPTURE(to_string(src));
+						CAPTURE(to_string(dst));
+						CHECK_EQ(bishop_blockers[src][dst], mask);
+						mask |= square_bits(dst);
+					}
+				}
+			}
+			// Antidiagonals
+			for (Rank r1 = RANK_2; r1 <= RANK_8; r1++) {
+				for (File f1 = FILE_A; f1 < FILE_H; f1++) {
+					Bitboard mask = 0;
+					for (int off = 1; off <= std::min((int)r1, FILE_H - f1); off++) {
+						Square src = make_square(f1, r1);
+						Square dst = make_square(File(f1 + off), Rank(r1 - off));
+						CAPTURE(to_string(src));
+						CAPTURE(to_string(dst));
+						CHECK_EQ(bishop_blockers[src][dst], mask);
+						mask |= square_bits(dst);
+					}
+				}
+			}
+		}
+	}
+
 	TEST_CASE("is_pseudolegal") {
 		Board board;
 		pzstd::vector<Move> moves;
@@ -83,15 +242,11 @@ TEST_SUITE("Legality checking") {
 				bool good = true;
 				for (const Move &move : special) {
 					CAPTURE(move.to_string());
-					if (board.is_pseudolegal(move) != (moves.count(move) > 0))
-						good = false;
-					CHECK_EQ(board.is_pseudolegal(move), moves.count(move) > 0);
+					SHORT_EQ(good, board.is_pseudolegal(move), moves.count(move) > 0);
 				}
 				for (const Move &move : normal) {
 					CAPTURE(move.to_string());
-					if (board.is_pseudolegal(move) != (moves.count(move) > 0))
-						good = false;
-					CHECK_EQ(board.is_pseudolegal(move), moves.count(move) > 0);
+					SHORT_EQ(good, board.is_pseudolegal(move), moves.count(move) > 0);
 				}
 
 				if (!good) {

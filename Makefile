@@ -8,30 +8,34 @@ DEBUGFLAGS = -g -fsanitize=address,undefined
 
 SRCS := $(wildcard engine/*.cpp engine/nnue/*.cpp)
 HDRS := $(wildcard engine/*.hpp engine/nnue/*.hpp)
-OBJS := $(SRCS:.cpp=.o)
+ROBJS := $(SRCS:.cpp=.o)
+DOBJS := $(SRCS:.cpp=.d.o)
 
 .PHONY: release debug test clean
 
 release: CXXFLAGS += $(RELEASEFLAGS)
-release: $(EXE)
+release: $(ROBJS)
+	make OBJS="$(ROBJS)" CXXFLAGS="$(CXXFLAGS) $(RELEASEFLAGS)" $(EXE)
 
 debug: CXXFLAGS += $(DEBUGFLAGS)
-debug: $(EXE)
+debug: $(DOBJS)
+	make OBJS="$(DOBJS)" CXXFLAGS="$(CXXFLAGS) $(DEBUGFLAGS)" $(EXE)
 
 $(EXE): $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^
 	@echo "Build complete. Run with './$(EXE)'"
 
-%.o: %.cpp $(HDRS)
+%.o: %.cpp $(HDRS) Makefile
+%.d.o: %.cpp $(HDRS) Makefile
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-test: $(OBJS)
-	$(AR) rcs test/objs.a $(OBJS)
+test: $(ROBJS)
+	$(AR) rcs test/objs.a $(ROBJS)
 	make -C test CXXFLAGS="$(CXXFLAGS)"
 
 clean:
 	@echo "Cleaning up..."
 	rm -f $(EXE)
-	rm -f $(OBJS)
+	rm -f $(ROBJS) $(DOBJS)
 	rm -f test/objs.a
 	make -C test clean

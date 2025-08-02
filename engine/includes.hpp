@@ -134,6 +134,11 @@ inline constexpr Square operator++(Square &square, int) {
 	return square = Square(square + 1);
 }
 
+inline std::string to_string(Square square) {
+	if (square >= SQ_NONE) return "None";
+	return std::string(1, 'a' + (square % 8)) + std::to_string(1 + (square / 8));
+}
+
 enum MoveType {
 	NORMAL,
 	PROMOTION = 1 << 14,

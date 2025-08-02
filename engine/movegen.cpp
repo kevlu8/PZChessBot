@@ -57,10 +57,10 @@ void gen_rook_moves(int sq, Bitboard piece) {
 	board = square_bits((Square)sq);
 	for (int dst = sq; dst < 64; dst++, board <<= 1) {
 		if (board & east) {
-			rook_blockers[sq][dst] = east & _blsmsk_u64(board);
+			rook_blockers[sq][dst] = east & (_blsmsk_u64(board) >> 1);
 			rook_blockers[dst][sq] = rook_blockers[sq][dst];
 		} else if (board & north) {
-			rook_blockers[sq][dst] = north & _blsmsk_u64(board);
+			rook_blockers[sq][dst] = north & (_blsmsk_u64(board) >> 1);
 			rook_blockers[dst][sq] = rook_blockers[sq][dst];
 		}
 	}
@@ -116,10 +116,10 @@ void gen_bishop_moves(int sq, Bitboard piece) {
 	board = square_bits((Square)sq);
 	for (int dst = sq; dst < 64; dst++, board <<= 1) {
 		if (board & ne) {
-			bishop_blockers[sq][dst] = ne & _blsmsk_u64(board);
+			bishop_blockers[sq][dst] = ne & (_blsmsk_u64(board) >> 1);
 			bishop_blockers[dst][sq] = bishop_blockers[sq][dst];
 		} else if (board & nw) {
-			bishop_blockers[sq][dst] = nw & _blsmsk_u64(board);
+			bishop_blockers[sq][dst] = nw & (_blsmsk_u64(board) >> 1);
 			bishop_blockers[dst][sq] = bishop_blockers[sq][dst];
 		}
 	}
@@ -612,8 +612,8 @@ bool Board::is_pseudolegal(Move move) const {
 
 	switch (mailbox[move.src()] & 7) {
 	case QUEEN:
-		if (bishop_blockers[move.src()][move.dst()] & (piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)]))
-			return false;
+		if ((bishop_blockers[move.src()][move.dst()] & (piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)])) == 0)
+			return true;
 		[[fallthrough]];
 	case ROOK:
 		return (rook_blockers[move.src()][move.dst()] & (piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)])) == 0;
@@ -652,7 +652,9 @@ bool Board::is_pseudolegal(Move move) const {
 	case KING:
 		if (move.type() == CASTLING) [[unlikely]] {
 			int rights_idx = ((move.dst() & 0b001100) ^ 0b000100) >> 2;
-			return castling & (1 << rights_idx);
+			if ((castling & (1 << rights_idx)) == 0)
+				return false;
+			return (rook_blockers[move.src()][move.dst()] & (piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)])) == 0;
 		} else [[likely]] {
 			return king_movetable[move.src()] & square_bits(move.dst());
 		}
