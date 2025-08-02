@@ -1,8 +1,8 @@
 #include "includes.hpp"
 
+#include <random>
 #include <sstream>
 #include <thread>
-#include <random>
 
 #include "bitboard.hpp"
 #include "eval.hpp"
@@ -14,6 +14,7 @@ BoardState bs;
 
 int TT_SIZE = DEFAULT_TT_SIZE;
 
+__attribute__((weak))
 int main(int argc, char *argv[]) {
 	if (argc == 2 && std::string(argv[1]) == "bench") {
 		const std::pair<std::string, int> bench_positions[] = {

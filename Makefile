@@ -10,7 +10,7 @@ SRCS := $(wildcard engine/*.cpp engine/nnue/*.cpp)
 HDRS := $(wildcard engine/*.hpp engine/nnue/*.hpp)
 OBJS := $(SRCS:.cpp=.o)
 
-.PHONY: release debug clean
+.PHONY: release debug test clean
 
 release: CXXFLAGS += $(RELEASEFLAGS)
 release: $(EXE)
@@ -25,7 +25,14 @@ $(EXE): $(OBJS)
 %.o: %.cpp $(HDRS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+test: $(OBJS)
+	$(AR) rcs test/objs.a $(OBJS)
+	export CXXFLAGS="$(CXXFLAGS) $(RELEASEFLAGS)"
+	make -C test
+
 clean:
 	@echo "Cleaning up..."
 	rm -f $(EXE)
 	rm -f $(OBJS)
+	rm -f test/objs.a
+	make -C test clean
