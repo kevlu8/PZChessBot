@@ -872,6 +872,6 @@ std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
 
 std::pair<Move, Value> search_nodes(Board &board, uint64_t nodes, bool quiet) {
 	mx_nodes = nodes;
-	auto res = search(board, quiet=quiet);
+	auto res = search(board, 1e9, quiet);
 	return res;
 } // Search for a given number of nodes

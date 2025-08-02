@@ -610,6 +610,12 @@ bool Board::is_pseudolegal(Move move) const {
 	if (mailbox[move.dst()] != NO_PIECE && (mailbox[move.dst()] >> 3) == side)
 		return false;
 
+	if ((move.type() == PROMOTION || move.type() == EN_PASSANT) && (mailbox[move.src()] & 7) != PAWN)
+		return false;
+
+	if (move.type() == CASTLING && (mailbox[move.src()] & 7) != KING)
+		return false;
+
 	switch (mailbox[move.src()] & 7) {
 	case QUEEN:
 		if ((bishop_blockers[move.src()][move.dst()] & (piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)])) == 0)
@@ -625,26 +631,34 @@ bool Board::is_pseudolegal(Move move) const {
 		if (move.type() == EN_PASSANT) [[unlikely]] {
 			return move.dst() == ep_square;
 		} else if (move.type() == PROMOTION) [[unlikely]] {
-			if (side == WHITE)
-				return move.dst() > move.src();
+			if (side == WHITE && move.dst() <= move.src())
+				return false;
+			if (side == BLACK && move.dst() >= move.src())
+				return false;
+
+			if ((move.src() & 7) != (move.dst() & 7))
+				return square_bits(move.dst()) & piece_boards[OPPOCC(side)];
 			else
-				return move.dst() < move.src();
+				return true;
 		} else [[likely]] {
 			if (side == WHITE) {
 				if (move.dst() - move.src() == 8)
-					return (square_bits(move.dst()) & piece_boards[OCC(BLACK)]) == 0;
-				if (move.dst() - move.src() == 7 || move.dst() - move.src() == 9)
+					return mailbox[move.dst()] == NO_PIECE;
+				if ((move.src() & 7) != FILE_A && move.dst() - move.src() == 7)
+					return square_bits(move.dst()) & piece_boards[OCC(BLACK)];
+				if ((move.src() & 7) != FILE_H && move.dst() - move.src() == 9)
 					return square_bits(move.dst()) & piece_boards[OCC(BLACK)];
 				if (move.dst() - move.src() == 16)
-					return move.src() <= SQ_H2 && mailbox[move.src() + 8] == NO_PIECE;
+					return move.src() <= SQ_H2 && mailbox[move.dst()] == NO_PIECE && mailbox[move.src() + 8] == NO_PIECE;
 			} else {
 				if (move.src() - move.dst() == 8)
-					return (square_bits(move.dst()) & piece_boards[OCC(WHITE)]) == 0;
-				if (move.src() - move.dst() == 7 || move.src() - move.dst() == 9)
+					return mailbox[move.dst()] == NO_PIECE;
+				if ((move.src() & 7) != FILE_A && move.src() - move.dst() == 9)
+					return square_bits(move.dst()) & piece_boards[OCC(WHITE)];
+				if ((move.src() & 7) != FILE_H && move.src() - move.dst() == 7)
 					return square_bits(move.dst()) & piece_boards[OCC(WHITE)];
 				if (move.src() - move.dst() == 16)
-					return move.src() >= SQ_A7 && mailbox[move.src() - 8] == NO_PIECE;
-				;
+					return move.src() >= SQ_A7 && mailbox[move.dst()] == NO_PIECE && mailbox[move.src() - 8] == NO_PIECE;
 			}
 			return false;
 		}
@@ -654,7 +668,26 @@ bool Board::is_pseudolegal(Move move) const {
 			int rights_idx = ((move.dst() & 0b001100) ^ 0b000100) >> 2;
 			if ((castling & (1 << rights_idx)) == 0)
 				return false;
-			return (rook_blockers[move.src()][move.dst()] & (piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)])) == 0;
+
+			Bitboard mask = 0;
+			if (rights_idx == 0b00) {
+				if (control(SQ_F1).second)
+					return false;
+				mask = rook_blockers[SQ_E1][SQ_H1];
+			} else if (rights_idx == 0b01) {
+				if (control(SQ_D1).second)
+					return false;
+				mask = rook_blockers[SQ_E1][SQ_A1];
+			} else if (rights_idx == 0b10) {
+				if (control(SQ_F8).first)
+					return false;
+				mask = rook_blockers[SQ_E8][SQ_H8];
+			} else if (rights_idx == 0b11) {
+				if (control(SQ_D8).first)
+					return false;
+				mask = rook_blockers[SQ_E8][SQ_A8];
+			}
+			return (mask & (piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)])) == 0;
 		} else [[likely]] {
 			return king_movetable[move.src()] & square_bits(move.dst());
 		}

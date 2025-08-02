@@ -3,7 +3,7 @@ EVALFILE ?= nnue.bin
 
 CXX := g++
 CXXFLAGS := -std=c++17 -DNNUE_PATH=\"$(EVALFILE)\" -mavx2 -mbmi2 -mbmi -mavx -m64 -mpopcnt -mlzcnt
-RELEASEFLAGS = -O3 -static
+RELEASEFLAGS = -O3
 DEBUGFLAGS = -g -fsanitize=address,undefined
 
 SRCS := $(wildcard engine/*.cpp engine/nnue/*.cpp)
@@ -13,7 +13,7 @@ DOBJS := $(SRCS:.cpp=.d.o)
 
 .PHONY: release debug test clean
 
-release: CXXFLAGS += $(RELEASEFLAGS)
+release: CXXFLAGS += $(RELEASEFLAGS) -static
 release: $(ROBJS)
 	make OBJS="$(ROBJS)" CXXFLAGS="$(CXXFLAGS) $(RELEASEFLAGS)" $(EXE)
 
@@ -29,6 +29,12 @@ $(EXE): $(OBJS)
 %.d.o: %.cpp $(HDRS) Makefile
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+debug-test: CXXFLAGS += $(DEBUGFLAGS)
+debug-test: $(DOBJS)
+	$(AR) rcs test/objs.a $(DOBJS)
+	make -C test CXXFLAGS="$(CXXFLAGS)" debug
+
+test: CXXFLAGS += $(RELEASEFLAGS)
 test: $(ROBJS)
 	$(AR) rcs test/objs.a $(ROBJS)
 	make -C test CXXFLAGS="$(CXXFLAGS)"

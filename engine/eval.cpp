@@ -57,7 +57,7 @@ float multi(int x) {
 }
 #endif
 
-void init_network() {
+__attribute__((constructor)) void init_network() {
 #ifndef HCE
 	nnue_network.load();
 	for (int i = 0; i < HL_SIZE; i++) {

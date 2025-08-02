@@ -229,17 +229,18 @@ TEST_SUITE("Legality checking") {
 		}
 
 		SUBCASE("Opening") {
-			board.load_fen("r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3");
-			for (int i = 0; i < 20; i++) {
+			board.reset("rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq - 0 6");
+			const int MAX = 20;
+			bool good = true;
+			for (int i = 0; i < MAX; i++) {
 				// Play best move
-				auto res = search(board, 100, false);
+				auto res = search_nodes(board, 15000, true);
 				Move move = res.first;
 				board.make_move(move);
 
 				// Check correctness
 				moves.clear();
 				board.legal_moves(moves);
-				bool good = true;
 				for (const Move &move : special) {
 					CAPTURE(move.to_string());
 					SHORT_EQ(good, board.is_pseudolegal(move), moves.count(move) > 0);
@@ -250,11 +251,80 @@ TEST_SUITE("Legality checking") {
 				}
 
 				if (!good) {
-					MESSAGE("Test failed after ", i + 1, " moves");
-					MESSAGE("Last move: ", move.to_string());
+					MESSAGE(move.to_string(), ": \x1b[31mFAILED\x1b[0m ", i + 1, "/20");
 					MESSAGE(board.get_fen(), board.print_board());
 					break;
 				}
+				MESSAGE(move.to_string(), ": \x1b[32mPASSED\x1b[0m ", i + 1, "/", MAX);
+
+				board.reset(board.get_fen());
+			}
+			if (good)
+				MESSAGE(board.get_fen(), board.print_board());
+		}
+
+		SUBCASE("Endgame") {
+			board.reset("3k4/8/3K4/3P4/8/8/8/8 b - - 0 1");
+			const int MAX = 27;
+			bool good = true;
+			for (int i = 0; i < MAX; i++) {
+				// Play best move
+				auto res = search_nodes(board, 15000, true);
+				Move move = res.first;
+				board.make_move(move);
+
+				// Check correctness
+				moves.clear();
+				board.legal_moves(moves);
+				for (const Move &move : special) {
+					CAPTURE(move.to_string());
+					SHORT_EQ(good, board.is_pseudolegal(move), moves.count(move) > 0);
+				}
+				for (const Move &move : normal) {
+					CAPTURE(move.to_string());
+					SHORT_EQ(good, board.is_pseudolegal(move), moves.count(move) > 0);
+				}
+
+				if (!good) {
+					MESSAGE(move.to_string(), ": \x1b[31mFAILED\x1b[0m ", i + 1, "/20");
+					MESSAGE(board.get_fen(), board.print_board());
+					break;
+				}
+				MESSAGE(move.to_string(), ": \x1b[32mPASSED\x1b[0m ", i + 1, "/", MAX);
+
+				board.reset(board.get_fen());
+			}
+			if (good)
+				MESSAGE(board.get_fen(), board.print_board());
+		}
+
+		SUBCASE("Stress test") {
+			board.reset("1r1r1r1r/P1P1P1P1/p2k4/1p1Pp1p1/P5pP/8/8/R3K2R w KQ e6 0 1");
+			moves.clear();
+			board.legal_moves(moves);
+
+			// Check all valid moves
+			for (const Move &move : special) {
+				CAPTURE(move.to_string());
+				CHECK_EQ(board.is_pseudolegal(move), moves.count(move) > 0);
+			}
+			for (const Move &move : normal) {
+				CAPTURE(move.to_string());
+				CHECK_EQ(board.is_pseudolegal(move), moves.count(move) > 0);
+			}
+
+			board.reset("r3k2r/8/8/P6p/p2pP1P1/1P1K3P/1p1p1p1p/R1R1R1R1 b kq e3 0 1");
+			moves.clear();
+			board.legal_moves(moves);
+
+			// Check all valid moves
+			for (const Move &move : special) {
+				CAPTURE(move.to_string());
+				CHECK_EQ(board.is_pseudolegal(move), moves.count(move) > 0);
+			}
+			for (const Move &move : normal) {
+				CAPTURE(move.to_string());
+				CHECK_EQ(board.is_pseudolegal(move), moves.count(move) > 0);
 			}
 		}
 	}

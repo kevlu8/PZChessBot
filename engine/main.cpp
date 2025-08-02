@@ -26,7 +26,6 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			{"k7/8/8/8/8/8/8/K6R w - - 0 1", 20},
 		};
 		Board board = Board(TT_SIZE);
-		init_network();
 		uint64_t tot_nodes = 0;
 		uint64_t start = clock();
 		for (const auto &[fen, depth] : bench_positions) {
@@ -54,7 +53,6 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				ss >> token; // ignore book for now
 		}
 		Board board = Board(TT_SIZE);
-		init_network();
 		std::mt19937 rng(s);
 		while (n--) {
 			board.reset_startpos();
@@ -80,7 +78,6 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 	std::cout << "PZChessBot " << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
 	std::string command;
 	Board board = Board(TT_SIZE);
-	init_network();
 	std::thread searchthread;
 	while (getline(std::cin, command)) {
 		if (command == "uci") {
