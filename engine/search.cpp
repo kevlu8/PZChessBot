@@ -402,7 +402,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 */
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
-		Value null_score = -__recurse(board, depth - NMP_R_VALUE, -beta, -beta + 1, -side, pv, ply+1);
+		Value null_score = -__recurse(board, depth - NMP_R_VALUE, -beta, -beta + 1, -side, 0, ply+1);
 		board.unmake_move();
 		if (null_score >= beta)
 			return null_score;
@@ -501,7 +501,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		board.make_move(move);
 
 		Value score;
-		if (i > 0) {
+		if (i > 0 || !pv) {
 			/**
 			 * PV Search (principal variation)
 			 * 
@@ -522,10 +522,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (r < 1024) r = 1024; // ensure at least 1 ply reduction
 			score = -__recurse(board, depth - r / 1024, -alpha - 1, -alpha, -side, 0, ply+1);
 			if (score > alpha) {
-				score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
+				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0, ply+1);
 			}
 		} else {
-			score = -__recurse(board, depth - 1 + extension, -beta, -alpha, -side, pv, ply+1);
+			score = -__recurse(board, depth - 1 + extension, -beta, -alpha, -side, 1, ply+1);
 		}
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
