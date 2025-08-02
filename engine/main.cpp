@@ -131,8 +131,6 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 					board.make_move(Move::from_string(move, &board));
 				}
 			}
-		} else if (command.substr(0, 5) == "legal") {
-			std::cout << "info string " << board.is_pseudolegal(Move::from_string(command.substr(6), &board)) << std::endl;
 		} else if (command == "quit") {
 			break;
 		} else if (command == "stop") {
@@ -189,7 +187,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			int inc = board.side ? binc : winc;
 			std::pair<Move, Value> res;
 			if (inf)
-				res = search(board, quiet=quiet);
+				res = search(board, quiet = quiet);
 			else if (depth != -1)
 				res = search_depth(board, depth, quiet);
 			else if (nodes != -1)
