@@ -612,6 +612,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	return best;
 }
 
+bool g_quiet;
 // Search function from the first layer of moves
 std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
 	Move best_move = NullMove;
@@ -627,7 +628,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	int end = scores.size();
 	int i = 0;
 	while ((move = next_move(scores, end)) != NullMove) {
-		if (depth >= 20 && nodes >= 10'000'000) {
+		if (!g_quiet && depth >= 20 && nodes >= 10'000'000) {
 			std::cout << "info depth " << depth << " currmove " << move.to_string() << " currmovenumber " << i+1 << std::endl;
 		}
 
@@ -691,6 +692,8 @@ void __print_pv(bool omit_last = 0) { // Need to omit last to prevent illegal mo
 }
 
 std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
+	g_quiet = quiet;
+
 	std::cout << std::fixed << std::setprecision(0);
 	nodes = seldepth = 0;
 	early_exit = exit_allowed = false;
@@ -867,8 +870,8 @@ std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
 	return {best_move, eval / CP_SCALE_FACTOR};
 }
 
-std::pair<Move, Value> search_nodes(Board &board, uint64_t nodes) {
+std::pair<Move, Value> search_nodes(Board &board, uint64_t nodes, bool quiet) {
 	mx_nodes = nodes;
-	auto res = search(board);
+	auto res = search(board, quiet=quiet);
 	return res;
 } // Search for a given number of nodes

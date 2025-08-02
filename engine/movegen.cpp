@@ -607,7 +607,7 @@ bool Board::is_pseudolegal(Move move) const {
 		return false;
 
 	// Cannot take our own piece
-	if ((mailbox[move.src()] >> 3) == side)
+	if (mailbox[move.dst()] != NO_PIECE && (mailbox[move.dst()] >> 3) == side)
 		return false;
 
 	switch (mailbox[move.src()] & 7) {
@@ -625,7 +625,10 @@ bool Board::is_pseudolegal(Move move) const {
 		if (move.type() == EN_PASSANT) [[unlikely]] {
 			return move.dst() == ep_square;
 		} else if (move.type() == PROMOTION) [[unlikely]] {
-			return true;
+			if (side == WHITE)
+				return move.dst() > move.src();
+			else
+				return move.dst() < move.src();
 		} else [[likely]] {
 			if (side == WHITE) {
 				if (move.dst() - move.src() == 8)
@@ -633,14 +636,15 @@ bool Board::is_pseudolegal(Move move) const {
 				if (move.dst() - move.src() == 7 || move.dst() - move.src() == 9)
 					return square_bits(move.dst()) & piece_boards[OCC(BLACK)];
 				if (move.dst() - move.src() == 16)
-					return move.src() <= SQ_H2;
+					return move.src() <= SQ_H2 && mailbox[move.src() + 8] == NO_PIECE;
 			} else {
 				if (move.src() - move.dst() == 8)
 					return (square_bits(move.dst()) & piece_boards[OCC(WHITE)]) == 0;
 				if (move.src() - move.dst() == 7 || move.src() - move.dst() == 9)
 					return square_bits(move.dst()) & piece_boards[OCC(WHITE)];
 				if (move.src() - move.dst() == 16)
-					return move.src() >= SQ_A7;
+					return move.src() >= SQ_A7 && mailbox[move.src() - 8] == NO_PIECE;
+				;
 			}
 			return false;
 		}

@@ -12,10 +12,11 @@
 
 BoardState bs;
 
+// Options
 int TT_SIZE = DEFAULT_TT_SIZE;
+bool quiet = false;
 
-__attribute__((weak))
-int main(int argc, char *argv[]) {
+__attribute__((weak)) int main(int argc, char *argv[]) {
 	if (argc == 2 && std::string(argv[1]) == "bench") {
 		const std::pair<std::string, int> bench_positions[] = {
 			{"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 12},
@@ -87,6 +88,7 @@ int main(int argc, char *argv[]) {
 			std::cout << "id author kevlu8 and wdotmathree" << std::endl;
 			std::cout << "option name Hash type spin default 16 min 1 max 1024" << std::endl;
 			std::cout << "option name Threads type spin default 1 min 1 max 1" << std::endl; // Not implemented yet
+			std::cout << "option name Quiet type check default false" << std::endl;
 			std::cout << "uciok" << std::endl;
 		} else if (command == "isready") {
 			std::cout << "readyok" << std::endl;
@@ -108,6 +110,8 @@ int main(int argc, char *argv[]) {
 					continue;
 				}
 				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTBucket);
+			} else if (optionname == "Quiet") {
+				quiet = optionvalue == "true";
 			}
 		} else if (command == "ucinewgame") {
 			board = Board(TT_SIZE);
@@ -130,6 +134,8 @@ int main(int argc, char *argv[]) {
 					board.make_move(Move::from_string(move, &board));
 				}
 			}
+		} else if (command.substr(0, 5) == "legal") {
+			std::cout << "info string " << board.is_pseudolegal(Move::from_string(command.substr(6), &board)) << std::endl;
 		} else if (command == "quit") {
 			break;
 		} else if (command == "stop") {
@@ -186,15 +192,15 @@ int main(int argc, char *argv[]) {
 			int inc = board.side ? binc : winc;
 			std::pair<Move, Value> res;
 			if (inf)
-				res = search(board);
+				res = search(board, quiet=quiet);
 			else if (depth != -1)
-				res = search_depth(board, depth);
+				res = search_depth(board, depth, quiet);
 			else if (nodes != -1)
-				res = search_nodes(board, nodes);
+				res = search_nodes(board, nodes, quiet);
 			else if (movetime != -1)
-				res = search(board, movetime);
+				res = search(board, movetime, quiet);
 			else
-				res = search(board, timemgmt(timeleft, inc, online));
+				res = search(board, timemgmt(timeleft, inc, online), quiet);
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
 		}
 	}

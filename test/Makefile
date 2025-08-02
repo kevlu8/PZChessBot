@@ -1,8 +1,6 @@
 SRCS := $(wildcard *.cpp)
 OBJS := $(SRCS:.cpp=.o)
 
-CXXFLAGS += -I../engine
-
 .PHONY: test all clean
 
 test: CXXFLAGS += -O3
@@ -16,7 +14,7 @@ all: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o test $^ objs.a
 
 %.o: %.cpp Makefile
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -I../engine -c $< -o $@
 
 clean:
 	rm -f $(OBJS) test
