@@ -267,12 +267,12 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 			// 3. Quiets
 			score = QUIET_BASE + history[board.side][move.src()][move.dst()];
 			if (ply && move == cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()]) {
-				score += 1021; // Counter-move bonus
+				score += 1028; // Counter-move bonus
 			}
 			if (move == killer[0][ply]) {
-				score += 1500; // Killer bonus
+				score += 1486; // Killer bonus
 			} else if (move == killer[1][ply]) {
-				score += 800; // Second killer bonus
+				score += 811; // Second killer bonus
 			}
 		}
 
@@ -515,10 +515,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * the search.
 			 */
 			Value r = reduction[i][depth];
-			r -= 512 * pv;
+			r -= 484 * pv;
 			if (tentry && (board.piece_boards[OCC(board.side)] & square_bits(tentry->best_move.dst())))
 				// reduce more if tentry is a capture
-				r += 800;
+				r += 773;
 			if (r < 1024) r = 1024; // ensure at least 1 ply reduction
 			score = -__recurse(board, depth - r / 1024, -alpha - 1, -alpha, -side, 0, ply+1);
 			if (score > alpha) {
