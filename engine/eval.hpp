@@ -5,8 +5,6 @@
 #include "includes.hpp"
 #include "boardstate.hpp"
 
-void init_network();
-
 Value simple_eval(Board &board);
 
 Value eval(Board &board);

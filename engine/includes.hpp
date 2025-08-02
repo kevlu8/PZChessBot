@@ -56,6 +56,8 @@ constexpr Value MAX_HISTORY = 16384;
 
 #define CLOCKS_PER_MS (CLOCKS_PER_SEC / 1000)
 
+// clang-format off
+
 enum PieceType : uint8_t { PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, NO_PIECETYPE };
 
 enum Piece : uint8_t {
@@ -78,11 +80,9 @@ constexpr Value PieceValue[] = {PawnValue, KnightValue, BishopValue, RookValue, 
 
 enum CastlingRights : uint8_t { NO_CASTLE, WHITE_OO, WHITE_OOO = WHITE_OO << 1, BLACK_OO = WHITE_OO << 2, BLACK_OOO = WHITE_OO << 3 };
 
-// clang-format off
 constexpr PieceType letter_piece[] = {BISHOP, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, NO_PIECETYPE, KING, NO_PIECETYPE, NO_PIECETYPE, KNIGHT, NO_PIECETYPE, PAWN, QUEEN, ROOK};
 constexpr char piecetype_letter[] = {'p', 'n', 'b', 'r', 'q', 'k', '?'};
 constexpr char piece_letter[] = {'P','N','B','R','Q','K','?','?','p','n','b','r','q','k','?'};
-// clang-format on
 
 enum File : uint16_t {
 	FILE_A,
@@ -95,6 +95,10 @@ enum File : uint16_t {
 	FILE_H,
 };
 
+inline constexpr File operator++(File &file, int) {
+	return file = File(file + 1);
+}
+
 enum Rank : uint16_t {
 	RANK_1,
 	RANK_2,
@@ -106,7 +110,10 @@ enum Rank : uint16_t {
 	RANK_8,
 };
 
-// clang-format off
+inline constexpr Rank operator++(Rank &rank, int) {
+	return rank = Rank(rank + 1);
+}
+
 enum Square : uint16_t {
 	SQ_A1, SQ_B1, SQ_C1, SQ_D1, SQ_E1, SQ_F1, SQ_G1, SQ_H1,
 	SQ_A2, SQ_B2, SQ_C2, SQ_D2, SQ_E2, SQ_F2, SQ_G2, SQ_H2,
@@ -118,7 +125,19 @@ enum Square : uint16_t {
 	SQ_A8, SQ_B8, SQ_C8, SQ_D8, SQ_E8, SQ_F8, SQ_G8, SQ_H8,
 	SQ_NONE
 };
-// clang-format on
+
+inline constexpr Square make_square(File file, Rank rank) {
+	return Square(file + rank * 8);
+}
+
+inline constexpr Square operator++(Square &square, int) {
+	return square = Square(square + 1);
+}
+
+inline std::string to_string(Square square) {
+	if (square >= SQ_NONE) return "None";
+	return std::string(1, 'a' + (square % 8)) + std::to_string(1 + (square / 8));
+}
 
 enum MoveType {
 	NORMAL,
