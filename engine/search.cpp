@@ -39,8 +39,8 @@ uint16_t reduction[250][MAX_PLY];
 __attribute__((constructor)) void init_lmr(int i, int d) {
 	for (int i = 0; i < 250; i++) {
 		for (int d = 0; d < MAX_PLY; d++) {
-			if (d <= 1 || i <= 1) reduction[i][d] = 1;
-			else reduction[i][d] = 0.77 + log2(i) * log2(d) / 2.36;
+			if (d <= 1 || i <= 1) reduction[i][d] = 1024;
+			else reduction[i][d] = (0.77 + log2(i) * log2(d) / 2.36) * 1024;
 		}
 	}
 }
@@ -77,8 +77,6 @@ Move killer[2][MAX_PLY];
  * The history heuristic is a move ordering heuristic that helps sort quiet moves.
  * It works by storing its effectiveness in the past through beta cutoffs.
  * We store a history table for each side indexed by [src][dst].
- * 
- * TODO: check if overflows are possible (probably not?)
  */
 Value history[2][64][64];
 
@@ -99,12 +97,10 @@ Value corrhist_mat[2][CORRHIST_SZ]; // [side][material hash]
 /**
  * The counter-move heuristic is a move ordering heuristic that helps sort moves that
  * have refuted other moves in the past. It works by storing the move upon a beta cutoff.
- * 
- * TODO: am I even implementing this correctly?
  */
 Move cmh[2][64][64];
 
-Move line[MAX_PLY]; // Currently searched line
+SSEntry line[MAX_PLY]; // Currently searched line
 
 Move pvtable[MAX_PLY][MAX_PLY];
 int pvlen[MAX_PLY];
@@ -122,6 +118,7 @@ void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonu
 	capthist[piece][captured][dst] += cbonus - capthist[piece][captured][dst] * abs(bonus) / MAX_HISTORY;
 }
 
+// Moving exponential average for corrhist
 void update_corrhist(bool side, uint64_t pshash, uint64_t mathash, Value diff, int depth) {
 	const Value sdiff = diff * CORRHIST_GRAIN;
 	const Value weight = std::min(depth*depth, 128);
@@ -149,10 +146,7 @@ void apply_correction(bool side, uint64_t pshash, uint64_t mathash, Value &eval)
  * 
  * TODO:
  * - Search for checks and check evasions (every time I've tried this it has lost tons of elo)
- * - Delta pruning (sort of like futility pruning, see https://www.chessprogramming.org/Delta_Pruning)
  * - Late move reduction (instead of reducing depth, we reduce the search window) (not a known technique, maybe worth trying?)
- * - Static exchange evaluation (don't search moves that lose material, see https://www.chessprogramming.org/Static_Exchange_Evaluation)
- * (every time I have tried SEE it has also lost elo, but it's prob because our SEE impl is not good)
  */
 Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	nodes++;
@@ -174,7 +168,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	apply_correction(board.side, board.pawn_struct_hash(), board.material_hash(), stand_pat);
 
 	// If it's a mate, stop here since there's no point in searching further
-	// TODO: can we rely on mate scores in qsearch?
+	// Theoretically shouldn't ever happen because of stand pat
 	if (stand_pat == VALUE_MATE || stand_pat == -VALUE_MATE)
 		return stand_pat;
 
@@ -209,6 +203,10 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 			Value see = board.see_capture(move);
 			if (see < 0) {
 				continue; // Don't search moves that lose material
+			} else {
+				// QS Futility pruning
+				// use see score for added safety
+				if (DELTA_THRESHOLD + 4 * see + stand_pat < alpha) continue;
 			}
 		}
 
@@ -234,49 +232,53 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 
 /**
  * Order the moves based on various factors.
- * First, we check if we have a TTable entry for this position. If we do, we add it to the
- * beginning of the list, since it is almost definitely the best move. Then, the other moves
- * are sorted based on:
- * - MVV+CaptHist for captures
- * - Piece value for promotions
- * - History heuristic for quiet moves
- * - Killer moves (moves that have caused a beta cutoff in the past)
- * - Counter-move history (moves that have refuted other moves in the past)
+ * Move ordering priority:
+ * 1. TTMove (highest priority)
+ * 2. Captures + promotions (sorted by MVV+CaptHist)
+ * 3. Quiets (sorted by history heuristic + counter-move heuristic + killer bonus)
  */
-pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<Move> &moves, int side, int depth, int ply, bool &entry_exists) {
+pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<Move> &moves, int side, int depth, int ply, TTable::TTEntry *tentry) {
 	pzstd::vector<std::pair<Move, Value>> scores;
-	// If we have a TTable entry *at all* for this position, we should use it
-	// Even if it falls outside of our alpha-beta window, it probably provides a decent move
-	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
-	Move entry = tentry ? tentry->best_move : NullMove;
-	entry_exists = false;
-	if (entry != NullMove) {
-		scores.push_back({entry, VALUE_INFINITE}); // Make the TT move first
-		entry_exists = true;
-	}
+
+	const Value TT_MOVE_BASE = VALUE_INFINITE;
+	const Value CAPTURE_PROMO_BASE = 12000; // max value: base + mvv[queen] + max_history + promo = 12000 + 1002 + 16384 + 1002 = 30388
+	const Value QUIET_BASE = -6000; // max value: base + max_history + cmh bonus = -6000 + 16384 + 1021 = 11405
+
 	for (Move &move : moves) {
-		if (move == entry) continue; // Don't add the TT move again
+		// 1. TTMove must be first (don't do this outside loop because zobrist collisions can lead to illegal moves)
+		if (tentry && move == tentry->best_move) {
+			scores.push_back({move, TT_MOVE_BASE});
+			continue;
+		}
+
+		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
+		bool promo = (move.type() == PROMOTION);
+
 		Value score = 0;
-		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
-			// score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
-			score = PieceValue[board.mailbox[move.dst()] & 7] + capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
-		} else if (move.type() == PROMOTION) {
-			score = PieceValue[move.promotion() + KNIGHT] - PawnValue;
+
+		if (capt || promo) {
+			// 2. Captures + promotions
+			score = CAPTURE_PROMO_BASE;
+			if (capt)
+				score += PieceValue[board.mailbox[move.dst()] & 7] + capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
+			if (promo)
+				score += PieceValue[move.promotion() + KNIGHT] - PawnValue;
 		} else {
-			// Non-capture, non-promotion, so check history
-			score = history[board.side][move.src()][move.dst()];
+			// 3. Quiets
+			score = QUIET_BASE + history[board.side][move.src()][move.dst()];
+			if (ply && move == cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()]) {
+				score += 1021; // Counter-move bonus
+			}
+			if (move == killer[0][ply]) {
+				score += 1500; // Killer bonus
+			} else if (move == killer[1][ply]) {
+				score += 800; // Second killer bonus
+			}
 		}
-		if (move == killer[0][depth]) {
-			score += 1461; // Killer move bonus
-		} else if (move == killer[1][depth]) {
-			score += 831; // Second killer move bonus
-		}
-		if (ply && move == cmh[board.side][line[ply-1].src()][line[ply-1].dst()]) {
-			score += 1003; // Counter-move bonus
-		}
+
 		scores.push_back({move, score});
 	}
-	// std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
+	
 	return scores;
 }
 
@@ -343,7 +345,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	// Check for TTable cutoff
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
-	if (tentry && tentry->depth >= depth) {
+	if (tentry && tentry->depth >= depth && line[ply].excl == NullMove) {
 		// Check for cutoffs
 		if (tentry->flags == EXACT) {
 			return tentry->eval;
@@ -356,6 +358,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	Value cur_eval = 0;
 	Value raw_eval = 0; // For CorrHist
+	Value mat_eval = simple_eval(board) * side; // For CorrHist
 	uint64_t pawn_hash = 0;
 	if (!in_check) {
 		pawn_hash = board.pawn_struct_hash();
@@ -363,6 +366,11 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		raw_eval = cur_eval;
 		apply_correction(board.side, pawn_hash, board.material_hash(), cur_eval);
 	}
+
+	line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
+
+	bool improving = false;
+	if (!in_check && ply >= 3 && line[ply-2].eval != VALUE_NONE && cur_eval > line[ply-2].eval) improving = true;
 
 	// Reverse futility pruning
 	if (!in_check && !pv) {
@@ -372,7 +380,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * 
 		 * We need to make sure that we aren't in check (since we might get mated)
 		 */
-		int margin = RFP_THRESHOLD * depth;
+		int margin = (RFP_THRESHOLD - improving * RFP_IMPROVING) * depth;
 		if (cur_eval >= beta + margin)
 			return cur_eval - margin;
 	}
@@ -380,7 +388,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	// Null-move pruning
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 	int npawns_and_kings = _mm_popcnt_u64(board.piece_boards[PAWN] | board.piece_boards[KING]);
-	if (!in_check && npieces != npawns_and_kings) { // Avoid NMP in pawn endgames
+	if (!in_check && npieces != npawns_and_kings && cur_eval >= beta) { // Avoid NMP in pawn endgames
 		/**
 		 * This works off the *null-move observation*.
 		 * 
@@ -400,16 +408,26 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			return null_score;
 	}
 
+	// Razoring
+	if (!pv && !in_check && depth <= 3 && cur_eval + RAZOR_MARGIN * depth < alpha) {
+		/**
+		 * If we are losing by a lot, check w/ qsearch to see if we could possibly improve.
+		 * If not, we can prune the search.
+		 */
+		Value razor_score = quiesce(board, alpha, beta, side, ply);
+		if (razor_score < alpha)
+			return razor_score;
+	}
+
 	Value best = -VALUE_INFINITE;
 
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
-	bool entry_exists = false;
-	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, ply, entry_exists);
+	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, ply, tentry);
 	int end = scores.size();
 
-	if (depth > 4 && !entry_exists) {
+	if (depth > 4 && !tentry) {
 		depth -= 2; // Internal iterative reductions
 	}
 
@@ -419,11 +437,55 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	Move move = NullMove;
 	int i = 0;
+	int extension = 0;
+
 	while ((move = next_move(scores, end)) != NullMove) {
-		line[ply] = move;
+		if (move == line[ply].excl) {
+			i++; // Necessary so we don't do full search
+			continue;
+		}
 
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
 		bool promo = (move.type() == PROMOTION);
+		
+		if (line[ply].excl == NullMove && depth >= 8 && tentry && move == tentry->best_move && tentry->depth >= depth - 2 && tentry->flags != UPPER_BOUND) {
+			// Singular extension
+			line[ply].excl = move;
+			Value singular_beta = tentry->eval - 6 * depth;
+			Value singular_score = __recurse(board, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, ply);
+			line[ply].excl = NullMove; // Reset exclusion move
+
+			if (singular_score < singular_beta) {
+				extension++;
+			} else if (tentry->eval >= beta) {
+				// Negative extensions
+				extension -= 3;
+			}
+		}
+
+		line[ply].move = move;
+
+		if (!in_check && !capt && !promo && i > 5 + 2 * depth * depth) {
+			/**
+			 * Late Move Pruning
+			 * 
+			 * Just skip later moves that probably aren't good
+			 */
+			continue;
+		}
+
+		if (!in_check && !capt && !promo && depth <= 5) {
+			/**
+			 * History pruning
+			 * 
+			 * Skip moves with very bad history scores
+			 * Depth condition is necessary to avoid overflow
+			 */
+			Value hist = history[board.side][move.src()][move.dst()];
+			if (hist < -HISTORY_MARGIN * depth) {
+				continue;
+			}
+		}
 
 		if (depth <= 2 && i > 0 && !in_check && !capt && !promo && abs(alpha) < VALUE_MATE_MAX_PLY && abs(beta) < VALUE_MATE_MAX_PLY) {
 			/**
@@ -452,12 +514,18 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * full-depth re-search. This, however, doesn't happen often enough to slow down
 			 * the search.
 			 */
-			score = -__recurse(board, depth - reduction[i][depth], -alpha - 1, -alpha, -side, 0, ply+1);
+			Value r = reduction[i][depth];
+			r -= 512 * pv;
+			if (tentry && (board.piece_boards[OCC(board.side)] & square_bits(tentry->best_move.dst())))
+				// reduce more if tentry is a capture
+				r += 800;
+			if (r < 1024) r = 1024; // ensure at least 1 ply reduction
+			score = -__recurse(board, depth - r / 1024, -alpha - 1, -alpha, -side, 0, ply+1);
 			if (score > alpha) {
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
 			}
 		} else {
-			score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
+			score = -__recurse(board, depth - 1 + extension, -beta, -alpha, -side, pv, ply+1);
 		}
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
@@ -481,21 +549,23 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 
 		if (score >= beta) {
-			board.ttable.store(board.zobrist, best, depth, LOWER_BOUND, best_move, board.halfmove);
-			if (killer[0][depth] != move) {
-				killer[1][depth] = killer[0][depth];
-				killer[0][depth] = move; // Update killer moves
+			if (line[ply].excl == NullMove) {
+				board.ttable.store(board.zobrist, best, depth, LOWER_BOUND, best_move, board.halfmove);
+			}
+			if (killer[0][ply] != move) {
+				killer[1][ply] = killer[0][ply];
+				killer[0][ply] = move; // Update killer moves
 			}
 			if (!capt) { // Not a capture
-				const Value bonus = 1.53 * depth * depth + 0.87 * depth + 0.65;
+				const Value bonus = 1.56 * depth * depth + 0.91 * depth + 0.62;
 				update_history(board.side, move.src(), move.dst(), bonus);
 				for (auto &qmove : quiets) {
 					update_history(board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
 				}
-				cmh[board.side][line[ply-1].src()][line[ply-1].dst()] = move; // Update counter-move history
+				cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()] = move; // Update counter-move history
 				if (!in_check && !promo && best > raw_eval) update_corrhist(board.side, pawn_hash, board.material_hash(), best - raw_eval, depth);
 			} else { // Capture
-				const Value bonus = 1.82 * depth * depth + 0.49 * depth + 0.39;
+				const Value bonus = 1.81 * depth * depth + 0.52 * depth + 0.40;
 				update_capthist(PieceType(board.mailbox[move.src()] & 7), PieceType(board.mailbox[move.dst()] & 7), move.dst(), bonus);
 				for (auto &cmove : captures) {
 					update_capthist(PieceType(board.mailbox[cmove.src()] & 7), PieceType(board.mailbox[cmove.dst()] & 7), cmove.dst(), -bonus);
@@ -531,10 +601,12 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 	}
 
-	if (best <= alpha) {
-		board.ttable.store(board.zobrist, alpha, depth, UPPER_BOUND, best_move, board.halfmove);
-	} else {
-		board.ttable.store(board.zobrist, best, depth, EXACT, best_move, board.halfmove);
+	if (line[ply].excl == NullMove) {
+		if (best <= alpha) {
+			board.ttable.store(board.zobrist, alpha, depth, UPPER_BOUND, best_move, board.halfmove);
+		} else {
+			board.ttable.store(board.zobrist, best, depth, EXACT, best_move, board.halfmove);
+		}
 	}
 
 	return best;
@@ -548,11 +620,9 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
-	bool entry_exists = false;
-	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, 0, entry_exists);
+	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
+	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, 0, tentry);
 
-	// for (int i = 0; i < moves.size(); i++) { // Skip the TT move if it's not legal
-	// 	Move &move = scores[i].first;
 	Move move = NullMove;
 	int end = scores.size();
 	int i = 0;
@@ -561,11 +631,11 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 			std::cout << "info depth " << depth << " currmove " << move.to_string() << " currmovenumber " << i+1 << std::endl;
 		}
 
-		line[0] = move;
+		line[0].move = move;
 		board.make_move(move);
 		Value score;
 		if (i > 0) {
-			score = -__recurse(board, depth - reduction[i][depth], -alpha - 1, -alpha, -side, 0);
+			score = -__recurse(board, depth - reduction[i][depth] / 1024, -alpha - 1, -alpha, -side, 0);
 			if (score > alpha) {
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0);
 			}
@@ -590,9 +660,9 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 
 		if (score >= beta) {
 			board.ttable.store(board.zobrist, best_score, depth, LOWER_BOUND, best_move, board.halfmove);
-			if (killer[0][depth] != move) {
-				killer[1][depth] = killer[0][depth];
-				killer[0][depth] = move;
+			if (killer[0][0] != move) {
+				killer[1][0] = killer[0][0];
+				killer[0][0] = move;
 			}
 			return {best_move, best_score};
 		}
@@ -712,7 +782,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 		}
 
 		int time_elapsed = (clock() - start) / CLOCKS_PER_MS;
-		if (time_elapsed > mxtime * 0.52) {
+		if (time_elapsed > mxtime * 0.5) {
 			// We probably won't be able to complete the next ID loop
 			break;
 		}

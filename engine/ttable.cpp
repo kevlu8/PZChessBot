@@ -1,27 +1,57 @@
 #include "ttable.hpp"
 
 void TTable::store(uint64_t key, Value eval, uint8_t depth, TTFlag flag, Move best_move, uint8_t age) {
-	TTEntry *entry = TT + (key % TT_SIZE);
-	if (entry->flags == INVALID) tsize++;
-	if (entry->key != key && entry->depth > depth) {
-		// This entry contains more information than the new one
-		// So we don't overwrite it
+	TTBucket *bucket = TT + (key % TT_SIZE);
+	
+	TTEntry *depth_entry = &bucket->entries[0];
+	TTEntry *always_entry = &bucket->entries[1];
+	if (depth_entry->key == key || always_entry->key == key) {
+		// Update an existing entry
+		if (depth_entry->key == key) {
+			depth_entry->eval = eval;
+			depth_entry->depth = depth;
+			depth_entry->flags = flag;
+			depth_entry->best_move = best_move;
+			depth_entry->age = age;
+		} else if (always_entry->key == key) {
+			always_entry->eval = eval;
+			always_entry->depth = depth;
+			always_entry->flags = flag;
+			always_entry->best_move = best_move;
+			always_entry->age = age;
+		}
 		return;
 	}
-	entry->key = key;
-	entry->eval = eval;
-	entry->depth = depth;
-	entry->flags = flag;
-	entry->best_move = best_move;
-	entry->age = age;
+
+	// 1. Check if we can replace the depth entry
+	if (depth_entry->depth < depth || (depth_entry->depth == depth && depth_entry->age < age)) {
+		if (depth_entry->flags == INVALID) tsize++;
+		depth_entry->key = key;
+		depth_entry->eval = eval;
+		depth_entry->depth = depth;
+		depth_entry->flags = flag;
+		depth_entry->best_move = best_move;
+		depth_entry->age = age;
+		return;
+	}
+
+	// 2. Always replace the second entry
+	if (always_entry->flags == INVALID) tsize++;
+	always_entry->key = key;
+	always_entry->eval = eval;
+	always_entry->depth = depth;
+	always_entry->flags = flag;
+	always_entry->best_move = best_move;
+	always_entry->age = age;
 }
 
-TTable::TTEntry *TTable::probe(uint64_t key, Value alpha, Value beta, Value depth) {
-	TTEntry *entry = TT + (key % TT_SIZE);
-	if (entry->key != key || entry->depth < depth)
-		return nullptr;
-	if (entry->flags == EXACT) return entry;
-	if (entry->flags == LOWER_BOUND && entry->eval >= beta) return entry;
-	if (entry->flags == UPPER_BOUND && entry->eval <= alpha) return entry;
+TTable::TTEntry *TTable::probe(uint64_t key, Value depth) {
+	TTBucket *bucket = TT + (key % TT_SIZE);
+	for (int i = 0; i < 2; i++) {
+		TTEntry *entry = &bucket->entries[i];
+		if (entry->key != key || entry->depth < depth)
+			continue;
+		return entry;
+	}
 	return nullptr;
 }

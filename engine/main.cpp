@@ -2,6 +2,7 @@
 
 #include <sstream>
 #include <thread>
+#include <random>
 
 #include "bitboard.hpp"
 #include "eval.hpp"
@@ -15,12 +16,62 @@ int TT_SIZE = DEFAULT_TT_SIZE;
 
 int main(int argc, char *argv[]) {
 	if (argc == 2 && std::string(argv[1]) == "bench") {
+		const std::pair<std::string, int> bench_positions[] = {
+			{"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 12},
+			{"rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq - 0 6", 15},
+			{"2r1r3/1b1Q1p1k/pb4q1/6p1/8/P1N3NP/2P2PP1/R3R1K1 b - - 0 29", 15},
+			{"k7/8/8/8/8/8/P7/K7 w - - 0 1", 20},
+			{"k7/8/8/8/8/8/8/K6R w - - 0 1", 20},
+		};
 		Board board = Board(TT_SIZE);
 		init_network();
+		uint64_t tot_nodes = 0;
 		uint64_t start = clock();
-		search_depth(board, 12);
+		for (const auto &[fen, depth] : bench_positions) {
+			board.reset(fen);
+			search_depth(board, depth);
+			tot_nodes += nodes;
+		}
 		uint64_t end = clock();
-		std::cout << nodes << " nodes " << (nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
+		std::cout << tot_nodes << " nodes " << (tot_nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
+		return 0;
+	}
+	if (argc == 3 && std::string(argv[2]) == "quit") {
+		// assume genfens
+		// ./pzchessbot "genfens N seed S book None" "quit"
+		std::string genfens = argv[1];
+		std::stringstream ss(genfens);
+		std::string token;
+		uint64_t n = 0, s = 0;
+		while (ss >> token) {
+			if (token == "genfens")
+				ss >> n;
+			else if (token == "seed")
+				ss >> s;
+			else if (token == "book")
+				ss >> token; // ignore book for now
+		}
+		Board board = Board(TT_SIZE);
+		init_network();
+		std::mt19937 rng(s);
+		while (n--) {
+			board.reset_startpos();
+			bool restart = false;
+			for (int i = 0; i < 10; i++) {
+				pzstd::vector<Move> moves;
+				board.legal_moves(moves);
+				if (moves.size() == 0) {
+					restart = true;
+					break;
+				}
+				board.make_move(moves[rng() % moves.size()]);
+			}
+			if (restart) {
+				n++;
+				continue;
+			}
+			std::cout << "info string genfens " << board.get_fen() << std::endl;
+		}
 		return 0;
 	}
 	bool online = argc == 2 && std::string(argv[1]) == "--online";
@@ -55,20 +106,20 @@ int main(int argc, char *argv[]) {
 					std::cerr << "Invalid hash size: " << optionint << std::endl;
 					continue;
 				}
-				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTEntry);
+				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTBucket);
 			}
 		} else if (command == "ucinewgame") {
 			board = Board(TT_SIZE);
 		} else if (command.substr(0, 8) == "position") {
 			// either `position startpos` or `position fen ...`
 			if (command.find("startpos") != std::string::npos) {
-				board = Board(TT_SIZE);
+				board.reset_startpos();
 			} else if (command.find("fen") != std::string::npos) {
 				std::string fen = command.substr(command.find("fen") + 4);
 				if (fen.find("moves") != std::string::npos) {
 					fen = fen.substr(0, fen.find("moves"));
 				}
-				board = Board(fen, TT_SIZE);
+				board.reset(fen);
 			}
 			if (command.find("moves") != std::string::npos) {
 				std::string moves = command.substr(command.find("moves") + 6);
@@ -109,6 +160,7 @@ int main(int argc, char *argv[]) {
 			int depth = -1;
 			int nodes = -1;
 			bool inf = false;
+			int movetime = -1;
 			ss >> token;
 			while (ss >> token) {
 				if (token == "wtime") {
@@ -125,6 +177,8 @@ int main(int argc, char *argv[]) {
 					inf = true;
 				} else if (token == "nodes") {
 					ss >> nodes;
+				} else if (token == "movetime") {
+					ss >> movetime;
 				}
 			}
 			int timeleft = board.side ? btime : wtime;
@@ -136,6 +190,8 @@ int main(int argc, char *argv[]) {
 				res = search_depth(board, depth);
 			else if (nodes != -1)
 				res = search_nodes(board, nodes);
+			else if (movetime != -1)
+				res = search(board, movetime);
 			else
 				res = search(board, timemgmt(timeleft, inc, online));
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
