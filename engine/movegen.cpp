@@ -639,7 +639,7 @@ bool Board::is_pseudolegal(Move move) const {
 			if ((move.src() & 7) != (move.dst() & 7))
 				return square_bits(move.dst()) & piece_boards[OPPOCC(side)];
 			else
-				return true;
+				return mailbox[move.dst()] == NO_PIECE;
 		} else [[likely]] {
 			if (side == WHITE) {
 				if (move.dst() - move.src() == 8)
@@ -667,6 +667,11 @@ bool Board::is_pseudolegal(Move move) const {
 		if (move.type() == CASTLING) [[unlikely]] {
 			int rights_idx = ((move.dst() & 0b001100) ^ 0b000100) >> 2;
 			if ((castling & (1 << rights_idx)) == 0)
+				return false;
+
+			if (side == WHITE && control(SQ_E1).second)
+				return false;
+			if (side == BLACK && control(SQ_E8).first)
 				return false;
 
 			Bitboard mask = 0;
