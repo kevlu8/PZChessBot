@@ -261,9 +261,9 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 			// 2. Captures + promotions
 			score = CAPTURE_PROMO_BASE;
 			// Check if it's a recapture first (dst == line[ply-1].move.dst())
-			if (capt && line[ply-1].move.dst() == move.dst()) {
+			if (capt && ply > 0 && line[ply-1].move != NullMove && line[ply-1].move.dst() == move.dst()) {
 				score = RECAPTURE_BASE;
-				score -= PieceValue[board.mailbox[move.src()]]; // more valuable piece = less viable recapture
+				score -= PieceValue[board.mailbox[move.src()] & 7]; // more valuable piece = less viable recapture
 			}
 			else if (capt)
 				score += PieceValue[board.mailbox[move.dst()] & 7] + capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
