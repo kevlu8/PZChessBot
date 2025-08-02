@@ -2,6 +2,7 @@
 
 #include <sstream>
 #include <thread>
+#include <random>
 
 #include "bitboard.hpp"
 #include "eval.hpp"
@@ -33,6 +34,44 @@ int main(int argc, char *argv[]) {
 		}
 		uint64_t end = clock();
 		std::cout << tot_nodes << " nodes " << (tot_nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
+		return 0;
+	}
+	if (argc == 3 && std::string(argv[2]) == "quit") {
+		// assume genfens
+		// ./pzchessbot "genfens N seed S book None" "quit"
+		std::string genfens = argv[1];
+		std::stringstream ss(genfens);
+		std::string token;
+		uint64_t n = 0, s = 0;
+		while (ss >> token) {
+			if (token == "genfens")
+				ss >> n;
+			else if (token == "seed")
+				ss >> s;
+			else if (token == "book")
+				ss >> token; // ignore book for now
+		}
+		Board board = Board(TT_SIZE);
+		init_network();
+		std::mt19937 rng(s);
+		while (n--) {
+			board.reset_startpos();
+			bool restart = false;
+			for (int i = 0; i < 10; i++) {
+				pzstd::vector<Move> moves;
+				board.legal_moves(moves);
+				if (moves.size() == 0) {
+					restart = true;
+					break;
+				}
+				board.make_move(moves[rng() % moves.size()]);
+			}
+			if (restart) {
+				n++;
+				continue;
+			}
+			std::cout << "info string genfens " << board.get_fen() << std::endl;
+		}
 		return 0;
 	}
 	bool online = argc == 2 && std::string(argv[1]) == "--online";
@@ -121,6 +160,7 @@ int main(int argc, char *argv[]) {
 			int depth = -1;
 			int nodes = -1;
 			bool inf = false;
+			int movetime = -1;
 			ss >> token;
 			while (ss >> token) {
 				if (token == "wtime") {
@@ -137,6 +177,8 @@ int main(int argc, char *argv[]) {
 					inf = true;
 				} else if (token == "nodes") {
 					ss >> nodes;
+				} else if (token == "movetime") {
+					ss >> movetime;
 				}
 			}
 			int timeleft = board.side ? btime : wtime;
@@ -148,6 +190,8 @@ int main(int argc, char *argv[]) {
 				res = search_depth(board, depth);
 			else if (nodes != -1)
 				res = search_nodes(board, nodes);
+			else if (movetime != -1)
+				res = search(board, movetime);
 			else
 				res = search(board, timemgmt(timeleft, inc, online));
 			std::cout << "bestmove " << res.first.to_string() << std::endl;

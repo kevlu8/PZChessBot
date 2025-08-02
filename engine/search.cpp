@@ -32,8 +32,8 @@ uint16_t reduction[250][MAX_PLY];
 __attribute__((constructor)) void init_lmr(int i, int d) {
 	for (int i = 0; i < 250; i++) {
 		for (int d = 0; d < MAX_PLY; d++) {
-			if (d <= 1 || i <= 1) reduction[i][d] = 1;
-			else reduction[i][d] = 0.77 + log2(i) * log2(d) / 2.36;
+			if (d <= 1 || i <= 1) reduction[i][d] = 1024;
+			else reduction[i][d] = (0.77 + log2(i) * log2(d) / 2.36) * 1024;
 		}
 	}
 }
@@ -98,10 +98,7 @@ void apply_correction(SearchParams &params, bool side, uint64_t pshash, uint64_t
  * 
  * TODO:
  * - Search for checks and check evasions (every time I've tried this it has lost tons of elo)
- * - Delta pruning (sort of like futility pruning, see https://www.chessprogramming.org/Delta_Pruning)
  * - Late move reduction (instead of reducing depth, we reduce the search window) (not a known technique, maybe worth trying?)
- * - Static exchange evaluation (don't search moves that lose material, see https://www.chessprogramming.org/Static_Exchange_Evaluation)
- * (every time I have tried SEE it has also lost elo, but it's prob because our SEE impl is not good)
  */
 Value quiesce(Board &board, BoardState &bs, SearchParams &params, Value alpha, Value beta, int side, int depth) {
 	params.nodes++;
@@ -123,7 +120,7 @@ Value quiesce(Board &board, BoardState &bs, SearchParams &params, Value alpha, V
 	apply_correction(params, board.side, board.pawn_struct_hash(), board.material_hash(), stand_pat);
 
 	// If it's a mate, stop here since there's no point in searching further
-	// TODO: can we rely on mate scores in qsearch?
+	// Theoretically shouldn't ever happen because of stand pat
 	if (stand_pat == VALUE_MATE || stand_pat == -VALUE_MATE)
 		return stand_pat;
 
@@ -158,6 +155,10 @@ Value quiesce(Board &board, BoardState &bs, SearchParams &params, Value alpha, V
 			Value see = board.see_capture(move);
 			if (see < 0) {
 				continue; // Don't search moves that lose material
+			} else {
+				// QS Futility pruning
+				// use see score for added safety
+				if (DELTA_THRESHOLD + 4 * see + stand_pat < alpha) continue;
 			}
 		}
 
@@ -309,6 +310,7 @@ Value __recurse(Board &board, int depth, BoardState &bs, SearchParams &params, V
 
 	Value cur_eval = 0;
 	Value raw_eval = 0; // For CorrHist
+	Value mat_eval = simple_eval(board) * side; // For CorrHist
 	uint64_t pawn_hash = 0;
 	if (!in_check) {
 		pawn_hash = board.pawn_struct_hash();
@@ -429,6 +431,7 @@ Value __recurse(Board &board, int depth, BoardState &bs, SearchParams &params, V
 			 * History pruning
 			 * 
 			 * Skip moves with very bad history scores
+			 * Depth condition is necessary to avoid overflow
 			 */
 			Value hist = params.history[board.side][move.src()][move.dst()];
 			if (hist < -HISTORY_MARGIN * depth) {
@@ -463,7 +466,13 @@ Value __recurse(Board &board, int depth, BoardState &bs, SearchParams &params, V
 			 * full-depth re-search. This, however, doesn't happen often enough to slow down
 			 * the search.
 			 */
-			score = -__recurse(board, depth - reduction[i][depth], bs, params, -alpha - 1, -alpha, -side, 0, ply+1);
+			Value r = reduction[i][depth];
+			r -= 512 * pv;
+			if (tentry && (board.piece_boards[OCC(board.side)] & square_bits(tentry->best_move.dst())))
+				// reduce more if tentry is a capture
+				r += 800;
+			if (r < 1024) r = 1024; // ensure at least 1 ply reduction
+			score = -__recurse(board, depth - r / 1024, bs, params, -alpha - 1, -alpha, -side, 0, ply+1);
 			if (score > alpha) {
 				score = -__recurse(board, depth - 1, bs, params, -beta, -alpha, -side, pv, ply+1);
 			}
@@ -566,8 +575,6 @@ std::pair<Move, Value> __search(Board &board, int depth, BoardState &bs, SearchP
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
 	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, params, moves, side, depth, 0, tentry);
 
-	// for (int i = 0; i < moves.size(); i++) { // Skip the TT move if it's not legal
-	// 	Move &move = scores[i].first;
 	Move move = NullMove;
 	int end = scores.size();
 	int i = 0;
@@ -580,7 +587,7 @@ std::pair<Move, Value> __search(Board &board, int depth, BoardState &bs, SearchP
 		board.make_move(move);
 		Value score;
 		if (i > 0) {
-			score = -__recurse(board, depth - reduction[i][depth], bs, params, -alpha - 1, -alpha, -side, 0);
+			score = -__recurse(board, depth - reduction[i][depth] / 1024, bs, params, -alpha - 1, -alpha, -side, 0);
 			if (score > alpha) {
 				score = -__recurse(board, depth - 1, bs, params, -beta, -alpha, -side, 0);
 			}

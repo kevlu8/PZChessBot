@@ -9,6 +9,8 @@ void init_network(BoardState bs[]);
 
 Value eval(Board &board, BoardState &bs);
 
+Value simple_eval(Board &board);
+
 std::array<Value, 8> debug_eval(Board &board, BoardState &bs);
 
 #ifdef HCE
