@@ -72,14 +72,7 @@ struct Board {
 	pzstd::largevector<uint64_t> hash_hist;
 
 	// Mailbox representation of the board for faster queries of certain data
-	Piece mailbox[8 * 8] = {WHITE_ROOK, WHITE_KNIGHT, WHITE_BISHOP, WHITE_QUEEN, WHITE_KING, WHITE_BISHOP, WHITE_KNIGHT, WHITE_ROOK,
-							WHITE_PAWN, WHITE_PAWN,	  WHITE_PAWN,	WHITE_PAWN,	 WHITE_PAWN, WHITE_PAWN,   WHITE_PAWN,	 WHITE_PAWN,
-							NO_PIECE,	NO_PIECE,	  NO_PIECE,		NO_PIECE,	 NO_PIECE,	 NO_PIECE,	   NO_PIECE,	 NO_PIECE,
-							NO_PIECE,	NO_PIECE,	  NO_PIECE,		NO_PIECE,	 NO_PIECE,	 NO_PIECE,	   NO_PIECE,	 NO_PIECE,
-							NO_PIECE,	NO_PIECE,	  NO_PIECE,		NO_PIECE,	 NO_PIECE,	 NO_PIECE,	   NO_PIECE,	 NO_PIECE,
-							NO_PIECE,	NO_PIECE,	  NO_PIECE,		NO_PIECE,	 NO_PIECE,	 NO_PIECE,	   NO_PIECE,	 NO_PIECE,
-							BLACK_PAWN, BLACK_PAWN,	  BLACK_PAWN,	BLACK_PAWN,	 BLACK_PAWN, BLACK_PAWN,   BLACK_PAWN,	 BLACK_PAWN,
-							BLACK_ROOK, BLACK_KNIGHT, BLACK_BISHOP, BLACK_QUEEN, BLACK_KING, BLACK_BISHOP, BLACK_KNIGHT, BLACK_ROOK};
+	Piece mailbox[8 * 8];
 
 	// Moves with extra information (taken piece etc..)
 	// better documentation will be included later
@@ -87,15 +80,7 @@ struct Board {
 	std::stack<uint8_t> halfmove_hist;
 
 	Board(int ttsize=DEFAULT_TT_SIZE) : ttable(ttsize) {
-		// Load starting position
-		piece_boards[0] = Rank2Bits | Rank7Bits;
-		piece_boards[1] = square_bits(SQ_B1) | square_bits(SQ_G1) | square_bits(SQ_B8) | square_bits(SQ_G8);
-		piece_boards[2] = square_bits(SQ_C1) | square_bits(SQ_F1) | square_bits(SQ_C8) | square_bits(SQ_F8);
-		piece_boards[3] = square_bits(SQ_A1) | square_bits(SQ_H1) | square_bits(SQ_A8) | square_bits(SQ_H8);
-		piece_boards[4] = square_bits(SQ_D1) | square_bits(SQ_D8);
-		piece_boards[5] = square_bits(SQ_E1) | square_bits(SQ_E8);
-		piece_boards[6] = Rank1Bits | Rank2Bits;
-		piece_boards[7] = Rank7Bits | Rank8Bits;
+		reset_board();
 		recompute_hash();
 	}
 

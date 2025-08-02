@@ -27,8 +27,7 @@ $(EXE): $(OBJS)
 
 test: $(OBJS)
 	$(AR) rcs test/objs.a $(OBJS)
-	export CXXFLAGS="$(CXXFLAGS) $(RELEASEFLAGS)"
-	make -C test
+	make -C test CXXFLAGS="$(CXXFLAGS)"
 
 clean:
 	@echo "Cleaning up..."
