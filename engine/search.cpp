@@ -602,7 +602,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	if (line[ply].excl == NullMove) {
-		if (best <= alpha) {
+		if (best < alpha) {
 			board.ttable.store(board.zobrist, alpha, depth, UPPER_BOUND, best_move, board.halfmove);
 		} else {
 			board.ttable.store(board.zobrist, best, depth, EXACT, best_move, board.halfmove);
