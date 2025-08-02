@@ -603,7 +603,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (line[ply].excl == NullMove) {
 		if (best < alpha) {
-			board.ttable.store(board.zobrist, alpha, depth, UPPER_BOUND, best_move, board.halfmove);
+			board.ttable.store(board.zobrist, best, depth, UPPER_BOUND, best_move, board.halfmove);
 		} else {
 			board.ttable.store(board.zobrist, best, depth, EXACT, best_move, board.halfmove);
 		}
@@ -673,8 +673,8 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		i++;
 	}
 
-	if (best_score <= alpha) {
-		board.ttable.store(board.zobrist, alpha, depth, UPPER_BOUND, best_move, board.halfmove);
+	if (best_score < alpha) {
+		board.ttable.store(board.zobrist, best_score, depth, UPPER_BOUND, best_move, board.halfmove);
 	} else {
 		board.ttable.store(board.zobrist, best_score, depth, EXACT, best_move, board.halfmove);
 	}
