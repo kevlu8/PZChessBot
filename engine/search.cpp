@@ -367,6 +367,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		apply_correction(board.side, pawn_hash, board.material_hash(), cur_eval);
 	}
 
+	int og_alpha = alpha;
+
 	line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
 
 	bool improving = false;
@@ -602,7 +604,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	if (line[ply].excl == NullMove) {
-		if (best < alpha) {
+		if (best <= og_alpha) {
 			board.ttable.store(board.zobrist, best, depth, UPPER_BOUND, best_move, board.halfmove);
 		} else {
 			board.ttable.store(board.zobrist, best, depth, EXACT, best_move, board.halfmove);
@@ -622,6 +624,8 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
 	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, 0, tentry);
+
+	int og_alpha = alpha;
 
 	Move move = NullMove;
 	int end = scores.size();
@@ -673,7 +677,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		i++;
 	}
 
-	if (best_score < alpha) {
+	if (best_score <= og_alpha) {
 		board.ttable.store(board.zobrist, best_score, depth, UPPER_BOUND, best_move, board.halfmove);
 	} else {
 		board.ttable.store(board.zobrist, best_score, depth, EXACT, best_move, board.halfmove);
