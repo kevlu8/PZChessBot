@@ -9,6 +9,7 @@
 #include "movegen.hpp"
 #include "movetimings.hpp"
 #include "search.hpp"
+#include "tunable.hpp"
 
 BoardState bs;
 
@@ -79,6 +80,7 @@ int main(int argc, char *argv[]) {
 	std::string command;
 	Board board = Board(TT_SIZE);
 	init_network();
+	init_tunable_params(); // Initialize tunable parameters
 	std::thread searchthread;
 	while (getline(std::cin, command)) {
 		if (command == "uci") {
@@ -86,6 +88,7 @@ int main(int argc, char *argv[]) {
 			std::cout << "id author kevlu8 and wdotmathree" << std::endl;
 			std::cout << "option name Hash type spin default 16 min 1 max 1024" << std::endl;
 			std::cout << "option name Threads type spin default 1 min 1 max 1" << std::endl; // Not implemented yet
+			print_tunable_options(); // Print all tunable parameters
 			std::cout << "uciok" << std::endl;
 		} else if (command == "isready") {
 			std::cout << "readyok" << std::endl;
@@ -107,6 +110,14 @@ int main(int argc, char *argv[]) {
 					continue;
 				}
 				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTBucket);
+			} else {
+				// Try to set tunable parameter
+				try {
+					int value = std::stoi(optionvalue);
+					set_tunable_param(optionname, value);
+				} catch (const std::exception& e) {
+					std::cout << "info string Invalid option value: " << optionvalue << std::endl;
+				}
 			}
 		} else if (command == "ucinewgame") {
 			board = Board(TT_SIZE);

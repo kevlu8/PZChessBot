@@ -1,4 +1,5 @@
 #include "search.hpp"
+#include "tunable.hpp"
 
 #define MOVENUM(x) ((((#x)[1] - '1') << 12) | (((#x)[0] - 'a') << 8) | (((#x)[3] - '1') << 4) | ((#x)[2] - 'a'))
 
@@ -241,8 +242,8 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 	pzstd::vector<std::pair<Move, Value>> scores;
 
 	const Value TT_MOVE_BASE = VALUE_INFINITE;
-	const Value CAPTURE_PROMO_BASE = 12000; // max value: base + mvv[queen] + max_history + promo = 12000 + 1002 + 16384 + 1002 = 30388
-	const Value QUIET_BASE = -6000; // max value: base + max_history + cmh bonus = -6000 + 16384 + 1021 = 11405
+	const Value CAPTURE_PROMO_BASE_VAL = 12000; // Hand-calculated base value - not tunable
+	const Value QUIET_BASE_VAL = -6000; // Hand-calculated base value - not tunable
 
 	for (Move &move : moves) {
 		// 1. TTMove must be first (don't do this outside loop because zobrist collisions can lead to illegal moves)
@@ -258,21 +259,21 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 
 		if (capt || promo) {
 			// 2. Captures + promotions
-			score = CAPTURE_PROMO_BASE;
+			score = CAPTURE_PROMO_BASE_VAL;
 			if (capt)
 				score += PieceValue[board.mailbox[move.dst()] & 7] + capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
 			if (promo)
 				score += PieceValue[move.promotion() + KNIGHT] - PawnValue;
 		} else {
 			// 3. Quiets
-			score = QUIET_BASE + history[board.side][move.src()][move.dst()];
+			score = QUIET_BASE_VAL + history[board.side][move.src()][move.dst()];
 			if (ply && move == cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()]) {
-				score += 1021; // Counter-move bonus
+				score += COUNTER_MOVE_BONUS; // Use tunable parameter
 			}
 			if (move == killer[0][ply]) {
-				score += 1500; // Killer bonus
+				score += KILLER_BONUS; // Use tunable parameter
 			} else if (move == killer[1][ply]) {
-				score += 800; // Second killer bonus
+				score += SECOND_KILLER_BONUS; // Use tunable parameter
 			}
 		}
 
@@ -515,10 +516,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * the search.
 			 */
 			Value r = reduction[i][depth];
-			r -= 512 * pv;
+			r -= PV_REDUCTION * pv;
 			if (tentry && (board.piece_boards[OCC(board.side)] & square_bits(tentry->best_move.dst())))
 				// reduce more if tentry is a capture
-				r += 800;
+				r += CAPTURE_REDUCTION;
 			if (r < 1024) r = 1024; // ensure at least 1 ply reduction
 			score = -__recurse(board, depth - r / 1024, -alpha - 1, -alpha, -side, 0, ply+1);
 			if (score > alpha) {
