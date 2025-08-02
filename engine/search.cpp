@@ -301,6 +301,8 @@ Move next_move(pzstd::vector<std::pair<Move, Value>> &scores, int &end) {
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, int ply = 1) {
 	pvlen[ply] = 0;
 
+	pv = std::abs(alpha - beta) != 1; // NWS indicates non-pv, pv otherwise
+
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
 		return (VALUE_MATE) * side;
@@ -522,7 +524,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (r < 1024) r = 1024; // ensure at least 1 ply reduction
 			score = -__recurse(board, depth - r / 1024, -alpha - 1, -alpha, -side, 0, ply+1);
 			if (score > alpha) {
-				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0, ply+1);
+				score = -__recurse(board, depth - 1, -alpha - 1, -alpha, -side, 0, ply+1);
+				if (score > alpha && score < beta) {
+					score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1, ply+1);
+				}
 			}
 		} else {
 			score = -__recurse(board, depth - 1 + extension, -beta, -alpha, -side, 1, ply+1);
