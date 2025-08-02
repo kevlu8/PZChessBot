@@ -552,9 +552,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (line[ply].excl == NullMove) {
 				board.ttable.store(board.zobrist, best, depth, LOWER_BOUND, best_move, board.halfmove);
 			}
-			if (killer[0][depth] != move) {
-				killer[1][depth] = killer[0][depth];
-				killer[0][depth] = move; // Update killer moves
+			if (killer[0][ply] != move) {
+				killer[1][ply] = killer[0][ply];
+				killer[0][ply] = move; // Update killer moves
 			}
 			if (!capt) { // Not a capture
 				const Value bonus = 1.56 * depth * depth + 0.91 * depth + 0.62;
@@ -660,9 +660,9 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 
 		if (score >= beta) {
 			board.ttable.store(board.zobrist, best_score, depth, LOWER_BOUND, best_move, board.halfmove);
-			if (killer[0][depth] != move) {
-				killer[1][depth] = killer[0][depth];
-				killer[0][depth] = move;
+			if (killer[0][0] != move) {
+				killer[1][0] = killer[0][0];
+				killer[0][0] = move;
 			}
 			return {best_move, best_score};
 		}
