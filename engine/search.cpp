@@ -498,6 +498,17 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (depth == 2 && cur_eval + FUTILITY_THRESHOLD2 < alpha) continue;
 		}
 
+		if (depth <= 3 && !promo && best > -VALUE_INFINITE) {
+			/**
+			 * PVS SEE Pruning
+			 * 
+			 * Skip searching moves with bad SEE scores
+			 */
+			Value see = board.see_capture(move);
+			if (see < -320)
+				continue;
+		}
+
 		board.make_move(move);
 
 		Value score;
