@@ -18,7 +18,7 @@ void Network::load() {
 
 int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nbucket) {
 	if (nbucket & 1) {
-		// flip
+		// Flip the square
 		sq = (Square)(sq ^ 7);
 	}
 	nbucket /= 2;

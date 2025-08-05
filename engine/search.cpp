@@ -450,6 +450,17 @@ Value __recurse(Board &board, int depth, BoardState &bs, SearchParams &params, V
 			if (depth == 2 && cur_eval + FUTILITY_THRESHOLD2 < alpha) continue;
 		}
 
+		if (depth <= 3 && !promo && best > -VALUE_INFINITE) {
+			/**
+			 * PVS SEE Pruning
+			 * 
+			 * Skip searching moves with bad SEE scores
+			 */
+			Value see = board.see_capture(move);
+			if (see < -320)
+				continue;
+		}
+
 		board.make_move(move);
 
 		Value score;
@@ -504,9 +515,9 @@ Value __recurse(Board &board, int depth, BoardState &bs, SearchParams &params, V
 			if (params.line[ply].excl == NullMove) {
 				board.ttable.store(board.zobrist, best, depth, LOWER_BOUND, best_move, board.halfmove);
 			}
-			if (params.killer[0][depth] != move) {
-				params.killer[1][depth] = params.killer[0][depth];
-				params.killer[0][depth] = move; // Update killer moves
+			if (params.killer[0][ply] != move) {
+				params.killer[1][ply] = params.killer[0][ply];
+				params.killer[0][ply] = move; // Update killer moves
 			}
 			if (!capt) { // Not a capture
 				const Value bonus = 1.56 * depth * depth + 0.91 * depth + 0.62;
@@ -564,6 +575,7 @@ Value __recurse(Board &board, int depth, BoardState &bs, SearchParams &params, V
 	return best;
 }
 
+bool g_quiet;
 // Search function from the first layer of moves
 std::pair<Move, Value> __search(Board &board, int depth, BoardState &bs, SearchParams &params, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
 	Move best_move = NullMove;
@@ -612,9 +624,9 @@ std::pair<Move, Value> __search(Board &board, int depth, BoardState &bs, SearchP
 
 		if (score >= beta) {
 			board.ttable.store(board.zobrist, best_score, depth, LOWER_BOUND, best_move, board.halfmove);
-			if (params.killer[0][depth] != move) {
-				params.killer[1][depth] = params.killer[0][depth];
-				params.killer[0][depth] = move;
+			if (params.killer[0][0] != move) {
+				params.killer[1][0] = params.killer[0][0];
+				params.killer[0][0] = move;
 			}
 			return {best_move, best_score};
 		}
