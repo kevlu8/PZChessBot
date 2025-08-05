@@ -1,8 +1,15 @@
 #include "includes.hpp"
 
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <csignal>
+#include <mutex>
+#include <queue>
+#include <sched.h>
 #include <sstream>
 #include <thread>
-#include <random>
+#include <vector>
 
 #include "bitboard.hpp"
 #include "eval.hpp"
@@ -10,191 +17,300 @@
 #include "movetimings.hpp"
 #include "search.hpp"
 
-BoardState bs;
+#define OUT_FILE "data.bullet.txt"
+#define FIXED_NODES 5000
+const int TT_SIZE = DEFAULT_TT_SIZE;
 
-int TT_SIZE = DEFAULT_TT_SIZE;
+BoardState bs[64]; // boardstates for each thread
+SearchParams params[64]; // search parameters for each thread
+
+// Thread-safe queue for storing generated game data
+class SafeQueue {
+private:
+	std::queue<std::string> queue_;
+	std::mutex mutex_;
+	std::condition_variable cond_;
+
+public:
+	void push(const std::string &data) {
+		std::lock_guard<std::mutex> lock(mutex_);
+		queue_.push(data);
+		cond_.notify_one();
+	}
+
+	bool pop(std::string &data) {
+		std::unique_lock<std::mutex> lock(mutex_);
+		if (queue_.empty()) {
+			return false;
+		}
+		data = queue_.front();
+		queue_.pop();
+		return true;
+	}
+
+	bool empty() {
+		std::lock_guard<std::mutex> lock(mutex_);
+		return queue_.empty();
+	}
+
+	size_t size() {
+		std::lock_guard<std::mutex> lock(mutex_);
+		return queue_.size();
+	}
+
+	void wait_and_pop(std::string &data) {
+		std::unique_lock<std::mutex> lock(mutex_);
+		cond_.wait(lock, [this] { return !queue_.empty(); });
+		data = queue_.front();
+		queue_.pop();
+	}
+};
+
+// Global variables
+SafeQueue gameDataQueue;
+std::atomic<int> totalPositions(0);
+std::atomic<int> totalGames(0);
+std::atomic<bool> shouldStop(false);
+std::atomic<bool> stopWriter(false);
+std::mutex printMutex;
+
+// Worker thread function to generate games
+void generateGames(int worker_id) {
+#ifndef WINDOWS
+	cpu_set_t mask;
+	CPU_ZERO(&mask);
+	CPU_SET(worker_id, &mask);
+	sched_setaffinity(0, sizeof(mask), &mask);
+#endif
+
+	while (!shouldStop.load()) {
+		Board board = Board(TT_SIZE);
+		// Generate random moves to start the game
+		for (int i = 0; i < 10; i++) {
+			pzstd::vector<Move> moves;
+			board.legal_moves(moves);
+			if (moves.size() == 0) {
+				continue; // Skip this game and start a new one
+			}
+			board.make_move(moves[rand() % moves.size()]);
+		}
+
+		// Self play time!
+		Value eval = 0;
+		pzstd::largevector<std::pair<std::string, Value>> game; // fen, eval
+		std::string res = "";
+
+		while (abs(eval) < VALUE_MATE_MAX_PLY) {
+			if ((game.size() >= 100 && abs(eval) < 100) || game.size() >= 400) {
+				// Probably drawn, stop the game
+				res = "0.5";
+				break;
+			}
+
+			if (board.threefold() || board.halfmove >= 100) {
+				// Threefold repetition or 50-move rule
+				res = "0.5";
+				break;
+			}
+
+			// Search for a move
+			std::pair<Move, Value> result = search_nodes(board, params[worker_id], FIXED_NODES, bs[worker_id]);
+			params[worker_id].clear(); // Reset search params for next iteration
+
+			if (result.first == NullMove) {
+				bool in_check = false;
+				if (board.side == WHITE) {
+					in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second > 0;
+				} else {
+					in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])).first > 0;
+				}
+				
+				if (in_check) {
+					// Checkmate
+					res = (board.side == WHITE) ? "0.0" : "1.0";
+				} else {
+					// Stalemate
+					res = "0.5";
+				}
+				break;
+			}
+
+			// Get the eval
+			eval = result.second;
+			if (board.side == BLACK)
+				eval *= -1; // change eval to white perspective
+
+			if (eval >= 10000) {
+				res = "1.0";
+				break;
+			} else if (eval <= -10000) {
+				res = "0.0";
+				break;
+			}
+
+			bool in_check = false;
+			if (board.side == WHITE) {
+				in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second > 0;
+			} else {
+				in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])).first > 0;
+			}
+			bool is_capture = (board.piece_boards[OPPOCC(board.side)] & square_bits(result.first.dst()));
+
+			if (!in_check && !is_capture && result.first.type() == NORMAL) {
+				// Store the position with its evaluation
+				game.push_back({board.get_fen(), eval});
+			}
+
+			// Make the move
+			board.make_move(result.first);
+		}
+
+		// Format the game data for writing
+		std::stringstream gameData;
+		for (auto &entry : game) {
+			// [fen] | [eval] | [result]
+			gameData << entry.first << " | " << entry.second / CP_SCALE_FACTOR << " | " << res << "\n";
+		}
+
+		// Push to the queue for writing
+		if (game.size() > 0) {
+			gameDataQueue.push(gameData.str());
+			totalPositions += game.size();
+			totalGames++;
+		}
+	}
+	std::cout << "Worker " << worker_id << " finished." << std::endl;
+}
+
+// Writer thread function to handle file I/O
+void writerThread(std::ofstream &outfile) {
+	std::string data;
+	std::string buffer;
+	const size_t BUFFER_SIZE = 64 * 1024 * 1024; // 64MB buffer
+	auto lastFlush = std::chrono::steady_clock::now();
+	const auto FLUSH_INTERVAL = std::chrono::seconds(30); // Flush every 30 seconds
+	
+	while (!stopWriter.load() || !gameDataQueue.empty()) {
+		if (gameDataQueue.pop(data)) {
+			buffer += data;
+			
+			// Flush if buffer is large enough or enough time has passed
+			auto now = std::chrono::steady_clock::now();
+			if (buffer.size() >= BUFFER_SIZE || (now - lastFlush) >= FLUSH_INTERVAL) {
+				outfile << buffer;
+				outfile.flush();
+				buffer.clear();
+				lastFlush = now;
+			}
+		} else {
+			std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Prevent CPU spinning
+		}
+	}
+	
+	// Final flush of remaining data
+	if (!buffer.empty()) {
+		outfile << buffer;
+		outfile.flush();
+	}
+	
+	std::cout << "Writer thread finished." << std::endl;
+}
+
+// Monitoring thread to print statistics
+void monitorThread(std::chrono::steady_clock::time_point start) {
+	auto prev = std::chrono::steady_clock::now();
+	while (!stopWriter.load()) {
+		// Use wall clock time instead of CPU time
+		auto now = std::chrono::steady_clock::now();
+
+		// Update stats every 5 minutes
+		if (now - prev < std::chrono::seconds(300)) {
+			continue; // Skip if not enough time has passed
+		}
+		prev = now;
+
+		int positions = totalPositions.load();
+		int games = totalGames.load();
+
+		double elapsedSecs = std::chrono::duration<double>(now - start).count();
+
+		std::lock_guard<std::mutex> lock(printMutex);
+		std::cout << "Generated " << positions << " positions in " << games << " games in " << elapsedSecs << "s" << std::endl;
+		std::cout << "Positions / second: ~" << (positions / elapsedSecs) << std::endl;
+		std::cout << "Queue size: " << gameDataQueue.size() << std::endl << std::endl;
+
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+	}
+}
+
+// Signal handler function
+void signalHandler(int signal) {
+	std::cout << "Stopping threads, please wait..." << std::endl;
+	shouldStop.store(true);
+}
 
 int main(int argc, char *argv[]) {
-	if (argc == 2 && std::string(argv[1]) == "bench") {
-		const std::pair<std::string, int> bench_positions[] = {
-			{"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 12},
-			{"rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq - 0 6", 15},
-			{"2r1r3/1b1Q1p1k/pb4q1/6p1/8/P1N3NP/2P2PP1/R3R1K1 b - - 0 29", 15},
-			{"k7/8/8/8/8/8/P7/K7 w - - 0 1", 20},
-			{"k7/8/8/8/8/8/8/K6R w - - 0 1", 20},
-		};
-		Board board = Board(TT_SIZE);
-		init_network();
-		uint64_t tot_nodes = 0;
-		uint64_t start = clock();
-		for (const auto &[fen, depth] : bench_positions) {
-			board.reset(fen);
-			search_depth(board, depth);
-			tot_nodes += nodes;
-		}
-		uint64_t end = clock();
-		std::cout << tot_nodes << " nodes " << (tot_nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
-		return 0;
+	init_network(bs); // Initialize the neural network
+	// Data generation script
+	std::ofstream outfile(OUT_FILE, std::ios::app); // Append mode in case of restart
+
+	const int NUM_THREADS = std::thread::hardware_concurrency();
+	// const int NUM_THREADS = 8;
+
+	std::cout << "PZChessBot " << VERSION << " parallelized data generation script" << std::endl;
+	std::cout << "Using " << NUM_THREADS << " worker threads" << std::endl;
+	std::cout << "I'm going to generate as much data as I can, until you stop me. Press Ctrl+C to stop." << std::endl << std::endl;
+
+	// Set up random seed - different for each run
+	srand(time(NULL));
+
+	// Start timing using wall clock time
+	auto start = std::chrono::steady_clock::now();
+
+	// Set up signal handler for clean shutdown
+	std::signal(SIGINT, signalHandler);
+
+	// Create writer thread
+	std::thread writer(writerThread, std::ref(outfile));
+
+	// Create monitor thread
+	std::thread monitor(monitorThread, start);
+
+	// Create worker threads
+	std::vector<std::thread> workers;
+	for (int i = 0; i < NUM_THREADS; i++) {
+		workers.push_back(std::thread(generateGames, i));
 	}
-	if (argc == 3 && std::string(argv[2]) == "quit") {
-		// assume genfens
-		// ./pzchessbot "genfens N seed S book None" "quit"
-		std::string genfens = argv[1];
-		std::stringstream ss(genfens);
-		std::string token;
-		uint64_t n = 0, s = 0;
-		while (ss >> token) {
-			if (token == "genfens")
-				ss >> n;
-			else if (token == "seed")
-				ss >> s;
-			else if (token == "book")
-				ss >> token; // ignore book for now
-		}
-		Board board = Board(TT_SIZE);
-		init_network();
-		std::mt19937 rng(s);
-		while (n--) {
-			board.reset_startpos();
-			bool restart = false;
-			for (int i = 0; i < 10; i++) {
-				pzstd::vector<Move> moves;
-				board.legal_moves(moves);
-				if (moves.size() == 0) {
-					restart = true;
-					break;
-				}
-				board.make_move(moves[rng() % moves.size()]);
-			}
-			if (restart) {
-				n++;
-				continue;
-			}
-			std::cout << "info string genfens " << board.get_fen() << std::endl;
-		}
-		return 0;
-	}
-	bool online = argc == 2 && std::string(argv[1]) == "--online";
-	std::cout << "PZChessBot " << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
-	std::string command;
-	Board board = Board(TT_SIZE);
-	init_network();
-	std::thread searchthread;
-	while (getline(std::cin, command)) {
-		if (command == "uci") {
-			std::cout << "id name PZChessBot " << VERSION << std::endl;
-			std::cout << "id author kevlu8 and wdotmathree" << std::endl;
-			std::cout << "option name Hash type spin default 16 min 1 max 1024" << std::endl;
-			std::cout << "option name Threads type spin default 1 min 1 max 1" << std::endl; // Not implemented yet
-			std::cout << "uciok" << std::endl;
-		} else if (command == "isready") {
-			std::cout << "readyok" << std::endl;
-		} else if (command.substr(0, 9) == "setoption") {
-			std::string optionname, optionvalue, token;
-			std::stringstream ss(command);
-			ss >> token;
-			while (ss >> token) {
-				if (token == "name") {
-					ss >> optionname;
-				} else if (token == "value") {
-					ss >> optionvalue;
-				}
-			}
-			if (optionname == "Hash") {
-				int optionint = std::stoi(optionvalue);
-				if (optionint < 1 || optionint > 1024) {
-					std::cerr << "Invalid hash size: " << optionint << std::endl;
-					continue;
-				}
-				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTBucket);
-			}
-		} else if (command == "ucinewgame") {
-			board = Board(TT_SIZE);
-		} else if (command.substr(0, 8) == "position") {
-			// either `position startpos` or `position fen ...`
-			if (command.find("startpos") != std::string::npos) {
-				board.reset_startpos();
-			} else if (command.find("fen") != std::string::npos) {
-				std::string fen = command.substr(command.find("fen") + 4);
-				if (fen.find("moves") != std::string::npos) {
-					fen = fen.substr(0, fen.find("moves"));
-				}
-				board.reset(fen);
-			}
-			if (command.find("moves") != std::string::npos) {
-				std::string moves = command.substr(command.find("moves") + 6);
-				std::stringstream ss(moves);
-				std::string move;
-				while (ss >> move) {
-					board.make_move(Move::from_string(move, &board));
-				}
-			}
-		} else if (command == "quit") {
-			break;
-		} else if (command == "stop") {
-			// stop the search thread
-			// if (searchthread.joinable()) {
-			// 	searchthread.join();
-			// }
-		} else if (command == "eval") {
-			std::array<Value, 8> score = debug_eval(board);
-			board.print_board();
-			std::cout << "info string fen " << board.get_fen() << std::endl;
-			int nbucket = (_mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) - 2) / 4;
-			for (int i = 0; i < 8; i++) {
-				std::cout << "info string eval " << i << ": " << score[i];
-				if (i == nbucket) {
-					std::cout << " (current)";
-				}
-				std::cout << std::endl;
-			}
-		} else if (command.substr(0, 2) == "go") {
-#ifndef HCE
-			std::cout << "info string Using " << NNUE_PATH << " for evaluation" << std::endl;
-#endif
-			// `go wtime ... btime ... winc ... binc ...`
-			// only care about wtime and btime
-			std::stringstream ss(command);
-			std::string token;
-			int wtime = 0, btime = 0, winc = 0, binc = 0;
-			int depth = -1;
-			int nodes = -1;
-			bool inf = false;
-			int movetime = -1;
-			ss >> token;
-			while (ss >> token) {
-				if (token == "wtime") {
-					ss >> wtime;
-				} else if (token == "btime") {
-					ss >> btime;
-				} else if (token == "winc") {
-					ss >> winc;
-				} else if (token == "binc") {
-					ss >> binc;
-				} else if (token == "depth") {
-					ss >> depth;
-				} else if (token == "infinite") {
-					inf = true;
-				} else if (token == "nodes") {
-					ss >> nodes;
-				} else if (token == "movetime") {
-					ss >> movetime;
-				}
-			}
-			int timeleft = board.side ? btime : wtime;
-			int inc = board.side ? binc : winc;
-			std::pair<Move, Value> res;
-			if (inf)
-				res = search(board);
-			else if (depth != -1)
-				res = search_depth(board, depth);
-			else if (nodes != -1)
-				res = search_nodes(board, nodes);
-			else if (movetime != -1)
-				res = search(board, movetime);
-			else
-				res = search(board, timemgmt(timeleft, inc, online));
-			std::cout << "bestmove " << res.first.to_string() << std::endl;
+
+	// Join threads when done (this won't happen unless SIGINT is received)
+	for (auto &worker : workers) {
+		if (worker.joinable()) {
+			worker.join();
 		}
 	}
+
+	// Stop the writer thread
+	stopWriter.store(true);
+
+	if (monitor.joinable()) {
+		monitor.join();
+	}
+
+	if (writer.joinable()) {
+		writer.join();
+	}
+
+	// Final stats using wall clock time
+	auto end = std::chrono::steady_clock::now();
+	double elapsedSecs = std::chrono::duration<double>(end - start).count();
+
+	int positions = totalPositions.load();
+	int games = totalGames.load();
+
+	std::cout << "Final stats:" << std::endl;
+	std::cout << "Generated " << positions << " positions in " << games << " games in " << elapsedSecs << "s" << std::endl;
+	std::cout << "Positions / second: " << (positions / elapsedSecs) << std::endl;
+
+	outfile.close();
+	return 0;
 }
