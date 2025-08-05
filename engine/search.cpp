@@ -310,7 +310,6 @@ Value __recurse(Board &board, int depth, BoardState &bs, SearchParams &params, V
 
 	Value cur_eval = 0;
 	Value raw_eval = 0; // For CorrHist
-	Value mat_eval = simple_eval(board) * side; // For CorrHist
 	uint64_t pawn_hash = 0;
 	if (!in_check) {
 		pawn_hash = board.pawn_struct_hash();

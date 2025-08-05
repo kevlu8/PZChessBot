@@ -5,13 +5,10 @@
 #include "includes.hpp"
 #include "boardstate.hpp"
 
-<<<<<<< HEAD
 void init_network(BoardState bs[]);
 
 Value eval(Board &board, BoardState &bs);
 
-=======
->>>>>>> main
 Value simple_eval(Board &board);
 
 std::array<Value, 8> debug_eval(Board &board, BoardState &bs);
