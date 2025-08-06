@@ -723,12 +723,6 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 		}
 	}
 
-	for (int i = 0; i < 2; i++) {
-		for (int j = 0; j < CORRHIST_SZ; j++) {
-			corrhist_ps[i][j] = 0;
-		}
-	}
-
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
 	bool aspiration_enabled = true;
