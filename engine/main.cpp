@@ -100,8 +100,12 @@ void generateGames(int worker_id) {
 		pzstd::largevector<std::pair<std::string, Value>> game; // fen, eval
 		std::string res = "";
 
+		int moves = 0;
+
 		while (abs(eval) < VALUE_MATE_MAX_PLY) {
-			if ((game.size() >= 100 && abs(eval) < 100) || game.size() >= 400) {
+			moves++;
+
+			if ((moves >= 100 && abs(eval) < 100) || moves >= 400) {
 				// Probably drawn, stop the game
 				res = "0.5";
 				break;
