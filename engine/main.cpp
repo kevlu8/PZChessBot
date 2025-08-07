@@ -294,8 +294,12 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			} else if (command.substr(0, 2) == "go") {
 				int ms = std::stoi(command.substr(3));
 				auto res = search(board, ms, 2); // Use quiet level 2 for pretty output
-				std::cout << "Best move: " << res.first.to_string() << " with score " << res.second / CP_SCALE_FACTOR * (board.side == BLACK ? -1 : 1) << std::endl;
-				board.make_move(res.first);
+				std::cout << CYAN "Best move: " RESET BOLD << res.first.to_string() << RESET
+						  << CYAN " with score: " RESET << (res.second / CP_SCALE_FACTOR * (board.side == BLACK ? -1 : 1) > 0 ? GREEN : RED)
+						  << std::showpos << res.second / CP_SCALE_FACTOR * (board.side == BLACK ? -1 : 1) << " cp" << RESET << std::endl << std::noshowpos;
+			} else if (command == "undo") {
+				board.unmake_move();
+				board.print_board_pretty();
 			} else if (command == "reset") {
 				board = Board(TT_SIZE);
 				std::cout << "Done" << std::endl;

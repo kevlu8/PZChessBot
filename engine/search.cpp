@@ -638,13 +638,17 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	Move move = NullMove;
 	int end = scores.size();
 	int i = 0;
+
+	bool printing_currmove = false;
+
 	while ((move = next_move(scores, end)) != NullMove) {
 		if (depth >= 20 && nodes >= 10'000'000) {
 			if (!g_quiet) std::cout << "info depth " << depth << " currmove " << move.to_string() << " currmovenumber " << i+1 << std::endl;
 			else if (g_quiet == 2) {
-				std::cout << (i?CURSOR_UP:"") << CLEAR_LINE CYAN "! " BOLD "Depth " << depth
-						  << " - Current Move " << move.to_string() << " Number " << BOLD << i+1 << RESET CYAN " / " RESET BOLD << scores.size()
-						  << RESET CYAN " !" RESET << std::endl;
+				std::cout << CLEAR_LINE CYAN "! " BOLD "Depth " << depth << RESET
+						  << " - Current Move " BOLD << move.to_string() << RESET " Number " << BOLD << i+1 << RESET " / " BOLD << scores.size()
+						  << RESET CYAN " !" RESET << std::endl << CURSOR_UP;
+				printing_currmove = true;
 			}
 		}
 
@@ -823,7 +827,10 @@ std::pair<Move, Value> search(Board &board, int64_t time, int quiet) {
 				score_text = std::to_string(cp_score * (board.side ? -1 : 1)) + " cp";
 			}
 
-			std::cout << CYAN "┌─ " BOLD "Depth " << d << RESET CYAN " ─┐" RESET << std::endl;
+			if (d > 1)
+				std::cout << "\033[9A\033[J";
+
+			std::cout << CYAN "┌─────────── " BOLD "Depth " << d << RESET CYAN " ───────────┐" RESET << std::endl;
 			std::cout << CYAN "│ " YELLOW "Depth:    " RESET BOLD << d << RESET CYAN " (" << seldepth << " sel)" RESET << std::endl;
 			std::cout << CYAN "│ " YELLOW "Score:    " RESET << score_color << BOLD << score_text << RESET << std::endl;
 			std::cout << CYAN "│ " YELLOW "Nodes:    " RESET << BOLD << format_number(nodes) << RESET << std::endl;
@@ -833,7 +840,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int quiet) {
 			std::cout << CYAN "│ " YELLOW "Short PV: " RESET << BLUE;
 			__print_pv_clipped(abs(eval) >= VALUE_MATE_MAX_PLY);
 			std::cout << RESET << std::endl;
-			std::cout << CYAN "└────────────┘" RESET << std::endl;
+			std::cout << CYAN "└────────────────────────────────┘" RESET << std::endl;
 		}
 		#endif
 		
