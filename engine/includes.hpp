@@ -161,3 +161,5 @@ enum MoveType {
 #define DARK_SQUARE "\033[48;5;223m"
 #define BORDER "\033[36m"
 #define COORDS "\033[33m"
+#define CLEAR_LINE "\r\033[K"
+#define CURSOR_UP "\033[A"

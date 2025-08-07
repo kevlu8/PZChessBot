@@ -623,7 +623,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	return best;
 }
 
-bool g_quiet;
+int g_quiet;
 // Search function from the first layer of moves
 std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
 	Move best_move = NullMove;
@@ -639,8 +639,13 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	int end = scores.size();
 	int i = 0;
 	while ((move = next_move(scores, end)) != NullMove) {
-		if (!g_quiet && depth >= 20 && nodes >= 10'000'000) {
-			std::cout << "info depth " << depth << " currmove " << move.to_string() << " currmovenumber " << i+1 << std::endl;
+		if (depth >= 20 && nodes >= 10'000'000) {
+			if (!g_quiet) std::cout << "info depth " << depth << " currmove " << move.to_string() << " currmovenumber " << i+1 << std::endl;
+			else if (g_quiet == 2) {
+				std::cout << (i?CURSOR_UP:"") << CLEAR_LINE CYAN "! " BOLD "Depth " << depth
+						  << " - Current Move " << move.to_string() << " Number " << BOLD << i+1 << RESET CYAN " / " RESET BOLD << scores.size()
+						  << RESET CYAN " !" RESET << std::endl;
+			}
 		}
 
 		line[0].move = move;
@@ -712,7 +717,7 @@ void __print_pv_clipped(bool omit_last = 0) {
 }
 
 std::pair<Move, Value> search(Board &board, int64_t time, int quiet) {
-	g_quiet = quiet == 1;
+	g_quiet = quiet;
 
 	std::cout << std::fixed << std::setprecision(0);
 	nodes = seldepth = 0;
