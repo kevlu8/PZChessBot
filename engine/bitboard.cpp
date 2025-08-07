@@ -417,6 +417,72 @@ void Board::print_board() const {
 #endif
 }
 
+void Board::print_board_pretty(bool print_meta) const {
+	const std::string pieces[] = {
+		// "♟", "♞", "♝", "♜", "♛", "♚", "", "",
+		// "♙", "♘", "♗", "♖", "♕", "♔", "", "",
+		"P", "N", "B", "R", "Q", "K", "", "",
+		"p", "n", "b", "r", "q", "k", "", "", // some terminals don't support chess pieces
+	};
+
+	std::cout << "\n" BORDER "  ┌──────────────────────────┐" RESET << std::endl;
+
+	for (int rank = RANK_8; rank >= RANK_1; rank--) {
+		std::cout << BORDER "  │ " RESET;
+
+		for (int file = FILE_A; file <= FILE_H; file++) {
+			Square sq = make_square((File)file, (Rank)rank);
+			Piece piece = mailbox[sq];
+
+			bool is_light = ((rank + file) % 2) == 0;
+			std::string bg_color = is_light ? LIGHT_SQUARE : DARK_SQUARE;
+
+			std::cout << bg_color;
+			if (piece == NO_PIECE) {
+				std::cout << "   "; // 3 spaces
+			} else {
+				std::cout << BLACK_PIECE " " << pieces[piece] << " ";
+			}
+			std::cout << RESET;
+		}
+		std::cout << BORDER " │ " COORDS << (rank + 1) << RESET << std::endl;
+	}
+
+	std::cout << BORDER "  └──────────────────────────┘" RESET << std::endl;
+	std::cout << BORDER "    " RESET;
+	for (char file = 'a'; file <= 'h'; file++) {
+		std::cout << COORDS " " << file << " " RESET;
+	}
+	std::cout << std::endl;
+
+	if (print_meta) {
+		std::cout << "\n" COORDS "FEN: " RESET << get_fen() << std::endl;
+		std::cout << COORDS "Side to move: " RESET << (side ? "Black" : "White") << std::endl;
+
+		std::cout << COORDS "Castling: " RESET;
+		if (castling == NO_CASTLE) {
+			std::cout << "-";
+		} else {
+			if (castling & WHITE_OO) std::cout << "K";
+			if (castling & WHITE_OOO) std::cout << "Q";
+			if (castling & BLACK_OO) std::cout << "k";
+			if (castling & BLACK_OOO) std::cout << "q";
+		}
+		std::cout << std::endl;
+
+		std::cout << COORDS "En passant: " << RESET;
+		if (ep_square >= SQ_NONE) {
+			std::cout << "-";
+		} else {
+			std::cout << to_string(ep_square);
+		}
+		std::cout << std::endl;
+
+		std::cout << COORDS "Halfmove clock: " RESET << (int)halfmove << std::endl;
+		std::cout << std::endl;
+	}
+}
+
 void Board::make_move(Move move) {
 #ifdef SANCHECK
 	char before[64];
