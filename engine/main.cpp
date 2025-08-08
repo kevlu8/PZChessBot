@@ -110,6 +110,8 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			} else if (optionname == "Quiet") {
 				quiet = optionvalue == "true";
 			}
+			// SPSA parameters
+			else ::ss.change(optionname, optionvalue);
 		} else if (command == "ucinewgame") {
 			board = Board(TT_SIZE);
 		} else if (command.substr(0, 8) == "position") {

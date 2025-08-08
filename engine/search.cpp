@@ -9,6 +9,8 @@ uint64_t mxtime = 1000; // Maximum time to search in milliseconds
 bool early_exit = false, exit_allowed = false; // Whether or not to exit the search, and if we are allowed to exit (so we don't exit on the depth 1)
 clock_t start = 0;
 
+SearchSettings ss;
+
 uint64_t perft(Board &board, int depth) {
 	// If white's turn is beginning and black is in check
 	if (board.side == WHITE && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first)
@@ -206,7 +208,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 			} else {
 				// QS Futility pruning
 				// use see score for added safety
-				if (DELTA_THRESHOLD + 4 * see + stand_pat < alpha) continue;
+				if (ss.DELTA_THRESHOLD + 4 * see + stand_pat < alpha) continue;
 			}
 		}
 
@@ -267,12 +269,12 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 			// 3. Quiets
 			score = QUIET_BASE + history[board.side][move.src()][move.dst()];
 			if (ply && move == cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()]) {
-				score += 1021; // Counter-move bonus
+				score += ss.CMH_BONUS; // Counter-move bonus
 			}
 			if (move == killer[0][ply]) {
-				score += 1500; // Killer bonus
+				score += ss.KILLER1; // Killer bonus
 			} else if (move == killer[1][ply]) {
-				score += 800; // Second killer bonus
+				score += ss.KILLER2; // Second killer bonus
 			}
 		}
 
@@ -380,7 +382,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * 
 		 * We need to make sure that we aren't in check (since we might get mated)
 		 */
-		int margin = (RFP_THRESHOLD - improving * RFP_IMPROVING) * depth;
+		int margin = (ss.RFP_THRESHOLD - improving * ss.RFP_IMPROVING) * depth;
 		if (cur_eval >= beta + margin)
 			return cur_eval - margin;
 	}
@@ -409,7 +411,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Razoring
-	if (!pv && !in_check && depth <= 3 && cur_eval + RAZOR_MARGIN * depth < alpha) {
+	if (!pv && !in_check && depth <= 3 && cur_eval + ss.RAZOR_MARGIN * depth < alpha) {
 		/**
 		 * If we are losing by a lot, check w/ qsearch to see if we could possibly improve.
 		 * If not, we can prune the search.
@@ -482,7 +484,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * Depth condition is necessary to avoid overflow
 			 */
 			Value hist = history[board.side][move.src()][move.dst()];
-			if (hist < -HISTORY_MARGIN * depth) {
+			if (hist < -ss.HISTORY_MARGIN * depth) {
 				continue;
 			}
 		}
@@ -494,8 +496,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * If we are at the leaf of the search, we can prune moves that are
 			 * probably not going to be better than alpha.
 			 */
-			if (depth == 1 && cur_eval + FUTILITY_THRESHOLD < alpha) continue;
-			if (depth == 2 && cur_eval + FUTILITY_THRESHOLD2 < alpha) continue;
+			if (depth == 1 && cur_eval + ss.FUTILITY_THRESHOLD < alpha) continue;
+			if (depth == 2 && cur_eval + ss.FUTILITY_THRESHOLD2 < alpha) continue;
 		}
 
 		if (depth <= 3 && !promo && best > -VALUE_INFINITE) {
@@ -728,7 +730,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 	bool aspiration_enabled = true;
 	for (int d = 1; d <= MAX_PLY; d++) {
 		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
-		Value window_size = ASPIRATION_WINDOW;
+		Value window_size = ss.ASPIRATION_WINDOW;
 		
 		if (eval != -VALUE_INFINITE && aspiration_enabled) {
 			/**
@@ -823,7 +825,7 @@ std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
 	bool aspiration_enabled = true;
 	for (int d = 1; d <= depth; d++) {
 		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
-		Value window_size = ASPIRATION_WINDOW;
+		Value window_size = ss.ASPIRATION_WINDOW;
 		
 		if (eval != -VALUE_INFINITE && aspiration_enabled) {
 			alpha = eval - window_size;
