@@ -56,10 +56,10 @@ struct SSEntry {
 	SSEntry() : move(NullMove), eval(VALUE_NONE), excl(NullMove) {}
 };
 
-std::pair<Move, Value> search(Board &board, int64_t time = 1e9, bool quiet = false);
+std::pair<Move, Value> search(Board &board, int64_t time = 1e9, int quiet = 0);
 
-std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet = false);
+std::pair<Move, Value> search_depth(Board &board, int depth, int quiet = 0);
 
-std::pair<Move, Value> search_nodes(Board &board, uint64_t nodes, bool quiet = false);
+std::pair<Move, Value> search_nodes(Board &board, uint64_t nodes, int quiet = 0);
 
 uint64_t perft(Board &board, int depth);

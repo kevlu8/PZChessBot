@@ -623,7 +623,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	return best;
 }
 
-bool g_quiet;
+int g_quiet;
 // Search function from the first layer of moves
 std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
 	Move best_move = NullMove;
@@ -638,9 +638,18 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	Move move = NullMove;
 	int end = scores.size();
 	int i = 0;
+
+	bool printing_currmove = false;
+
 	while ((move = next_move(scores, end)) != NullMove) {
-		if (!g_quiet && depth >= 20 && nodes >= 10'000'000) {
-			std::cout << "info depth " << depth << " currmove " << move.to_string() << " currmovenumber " << i+1 << std::endl;
+		if (depth >= 20 && nodes >= 10'000'000) {
+			if (!g_quiet) std::cout << "info depth " << depth << " currmove " << move.to_string() << " currmovenumber " << i+1 << std::endl;
+			else if (g_quiet == 2) {
+				std::cout << CLEAR_LINE CYAN "! " BOLD "Depth " << depth << RESET
+						  << " - Current Move " BOLD << move.to_string() << RESET " Number " << BOLD << i+1 << RESET " / " BOLD << scores.size()
+						  << RESET CYAN " !" RESET << std::endl << CURSOR_UP;
+				printing_currmove = true;
+			}
 		}
 
 		line[0].move = move;
@@ -702,7 +711,16 @@ void __print_pv(bool omit_last = 0) { // Need to omit last to prevent illegal mo
 	}
 }
 
-std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
+void __print_pv_clipped(bool omit_last = 0) {
+	const int MAX_PLY = 10;
+	int len = std::min(pvlen[0] - omit_last, MAX_PLY);
+	for (int i = 0; i < len; i++) {
+		if (pvtable[0][i] == NullMove) break;
+		std::cout << pvtable[0][i].to_string() << ' ';
+	}
+}
+
+std::pair<Move, Value> search(Board &board, int64_t time, int quiet) {
 	g_quiet = quiet;
 
 	std::cout << std::fixed << std::setprecision(0);
@@ -779,6 +797,50 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 				__print_pv();
 				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			}
+		} else if (quiet == 2) { // quiet level: formatted output
+			auto format_number = [](uint64_t num) -> std::string {
+				std::string str = std::to_string(num);
+				int len = str.length();
+				for (int i = len - 3; i > 0; i -= 3) {
+					str.insert(i, ",");
+				}
+				return str;
+			}; // actually cooked
+
+			uint64_t time_ms = (clock() - start) / CLOCKS_PER_MS;
+			uint64_t nps = time_ms > 0 ? (nodes * 1000 / time_ms) : 0;
+			uint32_t hashfull = board.ttable.size() * 1000 / board.ttable.mxsize();
+
+			std::string score_color;
+			std::string score_text;
+
+			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
+				int mate_moves = (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1);
+				score_color = (mate_moves > 0) ? GREEN : RED;
+				score_text = "mate " + std::to_string(mate_moves);
+			} else {
+				int cp_score = eval / CP_SCALE_FACTOR;
+				if (cp_score > 200) score_color = GREEN;
+				else if (cp_score > 0) score_color = YELLOW;
+				else if (cp_score > -200) score_color = MAGENTA;
+				else score_color = RED;
+				score_text = std::to_string(cp_score * (board.side ? -1 : 1)) + " cp";
+			}
+
+			if (d > 1)
+				std::cout << "\033[9A\033[J";
+
+			std::cout << CYAN "┌─────────── " BOLD "Depth " << d << RESET CYAN " ───────────┐" RESET << std::endl;
+			std::cout << CYAN "│ " YELLOW "Depth:    " RESET BOLD << d << RESET CYAN " (" << seldepth << " sel)" RESET << std::endl;
+			std::cout << CYAN "│ " YELLOW "Score:    " RESET << score_color << BOLD << score_text << RESET << std::endl;
+			std::cout << CYAN "│ " YELLOW "Nodes:    " RESET << BOLD << format_number(nodes) << RESET << std::endl;
+			std::cout << CYAN "│ " YELLOW "Speed:    " RESET << BOLD << format_number(nps) << RESET " nps" << std::endl;
+			std::cout << CYAN "│ " YELLOW "Time:     " RESET << BOLD << time_ms << RESET " ms" << std::endl;
+			std::cout << CYAN "│ " YELLOW "Hash:     " RESET << BOLD << hashfull / 10.0 << RESET "%" << std::endl;
+			std::cout << CYAN "│ " YELLOW "Short PV: " RESET << BLUE;
+			__print_pv_clipped(abs(eval) >= VALUE_MATE_MAX_PLY);
+			std::cout << RESET << std::endl;
+			std::cout << CYAN "└────────────────────────────────┘" RESET << std::endl;
 		}
 		#endif
 		
@@ -799,7 +861,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 	return {best_move, eval / CP_SCALE_FACTOR};
 }
 
-std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
+std::pair<Move, Value> search_depth(Board &board, int depth, int quiet) {
 	mx_nodes = 1e18;
 	std::cout << std::fixed << std::setprecision(0);
 	nodes = seldepth = 0;
@@ -875,7 +937,7 @@ std::pair<Move, Value> search_depth(Board &board, int depth, bool quiet) {
 	return {best_move, eval / CP_SCALE_FACTOR};
 }
 
-std::pair<Move, Value> search_nodes(Board &board, uint64_t nodes, bool quiet) {
+std::pair<Move, Value> search_nodes(Board &board, uint64_t nodes, int quiet) {
 	mx_nodes = nodes;
 	auto res = search(board, 1e9, quiet);
 	return res;

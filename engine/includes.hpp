@@ -145,3 +145,21 @@ enum MoveType {
 	EN_PASSANT = 2 << 14,
 	CASTLING = 3 << 14,
 };
+
+#define RESET "\033[0m"
+#define CYAN "\033[36m"
+#define YELLOW "\033[33m"
+#define GREEN "\033[32m"
+#define RED "\033[31m"
+#define BLUE "\033[34m"
+#define MAGENTA "\033[35m"
+#define BOLD "\033[1m"
+#define DIM "\033[2m"
+#define WHITE_PIECE "\033[97m"
+#define BLACK_PIECE "\033[30m"
+#define LIGHT_SQUARE "\033[48;5;94m"
+#define DARK_SQUARE "\033[48;5;223m"
+#define BORDER "\033[36m"
+#define COORDS "\033[33m"
+#define CLEAR_LINE "\r\033[K"
+#define CURSOR_UP "\033[A"
