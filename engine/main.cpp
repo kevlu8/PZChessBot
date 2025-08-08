@@ -100,6 +100,10 @@ void generateGames(int worker_id) {
 		pzstd::largevector<std::pair<std::string, Value>> game; // fen, eval
 		std::string res = "";
 
+		// 1. sanity check to ensure the position is somewhat balanced
+		eval = search_nodes(board, params[worker_id], FIXED_NODES, bs[worker_id]).second;
+		if (abs(eval) > 400) continue; // too unbalanced
+
 		int moves = 0;
 
 		while (abs(eval) < VALUE_MATE_MAX_PLY) {
@@ -144,10 +148,10 @@ void generateGames(int worker_id) {
 			if (board.side == BLACK)
 				eval *= -1; // change eval to white perspective
 
-			if (eval >= 10000) {
+			if (eval >= 1000) {
 				res = "1.0";
 				break;
-			} else if (eval <= -10000) {
+			} else if (eval <= -1000) {
 				res = "0.0";
 				break;
 			}
@@ -160,7 +164,10 @@ void generateGames(int worker_id) {
 			}
 			bool is_capture = (board.piece_boards[OPPOCC(board.side)] & square_bits(result.first.dst()));
 
-			if (!in_check && !is_capture && result.first.type() == NORMAL) {
+
+			// todo: also ignore positions where there is only 1 good move
+
+			if (!in_check && !is_capture && result.first.type() != PROMOTION && result.first.type() != EN_PASSANT) {
 				// Store the position with its evaluation
 				game.push_back({board.get_fen(), eval});
 			}
