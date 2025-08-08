@@ -498,6 +498,17 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (depth == 2 && cur_eval + FUTILITY_THRESHOLD2 < alpha) continue;
 		}
 
+		if (depth <= 3 && !promo && best > -VALUE_INFINITE) {
+			/**
+			 * PVS SEE Pruning
+			 * 
+			 * Skip searching moves with bad SEE scores
+			 */
+			Value see = board.see_capture(move);
+			if (see < -320)
+				continue;
+		}
+
 		board.make_move(move);
 
 		Value score;
@@ -709,12 +720,6 @@ std::pair<Move, Value> search(Board &board, int64_t time, bool quiet) {
 	for (int i = 0; i < 64; i++) {
 		for (int j = 0; j < 64; j++) {
 			history[0][i][j] = history[1][i][j] = 0;
-		}
-	}
-
-	for (int i = 0; i < 2; i++) {
-		for (int j = 0; j < CORRHIST_SZ; j++) {
-			corrhist_ps[i][j] = 0;
 		}
 	}
 
