@@ -636,6 +636,18 @@ std::pair<Move, Value> __search(Board &board, int depth, BoardState &bs, SearchP
 		i++;
 	}
 
+	// Stalemate detection
+	if (best_score == -VALUE_MATE + 2) {
+		// If our engine thinks we are mated but we are not in check, we are stalemated
+		if (board.side == WHITE) {
+			if (!board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second)
+				return {NullMove, 0};
+		} else {
+			if (!board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])).first)
+				return {NullMove, 0};
+		}
+	}
+
 	if (best_score <= alpha) {
 		board.ttable.store(board.zobrist, alpha, depth, UPPER_BOUND, best_move, board.halfmove);
 	} else {
