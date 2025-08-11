@@ -3,7 +3,6 @@
 // Accumulator w_acc, b_acc;
 Network nnue_network;
 
-#ifdef HCE
 extern Bitboard king_movetable[64];
 
 static constexpr Value king_safety_lookup[9] = {-10, 20, 40, 50, 50, 50, 50, 50, 50};
@@ -48,15 +47,6 @@ __attribute__((constructor)) constexpr void gen_lookups() {
 	}
 }
 
-float multi(int x) {
-	// If there are fewer pieces on the board, we should raise the magnitude of the eval
-	// This allows for the engine to prioritize trading pieces when ahead, especially in the endgame
-	// The main caveat is that this may cause the engine to draw by insufficient material
-	int diff = std::min(32 - x, 20); // Number of pieces taken off the board
-	return 1.0 + 0.02 * diff;
-}
-#endif
-
 __attribute__((constructor)) void init_network() {
 #ifndef HCE
 	nnue_network.load();
@@ -76,7 +66,6 @@ Value simple_eval(Board &board) {
 	return score;
 }
 
-#ifdef HCE
 Value eval(Board &board) {
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
@@ -106,150 +95,26 @@ Value eval(Board &board) {
 	material -= RookValue * _mm_popcnt_u64(board.piece_boards[ROOK] & board.piece_boards[OCC(BLACK)]);
 	material -= QueenValue * _mm_popcnt_u64(board.piece_boards[QUEEN] & board.piece_boards[OCC(BLACK)]);
 
-	return material;
+	for (int i = 0; i < 64; i++) {
+		Piece p = board.mailbox[i];
+		if (p == NO_PIECE) continue;
+		int side = p >= 8 ? -1 : 1;
+		PieceType pt = (PieceType)(p & 7);
+		int idx = side == 1 ? i : (56 ^ i);
+		switch (pt) {
+			case PAWN: piecesquare += side * pawn_heatmap[idx]; break;
+			case KNIGHT: piecesquare += side * knight_heatmap[idx]; break;
+			case BISHOP: piecesquare += side * bishop_heatmap[idx]; break;
+			case ROOK: piecesquare += side * rook_heatmap[idx]; break;
+			case QUEEN: piecesquare += side * queen_heatmap[idx]; break;
+			case KING: piecesquare += side * king_heatmap[idx]; break;
+		}
+	}
+
+	return material + piecesquare;
 }
 
 std::array<Value, 8> debug_eval(Board &board) {
-	return {eval(board), 0, 0, 0, 0, 0, 0, 0};
+	Value ev = eval(board);
+	return {ev, ev, ev, ev, ev, ev, ev, ev};
 }
-#else
-Value eval(Board &board) {
-	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
-		// If black has no king, this is mate for white
-		return VALUE_MATE;
-	}
-	if (!(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])) {
-		// Likewise, if white has no king, this is mate for black
-		return -VALUE_MATE;
-	}
-
-	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
-	int32_t score = 0;
-	// Query the NNUE network
-	Square wkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]);
-	Square bkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]);
-	int winbucket = IBUCKET_LAYOUT[wkingsq];
-	int binbucket = IBUCKET_LAYOUT[bkingsq ^ 56];
-
-	if (winbucket != bs.wbucket || binbucket != bs.bbucket) {
-		for (int i = 0; i < HL_SIZE; i++) {
-			bs.w_acc.val[i] = nnue_network.accumulator_biases[i];
-			bs.b_acc.val[i] = nnue_network.accumulator_biases[i];
-		}
-		for (int i = 0; i < 64; i++) bs.mailbox[i] = NO_PIECE;
-		bs.wbucket = winbucket;
-		bs.bbucket = binbucket;
-	}
-
-	for (uint16_t i = 0; i < 64; i++) {
-		Piece piece = board.mailbox[i];
-		Piece prevpiece = bs.mailbox[i];
-		if (piece == prevpiece) continue;
-		bool side = piece >> 3; // 1 = black, 0 = white
-		bool prevside = prevpiece >> 3; // 1 = black, 0 = white
-		PieceType pt = PieceType(piece & 7);
-		PieceType prevpt = PieceType(prevpiece & 7);
-
-		if (piece != NO_PIECE) {
-			// Add to accumulator
-			uint16_t w_index = calculate_index((Square)i, pt, side, 0, winbucket);
-			accumulator_add(nnue_network, bs.w_acc, w_index);
-			uint16_t b_index = calculate_index((Square)i, pt, side, 1, binbucket);
-			accumulator_add(nnue_network, bs.b_acc, b_index);
-		}
-
-		if (prevpiece != NO_PIECE) {
-			// Subtract from accumulator
-			uint16_t w_index = calculate_index((Square)i, prevpt, prevside, 0, winbucket);
-			accumulator_sub(nnue_network, bs.w_acc, w_index);
-			uint16_t b_index = calculate_index((Square)i, prevpt, prevside, 1, binbucket);
-			accumulator_sub(nnue_network, bs.b_acc, b_index);
-		}
-	}
-
-	memcpy(bs.mailbox, board.mailbox, sizeof(bs.mailbox));
-
-	int nbucket = (npieces - 2) / 4;
-
-	if (board.side == WHITE) {
-		score = nnue_eval(nnue_network, bs.w_acc, bs.b_acc, nbucket);
-	} else {
-		score = -nnue_eval(nnue_network, bs.b_acc, bs.w_acc, nbucket);
-	}
-	return score;
-}
-
-std::array<Value, 8> debug_eval(Board &board) {
-	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
-		// If black has no king, this is mate for white
-		return {VALUE_MATE, 0, 0, 0, 0, 0, 0, 0};
-	}
-	if (!(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])) {
-		// Likewise, if white has no king, this is mate for black
-		return {-VALUE_MATE, 0, 0, 0, 0, 0, 0, 0};
-	}
-	if (board.halfmove >= 100) {
-		return {0, 0, 0, 0, 0, 0, 0, 0}; // Draw by 50 moves
-	}
-
-	Square wkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]);
-	Square bkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]);
-	int winbucket = IBUCKET_LAYOUT[wkingsq];
-	int binbucket = IBUCKET_LAYOUT[bkingsq ^ 56];
-
-	if (winbucket != bs.wbucket || binbucket != bs.bbucket) {
-		for (int i = 0; i < HL_SIZE; i++) {
-			bs.w_acc.val[i] = nnue_network.accumulator_biases[i];
-			bs.b_acc.val[i] = nnue_network.accumulator_biases[i];
-		}
-		for (int i = 0; i < 64; i++) bs.mailbox[i] = NO_PIECE;
-		bs.wbucket = winbucket;
-		bs.bbucket = binbucket;
-	}
-
-	// Query the NNUE network
-	for (uint16_t i = 0; i < 64; i++) {
-		Piece piece = board.mailbox[i];
-		Piece prevpiece = bs.mailbox[i];
-		if (piece == prevpiece)
-			continue;
-		bool side = piece >> 3; // 1 = black, 0 = white
-		bool prevside = prevpiece >> 3; // 1 = black, 0 = white
-		PieceType pt = PieceType(piece & 7);
-		PieceType prevpt = PieceType(prevpiece & 7);
-
-		if (piece != NO_PIECE) {
-			// Add to accumulator
-			uint16_t w_index = calculate_index((Square)i, pt, side, 0, winbucket);
-			accumulator_add(nnue_network, bs.w_acc, w_index);
-			uint16_t b_index = calculate_index((Square)i, pt, side, 1, binbucket);
-			accumulator_add(nnue_network, bs.b_acc, b_index);
-		}
-		
-		if (prevpiece != NO_PIECE) {
-			// Subtract from accumulator
-			uint16_t w_index = calculate_index((Square)i, prevpt, prevside, 0, winbucket);
-			accumulator_sub(nnue_network, bs.w_acc, w_index);
-			uint16_t b_index = calculate_index((Square)i, prevpt, prevside, 1, binbucket);
-			accumulator_sub(nnue_network, bs.b_acc, b_index);
-		}
-	}
-
-	memcpy(bs.mailbox, board.mailbox, sizeof(bs.mailbox));
-
-	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
-
-	std::array<Value, 8> score = {};
-	if (board.side == WHITE) {
-		for (int i = 0; i < 8; i++) {
-			score[i] = nnue_eval(nnue_network, bs.w_acc, bs.b_acc, i);
-		}
-	} else {
-		for (int i = 0; i < 8; i++) {
-			score[i] = -nnue_eval(nnue_network, bs.b_acc, bs.w_acc, i);
-		}
-	}
-
-	return score;
-}
-#endif
