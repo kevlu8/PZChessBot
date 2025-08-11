@@ -1,62 +1,5 @@
 #include "eval.hpp"
 
-// Accumulator w_acc, b_acc;
-Network nnue_network;
-
-extern Bitboard king_movetable[64];
-
-static constexpr Value king_safety_lookup[9] = {-10, 20, 40, 50, 50, 50, 50, 50, 50};
-static constexpr Value multipawn_lookup[7] = {0, 0, 20, 40, 80, 160, 320};
-
-/**
- * @brief Boards to denote "good" squares for each piece type
- * @details The 8 boards map out an 8-bit signed binary number that represents how good or bad a square is for a piece type.
- * @details 127 is the best square for a piece, -128 is the worst.
- */
-Bitboard PAWN_SQUARES[8];
-Bitboard KNIGHT_SQUARES[8];
-Bitboard BISHOP_SQUARES[8];
-Bitboard ROOK_SQUARES[8];
-Bitboard QUEEN_SQUARES[8];
-Bitboard KING_SQUARES[8];
-Bitboard KING_ENDGAME_SQUARES[8];
-Bitboard PAWN_ENDGAME_SQUARES[8];
-
-Bitboard PASSED_PAWN_MASKS[2][64];
-
-__attribute__((constructor)) constexpr void gen_lookups() {
-	// Convert heatmaps
-	for (int i = 0; i < 8; i++) {
-		for (int j = 0; j < 64; j++) {
-			PAWN_SQUARES[7 - i] |= (((Bitboard)pawn_heatmap[j] >> i) & 1) << j;
-			KNIGHT_SQUARES[7 - i] |= (((Bitboard)knight_heatmap[j] >> i) & 1) << j;
-			BISHOP_SQUARES[7 - i] |= (((Bitboard)bishop_heatmap[j] >> i) & 1) << j;
-			ROOK_SQUARES[7 - i] |= (((Bitboard)rook_heatmap[j] >> i) & 1) << j;
-			QUEEN_SQUARES[7 - i] |= (((Bitboard)queen_heatmap[j] >> i) & 1) << j;
-			KING_SQUARES[7 - i] |= (((Bitboard)king_heatmap[j] >> i) & 1) << j;
-			KING_ENDGAME_SQUARES[7 - i] |= (((Bitboard)endgame_heatmap[j] >> i) & 1) << j;
-			PAWN_ENDGAME_SQUARES[7 - i] |= (((Bitboard)pawn_endgame[j] >> i) & 1) << j;
-		}
-	}
-
-	for (int i = 8; i < 56; i++) {
-		Bitboard white_mask = 0x0101010101010101ULL << (i + 8);
-		Bitboard black_mask = 0x8080808080808080ULL >> (71 - i);
-		PASSED_PAWN_MASKS[WHITE][i] = white_mask | ((white_mask << 1) & 0x0101010101010101) | ((white_mask >> 1) & 0x8080808080808080);
-		PASSED_PAWN_MASKS[BLACK][i] = black_mask | ((black_mask << 1) & 0x0101010101010101) | ((black_mask >> 1) & 0x8080808080808080);
-	}
-}
-
-__attribute__((constructor)) void init_network() {
-#ifndef HCE
-	nnue_network.load();
-	for (int i = 0; i < HL_SIZE; i++) {
-		bs.w_acc.val[i] = nnue_network.accumulator_biases[i];
-		bs.b_acc.val[i] = nnue_network.accumulator_biases[i];
-	}
-#endif
-}
-
 Value simple_eval(Board &board) {
 	Value score = 0;
 	for (int i = 0; i < 6; i++) {
@@ -78,7 +21,6 @@ Value eval(Board &board) {
 
 	Value material = 0;
 	Value piecesquare = 0;
-	Value castling = 0;
 	Value bishop_pair = 0;
 	Value king_safety = 0;
 	Value tempo_bonus = 0;
@@ -111,7 +53,10 @@ Value eval(Board &board) {
 		}
 	}
 
-	return material + piecesquare;
+	bishop_pair += _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(WHITE)]) >= 2 ? 10 : 0;
+	bishop_pair -= _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(BLACK)]) >= 2 ? 10 : 0;
+
+	return material + piecesquare + bishop_pair;
 }
 
 std::array<Value, 8> debug_eval(Board &board) {
