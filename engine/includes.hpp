@@ -40,11 +40,7 @@ constexpr Value VALUE_MAX = QueenValue * 9 + (KnightValue + BishopValue + RookVa
 
 constexpr Value MAX_HISTORY = 16384;
 
-#ifdef HCE
-#define CP_SCALE_FACTOR 4
-#else
 #define CP_SCALE_FACTOR 1
-#endif
 
 #ifndef NNUE_PATH
 #define NNUE_PATH "nnue.bin"
