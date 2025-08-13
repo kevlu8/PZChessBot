@@ -48,11 +48,11 @@ Value eval(Board &board) {
 		int idx = side == 1 ? i : (56 ^ i);
 		switch (pt) {
 			case PAWN: piecesquare += side * ((pawn_heatmap[idx] * (24 - eg_weight)) + (pawn_endgame[idx] * eg_weight)) / 24; break;
-			case KNIGHT: piecesquare += side * knight_heatmap[idx]; break;
-			case BISHOP: piecesquare += side * bishop_heatmap[idx]; break;
-			case ROOK: piecesquare += side * rook_heatmap[idx]; break;
-			case QUEEN: piecesquare += side * queen_heatmap[idx]; break;
-			case KING: piecesquare += side * ((king_heatmap[idx] * (24 - eg_weight)) + (endgame_heatmap[idx] * eg_weight)) / 24; break;
+			case KNIGHT: piecesquare += side * ((knight_heatmap[idx] * (24 - eg_weight)) + (knight_endgame[idx] * eg_weight)) / 24; break;
+			case BISHOP: piecesquare += side * ((bishop_heatmap[idx] * (24 - eg_weight)) + (bishop_endgame[idx] * eg_weight)) / 24; break;
+			case ROOK: piecesquare += side * ((rook_heatmap[idx] * (24 - eg_weight)) + (rook_endgame[idx] * eg_weight)) / 24; break;
+			case QUEEN: piecesquare += side * ((queen_heatmap[idx] * (24 - eg_weight)) + (queen_endgame[idx] * eg_weight)) / 24; break;
+			case KING: piecesquare += side * ((king_heatmap[idx] * (24 - eg_weight)) + (king_endgame[idx] * eg_weight)) / 24; break;
 		}
 	}
 
