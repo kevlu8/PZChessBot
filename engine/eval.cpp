@@ -35,6 +35,7 @@ Value mg_eval(Board &board, int &phase) {
 	Value material = 0;
 	Value piecesquare = 0;
 	Value bishop_pair = 0;
+	Value center_control = 0;
 	Value king_safety = 0;
 
 	for (int i = 0; i < 6; i++) {
@@ -62,6 +63,16 @@ Value mg_eval(Board &board, int &phase) {
 	bishop_pair += _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(WHITE)]) >= 2 ? 10 : 0;
 	bishop_pair -= _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(BLACK)]) >= 2 ? 10 : 0;
 
+	auto e4_control = board.control(SQ_E4);
+	auto d4_control = board.control(SQ_D4);
+	auto e5_control = board.control(SQ_E5);
+	auto d5_control = board.control(SQ_D5);
+
+	center_control += (e4_control.first - e4_control.second) * 5;
+	center_control += (d4_control.first - d4_control.second) * 5;
+	center_control += (e5_control.first - e5_control.second) * 5;
+	center_control += (d5_control.first - d5_control.second) * 5;
+
 	int king_idx = _tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]);
 	king_safety += _mm_popcnt_u64(king_proximity[king_idx] & board.piece_boards[OCC(WHITE)]) * 5;
 	king_safety -= _mm_popcnt_u64(king_proximity[king_idx] & board.piece_boards[OCC(BLACK)]) * 5;
@@ -69,7 +80,7 @@ Value mg_eval(Board &board, int &phase) {
 	king_safety -= _mm_popcnt_u64(king_proximity[king_idx] & board.piece_boards[OCC(BLACK)]) * 5;
 	king_safety += _mm_popcnt_u64(king_proximity[king_idx] & board.piece_boards[OCC(WHITE)]) * 5;
 
-	return material + piecesquare + bishop_pair + king_safety;
+	return material + piecesquare + bishop_pair + center_control + king_safety;
 }
 
 Value eg_eval(Board &board) {
