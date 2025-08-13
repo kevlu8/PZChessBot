@@ -17,6 +17,7 @@ Value mg_eval(Board &board, int &phase) {
 	Value material = 0;
 	Value piecesquare = 0;
 	Value bishop_pair = 0;
+	Value center_control = 0;
 
 	for (int i = 0; i < 6; i++) {
 		material += piece_value_mg[i] * _mm_popcnt_u64(board.piece_boards[i] & board.piece_boards[OCC(WHITE)]);
@@ -43,7 +44,17 @@ Value mg_eval(Board &board, int &phase) {
 	bishop_pair += _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(WHITE)]) >= 2 ? 10 : 0;
 	bishop_pair -= _mm_popcnt_u64(board.piece_boards[BISHOP] & board.piece_boards[OCC(BLACK)]) >= 2 ? 10 : 0;
 
-	return material + piecesquare + bishop_pair;
+	auto e4_control = board.control(SQ_E4);
+	auto d4_control = board.control(SQ_D4);
+	auto e5_control = board.control(SQ_E5);
+	auto d5_control = board.control(SQ_D5);
+
+	center_control += (e4_control.first - e4_control.second) * 5;
+	center_control += (d4_control.first - d4_control.second) * 5;
+	center_control += (e5_control.first - e5_control.second) * 5;
+	center_control += (d5_control.first - d5_control.second) * 5;
+
+	return material + piecesquare + bishop_pair + center_control;
 }
 
 Value eg_eval(Board &board) {
