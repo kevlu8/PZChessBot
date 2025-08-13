@@ -13,11 +13,30 @@ Value piece_value_mg[6] = {82, 337, 365, 477, 1025, 0};
 Value piece_value_eg[6] = {94, 281, 297, 512, 936, 0};
 Value taperer[6] = {0, 1, 1, 2, 4, 0};
 
+Bitboard king_proximity[64]; // king_proximity[i] = bitboard of squares next to the king
+
+__attribute__((constructor)) void precompute_bbs() {
+	for (int i = 0; i < 64; i++) {
+		king_proximity[i] = 0;
+		if (i > 0) king_proximity[i] |= (1ULL << (i - 1)); // left
+		if (i < 63) king_proximity[i] |= (1ULL << (i + 1)); // right
+		if (i > 7) king_proximity[i] |= (1ULL << (i - 8)); // up
+		if (i < 56) king_proximity[i] |= (1ULL << (i + 8)); // down
+		if (i > 7 && i < 56) {
+			king_proximity[i] |= (1ULL << (i - 7)); // up-left
+			king_proximity[i] |= (1ULL << (i - 9)); // up-right
+			king_proximity[i] |= (1ULL << (i + 7)); // down-left
+			king_proximity[i] |= (1ULL << (i + 9)); // down-right
+		}
+	}
+}
+
 Value mg_eval(Board &board, int &phase) {
 	Value material = 0;
 	Value piecesquare = 0;
 	Value bishop_pair = 0;
 	Value center_control = 0;
+	Value king_safety = 0;
 
 	for (int i = 0; i < 6; i++) {
 		material += piece_value_mg[i] * _mm_popcnt_u64(board.piece_boards[i] & board.piece_boards[OCC(WHITE)]);
@@ -54,7 +73,14 @@ Value mg_eval(Board &board, int &phase) {
 	center_control += (e5_control.first - e5_control.second) * 5;
 	center_control += (d5_control.first - d5_control.second) * 5;
 
-	return material + piecesquare + bishop_pair + center_control;
+	int king_idx = _tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]);
+	king_safety += _mm_popcnt_u64(king_proximity[king_idx] & board.piece_boards[OCC(WHITE)]) * 5;
+	king_safety -= _mm_popcnt_u64(king_proximity[king_idx] & board.piece_boards[OCC(BLACK)]) * 5;
+	king_idx = _tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]);
+	king_safety -= _mm_popcnt_u64(king_proximity[king_idx] & board.piece_boards[OCC(BLACK)]) * 5;
+	king_safety += _mm_popcnt_u64(king_proximity[king_idx] & board.piece_boards[OCC(WHITE)]) * 5;
+
+	return material + piecesquare + bishop_pair + center_control + king_safety;
 }
 
 Value eg_eval(Board &board) {
