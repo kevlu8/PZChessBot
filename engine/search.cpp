@@ -345,7 +345,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	// Check for TTable cutoff
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
-	if (tentry && tentry->depth >= depth && line[ply].excl == NullMove) {
+	if (!pv && tentry && tentry->depth >= depth && line[ply].excl == NullMove) {
 		// Check for cutoffs
 		if (tentry->flags == EXACT) {
 			return tentry->eval;
@@ -432,6 +432,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	Move best_move = NullMove;
+
+	int alpha_raise = 0;
 
 	pzstd::vector<Move> quiets, captures;
 
@@ -547,6 +549,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (score > best) {
 			if (score > alpha) {
 				alpha = score;
+				alpha_raise++;
 				if (score < beta) {
 					pvtable[ply][0] = move;
 					pvlen[ply] = pvlen[ply+1]+1;
@@ -613,11 +616,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	if (line[ply].excl == NullMove) {
-		if (best <= alpha) {
-			board.ttable.store(board.zobrist, alpha, depth, UPPER_BOUND, best_move, board.halfmove);
-		} else {
-			board.ttable.store(board.zobrist, best, depth, EXACT, best_move, board.halfmove);
-		}
+		board.ttable.store(board.zobrist, best, depth, alpha_raise ? EXACT : UPPER_BOUND, best_move, board.halfmove);
 	}
 
 	return best;
