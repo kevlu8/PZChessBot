@@ -245,6 +245,12 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 			if (raw_eval + FP_MARGIN < alpha) continue;
 		}
 
+		if (depth <= 3 && best > -VALUE_INFINITE) {
+			// PVS SEE Pruning
+			Value see = board.see_capture(m);
+			if (see < -300) continue;
+		}
+
 		line[ply+1].move = m;
 		board.make_move(m);
 		Value score = 0;
