@@ -129,15 +129,15 @@ void run_uci() {
 			int inc = board.side ? binc : winc;
 			std::pair<Move, Value> res;
 			if (inf)
-				res = search(board, 1e9, quiet);
+				res = search(board);
 			else if (depth != -1)
-				res = search_depth(board, depth, quiet);
+				res = search(board, 1e18, depth, 1e18);
 			else if (nodes != -1)
-				res = search_nodes(board, nodes, quiet);
+				res = search(board, 1e18, MAX_PLY, nodes);
 			else if (movetime != -1)
-				res = search(board, movetime, quiet);
+				res = search(board, movetime);
 			else
-				res = search(board, timemgmt(timeleft, inc, online), quiet);
+				res = search(board, timemgmt(timeleft, inc, online));
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
 		}
 	}
@@ -157,11 +157,11 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		uint64_t start = clock();
 		for (const auto &[fen, depth] : bench_positions) {
 			board.reset(fen);
-			search_depth(board, depth);
+			search(board, 1e18, depth, 1e18);
 			tot_nodes += nodes;
 		}
 		uint64_t end = clock();
-		std::cout << tot_nodes << " nodes " << (tot_nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
+		std::cout << tot_nodes << " nodes " << int(tot_nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
 		return 0;
 	}
 	if (argc == 3 && std::string(argv[2]) == "quit") {
@@ -293,7 +293,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				}
 			} else if (command.substr(0, 2) == "go") {
 				int ms = std::stoi(command.substr(3));
-				auto res = search(board, ms, 2); // Use quiet level 2 for pretty output
+				auto res = search(board, ms);
 				std::cout << CYAN "Best move: " RESET BOLD << res.first.to_string() << RESET
 						  << CYAN " with score: " RESET << (res.second / CP_SCALE_FACTOR * (board.side == BLACK ? -1 : 1) > 0 ? GREEN : RED)
 						  << std::showpos << res.second / CP_SCALE_FACTOR * (board.side == BLACK ? -1 : 1) << " cp" << RESET << std::endl << std::noshowpos;

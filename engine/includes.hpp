@@ -38,7 +38,7 @@ constexpr Value RookValue = 526;
 constexpr Value QueenValue = 1002;
 constexpr Value VALUE_MAX = QueenValue * 9 + (KnightValue + BishopValue + RookValue) * 2;
 
-constexpr Value MAX_HISTORY = 16384;
+constexpr int MAX_HISTORY = 16384;
 
 #ifdef HCE
 #define CP_SCALE_FACTOR 4
