@@ -183,7 +183,7 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 	Move hash_move = NullMove;
 	if (entry) {
 		hash_move = entry->best_move;
-		if (entry->depth >= depth) {
+		if (entry->depth >= depth && !pv_node) {
 			if (entry->flags == EXACT) {
 				return entry->eval;
 			} else if (entry->flags == LOWER_BOUND && entry->eval >= beta) {
