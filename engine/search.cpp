@@ -702,6 +702,109 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	return {best_move, best_score};
 }
 
+pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
+	Move best_move[256];
+	Value best_score[256];
+
+	std::fill(best_move, best_move+256, NullMove);
+	std::fill(best_score, best_score+256, -VALUE_INFINITE);
+
+	auto min_score = [multipv](Value *best_score) {
+		Value min = best_score[0];
+		int idx = 0;
+		for (int i = 1; i < multipv; i++) {
+			if (best_score[i] < min) {
+				min = best_score[i];
+				idx = i;
+			}
+		}
+		return std::make_pair(min, idx);
+	};
+
+	pzstd::vector<Move> moves;
+	board.legal_moves(moves);
+
+	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
+	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, 0, tentry);
+
+	Move move = NullMove;
+	int end = scores.size();
+	int i = 0;
+
+	bool printing_currmove = false;
+	int alpha_raise = 0;
+
+	while ((move = next_move(scores, end)) != NullMove) {
+		if (depth >= 20 && nodes >= 10'000'000) {
+			if (!g_quiet) std::cout << "info depth " << depth << " currmove " << move.to_string() << " currmovenumber " << i+1 << std::endl;
+		}
+
+		auto res = min_score(best_score);
+
+		line[0].move = move;
+		board.make_move(move);
+		Value score;
+		Value used_alpha = res.first;
+		if (i > 0 && used_alpha != -VALUE_INFINITE) {
+			score = -__recurse(board, depth - reduction[i][depth] / 1024, -used_alpha - 1, -used_alpha, -side, 0);
+			if (score > used_alpha) {
+				score = -__recurse(board, depth - 1, -beta, -used_alpha, -side, 0);
+			}
+		} else {
+			score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1);
+		}
+
+		board.unmake_move();
+
+		if (score > res.first) {
+			pvtable[0][0] = move;
+			pvlen[0] = pvlen[1]+1;
+			for (int i = 0; i < pvlen[1]; i++) {
+				pvtable[0][i+1] = pvtable[1][i];
+			}
+			if (score > alpha) {
+				alpha = score;
+				alpha_raise++;
+			}
+			best_score[res.second] = score;
+			best_move[res.second] = move;
+		}
+
+		if (score >= beta) {
+			board.ttable.store(board.zobrist, score, depth, LOWER_BOUND, move, board.halfmove);
+			if (killer[0][0] != move) {
+				killer[1][0] = killer[0][0];
+				killer[0][0] = move;
+			}
+			pzstd::vector<std::pair<Move, Value>> multipv_res;
+			multipv_res.push_back({move, score});
+			return multipv_res;
+		}
+
+		if (early_exit)
+			break;
+
+		i++;
+	}
+
+	Move final_best_move = NullMove;
+	Value final_best_score = -VALUE_INFINITE;
+	pzstd::vector<std::pair<Move, Value>> multipv_res;
+
+	for (int i = 0; i < multipv; i++) {
+		if (best_move[i] == NullMove) best_score[i] = -VALUE_INFINITE;
+		if (best_score[i] > final_best_score) {
+			final_best_score = best_score[i];
+			final_best_move = best_move[i];
+		}
+		multipv_res.push_back({best_move[i], best_score[i]});
+	}
+
+	board.ttable.store(board.zobrist, final_best_score, depth, alpha_raise ? EXACT : UPPER_BOUND, final_best_move, board.halfmove);
+
+	return multipv_res;
+}
+
 void __print_pv(bool omit_last = 0) { // Need to omit last to prevent illegal moves during mates
 	const int ROOT_PLY = 0;
 	for (int i = 0; i < pvlen[ROOT_PLY] - omit_last; i++) {
@@ -719,7 +822,7 @@ void __print_pv_clipped(bool omit_last = 0) {
 	}
 }
 
-std::pair<Move, Value> search(Board &board, int64_t time, int quiet) {
+std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t maxnodes, int quiet) {
 	g_quiet = quiet;
 
 	std::cout << std::fixed << std::setprecision(0);
@@ -727,6 +830,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int quiet) {
 	early_exit = exit_allowed = false;
 	start = clock();
 	mxtime = time;
+	mx_nodes = maxnodes;
 	
 	// Clear killer moves and history heuristic
 	for (int i = 0; i < MAX_PLY; i++) {
@@ -743,7 +847,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int quiet) {
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
 	bool aspiration_enabled = true;
-	for (int d = 1; d <= MAX_PLY; d++) {
+	for (int d = 1; d <= depth; d++) {
 		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
 		Value window_size = ASPIRATION_WINDOW;
 		
@@ -860,13 +964,18 @@ std::pair<Move, Value> search(Board &board, int64_t time, int quiet) {
 	return {best_move, eval / CP_SCALE_FACTOR};
 }
 
-std::pair<Move, Value> search_depth(Board &board, int depth, int quiet) {
-	mx_nodes = 1e18;
+pzstd::vector<std::pair<Move, Value>> search_multipv(Board &board, int multipv, int64_t time, int depth, int64_t maxnodes, int quiet) {
+	pzstd::vector<std::pair<Move, Value>> results;
+
+	g_quiet = quiet;
+
 	std::cout << std::fixed << std::setprecision(0);
 	nodes = seldepth = 0;
 	early_exit = exit_allowed = false;
 	start = clock();
-
+	mxtime = time;
+	mx_nodes = maxnodes;
+	
 	// Clear killer moves and history heuristic
 	for (int i = 0; i < MAX_PLY; i++) {
 		killer[0][i] = killer[1][i] = NullMove;
@@ -879,65 +988,39 @@ std::pair<Move, Value> search_depth(Board &board, int depth, int quiet) {
 		}
 	}
 
-	Move best_move = NullMove;
-	Value eval = -VALUE_INFINITE;
-	bool aspiration_enabled = true;
+	pzstd::vector<std::pair<Move, Value>> multipv_res;
+
 	for (int d = 1; d <= depth; d++) {
-		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
-		Value window_size = ASPIRATION_WINDOW;
-		
-		if (eval != -VALUE_INFINITE && aspiration_enabled) {
-			alpha = eval - window_size;
-			beta = eval + window_size;
-		}
-		
-		auto result = __search(board, d, alpha, beta, board.side ? -1 : 1);
-		
-		// Gradually expand the window if we fail high or low
-		while ((result.second >= beta || result.second <= alpha) && window_size < VALUE_INFINITE / 4) {
-			if (result.second >= beta) {
-				// Fail high - expand upper bound
-				beta = eval + window_size * 2;
-				if (beta >= VALUE_INFINITE / 4) beta = VALUE_INFINITE;
-			}
-			if (result.second <= alpha) {
-				// Fail low - expand lower bound
-				alpha = eval - window_size * 2;
-				if (alpha <= -VALUE_INFINITE / 4) alpha = -VALUE_INFINITE;
-			}
-			window_size *= 2;
-			result = __search(board, d, alpha, beta, board.side ? -1 : 1);
-			if (early_exit) break;
-		}
+		auto result = __search_multipv(board, multipv, d, -VALUE_INFINITE, VALUE_INFINITE, board.side ? -1 : 1);
+
 		if (early_exit)
 			break;
-		eval = result.second;
-		best_move = result.first;
 
-		seldepth = std::max(seldepth, d);
+		multipv_res = result;
+		
+		std::stable_sort(multipv_res.begin(), multipv_res.end(), [](const auto &a, const auto &b) {
+			return a.second > b.second;
+		});
 
-#ifndef NOUCI
 		if (!quiet) {
-			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
-				std::cout << "info depth " << d << " seldepth " << seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
-						<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
-				__print_pv(1);
-				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
-			} else {
-				std::cout << "info depth " << d << " seldepth " << seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
-						<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
-				__print_pv();
-				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+			for (int i = 0; i < multipv; i++) {
+				Value eval = multipv_res[i].second;
+				if (eval == -VALUE_INFINITE || multipv_res[i].first == NullMove) break;
+
+				if (abs(eval) >= VALUE_MATE_MAX_PLY) {
+					std::cout << "info depth " << d << " seldepth " << seldepth << " multipv " << i+1 << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
+					<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << multipv_res[i].first.to_string()
+					<< " hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+				} else {
+					std::cout << "info depth " << d << " seldepth " << seldepth << " multipv " << i+1 << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
+					<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << multipv_res[i].first.to_string()
+					<< " hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+				}
 			}
 		}
-#endif
+
+		exit_allowed = true;
 	}
 
-	return {best_move, eval / CP_SCALE_FACTOR};
+	return multipv_res;
 }
-
-std::pair<Move, Value> search_nodes(Board &board, uint64_t nodes, int quiet) {
-	mx_nodes = nodes;
-	auto res = search(board, 1e9, quiet);
-	return res;
-} // Search for a given number of nodes
