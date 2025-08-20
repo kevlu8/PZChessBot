@@ -15,6 +15,7 @@ BoardState bs;
 // Options
 int TT_SIZE = DEFAULT_TT_SIZE;
 bool quiet = false, online = false;
+int multipv = 1;
 
 void run_uci() {
 	std::string command;
@@ -25,6 +26,7 @@ void run_uci() {
 			std::cout << "id author kevlu8 and wdotmathree" << std::endl;
 			std::cout << "option name Hash type spin default 16 min 1 max 1024" << std::endl;
 			std::cout << "option name Threads type spin default 1 min 1 max 1" << std::endl; // Not implemented yet
+			std::cout << "option name MultiPV type spin default 1 min 1 max 256" << std::endl;
 			std::cout << "option name Quiet type check default false" << std::endl;
 			std::cout << "uciok" << std::endl;
 		} else if (command == "icu") {
@@ -51,6 +53,8 @@ void run_uci() {
 				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTBucket);
 			} else if (optionname == "Quiet") {
 				quiet = optionvalue == "true";
+			} else if (optionname == "MultiPV") {
+				multipv = std::stoi(optionvalue);
 			}
 		} else if (command == "ucinewgame") {
 			board = Board(TT_SIZE);
@@ -128,16 +132,19 @@ void run_uci() {
 			int timeleft = board.side ? btime : wtime;
 			int inc = board.side ? binc : winc;
 			std::pair<Move, Value> res;
-			if (inf)
-				res = search(board, 1e9, quiet);
-			else if (depth != -1)
-				res = search_depth(board, depth, quiet);
-			else if (nodes != -1)
-				res = search_nodes(board, nodes, quiet);
-			else if (movetime != -1)
-				res = search(board, movetime, quiet);
-			else
-				res = search(board, timemgmt(timeleft, inc, online), quiet);
+			if (multipv != 1) {
+				if (inf) res = search_multipv(board, multipv, 1e9, MAX_PLY, 1e18, quiet)[0];
+				else if (depth != -1) res = search_multipv(board, multipv, 1e9, depth, 1e18, quiet)[0];
+				else if (nodes != -1) res = search_multipv(board, multipv, 1e9, MAX_PLY, nodes, quiet)[0];
+				else if (movetime != -1) res = search_multipv(board, multipv, movetime, MAX_PLY, 1e18, quiet)[0];
+				else res = search_multipv(board, multipv, 1e9, MAX_PLY, 1e18, quiet)[0];
+			} else {
+				if (inf) res = search(board, 1e9, MAX_PLY, 1e18, quiet);
+				else if (depth != -1) res = search(board, 1e9, depth, 1e18, quiet);
+				else if (nodes != -1) res = search(board, 1e9, MAX_PLY, nodes, quiet);
+				else if (movetime != -1) res = search(board, movetime, MAX_PLY, 1e18, quiet);
+				else res = search(board, timemgmt(timeleft, inc, online), MAX_PLY, 1e18, quiet);
+			}
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
 		}
 	}
@@ -157,7 +164,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		uint64_t start = clock();
 		for (const auto &[fen, depth] : bench_positions) {
 			board.reset(fen);
-			search_depth(board, depth);
+			search(board, 1e9, depth, 1e18, 0);
 			tot_nodes += nodes;
 		}
 		uint64_t end = clock();
@@ -212,6 +219,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			std::cout << "id author kevlu8 and wdotmathree" << std::endl;
 			std::cout << "option name Hash type spin default 16 min 1 max 1024" << std::endl;
 			std::cout << "option name Threads type spin default 1 min 1 max 1" << std::endl; // Not implemented yet
+			std::cout << "option name MultiPV type spin default 1 min 1 max 256" << std::endl;
 			std::cout << "option name Quiet type check default false" << std::endl;
 			std::cout << "uciok" << std::endl;
 			run_uci();
