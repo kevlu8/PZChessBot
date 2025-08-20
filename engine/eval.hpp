@@ -5,11 +5,13 @@
 #include "includes.hpp"
 #include "boardstate.hpp"
 
+void init_network(BoardState bs[]);
+
+Value eval(Board &board, BoardState &bs);
+
 Value simple_eval(Board &board);
 
-Value eval(Board &board);
-
-std::array<Value, 8> debug_eval(Board &board);
+std::array<Value, 8> debug_eval(Board &board, BoardState &bs);
 
 #ifdef HCE
 constexpr int pawn_heatmap[64] = {
@@ -109,13 +111,13 @@ constexpr int pawn_endgame[64] = {
 };
 #else
 constexpr int IBUCKET_LAYOUT[] = {
-	0, 2, 4, 6, 7, 5, 3, 1,
-	8, 10, 12, 14, 15, 13, 11, 9,
-	16, 16, 18, 18, 19, 19, 17, 17,
-	20, 20, 22, 22, 23, 23, 21, 21,
-	24, 24, 26, 26, 27, 27, 25, 25,
-	24, 24, 26, 26, 27, 27, 25, 25,
-	28, 28, 30, 30, 31, 31, 29, 29,
-	28, 28, 30, 30, 31, 31, 29, 29,
+	0, 0, 2, 2, 3, 3, 1, 1,
+	4, 4, 4, 4, 5, 5, 5, 5,
+	6, 6, 6, 6, 7, 7, 7, 7,
+	6, 6, 6, 6, 7, 7, 7, 7,
+	8, 8, 8, 8, 9, 9, 9, 9,
+	8, 8, 8, 8, 9, 9, 9, 9,
+	8, 8, 8, 8, 9, 9, 9, 9,
+	8, 8, 8, 8, 9, 9, 9, 9,
 };
 #endif

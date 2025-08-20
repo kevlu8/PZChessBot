@@ -9,5 +9,3 @@ struct BoardState {
 	Piece mailbox[64] = {};
 	int wbucket = -1, bbucket = -1;
 };
-
-extern BoardState bs;
