@@ -78,7 +78,7 @@ void run_uci() {
 				}
 			}
 		} else if (command == "quit") {
-			break;
+			exit(0);
 		} else if (command == "stop") {
 			// stop the search thread
 			// if (searchthread.joinable()) {
