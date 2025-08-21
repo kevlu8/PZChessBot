@@ -402,7 +402,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 */
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
-		Value null_score = -__recurse(board, depth - NMP_R_VALUE, -beta, -beta + 1, -side, pv, ply+1);
+		Value null_score = -__recurse(board, depth - NMP_R_VALUE, -beta, -beta + 1, -side, 0, ply+1);
 		board.unmake_move();
 		if (null_score >= beta)
 			return null_score;
@@ -516,27 +516,42 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		board.make_move(move);
 
 		Value score;
-		if (i > 0) {
-			/**
-			 * PV Search (principal variation)
-			 * 
-			 * Assuming our move ordering is good, there probably won't be any moves past
-			 * the first one that are better than that first move. So, we run a reduced-depth
-			 * null-window search on later moves (a much shorter search) to ensure that they
-			 * are bad moves. 
-			 * 
-			 * However, if the move turns out to be better than expected, we run a full-window
-			 * full-depth re-search. This, however, doesn't happen often enough to slow down
-			 * the search.
-			 */
+		if (i > 1) {
 			Value r = reduction[i][depth];
-			score = -__recurse(board, depth - r / 1024, -alpha - 1, -alpha, -side, 0, ply+1);
-			if (score > alpha) {
-				score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
+
+			Value searched_depth = depth - r / 1024;
+
+			score = -__recurse(board, searched_depth, -alpha - 1, -alpha, -side, 0, ply+1);
+			if (score > alpha && searched_depth < newdepth) {
+				score = -__recurse(board, newdepth, -alpha - 1, -alpha, -side, 0, ply+1);
 			}
-		} else {
-			score = -__recurse(board, depth - 1 + extension, -beta, -alpha, -side, pv, ply+1);
+		} else if (!pv || i > 0) {
+			score = -__recurse(board, newdepth, -alpha - 1, -alpha, -side, 0, ply+1);
 		}
+		if (pv && (i == 0 || score > alpha)) {
+			score = -__recurse(board, newdepth, -beta, -alpha, -side, 1, ply+1);
+		}
+		// if (i > 0) {
+		// 	/**
+		// 	 * PV Search (principal variation)
+		// 	 * 
+		// 	 * Assuming our move ordering is good, there probably won't be any moves past
+		// 	 * the first one that are better than that first move. So, we run a reduced-depth
+		// 	 * null-window search on later moves (a much shorter search) to ensure that they
+		// 	 * are bad moves. 
+		// 	 * 
+		// 	 * However, if the move turns out to be better than expected, we run a full-window
+		// 	 * full-depth re-search. This, however, doesn't happen often enough to slow down
+		// 	 * the search.
+		// 	 */
+		// 	Value r = reduction[i][depth];
+		// 	score = -__recurse(board, depth - r / 1024, -alpha - 1, -alpha, -side, 0, ply+1);
+		// 	if (score > alpha) {
+		// 		score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
+		// 	}
+		// } else {
+		// 	score = -__recurse(board, depth - 1 + extension, -beta, -alpha, -side, pv, ply+1);
+		// }
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
 			score = score - (uint16_t(score >> 15) << 1) - 1; // Mate score fix
@@ -650,14 +665,24 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 
 		line[0].move = move;
 		board.make_move(move);
+		
 		Value score;
-		if (i > 0) {
-			score = -__recurse(board, depth - reduction[i][depth] / 1024, -alpha - 1, -alpha, -side, 0);
-			if (score > alpha) {
-				score = -__recurse(board, depth - 1, -beta, -alpha, -side, 0);
+		Value newdepth = depth - 1;
+
+		if (i > 1) {
+			Value r = reduction[i][depth];
+
+			Value searched_depth = depth - r / 1024;
+
+			score = -__recurse(board, searched_depth, -alpha - 1, -alpha, -side, 0);
+			if (score > alpha && searched_depth < newdepth) {
+				score = -__recurse(board, newdepth, -alpha - 1, -alpha, -side, 0);
 			}
-		} else {
-			score = -__recurse(board, depth - 1, -beta, -alpha, -side, 1);
+		} else if (i > 0) {
+			score = -__recurse(board, newdepth, -alpha - 1, -alpha, -side, 0);
+		}
+		if (i == 0 || score > alpha) {
+			score = -__recurse(board, newdepth, -beta, -alpha, -side, 1);
 		}
 
 		board.unmake_move();
