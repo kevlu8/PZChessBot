@@ -1,21 +1,23 @@
 # PZChessBot
 
+![donate btc](https://img.shields.io/badge/donate%20btc-31pma4U314hJHSxXBECWxYFPBgL7n9BoCC-blue)
+
 A chess engine created by two high school students, started when we were in middle school!
 
 [Play against PZChessBot!](https://lichess.org/@/PZChessBot)
 
 ## Strength
 
-|   Version    | CCRL Blitz | CCRL 40/15 | Lichess Blitz |
-| ------------ | ---------- | ---------- | ------------- |
-| v20250311T07 |   ~1900    |	   -     |     2000      |
-| v1.0         |    2713    |      -     |     2500      |
-| v20250421T23-dev |   ~3000    |      -     |     2600      |
-| v2.0         |   2994     |      -	 |     2650      |
-| v20250621T09-dev |   ~3100   |      -     |     2700      |
-| v20250623T22-dev |   ~3160   |      -     |     2800      |
-| v3.0		 |   ~3250     |      3181     |     2850      |
-| v20250729T08 |   ~3380    |      -     |     -      |
+|      Version     | CCRL Blitz | CCRL 40/15 | Lichess Rapid |
+| ---------------- | ---------- | ---------- | ------------- |
+| v20250311T07     |   ~1900    |     -      |     2000      |
+| v1.0             |    2713    |     -      |     2500      |
+| v20250421T23-dev |   ~3000    |     -      |     2600      |
+| v2.0             |    2994    |     -      |     2650      |
+| v20250621T09-dev |   ~3100    |     -      |     2700      |
+| v20250623T22-dev |   ~3160    |     -      |     2800      |
+| v3.0             |   ~3350    |    3277    |     2850      |
+| v20250729T08-dev |   ~3420    |     -      |     2900      |
 
 ## Logistics & Features
 
@@ -48,5 +50,14 @@ PZChessBot is a basic negamax engine.
 ### Evaluation
 
 - NNUE-type evaluation with king buckets
-- Runs a (24576->512)x2->8 model
-- Trained on a mix of Stockfish and LC0 Data
+- Runs a (768x16->512)x2->1x8 model
+- Trained on a mix of Stockfish and Lc0 Data
+
+### Special Thanks
+
+- The [Stockfish Discord Server](https://discord.gg/XUyHyT5ap9), specifically `#engines-dev` for their help!
+- The [bullet](https://github.com/jw1912/bullet) NNUE trainer
+- The [ChessProgramming Wiki](https://chessprogramming.org/) for their clear albeit outdated explanations
+- [OpenBench](https://github.com/AndyGrant/OpenBench) for providing an excellent testing GUI
+- [sscg13](https://github.com/sscg13) for sharing an OpenBench instance with me and helping me with a lot of miscellaneous stuff
+- Lastly, YOU for checking out this project!
