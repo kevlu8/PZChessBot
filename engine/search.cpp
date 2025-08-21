@@ -450,20 +450,22 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
 		bool promo = (move.type() == PROMOTION);
 		
-		if (line[ply].excl == NullMove && depth >= 8 && tentry && move == tentry->best_move && tentry->depth >= depth - 2 && tentry->flags != UPPER_BOUND) {
-			// Singular extension
-			line[ply].excl = move;
-			Value singular_beta = tentry->eval - 6 * depth;
-			Value singular_score = __recurse(board, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, ply);
-			line[ply].excl = NullMove; // Reset exclusion move
+		// if (line[ply].excl == NullMove && depth >= 8 && tentry && move == tentry->best_move && tentry->depth >= depth - 2 && tentry->flags != UPPER_BOUND) {
+		// 	// Singular extension
+		// 	line[ply].excl = move;
+		// 	Value singular_beta = tentry->eval - 6 * depth;
+		// 	Value singular_score = __recurse(board, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, ply);
+		// 	line[ply].excl = NullMove; // Reset exclusion move
 
-			if (singular_score < singular_beta) {
-				depth++;
-			} else if (tentry->eval >= beta) {
-				// Negative extensions
-				extension -= 3;
-			}
-		}
+		// 	if (singular_score < singular_beta) {
+		// 		depth++;
+		// 	} else if (tentry->eval >= beta) {
+		// 		// Negative extensions
+		// 		extension -= 3;
+		// 	}
+		// }
+
+		Value newdepth = depth - 1;
 
 		line[ply].move = move;
 
@@ -528,11 +530,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * the search.
 			 */
 			Value r = reduction[i][depth];
-			r -= 512 * pv;
-			if (tentry && (board.piece_boards[OCC(board.side)] & square_bits(tentry->best_move.dst())))
-				// reduce more if tentry is a capture
-				r += 800;
-			if (r < 1024) r = 1024; // ensure at least 1 ply reduction
 			score = -__recurse(board, depth - r / 1024, -alpha - 1, -alpha, -side, 0, ply+1);
 			if (score > alpha) {
 				score = -__recurse(board, depth - 1, -beta, -alpha, -side, pv, ply+1);
