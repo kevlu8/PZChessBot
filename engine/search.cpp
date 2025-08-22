@@ -452,7 +452,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (line[ply].excl == NullMove && depth >= 8 && tentry && move == tentry->best_move && tentry->depth >= depth - 2 && tentry->flags != UPPER_BOUND) {
 			// Singular extension
 			line[ply].excl = move;
-			Value singular_beta = tentry->eval - 2 * depth;
+			Value singular_beta = tentry->eval - 6 * depth;
 			Value singular_score = __recurse(board, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, ply);
 			line[ply].excl = NullMove; // Reset exclusion move
 
@@ -518,7 +518,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (i > 1) {
 			Value r = reduction[i][depth];
 
-			Value searched_depth = newdepth - r / 1024;
+			Value searched_depth = depth - r / 1024;
 
 			score = -__recurse(board, searched_depth, -alpha - 1, -alpha, -side, 0, ply+1);
 			if (score > alpha && searched_depth < newdepth) {
@@ -671,7 +671,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		if (i > 1) {
 			Value r = reduction[i][depth];
 
-			Value searched_depth = newdepth - r / 1024;
+			Value searched_depth = depth - r / 1024;
 
 			score = -__recurse(board, searched_depth, -alpha - 1, -alpha, -side, 0);
 			if (score > alpha && searched_depth < newdepth) {
