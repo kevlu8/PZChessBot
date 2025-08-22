@@ -439,33 +439,30 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	Move move = NullMove;
 	int i = 0;
-	int extension = 0;
-
+	
 	while ((move = next_move(scores, end)) != NullMove) {
-		if (move == line[ply].excl) {
-			i++; // Necessary so we don't do full search
+		if (move == line[ply].excl)
 			continue;
-		}
-
+		
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
 		bool promo = (move.type() == PROMOTION);
 		
-		// if (line[ply].excl == NullMove && depth >= 8 && tentry && move == tentry->best_move && tentry->depth >= depth - 2 && tentry->flags != UPPER_BOUND) {
-		// 	// Singular extension
-		// 	line[ply].excl = move;
-		// 	Value singular_beta = tentry->eval - 6 * depth;
-		// 	Value singular_score = __recurse(board, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, ply);
-		// 	line[ply].excl = NullMove; // Reset exclusion move
+		int extension = 0;
 
-		// 	if (singular_score < singular_beta) {
-		// 		depth++;
-		// 	} else if (tentry->eval >= beta) {
-		// 		// Negative extensions
-		// 		extension -= 3;
-		// 	}
-		// }
+		if (line[ply].excl == NullMove && depth >= 8 && tentry && move == tentry->best_move && tentry->depth >= depth - 2 && tentry->flags != UPPER_BOUND) {
+			// Singular extension
+			line[ply].excl = move;
+			Value singular_beta = tentry->eval - 2 * depth;
+			Value singular_score = __recurse(board, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, ply);
+			line[ply].excl = NullMove; // Reset exclusion move
 
-		Value newdepth = depth - 1;
+			if (singular_score < singular_beta) {
+				extension++;
+			} else if (tentry->eval >= beta) {
+				// Negative extensions
+				extension -= 3;
+			}
+		}
 
 		line[ply].move = move;
 
@@ -515,11 +512,13 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		board.make_move(move);
 
+		Value newdepth = depth - 1 + extension;
+
 		Value score;
 		if (i > 1) {
 			Value r = reduction[i][depth];
 
-			Value searched_depth = depth - r / 1024;
+			Value searched_depth = newdepth - r / 1024;
 
 			score = -__recurse(board, searched_depth, -alpha - 1, -alpha, -side, 0, ply+1);
 			if (score > alpha && searched_depth < newdepth) {
@@ -672,7 +671,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		if (i > 1) {
 			Value r = reduction[i][depth];
 
-			Value searched_depth = depth - r / 1024;
+			Value searched_depth = newdepth - r / 1024;
 
 			score = -__recurse(board, searched_depth, -alpha - 1, -alpha, -side, 0);
 			if (score > alpha && searched_depth < newdepth) {
