@@ -518,6 +518,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (i > 1) {
 			Value r = reduction[i][depth];
 
+			r -= 512 * pv;
+
 			Value searched_depth = depth - r / 1024;
 
 			score = -__recurse(board, searched_depth, -alpha - 1, -alpha, -side, 0, ply+1);
