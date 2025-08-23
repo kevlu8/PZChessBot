@@ -457,7 +457,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			line[ply].excl = NullMove; // Reset exclusion move
 
 			if (singular_score < singular_beta) {
-				extension++;
+				depth++;
 			} else if (tentry->eval >= beta) {
 				// Negative extensions
 				extension -= 3;
