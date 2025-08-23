@@ -298,7 +298,7 @@ Move next_move(pzstd::vector<std::pair<Move, Value>> &scores, int &end) {
 	return best_move;
 }
 
-Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, int ply = 1) {
+Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 1) {
 	pvlen[ply] = 0;
 
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
@@ -402,7 +402,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 */
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
-		Value null_score = -__recurse(board, depth - NMP_R_VALUE, -beta, -beta + 1, -side, 0, ply+1);
+		Value null_score = -__recurse(board, depth - NMP_R_VALUE, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
 		board.unmake_move();
 		if (null_score >= beta)
 			return null_score;
@@ -453,7 +453,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			// Singular extension
 			line[ply].excl = move;
 			Value singular_beta = tentry->eval - 6 * depth;
-			Value singular_score = __recurse(board, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, ply);
+			Value singular_score = __recurse(board, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
 			line[ply].excl = NullMove; // Reset exclusion move
 
 			if (singular_score < singular_beta) {
@@ -461,6 +461,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			} else if (tentry->eval >= beta) {
 				// Negative extensions
 				extension -= 3;
+			} else if (cutnode) {
+				extension -= 2;
 			}
 		}
 
@@ -534,15 +536,15 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 			Value searched_depth = depth - r / 1024;
 
-			score = -__recurse(board, searched_depth, -alpha - 1, -alpha, -side, 0, ply+1);
+			score = -__recurse(board, searched_depth, -alpha - 1, -alpha, -side, 0, true, ply+1);
 			if (score > alpha && searched_depth < newdepth) {
-				score = -__recurse(board, newdepth, -alpha - 1, -alpha, -side, 0, ply+1);
+				score = -__recurse(board, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
 			}
 		} else if (!pv || i > 0) {
-			score = -__recurse(board, newdepth, -alpha - 1, -alpha, -side, 0, ply+1);
+			score = -__recurse(board, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
 		}
 		if (pv && (i == 0 || score > alpha)) {
-			score = -__recurse(board, newdepth, -beta, -alpha, -side, 1, ply+1);
+			score = -__recurse(board, newdepth, -beta, -alpha, -side, 1, false, ply+1);
 		}
 
 		if (abs(score) >= VALUE_MATE_MAX_PLY)
@@ -666,15 +668,15 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 
 			Value searched_depth = depth - r / 1024;
 
-			score = -__recurse(board, searched_depth, -alpha - 1, -alpha, -side, 0);
+			score = -__recurse(board, searched_depth, -alpha - 1, -alpha, -side, 0, true);
 			if (score > alpha && searched_depth < newdepth) {
-				score = -__recurse(board, newdepth, -alpha - 1, -alpha, -side, 0);
+				score = -__recurse(board, newdepth, -alpha - 1, -alpha, -side, 0, true);
 			}
 		} else if (i > 0) {
-			score = -__recurse(board, newdepth, -alpha - 1, -alpha, -side, 0);
+			score = -__recurse(board, newdepth, -alpha - 1, -alpha, -side, 0, true);
 		}
 		if (i == 0 || score > alpha) {
-			score = -__recurse(board, newdepth, -beta, -alpha, -side, 1);
+			score = -__recurse(board, newdepth, -beta, -alpha, -side, 1, false);
 		}
 
 		board.unmake_move();
