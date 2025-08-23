@@ -301,7 +301,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				}
 			} else if (command.substr(0, 2) == "go") {
 				int ms = std::stoi(command.substr(3));
-				auto res = search(board, ms, 2); // Use quiet level 2 for pretty output
+				auto res = search(board, ms, MAX_PLY, 1e18, 2); // Use quiet level 2 for pretty output
 				std::cout << CYAN "Best move: " RESET BOLD << res.first.to_string() << RESET
 						  << CYAN " with score: " RESET << (res.second / CP_SCALE_FACTOR * (board.side == BLACK ? -1 : 1) > 0 ? GREEN : RED)
 						  << std::showpos << res.second / CP_SCALE_FACTOR * (board.side == BLACK ? -1 : 1) << " cp" << RESET << std::endl << std::noshowpos;
