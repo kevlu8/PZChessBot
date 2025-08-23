@@ -415,7 +415,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * If not, we can prune the search.
 		 */
 		Value razor_score = quiesce(board, alpha, beta, side, ply);
-		if (razor_score < alpha)
+		if (razor_score <= alpha)
 			return razor_score;
 	}
 
