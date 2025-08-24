@@ -79,6 +79,7 @@ Move killer[2][MAX_PLY];
  * We store a history table for each side indexed by [src][dst].
  */
 Value history[2][64][64];
+Value conthist[MAX_PLY][2][64][64]; // [ply][stm][src][dst]
 
 /**
  * Capture history is a heuristic similar to the history heuristic, but it's used for
@@ -108,9 +109,10 @@ int pvlen[MAX_PLY];
 /**
  * Use the history gravity formula to update our history values
  */
-void update_history(bool side, Square from, Square to, Value bonus) {
+void update_history(bool side, int ply, Square from, Square to, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
 	history[side][from][to] += cbonus - history[side][from][to] * abs(bonus) / MAX_HISTORY;
+	if (ply) conthist[ply-1][side][from][to] += cbonus - conthist[ply-1][side][from][to] * abs(bonus) / MAX_HISTORY;
 }
 
 void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonus) {
@@ -254,7 +256,7 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
 		bool promo = (move.type() == PROMOTION);
 
-		Value score = 0;
+		int score = 0;
 
 		if (capt || promo) {
 			// 2. Captures + promotions
@@ -266,6 +268,7 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 		} else {
 			// 3. Quiets
 			score = QUIET_BASE + history[board.side][move.src()][move.dst()];
+			if (ply) score += conthist[ply-1][board.side][move.src()][move.dst()];
 			if (ply && move == cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()]) {
 				score += 1021; // Counter-move bonus
 			}
@@ -275,6 +278,8 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 				score += 800; // Second killer bonus
 			}
 		}
+
+		score = std::clamp(score, -VALUE_INFINITE, (int)VALUE_INFINITE);
 
 		scores.push_back({move, score});
 	}
@@ -579,9 +584,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			}
 			if (!capt) { // Not a capture
 				const Value bonus = 1.56 * depth * depth + 0.91 * depth + 0.62;
-				update_history(board.side, move.src(), move.dst(), bonus);
+				update_history(board.side, ply, move.src(), move.dst(), bonus);
 				for (auto &qmove : quiets) {
-					update_history(board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
+					update_history(board.side, ply, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
 				}
 				cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()] = move; // Update counter-move history
 				if (!in_check && !promo && best > raw_eval) update_corrhist(board.side, pawn_hash, board.material_hash(), best - raw_eval, depth);
