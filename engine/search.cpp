@@ -362,7 +362,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	uint64_t pawn_hash = 0;
 	if (!in_check) {
 		pawn_hash = board.pawn_struct_hash();
-		cur_eval = tentry ? tentry->eval : eval(board) * side;
+		if (tentry && abs(tentry->eval) < VALUE_MATE_MAX_PLY)
+			cur_eval = tentry->eval;
+		else
+			cur_eval = eval(board) * side;
 		raw_eval = cur_eval;
 		apply_correction(board.side, pawn_hash, board.material_hash(), cur_eval);
 	}
