@@ -112,8 +112,10 @@ int pvlen[MAX_PLY];
 void update_history(bool side, int ply, Square from, Square to, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
 	history[side][from][to] += cbonus - history[side][from][to] * abs(bonus) / MAX_HISTORY;
-	Value &cont = conthist[side][line[ply].mover][to][!side][line[ply-1].mover][line[ply-1].move.dst()];
-	cont += cbonus - cont * abs(bonus) / MAX_HISTORY;
+	if (ply && line[ply].mover != NO_PIECETYPE && line[ply-1].mover != NO_PIECETYPE) {
+		Value &cont = conthist[side][line[ply].mover][to][!side][line[ply-1].mover][line[ply-1].move.dst()];
+		cont += cbonus - cont * abs(bonus) / MAX_HISTORY;
+	}
 }
 
 void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonus) {
@@ -269,7 +271,8 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 		} else {
 			// 3. Quiets
 			score = QUIET_BASE + history[board.side][move.src()][move.dst()];
-			if (ply) score += conthist[board.side][line[ply].mover][move.dst()][!board.side][line[ply-1].mover][line[ply-1].move.dst()];
+			if (ply && line[ply].mover != NO_PIECETYPE && line[ply-1].mover != NO_PIECETYPE)
+				score += conthist[board.side][line[ply].mover][move.dst()][!board.side][line[ply-1].mover][line[ply-1].move.dst()];
 			if (ply && move == cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()]) {
 				score += 1021; // Counter-move bonus
 			}
