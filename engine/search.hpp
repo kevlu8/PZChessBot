@@ -51,9 +51,11 @@ extern uint64_t nodes;
 
 struct SSEntry {
 	Move move;
+	PieceType mover;
+	bool stm;
 	Value eval;
 	Move excl;
-	SSEntry() : move(NullMove), eval(VALUE_NONE), excl(NullMove) {}
+	SSEntry() : move(NullMove), mover(NO_PIECETYPE), stm(false), eval(VALUE_NONE), excl(NullMove) {}
 };
 
 std::pair<Move, Value> search(Board &board, int64_t time = 1e9, int depth = MAX_PLY, int64_t nodes = 1e18, int quiet = 0);

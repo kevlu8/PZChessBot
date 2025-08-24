@@ -79,7 +79,7 @@ Move killer[2][MAX_PLY];
  * We store a history table for each side indexed by [src][dst].
  */
 Value history[2][64][64];
-Value conthist[MAX_PLY][2][64][64]; // [ply][stm][src][dst]
+Value conthist[2][6][64][2][6][64]; // [stm][piece][dst][prevstm][prevpiece][prevdst]
 
 /**
  * Capture history is a heuristic similar to the history heuristic, but it's used for
@@ -112,7 +112,8 @@ int pvlen[MAX_PLY];
 void update_history(bool side, int ply, Square from, Square to, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
 	history[side][from][to] += cbonus - history[side][from][to] * abs(bonus) / MAX_HISTORY;
-	if (ply) conthist[ply-1][side][from][to] += cbonus - conthist[ply-1][side][from][to] * abs(bonus) / MAX_HISTORY;
+	Value &cont = conthist[side][line[ply].mover][to][!side][line[ply-1].mover][line[ply-1].move.dst()];
+	cont += cbonus - cont * abs(bonus) / MAX_HISTORY;
 }
 
 void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonus) {
@@ -268,7 +269,7 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 		} else {
 			// 3. Quiets
 			score = QUIET_BASE + history[board.side][move.src()][move.dst()];
-			if (ply) score += conthist[ply-1][board.side][move.src()][move.dst()];
+			if (ply) score += conthist[board.side][line[ply].mover][move.dst()][!board.side][line[ply-1].mover][line[ply-1].move.dst()];
 			if (ply && move == cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()]) {
 				score += 1021; // Counter-move bonus
 			}
@@ -473,6 +474,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 
 		line[ply].move = move;
+		line[ply].mover = PieceType(board.mailbox[move.src()] & 7);
+		line[ply].stm = board.side;
 
 		if (!in_check && !capt && !promo && i > 5 + 2 * depth * depth) {
 			/**
