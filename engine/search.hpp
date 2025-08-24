@@ -40,7 +40,7 @@
 
 // History pruning margin
 // This is the margin for history pruning (in centipawns)
-#define HISTORY_MARGIN (4000 * CP_SCALE_FACTOR)
+#define HISTORY_MARGIN (3000 * CP_SCALE_FACTOR)
 
 // Correction history table size
 #define CORRHIST_SZ 32768

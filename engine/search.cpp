@@ -271,8 +271,6 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 		} else {
 			// 3. Quiets
 			score = QUIET_BASE + history[board.side][move.src()][move.dst()];
-			if (ply && line[ply].mover != NO_PIECETYPE && line[ply-1].mover != NO_PIECETYPE)
-				score += conthist[board.side][line[ply].mover][move.dst()][!board.side][line[ply-1].mover][line[ply-1].move.dst()];
 			if (ply && move == cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()]) {
 				score += 1021; // Counter-move bonus
 			}
@@ -489,14 +487,14 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			continue;
 		}
 
-		if (!in_check && !capt && !promo && depth <= 5) {
+		if (ply && !in_check && !capt && !promo && depth <= 5 && line[ply-1].mover != NO_PIECETYPE) {
 			/**
 			 * History pruning
 			 * 
 			 * Skip moves with very bad history scores
 			 * Depth condition is necessary to avoid overflow
 			 */
-			Value hist = history[board.side][move.src()][move.dst()];
+			Value hist = conthist[board.side][line[ply].mover][move.dst()][!board.side][line[ply-1].mover][line[ply-1].move.dst()];
 			if (hist < -HISTORY_MARGIN * depth) {
 				continue;
 			}
