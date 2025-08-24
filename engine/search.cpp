@@ -553,6 +553,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		board.unmake_move();
 
+		line[ply].move = NullMove;
+
 		if (score > best) {
 			if (score > alpha) {
 				alpha = score;
