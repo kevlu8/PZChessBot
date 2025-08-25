@@ -298,6 +298,8 @@ Move next_move(pzstd::vector<std::pair<Move, Value>> &scores, int &end) {
 	return best_move;
 }
 
+// std::ofstream nn_data("data.txt");
+
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 1) {
 	pvlen[ply] = 0;
 
@@ -359,6 +361,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	Value cur_eval = 0;
 	Value raw_eval = 0; // For CorrHist
 	Value mat_eval = simple_eval(board) * side; // For CorrHist
+	Value corrplexity = 0;
 	uint64_t pawn_hash = 0;
 	if (!in_check) {
 		pawn_hash = board.pawn_struct_hash();
@@ -368,6 +371,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			cur_eval = eval(board) * side;
 		raw_eval = cur_eval;
 		apply_correction(board.side, pawn_hash, board.material_hash(), cur_eval);
+		corrplexity = cur_eval - raw_eval;
 	}
 
 	line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
@@ -421,6 +425,11 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (razor_score <= alpha)
 			return razor_score;
 	}
+
+	// CutNet
+	bool cnres = CutNet::shouldcut(depth, cur_eval - beta, (tentry != nullptr), (tentry != nullptr ? tentry->depth - depth : 0), corrplexity, improving, mat_eval - beta);
+	if (cnres)
+		return beta;
 
 	Value best = -VALUE_INFINITE;
 
@@ -594,6 +603,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 					update_capthist(PieceType(board.mailbox[cmove.src()] & 7), PieceType(board.mailbox[cmove.dst()] & 7), cmove.dst(), -bonus);
 				}
 			}
+			// if (cutnode)
+			// 	nn_data << depth << ", " << cur_eval - beta << ", " << (tentry != nullptr) << ", " << (tentry ? tentry->depth - depth : 0) << ", " << corrplexity << ", " << improving << ", " << (mat_eval - beta) << ", 1\n"; // because it did indeed cut
 			return best;
 		}
 
@@ -604,6 +615,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		else if (capt) captures.push_back(move);
 		i++;
 	}
+
+	// if (cutnode)
+	// 	nn_data << depth << ", " << cur_eval - beta << ", " << (tentry != nullptr) << ", " << (tentry ? tentry->depth - depth : 0) << ", " << corrplexity << ", " << improving << ", " << (mat_eval - beta) << ", 0\n"; // because it not cut
 
 	bool best_iscapture = (board.piece_boards[OPPOCC(board.side)] & square_bits(best_move.dst()));
 	bool best_ispromo = (best_move.type() == PROMOTION);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "bitboard.hpp"
+#include "cutnet.hpp"
 #include "eval.hpp"
 #include "movegen.hpp"
 #include "ttable.hpp"
