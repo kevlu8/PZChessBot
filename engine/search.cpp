@@ -237,7 +237,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
  * 2. Captures + promotions (sorted by MVV+CaptHist)
  * 3. Quiets (sorted by history heuristic + counter-move heuristic + killer bonus)
  */
-pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<Move> &moves, int side, int depth, int ply, TTable::TTEntry *tentry) {
+pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<Move> &moves, int side, int ply, TTable::TTEntry *tentry) {
 	pzstd::vector<std::pair<Move, Value>> scores;
 
 	const Value TT_MOVE_BASE = VALUE_INFINITE;
@@ -298,7 +298,7 @@ Move next_move(pzstd::vector<std::pair<Move, Value>> &scores, int &end) {
 	return best_move;
 }
 
-// std::ofstream nn_data("data.txt");
+// std::ofstream nn_data("d.txt");
 
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 1) {
 	pvlen[ply] = 0;
@@ -425,6 +425,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (razor_score <= alpha)
 			return razor_score;
 	}
+	
+	if (depth > 4 && !tentry) {
+		depth -= 2; // Internal iterative reductions
+	}
 
 	// CutNet
 	if (!pv && depth <= 3 && cutnode && !in_check && npieces >= 12) {
@@ -438,12 +442,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
-	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, ply, tentry);
+	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, ply, tentry);
 	int end = scores.size();
-
-	if (depth > 4 && !tentry) {
-		depth -= 2; // Internal iterative reductions
-	}
 
 	Move best_move = NullMove;
 
@@ -657,7 +657,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	board.legal_moves(moves);
 
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
-	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, 0, tentry);
+	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, 0, tentry);
 
 	Move move = NullMove;
 	int end = scores.size();
@@ -760,7 +760,7 @@ pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv
 	board.legal_moves(moves);
 
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
-	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, 0, tentry);
+	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, 0, tentry);
 
 	Move move = NullMove;
 	int end = scores.size();
