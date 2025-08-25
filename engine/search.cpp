@@ -431,7 +431,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// CutNet
-	if (!pv && depth <= 3 && cutnode && !in_check && npieces >= 12) {
+	if (!pv && depth <= 3 && cutnode && !in_check) {
 		bool cnres = CutNet::shouldcut(depth, cur_eval - beta, (tentry != nullptr), (tentry != nullptr ? tentry->depth - depth : 0), corrplexity, improving, mat_eval - beta);
 		if (cnres)
 			return beta;
