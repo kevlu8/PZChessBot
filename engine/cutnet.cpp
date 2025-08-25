@@ -25,5 +25,5 @@ bool CutNet::shouldcut(int depth, int dbeta, bool tentry, int dttDepth, int corr
 		output += fc2_w[i] * hidden[i];
 	}
 	output = sigmoid(output);
-	return output > 0.9f;
+	return output > 0.95f;
 }
