@@ -9,7 +9,7 @@ float sigmoid(float x) {
 }
 
 bool CutNet::shouldcut(int depth, int dbeta, bool tentry, int dttDepth, int corrplexity, bool improving, int dmat_eval) {
-	float input[] = {depth, dbeta, tentry, dttDepth, corrplexity, improving, dmat_eval};
+	float input[] = {depth/3.0f, std::clamp(dbeta / 300.0f, -1.0f, 1.0f), tentry, std::clamp(dttDepth / 5.0f, -1.0f, 1.0f), std::clamp(corrplexity / 20.0f, -1.0f, 1.0f), improving, std::clamp(dmat_eval / 300.0f, -1.0f, 1.0f)};
 	// L1
 	float hidden[32] = {};
 	for (int i = 0; i < 32; i++) {

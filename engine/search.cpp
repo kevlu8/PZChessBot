@@ -298,7 +298,7 @@ Move next_move(pzstd::vector<std::pair<Move, Value>> &scores, int &end) {
 	return best_move;
 }
 
-// std::ofstream nn_data("d.txt");
+// std::ofstream nn_data("data.txt");
 
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 1) {
 	pvlen[ply] = 0;
@@ -605,8 +605,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 					update_capthist(PieceType(board.mailbox[cmove.src()] & 7), PieceType(board.mailbox[cmove.dst()] & 7), cmove.dst(), -bonus);
 				}
 			}
-			// if (cutnode)
-			// 	nn_data << depth << ", " << cur_eval - beta << ", " << (tentry != nullptr) << ", " << (tentry ? tentry->depth - depth : 0) << ", " << corrplexity << ", " << improving << ", " << (mat_eval - beta) << ", 1\n"; // because it did indeed cut
+			// if (cutnode && depth <= 3 && !in_check && !pv && npieces >= 12 && abs(best) < VALUE_MATE_MAX_PLY)
+			// 	nn_data << float(depth/3.0) << ", " << std::clamp(float(cur_eval - beta) / 300.0f, -1.0f, 1.0f) << ", " << (tentry != nullptr) << ", " << std::clamp(tentry ? float(tentry->depth - depth) / 5.0f : 0.0f, -1.0f, 1.0f) << ", " << std::clamp(corrplexity / 20.0f, -1.0f, 1.0f) << ", " << improving << ", " << std::clamp(float(mat_eval - beta) / 300.0f, -1.0f, 1.0f) << ", 1\n"; // because it did indeed cut
 			return best;
 		}
 
@@ -618,8 +618,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		i++;
 	}
 
-	// if (cutnode)
-	// 	nn_data << depth << ", " << cur_eval - beta << ", " << (tentry != nullptr) << ", " << (tentry ? tentry->depth - depth : 0) << ", " << corrplexity << ", " << improving << ", " << (mat_eval - beta) << ", 0\n"; // because it not cut
+	// if (cutnode && depth <= 3 && !in_check && !pv && npieces >= 12 && abs(best) < VALUE_MATE_MAX_PLY)
+	// 	nn_data << float(depth/3.0) << ", " << std::clamp(float(cur_eval - beta) / 300.0f, -1.0f, 1.0f) << ", " << (tentry != nullptr) << ", " << std::clamp(tentry ? (tentry->depth - depth) / 5.0f : 0.0f, -1.0f, 1.0f) << ", " << std::clamp(corrplexity / 20.0f, -1.0f, 1.0f) << ", " << improving << ", " << std::clamp(float(mat_eval - beta) / 300.0f, -1.0f, 1.0f) << ", 0\n";
 
 	bool best_iscapture = (board.piece_boards[OPPOCC(board.side)] & square_bits(best_move.dst()));
 	bool best_ispromo = (best_move.type() == PROMOTION);
