@@ -298,8 +298,6 @@ Move next_move(pzstd::vector<std::pair<Move, Value>> &scores, int &end) {
 	return best_move;
 }
 
-// std::ofstream nn_data("data.txt");
-
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 1) {
 	pvlen[ply] = 0;
 
