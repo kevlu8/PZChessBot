@@ -385,7 +385,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 */
 		int margin = (RFP_THRESHOLD - improving * RFP_IMPROVING) * depth;
 		if (cur_eval >= beta + margin)
-			return cur_eval - margin;
+			return (cur_eval + beta) / 2;
 	}
 
 	// Null-move pruning
