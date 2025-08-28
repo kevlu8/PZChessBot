@@ -3,7 +3,6 @@
 #include "bitboard.hpp"
 #include "nnue/network.hpp"
 #include "includes.hpp"
-#include "boardstate.hpp"
 
 Value simple_eval(Board &board);
 
@@ -106,16 +105,5 @@ constexpr int pawn_endgame[64] = {
 	60,	 60,  60,  60,	60,	 60,  60,  60, // 6
 	100, 100, 100, 100, 100, 100, 100, 100, // 7
 	0,	 0,	  0,   0,	0,	 0,	  0,   0, // 8
-};
-#else
-constexpr int IBUCKET_LAYOUT[] = {
-	0, 2, 4, 6, 7, 5, 3, 1,
-	8, 10, 12, 14, 15, 13, 11, 9,
-	16, 16, 18, 18, 19, 19, 17, 17,
-	20, 20, 22, 22, 23, 23, 21, 21,
-	24, 24, 26, 26, 27, 27, 25, 25,
-	24, 24, 26, 26, 27, 27, 25, 25,
-	28, 28, 30, 30, 31, 31, 29, 29,
-	28, 28, 30, 30, 31, 31, 29, 29,
 };
 #endif

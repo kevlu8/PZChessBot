@@ -10,8 +10,6 @@
 #include "movetimings.hpp"
 #include "search.hpp"
 
-BoardState bs;
-
 // Options
 int TT_SIZE = DEFAULT_TT_SIZE;
 bool quiet = false, online = false;

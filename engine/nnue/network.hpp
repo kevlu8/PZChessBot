@@ -23,6 +23,8 @@ struct Network {
 	void load();
 };
 
+extern Network nnue_network;
+
 int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nbucket);
 
 void accumulator_add(const Network &net, Accumulator &acc, uint16_t index);

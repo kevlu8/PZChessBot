@@ -3,7 +3,7 @@
 #include "includes.hpp"
 #include "move.hpp"
 #include "ttable.hpp"
-#include "boardstate.hpp"
+#include "nnue/network.hpp"
 
 // Selects the occupancy array by xoring 6 with side (white: false = 0 ^ 6 = 6, black: true = 1 ^ 6 = 7)
 #define OCC(side) (6 ^ (side))
@@ -70,6 +70,8 @@ struct Board {
 	uint64_t pawn_hash = 0;
 	TTable ttable;
 	pzstd::largevector<uint64_t> hash_hist;
+	std::stack<Accumulator> w_accs, b_accs;
+	Accumulator w_acc, b_acc;
 
 	// Mailbox representation of the board for faster queries of certain data
 	Piece mailbox[8 * 8];
@@ -114,4 +116,7 @@ struct Board {
 
 	uint64_t pawn_struct_hash() const;
 	uint64_t material_hash() const;
+
+	void refresh_wacc();
+	void refresh_bacc();
 };
