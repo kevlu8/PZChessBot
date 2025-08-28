@@ -148,7 +148,7 @@ void apply_correction(bool side, uint64_t pshash, uint64_t mathash, Value &eval)
  * - Search for checks and check evasions (every time I've tried this it has lost tons of elo)
  * - Late move reduction (instead of reducing depth, we reduce the search window) (not a known technique, maybe worth trying?)
  */
-Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
+Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool pv=false) {
 	nodes++;
 
 	if (early_exit) return 0;
@@ -160,6 +160,19 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 		if ((time > mxtime || nodes > mx_nodes) && exit_allowed) {
 			early_exit = true;
 			return 0;
+		}
+	}
+
+	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
+	if (!pv && tentry) {
+		if (tentry->flags == EXACT) return tentry->eval;
+		if (tentry->flags == LOWER_BOUND) {
+			if (tentry->eval >= beta) return tentry->eval;
+			// alpha = std::max(alpha, tentry->eval);
+		}
+		if (tentry->flags == UPPER_BOUND) {
+			if (tentry->eval <= alpha) return tentry->eval;
+			// beta = std::min(beta, tentry->eval);
 		}
 	}
 
@@ -195,6 +208,9 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
 
 	Value best = stand_pat;
+	Move best_move = NullMove;
+
+	int alpha_raise = 0;
 
 	for (int i = 0; i < scores.size(); i++) {
 		Move &move = scores[i].first;
@@ -211,21 +227,27 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth) {
 		}
 
 		board.make_move(move);
-		Value score = -quiesce(board, -beta, -alpha, -side, depth + 1);
+		Value score = -quiesce(board, -beta, -alpha, -side, depth + 1, pv);
 		board.unmake_move();
 
 		if (score >= VALUE_MATE_MAX_PLY)
 			score = score - (uint16_t(score >> 15) << 1) - 1; // Fixes "mate 0" bug
 
 		if (score > best) {
-			if (score > alpha)
+			if (score > alpha) {
 				alpha = score;
+				alpha_raise++;
+			}
 			best = score;
+			best_move = move;
 		}
 		if (score >= beta) {
+			board.ttable.store(board.zobrist, score, 0, LOWER_BOUND, move, depth);
 			return best;
 		}
 	}
+
+	board.ttable.store(board.zobrist, best, 0, alpha_raise ? EXACT : UPPER_BOUND, best_move, depth);
 
 	return best;
 }
@@ -340,7 +362,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (depth <= 0) {
 		// Reached the maximum depth, perform quiescence search
-		return quiesce(board, alpha, beta, side, ply);
+		return quiesce(board, alpha, beta, side, ply, pv);
 	}
 
 	// Check for TTable cutoff
@@ -417,7 +439,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * If we are losing by a lot, check w/ qsearch to see if we could possibly improve.
 		 * If not, we can prune the search.
 		 */
-		Value razor_score = quiesce(board, alpha, beta, side, ply);
+		Value razor_score = quiesce(board, alpha, beta, side, ply, 0);
 		if (razor_score <= alpha)
 			return razor_score;
 	}
