@@ -560,6 +560,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			Value r = reduction[i][depth];
 
 			r -= 512 * pv;
+			r += 800 * (!pv && cutnode);
 
 			Value searched_depth = depth - r / 1024;
 
