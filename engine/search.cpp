@@ -543,7 +543,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * Skip searching moves with bad SEE scores
 			 */
 			Value see = board.see_capture(move);
-			if (see < -320)
+			if (see < (-100 - 100 * capt) * depth)
 				continue;
 		}
 
