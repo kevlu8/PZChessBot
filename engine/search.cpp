@@ -177,7 +177,9 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 	}
 
 	seldepth = std::max(depth, seldepth);
-	Value stand_pat = eval(board) * side;
+	Value stand_pat = 0;
+	if (tentry && abs(tentry->eval) < VALUE_MATE_MAX_PLY) stand_pat = tentry->eval;
+	else stand_pat = eval(board) * side;
 	apply_correction(board.side, board.pawn_struct_hash(), board.material_hash(), stand_pat);
 
 	// If it's a mate, stop here since there's no point in searching further
