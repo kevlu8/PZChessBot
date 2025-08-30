@@ -18,7 +18,7 @@
 #include "search.hpp"
 
 #define OUT_FILE "data.bullet.txt"
-#define FIXED_NODES 5000
+#define FIXED_NODES 4000
 const int TT_SIZE = DEFAULT_TT_SIZE;
 
 BoardState bs[64]; // boardstates for each thread
