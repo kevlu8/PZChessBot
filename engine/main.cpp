@@ -143,14 +143,14 @@ void run_uci() {
 	}
 }
 
-__attribute__((weak)) int main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
 	if (argc == 2 && std::string(argv[1]) == "bench") {
 		const std::pair<std::string, int> bench_positions[] = {
-			{"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 12},
-			{"rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq - 0 6", 15},
-			{"2r1r3/1b1Q1p1k/pb4q1/6p1/8/P1N3NP/2P2PP1/R3R1K1 b - - 0 29", 15},
-			{"k7/8/8/8/8/8/P7/K7 w - - 0 1", 20},
-			{"k7/8/8/8/8/8/8/K6R w - - 0 1", 20},
+			{"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 6},
+			{"rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq - 0 6", 7},
+			{"2r1r3/1b1Q1p1k/pb4q1/6p1/8/P1N3NP/2P2PP1/R3R1K1 b - - 0 29", 7},
+			{"k7/8/8/8/8/8/P7/K7 w - - 0 1", 10},
+			{"k7/8/8/8/8/8/8/K6R w - - 0 1", 10},
 		};
 		Board board = Board(TT_SIZE);
 		uint64_t tot_nodes = 0;

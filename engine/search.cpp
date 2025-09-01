@@ -124,7 +124,7 @@ Move next_move(pzstd::vector<std::pair<Move, Value>> &moves) {
 
 Value quiesce(Board &board, int side, Value alpha, Value beta, int ply = 0) {
 	Value stand_pat = eval(board) * side;
-	if (stand_pat >= beta) return stand_pat;
+	// if (stand_pat >= beta) return stand_pat;
 	if (stand_pat > alpha) alpha = stand_pat;
 
 	pzstd::vector<Move> moves;
@@ -181,7 +181,7 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 	// Probe for TTable cutoffs
 	TTable::TTEntry *entry = board.ttable.probe(board.zobrist);
 	Move hash_move = NullMove;
-	if (entry) {
+	if (!pv_node && entry) {
 		hash_move = entry->best_move;
 		if (entry->depth >= depth && !pv_node) {
 			if (entry->flags == EXACT) {
@@ -202,26 +202,6 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 	if (!in_check) line[ply].eval = raw_eval;
 	else line[ply].eval = VALUE_NONE;
 
-	if (!in_check && !pv_node) {
-		// RFP
-		Value margin = RFP_MARGIN * depth;
-		if (raw_eval >= beta + margin) {
-			return raw_eval - margin;
-		}
-	}
-
-	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) - 2; // Exclude kings
-	int npawns = _mm_popcnt_u64(board.piece_boards[PAWN]);
-	if (!in_check && npawns != npieces) {
-		// Not in check and not in a pawn endgame, run NMP
-		board.make_move(NullMove);
-		Value null_score = -negamax(board, depth - 4, -side, 0, ply + 1, -beta, -beta + 1);
-		board.unmake_move();
-		if (null_score >= beta) {
-			return null_score;
-		}
-	}
-
 	Value og_alpha = alpha; // Store original alpha for TT
 
 	Move best_move = NullMove;
@@ -240,22 +220,19 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 		bool is_capt = is_capture(m, board);
 		bool is_promo = m.type() == PROMOTION;
 
-		if (!in_check && !is_capt && !is_promo && m_idx > 0 && depth == 1 && abs(alpha) < VALUE_MATE_MAX_PLY && abs(beta) < VALUE_MATE_MAX_PLY) {
-			// Futility Pruning
-			if (raw_eval + FP_MARGIN < alpha) continue;
-		}
+		int extension = 0;
 
 		line[ply+1].move = m;
 		board.make_move(m);
 		Value score = 0;
-		if (!m_idx) {
-			score = -negamax(board, depth - 1, -side, 1, ply + 1, -beta, -alpha);
+		if (!m_idx && pv_node) {
+			score = -negamax(board, depth - 1 + extension, -side, 1, ply + 1, -beta, -alpha);
 		} else {
 			// PVSearch
-			score = -negamax(board, depth - reduction[m_idx][depth], -side, 0, ply + 1, -alpha - 1, -alpha);
-			if (score > alpha) {
+			score = -negamax(board, depth - 1 + extension, -side, 0, ply + 1, -alpha - 1, -alpha);
+			if (score > alpha && score < beta) {
 				// Move wasn't as bad as we thought, do a full search
-				score = -negamax(board, depth - 1, -side, 1, ply + 1, -beta, -alpha);
+				score = -negamax(board, depth - 1 + extension, -side, 1, ply + 1, -beta, -alpha);
 			}
 		}
 		board.unmake_move();
@@ -316,11 +293,7 @@ Value negamax(Board &board, int depth, int side, bool pv_node, int ply = 0, Valu
 		}
 	}
 
-	if (best <= og_alpha) {
-		board.ttable.store(board.zobrist, best, depth, UPPER_BOUND, best_move, board.halfmove);
-	} else {
-		board.ttable.store(board.zobrist, best, depth, EXACT, best_move, board.halfmove);
-	}
+	board.ttable.store(board.zobrist, best, depth, best <= og_alpha ? UPPER_BOUND : EXACT, best_move, board.halfmove);
 
 	return best;
 }
