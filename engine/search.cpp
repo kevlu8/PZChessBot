@@ -437,7 +437,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 */
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
-		Value null_score = -__recurse(board, depth - NMP_R_VALUE, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
+		Value r = NMP_R_VALUE;
+		r += std::min(3, (cur_eval - beta) / 400);
+		Value null_score = -__recurse(board, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
 		board.unmake_move();
 		if (null_score >= beta)
 			return null_score;
