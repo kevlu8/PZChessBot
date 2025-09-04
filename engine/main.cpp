@@ -83,6 +83,8 @@ void run_uci() {
 			// 	searchthread.join();
 			// }
 		} else if (command == "eval") {
+			board.refresh_wacc();
+			board.refresh_bacc();
 			std::array<Value, 8> score = debug_eval(board);
 			board.print_board();
 			std::cout << "info string fen " << board.get_fen() << std::endl;

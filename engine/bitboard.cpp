@@ -208,7 +208,8 @@ void Board::reset_board() {
 	ep_square = SQ_NONE;
 
 	while (!move_hist.empty()) move_hist.pop_back();
-	while (!halfmove_hist.empty()) halfmove_hist.pop();
+	while (!meta_hist.empty())
+		meta_hist.pop();
 
 	hash_hist.clear();
 
@@ -250,7 +251,7 @@ std::string Board::get_fen() const {
 		if (castling & BLACK_OOO)
 			res += 'q';
 	}
-	
+
 	// En passant square
 	if (ep_square >= SQ_NONE) {
 		res += " - ";
@@ -483,15 +484,15 @@ void Board::print_board_pretty(bool print_meta) const {
 	}
 }
 
-void Board::move_acc(Move move) {
+void Board::move_acc(HistoryEntry hist, bool side) {
 	int wbucket = w_acc.bucket, bbucket = b_acc.bucket;
+	Move move = hist.move();
 
 	// Handle captures
-	if (move.data != 0 && (piece_boards[OPPOCC(side)] & square_bits(move.dst()))) { // If opposite occupancy bit set on destination (capture)
+	if (move.data != 0 && hist.prev_piece() != NO_PIECE) { // If opposite occupancy bit set on destination (capture)
 		// Remove whatever piece it was
-		uint8_t piece = mailbox[move.dst()] & 0b111;
-		accumulator_sub(nnue_network, w_acc, calculate_index(move.dst(), (PieceType)piece, !side, 0, wbucket));
-		accumulator_sub(nnue_network, b_acc, calculate_index(move.dst(), (PieceType)piece, !side, 1, bbucket));
+		accumulator_sub(nnue_network, w_acc, calculate_index(move.dst(), PieceType(hist.prev_piece() & 0b111), hist.prev_piece() >> 3, 0, wbucket));
+		accumulator_sub(nnue_network, b_acc, calculate_index(move.dst(), PieceType(hist.prev_piece() & 0b111), hist.prev_piece() >> 3, 1, bbucket));
 	}
 
 	if (move.data == 0) {
@@ -500,7 +501,7 @@ void Board::move_acc(Move move) {
 		// Remove the pawn on the src and add the piece on the dst
 		accumulator_sub(nnue_network, w_acc, calculate_index(move.src(), PAWN, side, 0, wbucket));
 		accumulator_sub(nnue_network, b_acc, calculate_index(move.src(), PAWN, side, 1, bbucket));
-		
+
 		accumulator_add(nnue_network, w_acc, calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), side, 0, wbucket));
 		accumulator_add(nnue_network, b_acc, calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), side, 1, bbucket));
 	} else if (move.type() == EN_PASSANT) {
@@ -519,7 +520,7 @@ void Board::move_acc(Move move) {
 			// White O-O
 			accumulator_sub(nnue_network, w_acc, calculate_index(SQ_E1, KING, WHITE, 0, wbucket));
 			accumulator_sub(nnue_network, b_acc, calculate_index(SQ_E1, KING, WHITE, 1, bbucket));
-			
+
 			accumulator_add(nnue_network, w_acc, calculate_index(SQ_G1, KING, WHITE, 0, wbucket));
 			accumulator_add(nnue_network, b_acc, calculate_index(SQ_G1, KING, WHITE, 1, bbucket));
 
@@ -532,39 +533,39 @@ void Board::move_acc(Move move) {
 			// White O-O-O
 			accumulator_sub(nnue_network, w_acc, calculate_index(SQ_E1, KING, WHITE, 0, wbucket));
 			accumulator_sub(nnue_network, b_acc, calculate_index(SQ_E1, KING, WHITE, 1, bbucket));
-			
+
 			accumulator_add(nnue_network, w_acc, calculate_index(SQ_C1, KING, WHITE, 0, wbucket));
 			accumulator_add(nnue_network, b_acc, calculate_index(SQ_C1, KING, WHITE, 1, bbucket));
-			
+
 			accumulator_sub(nnue_network, w_acc, calculate_index(SQ_A1, ROOK, WHITE, 0, wbucket));
 			accumulator_sub(nnue_network, b_acc, calculate_index(SQ_A1, ROOK, WHITE, 1, bbucket));
-			
+
 			accumulator_add(nnue_network, w_acc, calculate_index(SQ_D1, ROOK, WHITE, 0, wbucket));
 			accumulator_add(nnue_network, b_acc, calculate_index(SQ_D1, ROOK, WHITE, 1, bbucket));
 		} else if (move.data == 0b1100111100111110) {
 			// Black O-O
 			accumulator_sub(nnue_network, w_acc, calculate_index(SQ_E8, KING, BLACK, 0, wbucket));
 			accumulator_sub(nnue_network, b_acc, calculate_index(SQ_E8, KING, BLACK, 1, bbucket));
-			
+
 			accumulator_add(nnue_network, w_acc, calculate_index(SQ_G8, KING, BLACK, 0, wbucket));
 			accumulator_add(nnue_network, b_acc, calculate_index(SQ_G8, KING, BLACK, 1, bbucket));
-			
+
 			accumulator_sub(nnue_network, w_acc, calculate_index(SQ_H8, ROOK, BLACK, 0, wbucket));
 			accumulator_sub(nnue_network, b_acc, calculate_index(SQ_H8, ROOK, BLACK, 1, bbucket));
-			
+
 			accumulator_add(nnue_network, w_acc, calculate_index(SQ_F8, ROOK, BLACK, 0, wbucket));
 			accumulator_add(nnue_network, b_acc, calculate_index(SQ_F8, ROOK, BLACK, 1, bbucket));
 		} else if (move.data == 0b1100111100111010) {
 			// Black O-O-O
 			accumulator_sub(nnue_network, w_acc, calculate_index(SQ_E8, KING, BLACK, 0, wbucket));
 			accumulator_sub(nnue_network, b_acc, calculate_index(SQ_E8, KING, BLACK, 1, bbucket));
-			
+
 			accumulator_add(nnue_network, w_acc, calculate_index(SQ_C8, KING, BLACK, 0, wbucket));
 			accumulator_add(nnue_network, b_acc, calculate_index(SQ_C8, KING, BLACK, 1, bbucket));
-			
+
 			accumulator_sub(nnue_network, w_acc, calculate_index(SQ_A8, ROOK, BLACK, 0, wbucket));
 			accumulator_sub(nnue_network, b_acc, calculate_index(SQ_A8, ROOK, BLACK, 1, bbucket));
-			
+
 			accumulator_add(nnue_network, w_acc, calculate_index(SQ_D8, ROOK, BLACK, 0, wbucket));
 			accumulator_add(nnue_network, b_acc, calculate_index(SQ_D8, ROOK, BLACK, 1, bbucket));
 		} else {
@@ -574,12 +575,12 @@ void Board::move_acc(Move move) {
 		}
 	} else {
 		// Get piece that is moving
-		uint8_t piece = mailbox[move.src()] & 0b111;
-		accumulator_add(nnue_network, w_acc, calculate_index(move.dst(), (PieceType)piece, side, 0, wbucket));
-		accumulator_add(nnue_network, b_acc, calculate_index(move.dst(), (PieceType)piece, side, 1, bbucket));
-		
-		accumulator_sub(nnue_network, w_acc, calculate_index(move.src(), (PieceType)piece, side, 0, wbucket));
-		accumulator_sub(nnue_network, b_acc, calculate_index(move.src(), (PieceType)piece, side, 1, bbucket));
+		PieceType piece = PieceType(hist.piece() & 0b111);
+		accumulator_add(nnue_network, w_acc, calculate_index(move.dst(), piece, side, 0, wbucket));
+		accumulator_add(nnue_network, b_acc, calculate_index(move.dst(), piece, side, 1, bbucket));
+
+		accumulator_sub(nnue_network, w_acc, calculate_index(move.src(), piece, side, 0, wbucket));
+		accumulator_sub(nnue_network, b_acc, calculate_index(move.src(), piece, side, 1, bbucket));
 	}
 
 	w_accs.push_back(w_acc);
@@ -604,8 +605,8 @@ void Board::make_move(Move move) {
 #endif
 
 	// Add move to move history
-	move_hist.push_back(HistoryEntry(move, mailbox[move.dst()], castling, ep_square));
-	halfmove_hist.push(halfmove);
+	move_hist.push_back(HistoryEntry(move, mailbox[move.dst()], mailbox[move.src()], ep_square));
+	meta_hist.push(halfmove | castling << 8);
 	Square tmp_ep_square = SQ_NONE;
 
 	// Handle captures
@@ -758,7 +759,7 @@ void Board::make_move(Move move) {
 	side = !side;
 	zobrist ^= zobrist_side;
 	// Update castling rights
-	zobrist ^= zobrist_castling[castling] ^ zobrist_castling[move_hist.back().prev_castling()];
+	zobrist ^= zobrist_castling[castling] ^ zobrist_castling[meta_hist.top() >> 8];
 
 	halfmove++;
 
@@ -817,21 +818,6 @@ void Board::make_move(Move move) {
 		abort();
 	}
 #endif
-
-#ifdef UECHECK
-	if (_mm_popcnt_u64(piece_boards[KING] == 2)) {
-		old_w_acc = w_acc;
-		old_b_acc = b_acc;
-		refresh_wacc(); refresh_bacc();
-		for (int i = 0; i < HL_SIZE; i++) {
-			if (old_w_acc.val[i] != w_acc.val[i] || old_b_acc.val[i] != b_acc.val[i]) {
-				std::cerr << "UE mismatch after make_move at index " << i << ": expected (" << old_w_acc.val[i] << ", " << old_b_acc.val[i] << ") got (" << w_acc.val[i] << ", " << b_acc.val[i] << ")\n";
-				std::cerr << "Attempted to make move " << move.to_string() << "\n";
-				abort();
-			}
-		}
-	}
-#endif
 }
 
 void Board::unmake_move() {
@@ -846,21 +832,6 @@ void Board::unmake_move() {
 		std::cerr << "Hash mismatch before unmake: expected " << zobrist << " got " << old_hash << '\n';
 		std::cerr << "Or, pawn hash mismatch before unmake: expected " << pawn_hash << " got " << old_pawn_hash << '\n';
 		abort();
-	}
-#endif
-
-#ifdef UECHECK
-	Accumulator old_w_acc = w_acc;
-	Accumulator old_b_acc = b_acc;
-	if (_mm_popcnt_u64(piece_boards[KING] == 2)) {
-		refresh_wacc(); refresh_bacc();
-		for (int i = 0; i < HL_SIZE; i++) {
-			if (old_w_acc.val[i] != w_acc.val[i] || old_b_acc.val[i] != b_acc.val[i]) {
-				std::cerr << "UE mismatch before unmake_move at index " << i << ": expected (" << old_w_acc.val[i] << ", " << old_b_acc.val[i] << ") got (" << w_acc.val[i] << ", " << b_acc.val[i] << ")\n";
-				std::cerr << "Attempted to make move " << move_hist.top().move().to_string() << "\n";
-				abort();
-			}
-		}
 	}
 #endif
 
@@ -992,12 +963,12 @@ void Board::unmake_move() {
 		zobrist ^= zobrist_ep[prev.prev_ep() & 0b111];
 	ep_square = prev.prev_ep();
 	// Update castling rights
-	int old_castling = castling;
-	zobrist ^= zobrist_castling[castling] ^ zobrist_castling[prev.prev_castling()];
-	castling = prev.prev_castling();
+	halfmove = meta_hist.top() & 0x7f;
+	int old_castling = meta_hist.top() >> 8;
+	meta_hist.pop();
 
-	halfmove = halfmove_hist.top();
-	halfmove_hist.pop();
+	zobrist ^= zobrist_castling[castling] ^ zobrist_castling[old_castling];
+	castling = old_castling;
 
 #ifdef HASHCHECK
 	old_hash = zobrist;
@@ -1009,20 +980,6 @@ void Board::unmake_move() {
 		std::cerr << "Or, pawn hash mismatch after unmake: expected " << pawn_hash << " got " << old_pawn_hash << '\n';
 		std::cerr << prev.move().to_string() << std::endl;
 		abort();
-	}
-#endif
-
-#ifdef UECHECK
-	if (_mm_popcnt_u64(piece_boards[KING] == 2)) {
-		old_w_acc = w_acc;
-		old_b_acc = b_acc;
-		refresh_wacc(); refresh_bacc();
-		for (int i = 0; i < HL_SIZE; i++) {
-			if (old_w_acc.val[i] != w_acc.val[i] || old_b_acc.val[i] != b_acc.val[i]) {
-				std::cerr << "UE mismatch after unmake_move at index " << i << ": expected (" << old_w_acc.val[i] << ", " << old_b_acc.val[i] << ") got (" << w_acc.val[i] << ", " << b_acc.val[i] << ")\n";
-				abort();
-			}
-		}
 	}
 #endif
 

@@ -45,15 +45,15 @@ struct HistoryEntry {
 	uint32_t data;
 	HistoryEntry() : data(0) {}
 	constexpr HistoryEntry(uint32_t d) : data(d) {}
-	constexpr HistoryEntry(Move m, Piece prev_piece, uint8_t prev_castling, Square prev_ep)
-		: data(m.data | ((uint32_t)prev_piece << 16) | ((uint32_t)prev_castling << 20) | ((uint32_t)prev_ep << 24)) {}
+	constexpr HistoryEntry(Move m, Piece prev_piece, uint8_t piece, Square prev_ep)
+		: data(m.data | ((uint32_t)prev_piece << 16) | ((uint32_t)piece << 20) | ((uint32_t)prev_ep << 24)) {}
 	constexpr Move move() {
 		return Move(data & 0xffff);
 	}
 	constexpr Piece prev_piece() {
 		return Piece((data >> 16) & 0b1111);
 	}
-	constexpr uint8_t prev_castling() {
+	constexpr uint8_t piece() {
 		return (data >> 20) & 0b1111;
 	}
 	constexpr Square prev_ep() {
@@ -80,7 +80,7 @@ struct Board {
 	// Moves with extra information (taken piece etc..)
 	// better documentation will be included later
 	pzstd::vector<HistoryEntry> move_hist;
-	std::stack<uint8_t> halfmove_hist;
+	std::stack<uint16_t> meta_hist;
 
 	Board(int ttsize=DEFAULT_TT_SIZE) : ttable(ttsize) {
 		reset_board();
@@ -106,7 +106,7 @@ struct Board {
 	void reset_startpos() { reset_board(); }
 	void reset(std::string fen) { reset_board(); load_fen(fen); }
 
-	void move_acc(Move);
+	void move_acc(HistoryEntry, bool side);
 	void make_move(Move);
 	void unmake_move();
 

@@ -253,7 +253,9 @@ Value eval(Board &board) {
 		board.b_accs.pop_back();
 		idx++;
 	}
-	
+	if (board.w_accs.empty() || board.w_accs.back().bucket != cur_wbucket || board.b_accs.back().bucket != cur_bbucket)
+		do_refresh = true;
+
 	if (do_refresh || board.w_accs.empty() || board.b_accs.empty()) {
 		board.w_accs.clear();
 		board.b_accs.clear();
@@ -266,7 +268,7 @@ Value eval(Board &board) {
 		board.w_acc = board.w_accs.back();
 		board.b_acc = board.b_accs.back();
 		while (idx--) {
-			board.move_acc(ptr->move());
+			board.move_acc(*ptr, (idx & 1) ^ board.side ^ 1);
 			ptr++;
 		}
 	}
@@ -281,6 +283,23 @@ Value eval(Board &board) {
 	} else {
 		score = -nnue_eval(nnue_network, board.b_acc, board.w_acc, nbucket);
 	}
+
+#ifdef UECHECK
+	if (_mm_popcnt_u64(board.piece_boards[KING]) == 2) {
+		Accumulator old_w_acc = board.w_acc;
+		Accumulator old_b_acc = board.b_acc;
+		board.refresh_wacc();
+		board.refresh_bacc();
+		for (int i = 0; i < HL_SIZE; i++) {
+			if (old_w_acc.val[i] != board.w_acc.val[i] || old_b_acc.val[i] != board.b_acc.val[i]) {
+				std::cerr << "UE mismatch at index " << i << ": got (" << old_w_acc.val[i] << ", " << old_b_acc.val[i] << ") expected (" << board.w_acc.val[i]
+						  << ", " << board.b_acc.val[i] << ")\n";
+				abort();
+			}
+		}
+	}
+#endif
+
 	return score;
 }
 
