@@ -43,7 +43,8 @@ void print_bitboard(Bitboard);
 // bits 24-29: previous en passant square
 struct HistoryEntry {
 	uint32_t data;
-	constexpr explicit HistoryEntry(uint32_t d) : data(d) {}
+	HistoryEntry() : data(0) {}
+	constexpr HistoryEntry(uint32_t d) : data(d) {}
 	constexpr HistoryEntry(Move m, Piece prev_piece, uint8_t prev_castling, Square prev_ep)
 		: data(m.data | ((uint32_t)prev_piece << 16) | ((uint32_t)prev_castling << 20) | ((uint32_t)prev_ep << 24)) {}
 	constexpr Move move() {
@@ -70,7 +71,7 @@ struct Board {
 	uint64_t pawn_hash = 0;
 	TTable ttable;
 	pzstd::largevector<uint64_t> hash_hist;
-	std::stack<Accumulator> w_accs, b_accs;
+	std::vector<Accumulator> w_accs, b_accs;
 	Accumulator w_acc, b_acc;
 
 	// Mailbox representation of the board for faster queries of certain data
@@ -78,17 +79,21 @@ struct Board {
 
 	// Moves with extra information (taken piece etc..)
 	// better documentation will be included later
-	std::stack<HistoryEntry> move_hist;
+	pzstd::vector<HistoryEntry> move_hist;
 	std::stack<uint8_t> halfmove_hist;
 
 	Board(int ttsize=DEFAULT_TT_SIZE) : ttable(ttsize) {
 		reset_board();
 		recompute_hash();
+		w_accs.reserve(MAX_PLY);
+		b_accs.reserve(MAX_PLY);
 	}
 
 	Board(std::string fen, int ttsize=DEFAULT_TT_SIZE) : ttable(ttsize) {
 		load_fen(fen);
 		recompute_hash();
+		w_accs.reserve(MAX_PLY);
+		b_accs.reserve(MAX_PLY);
 	};
 
 	void load_fen(std::string);
@@ -101,6 +106,7 @@ struct Board {
 	void reset_startpos() { reset_board(); }
 	void reset(std::string fen) { reset_board(); load_fen(fen); }
 
+	void move_acc(Move);
 	void make_move(Move);
 	void unmake_move();
 

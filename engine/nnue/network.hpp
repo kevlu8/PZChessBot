@@ -12,6 +12,8 @@
 
 struct Accumulator {
 	int16_t val[HL_SIZE] = {};
+	bool dirty = false;
+	int bucket = -1;
 };
 
 struct Network {

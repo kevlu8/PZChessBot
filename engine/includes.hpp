@@ -12,6 +12,7 @@
 #include <stack>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "pzstl/vector.hpp"
 
@@ -22,7 +23,7 @@ typedef uint64_t Bitboard;
 constexpr bool WHITE = false;
 constexpr bool BLACK = true;
 
-constexpr int MAX_PLY = 300;
+constexpr int MAX_PLY = 256;
 
 typedef int16_t Value;
 constexpr Value VALUE_ZERO = 0;

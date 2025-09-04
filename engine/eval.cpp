@@ -229,6 +229,7 @@ std::array<Value, 8> debug_eval(Board &board) {
 	return {eval(board), 0, 0, 0, 0, 0, 0, 0};
 }
 #else
+#include <cassert>
 Value eval(Board &board) {
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
@@ -237,6 +238,37 @@ Value eval(Board &board) {
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])) {
 		// Likewise, if white has no king, this is mate for black
 		return -VALUE_MATE;
+	}
+
+	assert(board.w_accs.size() == board.b_accs.size());
+	int cur_wbucket = board.w_acc.bucket, cur_bbucket = board.b_acc.bucket;
+	bool do_refresh = false;
+	int idx = 0;
+	while (!board.w_accs.empty() && (board.w_accs.back().dirty || board.b_accs.back().dirty)) {
+		if (board.w_accs.back().bucket != cur_wbucket || board.b_accs.back().bucket != cur_bbucket) {
+			do_refresh = true;
+			break;
+		}
+		board.w_accs.pop_back();
+		board.b_accs.pop_back();
+		idx++;
+	}
+	
+	if (do_refresh || board.w_accs.empty() || board.b_accs.empty()) {
+		board.w_accs.clear();
+		board.b_accs.clear();
+		board.refresh_wacc();
+		board.refresh_bacc();
+		board.w_accs.push_back(board.w_acc);
+		board.b_accs.push_back(board.b_acc);
+	} else {
+		auto ptr = board.move_hist.end() - idx;
+		board.w_acc = board.w_accs.back();
+		board.b_acc = board.b_accs.back();
+		while (idx--) {
+			board.move_acc(ptr->move());
+			ptr++;
+		}
 	}
 
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);

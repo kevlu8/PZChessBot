@@ -33,8 +33,14 @@ namespace pzstd {
 		const T &operator[](uint16_t index) const {
 			return data[index];
 		}
+		T &back() {
+			return data[sz-1];
+		}
 		uint16_t size() const {
 			return sz;
+		}
+		bool empty() const {
+			return sz == 0;
 		}
 		
 		// Iterator methods
@@ -74,8 +80,14 @@ namespace pzstd {
 		const T &operator[](uint16_t index) const {
 			return data[index];
 		}
+		T &back() {
+			return data[sz-1];
+		}
 		uint16_t size() const {
 			return sz;
+		}
+		bool empty() const {
+			return sz == 0;
 		}
 		
 		// Iterator methods
