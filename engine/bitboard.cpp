@@ -508,17 +508,18 @@ void Board::make_move(Move move) {
 	Square tmp_ep_square = SQ_NONE;
 
 	// Handle captures
-	if (move.data != 0 && (piece_boards[OPPOCC(side)] & square_bits(move.dst()))) { // If opposite occupancy bit set on destination (capture)
+	if (move.data != 0 && mailbox[move.dst()] != NO_PIECE) { // If opposite occupancy bit set on destination (capture)
 		// Remove whatever piece it was
-		uint8_t piece = mailbox[move.dst()] & 0b111;
+		uint8_t piece = mailbox[move.dst()];
+		zobrist ^= zobrist_square[move.dst()][piece];
+		if ((piece & 0b111) == PAWN) {
+			pawn_hash ^= zobrist_square[move.dst()][piece];
+		} else {
+			nonpawn_hashval ^= zobrist_square[move.dst()][piece];
+		}
+		piece &= 0b111;
 		piece_boards[piece] ^= square_bits(move.dst());
 		piece_boards[OPPOCC(side)] ^= square_bits(move.dst());
-		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-		if ((mailbox[move.dst()] & 7) == PAWN) {
-			pawn_hash ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-		} else {
-			nonpawn_hashval ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-		}
 
 		if (piece == ROOK) {
 			if (move.dst() == SQ_A1)
@@ -835,25 +836,26 @@ void Board::unmake_move() {
 		}
 	} else {
 		// Get piece that is moving
-		uint8_t piece = mailbox[move.dst()] & 0b111;
+		uint8_t piece = mailbox[move.dst()];
 		// Update mailbox repr first
-		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]] ^ zobrist_square[move.src()][mailbox[move.dst()]];
+		zobrist ^= zobrist_square[move.dst()][piece] ^ zobrist_square[move.src()][piece];
 		zobrist ^= zobrist_square[move.dst()][prev.prev_piece()];
-		if (piece == PAWN) {
-			pawn_hash ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-			pawn_hash ^= zobrist_square[move.src()][mailbox[move.dst()]];
+		if ((piece & 0b111) == PAWN) {
+			pawn_hash ^= zobrist_square[move.dst()][piece];
+			pawn_hash ^= zobrist_square[move.src()][piece];
 		} else {
-			nonpawn_hashval ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-			nonpawn_hashval ^= zobrist_square[move.src()][mailbox[move.dst()]];
+			nonpawn_hashval ^= zobrist_square[move.dst()][piece];
+			nonpawn_hashval ^= zobrist_square[move.src()][piece];
 		}
 		if ((prev.prev_piece() & 7) == PAWN) {
 			pawn_hash ^= zobrist_square[move.dst()][prev.prev_piece()];
 		} else {
 			nonpawn_hashval ^= zobrist_square[move.dst()][prev.prev_piece()];
 		}
-		mailbox[move.src()] = mailbox[move.dst()];
+		mailbox[move.src()] = Piece(piece);
 		mailbox[move.dst()] = prev.prev_piece();
 		// Update piece and occupancy bitboard
+		piece &= 0b111;
 		piece_boards[piece] ^= square_bits(move.src()) | square_bits(move.dst());
 		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
 		// Handle captures
