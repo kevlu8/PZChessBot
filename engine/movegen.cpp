@@ -388,7 +388,7 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 		return;
 	int sq = _tzcnt_u64(piece);
 	// Castling
-	if (board.side == WHITE && !board.control(SQ_E1).second) {
+	if (board.side == WHITE && (board.castling & (WHITE_OO | WHITE_OOO)) && !board.control(SQ_E1).second) {
 		if (board.castling & WHITE_OO) {
 			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_F1) | square_bits(SQ_G1))) &&
 				!board.control(SQ_F1).second)
@@ -399,7 +399,7 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 				!board.control(SQ_D1).second)
 				moves.push_back(Move::make<CASTLING>(SQ_E1, SQ_C1));
 		}
-	} else if (board.side == BLACK && !board.control(SQ_E8).first) {
+	} else if (board.side == BLACK && (board.castling & (BLACK_OO | BLACK_OOO)) && !board.control(SQ_E8).first) {
 		if (board.castling & BLACK_OO) {
 			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_F8) | square_bits(SQ_G8))) && !board.control(SQ_F8).first)
 				moves.push_back(Move::make<CASTLING>(SQ_E8, SQ_G8));
@@ -599,7 +599,7 @@ Value Board::see_capture(Move move) {
 
 bool Board::is_pseudolegal(Move move) const {
 	// Must be our piece to move
-	if ((mailbox[move.src()] >> 3) != side)
+	if (mailbox[move.src()] == NO_PIECE || (mailbox[move.src()] >> 3) != side)
 		return false;
 
 	// Cannot take our own piece
@@ -640,21 +640,15 @@ bool Board::is_pseudolegal(Move move) const {
 			if (side == WHITE) {
 				if (move.dst() - move.src() == 8)
 					return mailbox[move.dst()] == NO_PIECE;
-				if ((move.src() & 7) != FILE_A && move.dst() - move.src() == 7)
-					return square_bits(move.dst()) & piece_boards[OCC(BLACK)];
-				if ((move.src() & 7) != FILE_H && move.dst() - move.src() == 9)
-					return square_bits(move.dst()) & piece_boards[OCC(BLACK)];
 				if (move.dst() - move.src() == 16)
 					return move.src() <= SQ_H2 && mailbox[move.dst()] == NO_PIECE && mailbox[move.src() + 8] == NO_PIECE;
+				return square_bits(move.dst()) & piece_boards[OCC(BLACK)];
 			} else {
 				if (move.src() - move.dst() == 8)
 					return mailbox[move.dst()] == NO_PIECE;
-				if ((move.src() & 7) != FILE_A && move.src() - move.dst() == 9)
-					return square_bits(move.dst()) & piece_boards[OCC(WHITE)];
-				if ((move.src() & 7) != FILE_H && move.src() - move.dst() == 7)
-					return square_bits(move.dst()) & piece_boards[OCC(WHITE)];
 				if (move.src() - move.dst() == 16)
 					return move.src() >= SQ_A7 && mailbox[move.dst()] == NO_PIECE && mailbox[move.src() - 8] == NO_PIECE;
+				return square_bits(move.dst()) & piece_boards[OCC(WHITE)];
 			}
 			return false;
 		}
