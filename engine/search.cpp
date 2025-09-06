@@ -412,7 +412,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (!in_check && ply >= 3 && line[ply-2].eval != VALUE_NONE && cur_eval > line[ply-2].eval) improving = true;
 
 	// Reverse futility pruning
-	if (!in_check && !pv) {
+	if (!in_check && !pv && depth <= 8) {
 		/**
 		 * The idea is that if we are winning by such a large margin that we can afford to lose
 		 * RFP_THRESHOLD * depth eval units per ply, we can return the current eval.
@@ -441,7 +441,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 */
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
-		Value r = NMP_R_VALUE + depth / 4;
+		Value r = NMP_R_VALUE + depth / 4 + std::min(3, (cur_eval - beta) / 400);
 		Value null_score = -__recurse(board, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
 		board.unmake_move();
 		if (null_score >= beta)
