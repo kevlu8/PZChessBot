@@ -94,6 +94,7 @@ Value capthist[6][6][64]; // [piece][captured piece][dst]
 Value corrhist_ps[2][CORRHIST_SZ]; // [side][pawn hash]
 Value corrhist_mat[2][CORRHIST_SZ]; // [side][material hash]
 Value corrhist_prev[2][64][64]; // [side][from][to]
+Value corrhist_np[2][CORRHIST_SZ]; // [side][non-pawn hash]
 
 /**
  * The counter-move heuristic is a move ordering heuristic that helps sort moves that
@@ -120,7 +121,7 @@ void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonu
 }
 
 // Moving exponential average for corrhist
-void update_corrhist(bool side, uint64_t pshash, uint64_t mathash, Move prev, Value diff, int depth) {
+void update_corrhist(bool side, uint64_t pshash, uint64_t mathash, uint64_t nphash, Move prev, Value diff, int depth) {
 	const Value sdiff = diff * CORRHIST_GRAIN;
 	const Value weight = std::min(depth*depth, 128);
 	Value &pscorr = corrhist_ps[side][pshash % CORRHIST_SZ];
@@ -129,15 +130,18 @@ void update_corrhist(bool side, uint64_t pshash, uint64_t mathash, Move prev, Va
 	matcorr = std::clamp((matcorr * (CORRHIST_WEIGHT - weight) + sdiff * weight) / CORRHIST_WEIGHT, -MAX_HISTORY, (int)MAX_HISTORY);
 	Value &movcorr = corrhist_prev[side][prev.src()][prev.dst()];
 	movcorr = std::clamp((movcorr * (CORRHIST_WEIGHT - weight) + sdiff * weight) / CORRHIST_WEIGHT, -MAX_HISTORY, (int)MAX_HISTORY);
+	Value &npcorr = corrhist_np[side][nphash % CORRHIST_SZ];
+	npcorr = std::clamp((npcorr * (CORRHIST_WEIGHT - weight) + sdiff * weight) / CORRHIST_WEIGHT, -MAX_HISTORY, (int)MAX_HISTORY);
 }
 
-void apply_correction(bool side, uint64_t pshash, uint64_t mathash, Move prev, Value &eval) {
+void apply_correction(bool side, uint64_t pshash, uint64_t mathash, uint64_t nphash, Move prev, Value &eval) {
 	if (abs(eval) >= VALUE_MATE_MAX_PLY)
 		return; // Don't apply correction if we are already at a mate score
 	const Value pscorr = corrhist_ps[side][pshash % CORRHIST_SZ];
 	const Value matcorr = corrhist_mat[side][mathash % CORRHIST_SZ];
 	const Value movcorr = corrhist_prev[side][prev.src()][prev.dst()];
-	const Value corr = (pscorr + matcorr + movcorr) / 2;
+	const Value npcorr = corrhist_np[side][nphash % CORRHIST_SZ];
+	const Value corr = (pscorr + matcorr + movcorr + npcorr) / 2;
 	eval = std::clamp(eval + corr / CORRHIST_GRAIN, -VALUE_MATE_MAX_PLY + 1, VALUE_MATE_MAX_PLY - 1);
 }
 
@@ -184,7 +188,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 	Value stand_pat = 0;
 	if (tentry && abs(tentry->eval) < VALUE_MATE_MAX_PLY) stand_pat = tentry->eval;
 	else stand_pat = eval(board) * side;
-	apply_correction(board.side, board.pawn_struct_hash(), board.material_hash(), line[depth-1].move, stand_pat);
+	apply_correction(board.side, board.pawn_struct_hash(), board.material_hash(), board.nonpawn_hash(), line[depth-1].move, stand_pat);
 
 	// If it's a mate, stop here since there's no point in searching further
 	// Theoretically shouldn't ever happen because of stand pat
@@ -399,7 +403,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		else
 			cur_eval = eval(board) * side;
 		raw_eval = cur_eval;
-		apply_correction(board.side, pawn_hash, board.material_hash(), line[ply-1].move, cur_eval);
+		apply_correction(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), line[ply-1].move, cur_eval);
 	}
 
 	line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
@@ -620,7 +624,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 					update_history(board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
 				}
 				cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()] = move; // Update counter-move history
-				if (!in_check && !promo && best > raw_eval) update_corrhist(board.side, pawn_hash, board.material_hash(), line[ply-1].move, best - raw_eval, depth);
+				if (!in_check && !promo && best > raw_eval) update_corrhist(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), line[ply-1].move, best - raw_eval, depth);
 			} else { // Capture
 				const Value bonus = 1.81 * depth * depth + 0.52 * depth + 0.40;
 				update_capthist(PieceType(board.mailbox[move.src()] & 7), PieceType(board.mailbox[move.dst()] & 7), move.dst(), bonus);
@@ -643,7 +647,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	bool best_ispromo = (best_move.type() == PROMOTION);
 	if (!in_check && !best_iscapture && !best_ispromo && !(best < alpha && best >= raw_eval)) {
 		// Best move is a quiet move, update CorrHist
-		update_corrhist(board.side, pawn_hash, board.material_hash(), line[ply-1].move, best - raw_eval, depth);
+		update_corrhist(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), line[ply-1].move, best - raw_eval, depth);
 	}
 
 	// Stalemate detection
