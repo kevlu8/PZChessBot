@@ -141,7 +141,7 @@ void apply_correction(bool side, uint64_t pshash, uint64_t mathash, uint64_t nph
 	const Value matcorr = corrhist_mat[side][mathash % CORRHIST_SZ];
 	const Value movcorr = corrhist_prev[side][prev.src()][prev.dst()];
 	const Value npcorr = corrhist_np[side][nphash % CORRHIST_SZ];
-	const Value corr = (pscorr + matcorr + movcorr + npcorr) / 2;
+	const Value corr = pscorr + matcorr + movcorr + npcorr;
 	eval = std::clamp(eval + corr / CORRHIST_GRAIN, -VALUE_MATE_MAX_PLY + 1, VALUE_MATE_MAX_PLY - 1);
 }
 
