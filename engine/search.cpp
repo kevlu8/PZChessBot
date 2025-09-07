@@ -463,6 +463,16 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			return razor_score;
 	}
 
+	if (depth > 4 && !tentry) {
+		depth -= 2; // Internal iterative reductions
+	}
+
+	if (depth <= 2 && !pv && cutnode && !in_check) {
+		// Try to do a CutNet cutoff
+		bool res = CutNet::shouldcut({float(depth), float(corrplexity), float(cur_eval - beta), float((tentry != nullptr)), float((tentry ? tentry->depth - depth : 0)), float(improving), float(null_score - beta), float(beta)});
+		if (res) return std::max(cur_eval, beta);
+	}
+
 	Value best = -VALUE_INFINITE;
 
 	pzstd::vector<Move> moves;
@@ -470,16 +480,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, side, depth, ply, tentry);
 	int end = scores.size();
-
-	if (depth > 4 && !tentry) {
-		depth -= 2; // Internal iterative reductions
-	}
-
-	if (depth <= 3 && !pv && cutnode && !in_check) {
-		// Try to do a CutNet cutoff
-		bool res = CutNet::shouldcut({float(depth), float(corrplexity), float(cur_eval - beta), float((tentry != nullptr)), float((tentry ? tentry->depth - depth : 0)), float(improving), float(null_score - beta), float(beta)});
-		if (res) return cur_eval;
-	}
 
 	Move best_move = NullMove;
 
