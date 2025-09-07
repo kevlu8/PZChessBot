@@ -475,10 +475,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		depth -= 2; // Internal iterative reductions
 	}
 
-	if (depth <= 3 && !pv && cutnode) {
+	if (depth <= 3 && !pv && cutnode && !in_check) {
 		// Try to do a CutNet cutoff
 		bool res = CutNet::shouldcut({float(depth), float(corrplexity), float(cur_eval - beta), float((tentry != nullptr)), float((tentry ? tentry->depth - depth : 0)), float(improving), float(null_score - beta), float(beta)});
-		if (res) return beta;
+		if (res) return cur_eval;
 	}
 
 	Move best_move = NullMove;
