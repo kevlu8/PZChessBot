@@ -334,6 +334,8 @@ Move next_move(pzstd::vector<std::pair<Move, Value>> &scores, int &end) {
 	return best_move;
 }
 
+// std::ofstream data_log("data.txt");
+
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 1) {
 	pvlen[ply] = 0;
 
@@ -394,7 +396,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	Value cur_eval = 0;
 	Value raw_eval = 0; // For CorrHist
-	Value mat_eval = simple_eval(board) * side; // For CorrHist
+	int corrplexity = 0;
 	uint64_t pawn_hash = 0;
 	if (!in_check) {
 		pawn_hash = board.pawn_struct_hash();
@@ -404,6 +406,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			cur_eval = eval(board) * side;
 		raw_eval = cur_eval;
 		apply_correction(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), line[ply-1].move, cur_eval);
+		corrplexity = abs(raw_eval - cur_eval);
 	}
 
 	line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
@@ -427,6 +430,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	// Null-move pruning
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 	int npawns_and_kings = _mm_popcnt_u64(board.piece_boards[PAWN] | board.piece_boards[KING]);
+	Value null_score = 0;
 	if (!in_check && npieces != npawns_and_kings && cur_eval >= beta) { // Avoid NMP in pawn endgames
 		/**
 		 * This works off the *null-move observation*.
@@ -442,7 +446,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
 		Value r = NMP_R_VALUE + depth / 4 + std::min(3, (cur_eval - beta) / 400);
-		Value null_score = -__recurse(board, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
+		null_score = -__recurse(board, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
 		board.unmake_move();
 		if (null_score >= beta)
 			return null_score;
@@ -469,6 +473,12 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (depth > 4 && !tentry) {
 		depth -= 2; // Internal iterative reductions
+	}
+
+	if (depth <= 3 && !pv && cutnode) {
+		// Try to do a CutNet cutoff
+		bool res = CutNet::shouldcut({float(depth), float(corrplexity), float(cur_eval - beta), float((tentry != nullptr)), float((tentry ? tentry->depth - depth : 0)), float(improving), float(null_score - beta), float(beta)});
+		if (res) return beta;
 	}
 
 	Move best_move = NullMove;
@@ -612,6 +622,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (score >= beta) {
 			if (line[ply].excl == NullMove) {
 				board.ttable.store(board.zobrist, best, depth, LOWER_BOUND, best_move, board.halfmove);
+				// if (cutnode && depth <= 3 && !in_check && best < VALUE_MATE_MAX_PLY) {
+				// 	data_log << depth << ',' << corrplexity << ',' << cur_eval - beta << ',' << (tentry != nullptr) << ',' << (tentry ? tentry->depth - depth : 0) << ',' << improving << ',' << null_score - beta << ',' << beta << ",1\n";
+				// }
 			}
 			if (killer[0][ply] != move) {
 				killer[1][ply] = killer[0][ply];
@@ -664,6 +677,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (line[ply].excl == NullMove) {
 		board.ttable.store(board.zobrist, best, depth, alpha_raise ? EXACT : UPPER_BOUND, best_move, board.halfmove);
+		// if (cutnode && depth <= 3 && !in_check && best < VALUE_MATE_MAX_PLY) {
+		// 	data_log << depth << ',' << corrplexity << ',' << cur_eval - beta << ',' << (tentry != nullptr) << ',' << (tentry ? tentry->depth - depth : 0) << ',' << improving << ',' << null_score - beta << ',' << beta << ",0\n";
+		// }
 	}
 
 	return best;
