@@ -54,3 +54,4 @@ engine/*.bin
 pzchessbot-linux-avx2-x86_64
 *.bin
 test/test
+*.pgn
