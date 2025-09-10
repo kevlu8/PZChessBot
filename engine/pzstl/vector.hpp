@@ -36,7 +36,10 @@ namespace pzstd {
 		uint16_t size() const {
 			return sz;
 		}
-		
+		bool empty() const {
+			return sz == 0;
+		}
+
 		// Iterator methods
 		T * __restrict__ begin() {
 			return data;
@@ -77,7 +80,10 @@ namespace pzstd {
 		uint16_t size() const {
 			return sz;
 		}
-		
+		bool empty() const {
+			return sz == 0;
+		}
+
 		// Iterator methods
 		T * __restrict__ begin() {
 			return data;
