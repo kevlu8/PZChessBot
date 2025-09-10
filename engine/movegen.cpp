@@ -492,7 +492,7 @@ void pawn_captures(const Board &board, pzstd::vector<Move> &moves) {
 			dsts = _blsr_u64(dsts);
 		}
 		// Queen promotions
-		dsts = ((pieces & Rank1Bits) >> 8) & ~(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
+		dsts = ((pieces & Rank2Bits) >> 8) & ~(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 		while (dsts) {
 			int sq = _tzcnt_u64(dsts);
 			moves.push_back(Move::make<PROMOTION>(sq + 8, sq, QUEEN));
