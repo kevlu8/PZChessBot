@@ -430,7 +430,15 @@ void Board::legal_moves(pzstd::vector<Move> &moves) const {
 void pawn_captures(const Board &board, pzstd::vector<Move> &moves) {
 	if (board.side == WHITE) {
 		Bitboard pieces = board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)];
-		Bitboard dsts = ((pieces & ~FileABits) << 7) & board.piece_boards[OCC(BLACK)];
+		// Promotion
+		Bitboard dsts = ((pieces & Rank7Bits) << 8) & ~(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
+		while (dsts) {
+			int sq = _tzcnt_u64(dsts);
+			moves.push_back(Move::make<PROMOTION>(sq - 8, sq, QUEEN));
+			dsts = _blsr_u64(dsts);
+		}
+		// Captures
+		dsts = ((pieces & ~FileABits) << 7) & board.piece_boards[OCC(BLACK)];
 		while (dsts) {
 			int sq = _tzcnt_u64(dsts);
 			if (sq >= SQ_A8) {
@@ -456,16 +464,17 @@ void pawn_captures(const Board &board, pzstd::vector<Move> &moves) {
 			}
 			dsts = _blsr_u64(dsts);
 		}
-		// Queen promotions
-		dsts = ((pieces & Rank7Bits) << 8) & ~(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
-		while (dsts) {
-			int sq = _tzcnt_u64(dsts);
-			moves.push_back(Move::make<PROMOTION>(sq - 8, sq, QUEEN));
-			dsts = _blsr_u64(dsts);
-		}
 	} else {
 		Bitboard pieces = board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)];
-		Bitboard dsts = ((pieces & ~FileHBits) >> 7) & board.piece_boards[OCC(WHITE)];
+		// Promotion
+		Bitboard dsts = ((pieces & Rank2Bits) >> 8) & ~(board.piece_boards[OCC(BLACK)] | board.piece_boards[OCC(WHITE)]);
+		while (dsts) {
+			int sq = _tzcnt_u64(dsts);
+			moves.push_back(Move::make<PROMOTION>(sq + 8, sq, QUEEN));
+			dsts = _blsr_u64(dsts);
+		}
+		// Captures
+		dsts = ((pieces & ~FileHBits) >> 7) & board.piece_boards[OCC(WHITE)];
 		while (dsts) {
 			int sq = _tzcnt_u64(dsts);
 			if (sq <= SQ_H1) {
@@ -489,13 +498,6 @@ void pawn_captures(const Board &board, pzstd::vector<Move> &moves) {
 			} else {
 				moves.push_back(Move(sq + 9, sq));
 			}
-			dsts = _blsr_u64(dsts);
-		}
-		// Queen promotions
-		dsts = ((pieces & Rank2Bits) >> 8) & ~(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
-		while (dsts) {
-			int sq = _tzcnt_u64(dsts);
-			moves.push_back(Move::make<PROMOTION>(sq + 8, sq, QUEEN));
 			dsts = _blsr_u64(dsts);
 		}
 	}
