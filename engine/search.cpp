@@ -202,7 +202,9 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 		alpha = stand_pat;
 
 	pzstd::vector<Move> moves;
-	board.legal_moves(moves);
+	board.captures(moves);
+	if (moves.empty())
+		return stand_pat;
 
 	// Sort captures and promotions
 	pzstd::vector<std::pair<Move, Value>> scores;
