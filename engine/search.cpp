@@ -146,6 +146,74 @@ void apply_correction(bool side, uint64_t pshash, uint64_t mathash, uint64_t nph
 }
 
 /**
+ * Order the moves based on various factors.
+ * Move ordering priority:
+ * 1. TTMove (highest priority)
+ * 2. Captures + promotions (sorted by MVV+CaptHist)
+ * 3. Quiets (sorted by history heuristic + counter-move heuristic + killer bonus)
+ */
+pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<Move> &moves, int side, int depth, int ply, TTable::TTEntry *tentry) {
+	pzstd::vector<std::pair<Move, Value>> scores;
+
+	const Value TT_MOVE_BASE = VALUE_INFINITE;
+	const Value CAPTURE_PROMO_BASE = 12000; // max value: base + mvv[queen] + max_history + promo = 12000 + 1002 + 16384 + 1002 = 30388
+	const Value QUIET_BASE = -6000; // max value: base + max_history + cmh bonus = -6000 + 16384 + 1021 = 11405
+
+	for (Move &move : moves) {
+		// 1. TTMove must be first (don't do this outside loop because zobrist collisions can lead to illegal moves)
+		if (tentry && move == tentry->best_move) {
+			scores.push_back({move, TT_MOVE_BASE});
+			continue;
+		}
+
+		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
+		bool promo = (move.type() == PROMOTION);
+
+		Value score = 0;
+
+		if (capt || promo) {
+			// 2. Captures + promotions
+			score = CAPTURE_PROMO_BASE;
+			if (capt)
+				score += PieceValue[board.mailbox[move.dst()] & 7] + capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
+			if (promo)
+				score += PieceValue[move.promotion() + KNIGHT] - PawnValue;
+		} else {
+			// 3. Quiets
+			score = QUIET_BASE + history[board.side][move.src()][move.dst()];
+			if (ply && move == cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()]) {
+				score += 1021; // Counter-move bonus
+			}
+			if (move == killer[0][ply]) {
+				score += 1500; // Killer bonus
+			} else if (move == killer[1][ply]) {
+				score += 800; // Second killer bonus
+			}
+		}
+
+		scores.push_back({move, score});
+	}
+	
+	return scores;
+}
+
+Move next_move(pzstd::vector<std::pair<Move, Value>> &scores, int &end) {
+	if (end == 0) return NullMove; // Ran out
+	Move best_move = NullMove;
+	Value best_score = -VALUE_INFINITE;
+	int idx = 0;
+	for (int i = 0; i < end; i++) {
+		if (scores[i].second > best_score) {
+			best_score = scores[i].second;
+			best_move = scores[i].first;
+			idx = i;
+		}
+	}
+	swap(scores[idx], scores[--end]);
+	return best_move;
+}
+
+/**
  * Perform the quiescence search
  * 
  * Quiescence search is a technique to avoid the horizon effect, where the evaluation function
@@ -215,16 +283,16 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 			scores.push_back({move, PieceValue[move.promotion() + KNIGHT] - PawnValue});
 		}
 	}
-	std::stable_sort(scores.begin(), scores.end(), [&](const std::pair<Move, Value> &a, const std::pair<Move, Value> &b) { return a.second > b.second; });
 
 	Value best = stand_pat;
 	Move best_move = NullMove;
 
 	int alpha_raise = 0;
 
-	for (int i = 0; i < scores.size(); i++) {
-		Move &move = scores[i].first;
+	Move move = NullMove;
+	int end = scores.size();
 
+	while ((move = next_move(scores, end)) != NullMove) {
 		if (move.type() != PROMOTION) {
 			Value see = board.see_capture(move);
 			if (see < 0) {
@@ -264,74 +332,6 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 	board.ttable.store(board.zobrist, best, 0, alpha_raise ? EXACT : UPPER_BOUND, best_move, depth);
 
 	return best;
-}
-
-/**
- * Order the moves based on various factors.
- * Move ordering priority:
- * 1. TTMove (highest priority)
- * 2. Captures + promotions (sorted by MVV+CaptHist)
- * 3. Quiets (sorted by history heuristic + counter-move heuristic + killer bonus)
- */
-pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<Move> &moves, int side, int depth, int ply, TTable::TTEntry *tentry) {
-	pzstd::vector<std::pair<Move, Value>> scores;
-
-	const Value TT_MOVE_BASE = VALUE_INFINITE;
-	const Value CAPTURE_PROMO_BASE = 12000; // max value: base + mvv[queen] + max_history + promo = 12000 + 1002 + 16384 + 1002 = 30388
-	const Value QUIET_BASE = -6000; // max value: base + max_history + cmh bonus = -6000 + 16384 + 1021 = 11405
-
-	for (Move &move : moves) {
-		// 1. TTMove must be first (don't do this outside loop because zobrist collisions can lead to illegal moves)
-		if (tentry && move == tentry->best_move) {
-			scores.push_back({move, TT_MOVE_BASE});
-			continue;
-		}
-
-		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
-		bool promo = (move.type() == PROMOTION);
-
-		Value score = 0;
-
-		if (capt || promo) {
-			// 2. Captures + promotions
-			score = CAPTURE_PROMO_BASE;
-			if (capt)
-				score += PieceValue[board.mailbox[move.dst()] & 7] + capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
-			if (promo)
-				score += PieceValue[move.promotion() + KNIGHT] - PawnValue;
-		} else {
-			// 3. Quiets
-			score = QUIET_BASE + history[board.side][move.src()][move.dst()];
-			if (ply && move == cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()]) {
-				score += 1021; // Counter-move bonus
-			}
-			if (move == killer[0][ply]) {
-				score += 1500; // Killer bonus
-			} else if (move == killer[1][ply]) {
-				score += 800; // Second killer bonus
-			}
-		}
-
-		scores.push_back({move, score});
-	}
-	
-	return scores;
-}
-
-Move next_move(pzstd::vector<std::pair<Move, Value>> &scores, int &end) {
-	if (end == 0) return NullMove; // Ran out
-	Move best_move = NullMove;
-	Value best_score = -VALUE_INFINITE;
-	int idx = 0;
-	for (int i = 0; i < end; i++) {
-		if (scores[i].second > best_score) {
-			best_score = scores[i].second;
-			best_move = scores[i].first;
-			idx = i;
-		}
-	}
-	swap(scores[idx], scores[--end]);
-	return best_move;
 }
 
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 1) {
