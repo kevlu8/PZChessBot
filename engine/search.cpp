@@ -612,6 +612,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 
 		if (score >= beta) {
+			if (abs(score) < VALUE_MATE_MAX_PLY && abs(alpha) < VALUE_MATE_MAX_PLY) {
+				// note that best and score are functionally equivalent here; best is just what's returned + stored to TT
+				best = (score * depth + beta) / (depth + 1); // wtf?????
+			}
 			if (line[ply].excl == NullMove) {
 				board.ttable.store(board.zobrist, best, depth, LOWER_BOUND, best_move, board.halfmove);
 			}
