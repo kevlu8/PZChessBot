@@ -14,7 +14,7 @@ enum TTFlag {
 
 struct TTable {
 	struct TTEntry {
-		uint64_t key;
+		uint32_t key;
 		Move best_move;
 		Value eval;
 		uint8_t depth;
@@ -23,7 +23,6 @@ struct TTable {
 
 		TTEntry() : key(0), best_move(NullMove), eval(0), depth(0), flags(INVALID), age(0) {}
 		const bool valid() const { return flags != INVALID; }
-		const bool operator==(const uint64_t k) const { return key == k; }
 	};
 
 	struct TTBucket {
