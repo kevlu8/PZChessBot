@@ -61,8 +61,12 @@ __attribute__((constructor)) void init_network() {
 #ifndef HCE
 	nnue_network.load();
 	for (int i = 0; i < HL_SIZE; i++) {
-		bs.w_acc.val[i] = nnue_network.accumulator_biases[i];
-		bs.b_acc.val[i] = nnue_network.accumulator_biases[i];
+		for (int j = 0; j < NINPUTS * 2; j++) {
+			for (int k = 0; k < NINPUTS * 2; k++) {
+				bs[j][k].w_acc.val[i] = nnue_network.accumulator_biases[i];
+				bs[j][k].b_acc.val[i] = nnue_network.accumulator_biases[i];
+			}
+		}
 	}
 #endif
 }
@@ -252,19 +256,19 @@ Value eval(Board &board) {
 	int winbucket = IBUCKET_LAYOUT[wkingsq];
 	int binbucket = IBUCKET_LAYOUT[bkingsq ^ 56];
 
-	if (winbucket != bs.wbucket || binbucket != bs.bbucket) {
+	if (winbucket != bs[winbucket][binbucket].wbucket || binbucket != bs[winbucket][binbucket].bbucket) {
 		for (int i = 0; i < HL_SIZE; i++) {
-			bs.w_acc.val[i] = nnue_network.accumulator_biases[i];
-			bs.b_acc.val[i] = nnue_network.accumulator_biases[i];
+			bs[winbucket][binbucket].w_acc.val[i] = nnue_network.accumulator_biases[i];
+			bs[winbucket][binbucket].b_acc.val[i] = nnue_network.accumulator_biases[i];
 		}
-		for (int i = 0; i < 64; i++) bs.mailbox[i] = NO_PIECE;
-		bs.wbucket = winbucket;
-		bs.bbucket = binbucket;
+		for (int i = 0; i < 64; i++) bs[winbucket][binbucket].mailbox[i] = NO_PIECE;
+		bs[winbucket][binbucket].wbucket = winbucket;
+		bs[winbucket][binbucket].bbucket = binbucket;
 	}
 
 	for (uint16_t i = 0; i < 64; i++) {
 		Piece piece = board.mailbox[i];
-		Piece prevpiece = bs.mailbox[i];
+		Piece prevpiece = bs[winbucket][binbucket].mailbox[i];
 		if (piece == prevpiece) continue;
 		bool side = piece >> 3; // 1 = black, 0 = white
 		bool prevside = prevpiece >> 3; // 1 = black, 0 = white
@@ -274,28 +278,28 @@ Value eval(Board &board) {
 		if (piece != NO_PIECE) {
 			// Add to accumulator
 			uint16_t w_index = calculate_index((Square)i, pt, side, 0, winbucket);
-			accumulator_add(nnue_network, bs.w_acc, w_index);
+			accumulator_add(nnue_network, bs[winbucket][binbucket].w_acc, w_index);
 			uint16_t b_index = calculate_index((Square)i, pt, side, 1, binbucket);
-			accumulator_add(nnue_network, bs.b_acc, b_index);
+			accumulator_add(nnue_network, bs[winbucket][binbucket].b_acc, b_index);
 		}
 
 		if (prevpiece != NO_PIECE) {
 			// Subtract from accumulator
 			uint16_t w_index = calculate_index((Square)i, prevpt, prevside, 0, winbucket);
-			accumulator_sub(nnue_network, bs.w_acc, w_index);
+			accumulator_sub(nnue_network, bs[winbucket][binbucket].w_acc, w_index);
 			uint16_t b_index = calculate_index((Square)i, prevpt, prevside, 1, binbucket);
-			accumulator_sub(nnue_network, bs.b_acc, b_index);
+			accumulator_sub(nnue_network, bs[winbucket][binbucket].b_acc, b_index);
 		}
 	}
 
-	memcpy(bs.mailbox, board.mailbox, sizeof(bs.mailbox));
+	memcpy(bs[winbucket][binbucket].mailbox, board.mailbox, sizeof(bs[winbucket][binbucket].mailbox));
 
 	int nbucket = (npieces - 2) / 4;
 
 	if (board.side == WHITE) {
-		score = nnue_eval(nnue_network, bs.w_acc, bs.b_acc, nbucket);
+		score = nnue_eval(nnue_network, bs[winbucket][binbucket].w_acc, bs[winbucket][binbucket].b_acc, nbucket);
 	} else {
-		score = -nnue_eval(nnue_network, bs.b_acc, bs.w_acc, nbucket);
+		score = -nnue_eval(nnue_network, bs[winbucket][binbucket].b_acc, bs[winbucket][binbucket].w_acc, nbucket);
 	}
 	return score;
 }
@@ -318,20 +322,20 @@ std::array<Value, 8> debug_eval(Board &board) {
 	int winbucket = IBUCKET_LAYOUT[wkingsq];
 	int binbucket = IBUCKET_LAYOUT[bkingsq ^ 56];
 
-	if (winbucket != bs.wbucket || binbucket != bs.bbucket) {
+	if (winbucket != bs[winbucket][binbucket].wbucket || binbucket != bs[winbucket][binbucket].bbucket) {
 		for (int i = 0; i < HL_SIZE; i++) {
-			bs.w_acc.val[i] = nnue_network.accumulator_biases[i];
-			bs.b_acc.val[i] = nnue_network.accumulator_biases[i];
+			bs[winbucket][binbucket].w_acc.val[i] = nnue_network.accumulator_biases[i];
+			bs[winbucket][binbucket].b_acc.val[i] = nnue_network.accumulator_biases[i];
 		}
-		for (int i = 0; i < 64; i++) bs.mailbox[i] = NO_PIECE;
-		bs.wbucket = winbucket;
-		bs.bbucket = binbucket;
+		for (int i = 0; i < 64; i++) bs[winbucket][binbucket].mailbox[i] = NO_PIECE;
+		bs[winbucket][binbucket].wbucket = winbucket;
+		bs[winbucket][binbucket].bbucket = binbucket;
 	}
 
 	// Query the NNUE network
 	for (uint16_t i = 0; i < 64; i++) {
 		Piece piece = board.mailbox[i];
-		Piece prevpiece = bs.mailbox[i];
+		Piece prevpiece = bs[winbucket][binbucket].mailbox[i];
 		if (piece == prevpiece)
 			continue;
 		bool side = piece >> 3; // 1 = black, 0 = white
@@ -342,32 +346,32 @@ std::array<Value, 8> debug_eval(Board &board) {
 		if (piece != NO_PIECE) {
 			// Add to accumulator
 			uint16_t w_index = calculate_index((Square)i, pt, side, 0, winbucket);
-			accumulator_add(nnue_network, bs.w_acc, w_index);
+			accumulator_add(nnue_network, bs[winbucket][binbucket].w_acc, w_index);
 			uint16_t b_index = calculate_index((Square)i, pt, side, 1, binbucket);
-			accumulator_add(nnue_network, bs.b_acc, b_index);
+			accumulator_add(nnue_network, bs[winbucket][binbucket].b_acc, b_index);
 		}
 		
 		if (prevpiece != NO_PIECE) {
 			// Subtract from accumulator
 			uint16_t w_index = calculate_index((Square)i, prevpt, prevside, 0, winbucket);
-			accumulator_sub(nnue_network, bs.w_acc, w_index);
+			accumulator_sub(nnue_network, bs[winbucket][binbucket].w_acc, w_index);
 			uint16_t b_index = calculate_index((Square)i, prevpt, prevside, 1, binbucket);
-			accumulator_sub(nnue_network, bs.b_acc, b_index);
+			accumulator_sub(nnue_network, bs[winbucket][binbucket].b_acc, b_index);
 		}
 	}
 
-	memcpy(bs.mailbox, board.mailbox, sizeof(bs.mailbox));
+	memcpy(bs[winbucket][binbucket].mailbox, board.mailbox, sizeof(bs[winbucket][binbucket].mailbox));
 
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 
 	std::array<Value, 8> score = {};
 	if (board.side == WHITE) {
 		for (int i = 0; i < 8; i++) {
-			score[i] = nnue_eval(nnue_network, bs.w_acc, bs.b_acc, i);
+			score[i] = nnue_eval(nnue_network, bs[winbucket][binbucket].w_acc, bs[winbucket][binbucket].b_acc, i);
 		}
 	} else {
 		for (int i = 0; i < 8; i++) {
-			score[i] = -nnue_eval(nnue_network, bs.b_acc, bs.w_acc, i);
+			score[i] = -nnue_eval(nnue_network, bs[winbucket][binbucket].b_acc, bs[winbucket][binbucket].w_acc, i);
 		}
 	}
 

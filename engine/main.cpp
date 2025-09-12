@@ -10,7 +10,7 @@
 #include "movetimings.hpp"
 #include "search.hpp"
 
-BoardState bs;
+BoardState bs[NINPUTS * 2][NINPUTS * 2];
 
 // Options
 int TT_SIZE = DEFAULT_TT_SIZE;
