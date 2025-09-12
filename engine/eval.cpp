@@ -60,12 +60,13 @@ float multi(int x) {
 __attribute__((constructor)) void init_network() {
 #ifndef HCE
 	nnue_network.load();
-	for (int i = 0; i < HL_SIZE; i++) {
-		for (int j = 0; j < NINPUTS * 2; j++) {
-			for (int k = 0; k < NINPUTS * 2; k++) {
+	for (int j = 0; j < NINPUTS * 2; j++) {
+		for (int k = 0; k < NINPUTS * 2; k++) {
+			for (int i = 0; i < HL_SIZE; i++) {
 				bs[j][k].w_acc.val[i] = nnue_network.accumulator_biases[i];
 				bs[j][k].b_acc.val[i] = nnue_network.accumulator_biases[i];
 			}
+			for (int i = 0; i < 64; i++) bs[j][k].mailbox[i] = NO_PIECE;
 		}
 	}
 #endif
@@ -256,16 +257,6 @@ Value eval(Board &board) {
 	int winbucket = IBUCKET_LAYOUT[wkingsq];
 	int binbucket = IBUCKET_LAYOUT[bkingsq ^ 56];
 
-	if (winbucket != bs[winbucket][binbucket].wbucket || binbucket != bs[winbucket][binbucket].bbucket) {
-		for (int i = 0; i < HL_SIZE; i++) {
-			bs[winbucket][binbucket].w_acc.val[i] = nnue_network.accumulator_biases[i];
-			bs[winbucket][binbucket].b_acc.val[i] = nnue_network.accumulator_biases[i];
-		}
-		for (int i = 0; i < 64; i++) bs[winbucket][binbucket].mailbox[i] = NO_PIECE;
-		bs[winbucket][binbucket].wbucket = winbucket;
-		bs[winbucket][binbucket].bbucket = binbucket;
-	}
-
 	for (uint16_t i = 0; i < 64; i++) {
 		Piece piece = board.mailbox[i];
 		Piece prevpiece = bs[winbucket][binbucket].mailbox[i];
@@ -321,16 +312,6 @@ std::array<Value, 8> debug_eval(Board &board) {
 	Square bkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]);
 	int winbucket = IBUCKET_LAYOUT[wkingsq];
 	int binbucket = IBUCKET_LAYOUT[bkingsq ^ 56];
-
-	if (winbucket != bs[winbucket][binbucket].wbucket || binbucket != bs[winbucket][binbucket].bbucket) {
-		for (int i = 0; i < HL_SIZE; i++) {
-			bs[winbucket][binbucket].w_acc.val[i] = nnue_network.accumulator_biases[i];
-			bs[winbucket][binbucket].b_acc.val[i] = nnue_network.accumulator_biases[i];
-		}
-		for (int i = 0; i < 64; i++) bs[winbucket][binbucket].mailbox[i] = NO_PIECE;
-		bs[winbucket][binbucket].wbucket = winbucket;
-		bs[winbucket][binbucket].bbucket = binbucket;
-	}
 
 	// Query the NNUE network
 	for (uint16_t i = 0; i < 64; i++) {
