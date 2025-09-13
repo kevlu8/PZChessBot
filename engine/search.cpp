@@ -309,6 +309,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 		line[depth].move = move;
 
 		board.make_move(move);
+		_mm_prefetch(&board.ttable.TT[board.zobrist % board.ttable.TT_SIZE], _MM_HINT_T0);
 		Value score = -quiesce(board, -beta, -alpha, -side, depth + 1, pv);
 		board.unmake_move();
 
@@ -555,6 +556,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 
 		board.make_move(move);
+
+		_mm_prefetch(&board.ttable.TT[board.zobrist % board.ttable.TT_SIZE], _MM_HINT_T0);
 
 		Value newdepth = depth - 1 + extension;
 
