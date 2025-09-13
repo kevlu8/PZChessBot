@@ -907,6 +907,8 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 		}
 	}
 
+	Value static_eval = eval(board) * (board.side ? -1 : 1);
+
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
 	bool aspiration_enabled = true;
@@ -1018,7 +1020,15 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 		}
 
 		int time_elapsed = (clock() - start) / CLOCKS_PER_MS;
-		if (time_elapsed > mxtime * 0.5) {
+		double soft = 0.5;
+		if (depth >= 6) {
+			// adjust soft limit based on complexity
+			Value complexity = abs(eval - static_eval);
+			double factor = std::clamp(complexity / 200.0, 0.0, 1.0);
+			// higher complexity = spend more time, lower complexity = spend less time
+			soft = 0.3 + 0.4 * factor;
+		}
+		if (time_elapsed > mxtime * soft) {
 			// We probably won't be able to complete the next ID loop
 			break;
 		}
