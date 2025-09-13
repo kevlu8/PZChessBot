@@ -1024,9 +1024,9 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 		if (depth >= 6) {
 			// adjust soft limit based on complexity
 			Value complexity = abs(eval - static_eval);
-			double factor = std::clamp(complexity / 200.0, 0.0, 2.0);
+			double factor = std::clamp(complexity / 200.0, 0.0, 1.0);
 			// higher complexity = spend more time, lower complexity = spend less time
-			soft = 0.5 + 0.4 * factor;
+			soft = 0.3 + 0.4 * factor;
 		}
 		if (time_elapsed > mxtime * soft) {
 			// We probably won't be able to complete the next ID loop
