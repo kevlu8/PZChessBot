@@ -952,6 +952,15 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 		if (early_exit) break;
 		eval = result.second;
 		best_move = result.first;
+
+		bool best_iscapt = (board.piece_boards[OPPOCC(board.side)] & square_bits(best_move.dst()));
+		bool best_ispromo = (best_move.type() == PROMOTION);
+		bool in_check = false;
+		if (board.side == WHITE) {
+			in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second > 0;
+		} else {
+			in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])).first > 0;
+		}
 		
 		seldepth = std::max(seldepth, d);
 		
@@ -1024,7 +1033,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 
 		int time_elapsed = (clock() - start) / CLOCKS_PER_MS;
 		double soft = 0.5;
-		if (depth >= 6) {
+		if (depth >= 6 && !best_iscapt && !best_ispromo && !in_check) {
 			// adjust soft limit based on complexity
 			Value complexity = abs(eval - static_eval);
 			double factor = std::clamp(complexity / 200.0, 0.0, 1.0);
