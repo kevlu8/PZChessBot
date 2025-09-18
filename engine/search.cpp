@@ -714,7 +714,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		Value score;
 		Value newdepth = depth - 1;
 
-		if (i > 1) {
+		if (i > 3) {
 			Value r = reduction[i][depth];
 
 			Value searched_depth = depth - r / 1024;
