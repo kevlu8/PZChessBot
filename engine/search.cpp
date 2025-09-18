@@ -579,6 +579,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 			r -= 512 * pv;
 			r += 800 * (!pv && cutnode);
+			if (move == killer[0][ply] || move == killer[1][ply]) r -= 512;
 
 			Value searched_depth = depth - r / 1024;
 
