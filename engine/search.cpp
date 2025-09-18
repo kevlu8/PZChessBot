@@ -519,7 +519,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				 * 
 				 * Just skip later moves that probably aren't good
 				 */
-				continue;
+				break;
 			}
 
 			if (!in_check && !capt && !promo && depth <= 5) {
