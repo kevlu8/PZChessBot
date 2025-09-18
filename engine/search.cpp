@@ -489,6 +489,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
 		bool promo = (move.type() == PROMOTION);
+		bool bestmove_exists = best != -VALUE_INFINITE;
 		
 		int extension = 0;
 
@@ -511,48 +512,50 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		line[ply].move = move;
 
-		if (!in_check && !capt && !promo && i > 5 + 2 * depth * depth) {
-			/**
-			 * Late Move Pruning
-			 * 
-			 * Just skip later moves that probably aren't good
-			 */
-			continue;
-		}
-
-		if (!in_check && !capt && !promo && depth <= 5) {
-			/**
-			 * History pruning
-			 * 
-			 * Skip moves with very bad history scores
-			 * Depth condition is necessary to avoid overflow
-			 */
-			Value hist = history[board.side][move.src()][move.dst()];
-			if (hist < -HISTORY_MARGIN * depth) {
+		if (bestmove_exists) {
+			if (i > 5 + depth * depth) {
+				/**
+				 * Late Move Pruning
+				 * 
+				 * Just skip later moves that probably aren't good
+				 */
 				continue;
 			}
-		}
 
-		if (depth <= 2 && i > 0 && !in_check && !capt && !promo && abs(alpha) < VALUE_MATE_MAX_PLY && abs(beta) < VALUE_MATE_MAX_PLY) {
-			/**
-			 * Futility pruning
-			 * 
-			 * If we are at the leaf of the search, we can prune moves that are
-			 * probably not going to be better than alpha.
-			 */
-			if (depth == 1 && cur_eval + FUTILITY_THRESHOLD < alpha) continue;
-			if (depth == 2 && cur_eval + FUTILITY_THRESHOLD2 < alpha) continue;
-		}
+			if (!in_check && !capt && !promo && depth <= 5) {
+				/**
+				 * History pruning
+				 * 
+				 * Skip moves with very bad history scores
+				 * Depth condition is necessary to avoid overflow
+				 */
+				Value hist = history[board.side][move.src()][move.dst()];
+				if (hist < -HISTORY_MARGIN * depth) {
+					continue;
+				}
+			}
 
-		if (depth <= 3 && !promo && best > -VALUE_INFINITE) {
-			/**
-			 * PVS SEE Pruning
-			 * 
-			 * Skip searching moves with bad SEE scores
-			 */
-			Value see = board.see_capture(move);
-			if (see < (-100 - 100 * capt) * depth)
-				continue;
+			if (depth <= 2 && i > 0 && !in_check && !capt && !promo && abs(alpha) < VALUE_MATE_MAX_PLY && abs(beta) < VALUE_MATE_MAX_PLY) {
+				/**
+				 * Futility pruning
+				 * 
+				 * If we are at the leaf of the search, we can prune moves that are
+				 * probably not going to be better than alpha.
+				 */
+				if (depth == 1 && cur_eval + FUTILITY_THRESHOLD < alpha) continue;
+				if (depth == 2 && cur_eval + FUTILITY_THRESHOLD2 < alpha) continue;
+			}
+
+			if (depth <= 3 && !promo) {
+				/**
+				 * PVS SEE Pruning
+				 * 
+				 * Skip searching moves with bad SEE scores
+				 */
+				Value see = board.see_capture(move);
+				if (see < (-100 - 100 * capt) * depth)
+					continue;
+			}
 		}
 
 		board.make_move(move);
