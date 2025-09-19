@@ -384,6 +384,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	// Check for TTable cutoff
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
+	Move ttMove = NullMove;
 	if (!pv && tentry && tentry->depth >= depth && line[ply].excl == NullMove) {
 		// Check for cutoffs
 		if (tentry->flags == EXACT) {
@@ -393,6 +394,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		} else if (tentry->flags == UPPER_BOUND && tentry->eval <= alpha) {
 			return tentry->eval;
 		}
+		ttMove = tentry->best_move;
 	}
 
 	Value cur_eval = 0;
@@ -601,6 +603,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		if (score > best) {
 			if (score > alpha) {
+				best_move = move;
 				alpha = score;
 				alpha_raise++;
 				if (score < beta) {
@@ -612,7 +615,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				}
 			}
 			best = score;
-			best_move = move;
 		}
 
 		if (score >= beta) {
@@ -673,7 +675,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	if (line[ply].excl == NullMove) {
-		board.ttable.store(board.zobrist, best, depth, alpha_raise ? EXACT : UPPER_BOUND, best_move, board.halfmove);
+		board.ttable.store(board.zobrist, best, depth, alpha_raise ? EXACT : UPPER_BOUND, best_move != NullMove ? best_move : ttMove, board.halfmove);
 	}
 
 	return best;
