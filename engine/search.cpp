@@ -77,8 +77,11 @@ Move killer[2][MAX_PLY];
  * The history heuristic is a move ordering heuristic that helps sort quiet moves.
  * It works by storing its effectiveness in the past through beta cutoffs.
  * We store a history table for each side indexed by [src][dst].
+ * 
+ * Note that we have improved upon the traditional history heuristic by
+ * adding threat buckets, which changes the indexing to [side][src][dst][srcatk(bool)][dstatk(bool)]
  */
-Value history[2][64][64];
+Value history[2][64][64][2][2];
 
 /**
  * Capture history is a heuristic similar to the history heuristic, but it's used for
@@ -110,9 +113,9 @@ int pvlen[MAX_PLY];
 /**
  * Use the history gravity formula to update our history values
  */
-void update_history(bool side, Square from, Square to, Value bonus) {
+void update_history(bool side, Square from, Square to, bool srcatk, bool dstatk, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
-	history[side][from][to] += cbonus - history[side][from][to] * abs(bonus) / MAX_HISTORY;
+	history[side][from][to][srcatk][dstatk] += cbonus - history[side][from][to][srcatk][dstatk] * abs(bonus) / MAX_HISTORY;
 }
 
 void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonus) {
@@ -180,7 +183,15 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 				score += PieceValue[move.promotion() + KNIGHT] - PawnValue;
 		} else {
 			// 3. Quiets
-			score = QUIET_BASE + history[board.side][move.src()][move.dst()];
+			bool srcatk = false, dstatk = false;
+			if (board.side == WHITE) {
+				srcatk = (board.control(move.src()).second > 0);
+				dstatk = (board.control(move.dst()).second > 0);
+			} else {
+				srcatk = (board.control(move.src()).first > 0);
+				dstatk = (board.control(move.dst()).first > 0);
+			}
+			score = QUIET_BASE + history[board.side][move.src()][move.dst()][srcatk][dstatk];
 			if (ply && move == cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()]) {
 				score += 1021; // Counter-move bonus
 			}
@@ -520,6 +531,15 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			continue;
 		}
 
+		bool srcatk = false, dstatk = false;
+		if (board.side == WHITE) {
+			srcatk = (board.control(move.src()).second > 0);
+			dstatk = (board.control(move.dst()).second > 0);
+		} else {
+			srcatk = (board.control(move.src()).first > 0);
+			dstatk = (board.control(move.dst()).first > 0);
+		}
+
 		if (!in_check && !capt && !promo && depth <= 5) {
 			/**
 			 * History pruning
@@ -527,7 +547,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * Skip moves with very bad history scores
 			 * Depth condition is necessary to avoid overflow
 			 */
-			Value hist = history[board.side][move.src()][move.dst()];
+			Value hist = history[board.side][move.src()][move.dst()][srcatk][dstatk];
 			if (hist < -HISTORY_MARGIN * depth) {
 				continue;
 			}
@@ -629,9 +649,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			}
 			if (!capt) { // Not a capture
 				const Value bonus = 1.56 * depth * depth + 0.91 * depth + 0.62;
-				update_history(board.side, move.src(), move.dst(), bonus);
+				update_history(board.side, move.src(), move.dst(), srcatk, dstatk, bonus);
 				for (auto &qmove : quiets) {
-					update_history(board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
+					update_history(board.side, qmove.src(), qmove.dst(), srcatk, dstatk, -bonus); // Penalize quiet moves
 				}
 				cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()] = move; // Update counter-move history
 				if (!in_check && !promo && best > raw_eval) update_corrhist(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), line[ply-1].move, best - raw_eval, depth);
@@ -907,7 +927,11 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 
 	for (int i = 0; i < 64; i++) {
 		for (int j = 0; j < 64; j++) {
-			history[0][i][j] = history[1][i][j] = 0;
+			for (int sa = 0; sa < 2; sa++) {
+				for (int da = 0; da < 2; da++) {
+					history[0][i][j][sa][da] = history[1][i][j][sa][da] = 0;
+				}
+			}
 		}
 	}
 
@@ -1070,7 +1094,11 @@ pzstd::vector<std::pair<Move, Value>> search_multipv(Board &board, int multipv, 
 
 	for (int i = 0; i < 64; i++) {
 		for (int j = 0; j < 64; j++) {
-			history[0][i][j] = history[1][i][j] = 0;
+			for (int sa = 0; sa < 2; sa++) {
+				for (int da = 0; da < 2; da++) {
+					history[0][i][j][sa][da] = history[1][i][j][sa][da] = 0;
+				}
+			}
 		}
 	}
 
