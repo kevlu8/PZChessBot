@@ -6,6 +6,7 @@
 #include <csignal>
 #include <mutex>
 #include <queue>
+#include <random>
 #include <sched.h>
 #include <sstream>
 #include <thread>
@@ -82,6 +83,8 @@ void generateGames(int worker_id) {
 	sched_setaffinity(0, sizeof(mask), &mask);
 #endif
 
+	std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count() + worker_id * 123456789);
+
 	while (!shouldStop.load()) {
 		Board board = Board(TT_SIZE);
 		clear_search_vars(params[worker_id]);
@@ -92,8 +95,10 @@ void generateGames(int worker_id) {
 			if (moves.size() == 0) {
 				continue; // Skip this game and start a new one
 			}
-			board.make_move(moves[rand() % moves.size()]);
+			board.make_move(moves[rng() % moves.size()]); // technically nonuniform but who cares
 		}
+
+		if (_mm_popcnt_u64(board.piece_boards[KING]) != 2) continue; // wtf?????
 
 		// Self play time!
 		Value eval = 0;
@@ -107,6 +112,11 @@ void generateGames(int worker_id) {
 		int moves = 0;
 
 		while (abs(eval) < VALUE_MATE_MAX_PLY) {
+			if (_mm_popcnt_u64(board.piece_boards[KING]) != 2) {
+				game.clear();
+				break; // something really bad happened
+			}
+
 			moves++;
 
 			if ((moves >= 100 && abs(eval) < 100) || moves >= 400) {
@@ -118,6 +128,16 @@ void generateGames(int worker_id) {
 			if (board.threefold() || board.halfmove >= 100) {
 				// Threefold repetition or 50-move rule
 				res = "0.5";
+				break;
+			}
+
+			if ((!board.piece_boards[OCC(WHITE)] & board.piece_boards[KING])) {
+				// If white has no king, this is mate for black
+				res = "0.0";
+				break;
+			} else if ((!board.piece_boards[OCC(BLACK)] & board.piece_boards[KING])) {
+				// Likewise, if black has no king, this is mate for white
+				res = "1.0";
 				break;
 			}
 
@@ -266,14 +286,11 @@ int main(int argc, char *argv[]) {
 	std::ofstream outfile(OUT_FILE, std::ios::app); // Append mode in case of restart
 
 	const int NUM_THREADS = std::thread::hardware_concurrency();
-	// const int NUM_THREADS = 8;
+	// const int NUM_THREADS = 1;
 
 	std::cout << "PZChessBot " << VERSION << " parallelized data generation script" << std::endl;
 	std::cout << "Using " << NUM_THREADS << " worker threads" << std::endl;
 	std::cout << "I'm going to generate as much data as I can, until you stop me. Press Ctrl+C to stop." << std::endl << std::endl;
-
-	// Set up random seed - different for each run
-	srand(time(NULL));
 
 	// Start timing using wall clock time
 	auto start = std::chrono::steady_clock::now();
