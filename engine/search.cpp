@@ -591,6 +591,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			score = -__recurse(board, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
 		}
 		if (pv && (i == 0 || score > alpha)) {
+			if (tentry && move == tentry->best_move && tentry->depth > 1)
+				newdepth = std::max((int)newdepth, 1); // Make sure we don't enter QS if we have an available TT move
 			score = -__recurse(board, newdepth, -beta, -alpha, -side, 1, false, ply+1);
 		}
 
