@@ -16,8 +16,8 @@ A chess engine created by two high school students, started when we were in midd
 | v2.0             |    2994    |     -      |     2650      |
 | v20250621T09-dev |   ~3100    |     -      |     2700      |
 | v20250623T22-dev |   ~3160    |     -      |     2800      |
-| v3.0             |   ~3350    |    3277    |     2850      |
-| v20250729T08-dev |   ~3420    |     -      |     2900      |
+| v3.0             |    3314    |    3275    |     2850      |
+| v20250729T08-dev |   ~3400    |     -      |     2900      |
 
 ## Logistics & Features
 
