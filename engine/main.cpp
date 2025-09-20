@@ -18,7 +18,6 @@
 #include "search.hpp"
 
 #define OUT_FILE "data.bullet.txt"
-#define FIXED_NODES 4000
 const int TT_SIZE = DEFAULT_TT_SIZE;
 
 BoardState bs[64]; // boardstates for each thread
@@ -102,7 +101,7 @@ void generateGames(int worker_id) {
 		std::string res = "";
 
 		// 1. sanity check to ensure the position is somewhat balanced
-		eval = search(board, params[worker_id], bs[worker_id], 1e9, MAX_PLY, FIXED_NODES, 1).second;
+		eval = search(board, params[worker_id], bs[worker_id], 1e9, MAX_PLY, SOFT_NODES, 1).second;
 		if (abs(eval) > 400) continue; // too unbalanced
 
 		int moves = 0;
@@ -123,7 +122,7 @@ void generateGames(int worker_id) {
 			}
 
 			// Search for a move
-			std::pair<Move, Value> result = search(board, params[worker_id], bs[worker_id], 1e9, MAX_PLY, FIXED_NODES, 1);
+			std::pair<Move, Value> result = search(board, params[worker_id], bs[worker_id], 1e9, MAX_PLY, SOFT_NODES, 1);
 			params[worker_id].clear(); // Reset search params for next iteration
 
 			if (result.first == NullMove) {

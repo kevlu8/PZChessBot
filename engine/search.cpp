@@ -812,7 +812,7 @@ std::pair<Move, Value> search(Board &board, SearchParams &sp, BoardState &bs, in
 	sp.early_exit = sp.exit_allowed = false;
 	sp.start = clock();
 	sp.mxtime = time;
-	sp.mx_nodes = maxnodes;
+	sp.mx_nodes = HARD_NODES;
 
 	Value static_eval = eval(board, bs) * (board.side ? -1 : 1);
 
@@ -886,6 +886,11 @@ std::pair<Move, Value> search(Board &board, SearchParams &sp, BoardState &bs, in
 		}
 		if (time_elapsed > sp.mxtime * soft) {
 			// We probably won't be able to complete the next ID loop
+			break;
+		}
+
+		if (sp.nodes > maxnodes) {
+			// soft node limit
 			break;
 		}
 	}

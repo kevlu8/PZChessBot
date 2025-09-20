@@ -163,3 +163,6 @@ enum MoveType {
 #define COORDS "\033[33m"
 #define CLEAR_LINE "\r\033[K"
 #define CURSOR_UP "\033[A"
+
+#define HARD_NODES 1000000
+#define SOFT_NODES 5000
