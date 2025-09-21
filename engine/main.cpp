@@ -58,6 +58,7 @@ void run_uci() {
 			}
 		} else if (command == "ucinewgame") {
 			board = Board(TT_SIZE);
+			clear_search_vars();
 		} else if (command.substr(0, 8) == "position") {
 			// either `position startpos` or `position fen ...`
 			if (command.find("startpos") != std::string::npos) {

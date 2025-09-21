@@ -1111,3 +1111,30 @@ pzstd::vector<std::pair<Move, Value>> search_multipv(Board &board, int multipv, 
 
 	return multipv_res;
 }
+
+void clear_search_vars() {
+	nodes = seldepth = 0;
+	early_exit = exit_allowed = false;
+	for (int i = 0; i < MAX_PLY; i++) {
+		killer[0][i] = killer[1][i] = NullMove;
+		pvlen[i] = 0;
+		line[i] = SSEntry();
+	}
+	for (int i = 0; i < 64; i++) {
+		for (int j = 0; j < 64; j++) {
+			history[0][i][j] = history[1][i][j] = 0;
+			corrhist_prev[0][i][j] = corrhist_prev[1][i][j] = 0;
+			cmh[0][i][j] = cmh[1][i][j] = NullMove;
+		}
+		for (int j = 0; j < 6; j++) {
+			for (int k = 0; k < 6; k++) {
+				capthist[j][k][i] = 0;
+			}
+		}
+	}
+	for (int i = 0; i < CORRHIST_SZ; i++) {
+		corrhist_ps[0][i] = corrhist_ps[1][i] = 0;
+		corrhist_mat[0][i] = corrhist_mat[1][i] = 0;
+		corrhist_np[0][i] = corrhist_np[1][i] = 0;
+	}
+}
