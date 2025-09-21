@@ -1,47 +1,82 @@
-EXE ?= pzchessbot
+# Project settings
+EXE      ?= pzchessbot
 EVALFILE ?= nnue.bin
 
-CXX := g++
-CXXFLAGS := -std=c++17 -DNNUE_PATH=\"$(EVALFILE)\" -mavx2 -mbmi2 -mbmi -mavx -m64 -mpopcnt -mlzcnt
-RELEASEFLAGS = -O3
-DEBUGFLAGS = -g -fsanitize=address,undefined
+# Compilers
+CXX      := g++
+WINCXX   := x86_64-w64-mingw32-g++
 
-SRCS := $(wildcard engine/*.cpp engine/nnue/*.cpp)
-HDRS := $(wildcard engine/*.hpp engine/nnue/*.hpp)
-ROBJS := $(SRCS:.cpp=.o)
-DOBJS := $(SRCS:.cpp=.d.o)
+# Flags
+BASEFLAGS   := -std=c++17 -DNNUE_PATH=\"$(EVALFILE)\" -m64
+OPTFLAGS    := -O3 -flto=auto
+DEBUGFLAGS  := -g -fsanitize=address,undefined
 
-.PHONY: release debug test clean
+# Sources & objects
+SRCS  := $(wildcard engine/*.cpp engine/nnue/*.cpp)
+HDRS  := $(wildcard engine/*.hpp engine/nnue/*.hpp)
+OBJS  := $(SRCS:.cpp=.o)
+DEPS  := $(OBJS:.o=.d)
 
-release: CXXFLAGS += $(RELEASEFLAGS) -static
-release: $(ROBJS)
-	make OBJS="$(ROBJS)" CXXFLAGS="$(CXXFLAGS) $(RELEASEFLAGS)" $(EXE)
+.PHONY: all native binaries release debug clean test debug-test
 
-debug: CXXFLAGS += $(DEBUGFLAGS)
-debug: $(DOBJS)
-	make OBJS="$(DOBJS)" CXXFLAGS="$(CXXFLAGS) $(DEBUGFLAGS)" $(EXE)
+# Default: native build
+all: native
 
+native: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=native
+native: $(EXE)
+
+release: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -mavx2 -mbmi2 -mbmi -mavx -mpopcnt -mlzcnt -static
+release: $(EXE)
+
+debug: CXXFLAGS = $(BASEFLAGS) $(DEBUGFLAGS)
+debug: $(EXE)
+
+# Multi-binary builds
+binaries: pzchessbot-linux-avx2 pzchessbot-win-avx2 pzchessbot-linux-avx512 pzchessbot-win-avx512
+
+pzchessbot-linux-avx2: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -mavx2 -mbmi2 -mbmi -mavx -mpopcnt -mlzcnt -static
+pzchessbot-linux-avx2: $(SRCS) $(HDRS)
+	$(CXX) $(CXXFLAGS) -o $@ $(SRCS)
+
+pzchessbot-win-avx2: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -mavx2 -mbmi2 -mbmi -mavx -mpopcnt -mlzcnt -static
+pzchessbot-win-avx2: $(SRCS) $(HDRS)
+	$(WINCXX) $(CXXFLAGS) -o $@ $(SRCS)
+
+pzchessbot-linux-avx512: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -mavx2 -mbmi2 -mbmi -mavx -mpopcnt -mlzcnt -mavx512f -mavx512dq -mavx512bw -mavx512vl -static
+pzchessbot-linux-avx512: $(SRCS) $(HDRS)
+	$(CXX) $(CXXFLAGS) -o $@ $(SRCS)
+
+pzchessbot-win-avx512: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -mavx2 -mbmi2 -mbmi -mavx -mpopcnt -mlzcnt -mavx512f -mavx512dq -mavx512bw -mavx512vl -static
+pzchessbot-win-avx512: $(SRCS) $(HDRS)
+	$(WINCXX) $(CXXFLAGS) -o $@ $(SRCS)
+
+# Link final binary
 $(EXE): $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^
-	@echo "Build complete. Run with './$(EXE)'"
+	@echo "Build complete. Run with ./$(EXE)"
 
-%.o: %.cpp $(HDRS) Makefile
-%.d.o: %.cpp $(HDRS) Makefile
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+# Compile objects with dependency generation
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
-debug-test: CXXFLAGS += $(DEBUGFLAGS)
-debug-test: $(DOBJS)
-	$(AR) rcs test/objs.a $(DOBJS)
-	make -C test CXXFLAGS="$(CXXFLAGS)" debug
+# Include generated dependency files
+-include $(DEPS)
 
-test: CXXFLAGS += $(RELEASEFLAGS)
-test: $(ROBJS)
-	$(AR) rcs test/objs.a $(ROBJS)
-	make -C test CXXFLAGS="$(CXXFLAGS)"
+# Tests
+test: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS)
+test: $(OBJS)
+	$(AR) rcs test/objs.a $(OBJS)
+	$(MAKE) -C test CXXFLAGS="$(CXXFLAGS)"
 
+debug-test: CXXFLAGS = $(BASEFLAGS) $(DEBUGFLAGS)
+debug-test: $(OBJS)
+	$(AR) rcs test/objs.a $(OBJS)
+	$(MAKE) -C test CXXFLAGS="$(CXXFLAGS)" debug
+
+# Cleanup
 clean:
 	@echo "Cleaning up..."
-	rm -f $(EXE)
-	rm -f $(ROBJS) $(DOBJS)
+	rm -f $(EXE) *.exe
+	rm -f $(OBJS) $(DEPS)
 	rm -f test/objs.a
-	make -C test clean
+	$(MAKE) -C test clean
