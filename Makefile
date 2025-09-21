@@ -9,7 +9,7 @@ WINCXX   := x86_64-w64-mingw32-g++
 # Flags
 BASEFLAGS   := -std=c++17 -DNNUE_PATH=\"$(EVALFILE)\" -m64
 OPTFLAGS    := -O3 -flto=auto
-DEBUGFLAGS  := -g -fsanitize=address,undefined
+DEBUGFLAGS  := -g -fsanitize=address,undefined -march=native
 
 # Sources & objects
 SRCS  := $(wildcard engine/*.cpp engine/nnue/*.cpp)
@@ -17,7 +17,7 @@ HDRS  := $(wildcard engine/*.hpp engine/nnue/*.hpp)
 OBJS  := $(SRCS:.cpp=.o)
 DEPS  := $(OBJS:.o=.d)
 
-.PHONY: all native binaries release debug clean test debug-test
+.PHONY: all native binaries debug clean test debug-test
 
 # Default: native build
 all: native
@@ -25,28 +25,25 @@ all: native
 native: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=native
 native: $(EXE)
 
-release: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -mavx2 -mbmi2 -mbmi -mavx -mpopcnt -mlzcnt -static
-release: $(EXE)
-
 debug: CXXFLAGS = $(BASEFLAGS) $(DEBUGFLAGS)
 debug: $(EXE)
 
 # Multi-binary builds
 binaries: pzchessbot-linux-avx2 pzchessbot-win-avx2 pzchessbot-linux-avx512 pzchessbot-win-avx512
 
-pzchessbot-linux-avx2: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -mavx2 -mbmi2 -mbmi -mavx -mpopcnt -mlzcnt -static
+pzchessbot-linux-avx2: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v3 -static
 pzchessbot-linux-avx2: $(SRCS) $(HDRS)
 	$(CXX) $(CXXFLAGS) -o $@ $(SRCS)
 
-pzchessbot-win-avx2: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -mavx2 -mbmi2 -mbmi -mavx -mpopcnt -mlzcnt -static
+pzchessbot-win-avx2: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v3 -static
 pzchessbot-win-avx2: $(SRCS) $(HDRS)
 	$(WINCXX) $(CXXFLAGS) -o $@ $(SRCS)
 
-pzchessbot-linux-avx512: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -mavx2 -mbmi2 -mbmi -mavx -mpopcnt -mlzcnt -mavx512f -mavx512dq -mavx512bw -mavx512vl -static
+pzchessbot-linux-avx512: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v4 -static
 pzchessbot-linux-avx512: $(SRCS) $(HDRS)
 	$(CXX) $(CXXFLAGS) -o $@ $(SRCS)
 
-pzchessbot-win-avx512: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -mavx2 -mbmi2 -mbmi -mavx -mpopcnt -mlzcnt -mavx512f -mavx512dq -mavx512bw -mavx512vl -static
+pzchessbot-win-avx512: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v4 -static
 pzchessbot-win-avx512: $(SRCS) $(HDRS)
 	$(WINCXX) $(CXXFLAGS) -o $@ $(SRCS)
 
