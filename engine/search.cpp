@@ -342,6 +342,20 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 1) {
 	pvlen[ply] = 0;
 
+	nodes++;
+
+	if (early_exit) return 0;
+
+	if (!(nodes & 4095)) {
+		// Check for early exit
+		// We check every 4096 nodes to avoid slowing down the search too much
+		uint64_t time = (clock() - start) / CLOCKS_PER_MS;
+		if ((time > mxtime || nodes > mx_nodes) && exit_allowed) {
+			early_exit = true;
+			return 0;
+		}
+	}
+
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
 		return (VALUE_MATE) * side;
