@@ -61,3 +61,5 @@ std::pair<Move, Value> search(Board &board, int64_t time = 1e9, int depth = MAX_
 pzstd::vector<std::pair<Move, Value>> search_multipv(Board &board, int multipv, int64_t time = 1e9, int depth = MAX_PLY, int64_t maxnodes = 1e18, int quiet = 0);
 
 uint64_t perft(Board &board, int depth);
+
+void clear_search_vars();
