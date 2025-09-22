@@ -1051,7 +1051,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 			soft = 0.3 + 0.4 * factor;
 		}
 		uint64_t bm_nodes = nodecnt[best_move.src()][best_move.dst()];
-		double node_adjustment = std::max(0.5, 1.5 - (bm_nodes / (double)nodes) * 2.0);
+		double node_adjustment = 1.5 - (bm_nodes / (double)nodes);
 		soft *= node_adjustment;
 		// std::cout << std::setprecision(2) << "info string soft limit: " << mxtime * soft << " ms (" << (int)(soft * 100) << "%), node adjustment: " << node_adjustment << std::endl;
 		// std::cout << "info string best move nodes: " << bm_nodes << ", total nodes: " << nodes << std::setprecision(0) << std::endl;
