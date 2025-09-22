@@ -107,6 +107,8 @@ SSEntry line[MAX_PLY]; // Currently searched line
 Move pvtable[MAX_PLY][MAX_PLY];
 int pvlen[MAX_PLY];
 
+uint64_t nodecnt[64][64];
+
 /**
  * Use the history gravity formula to update our history values
  */
@@ -698,6 +700,8 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 
 	bool printing_currmove = false;
 
+	uint64_t prev_nodes = nodes;
+
 	while ((move = next_move(scores, end)) != NullMove) {
 		if (depth >= 20 && nodes >= 10'000'000) {
 			if (!g_quiet) std::cout << "info depth " << depth << " currmove " << move.to_string() << " currmovenumber " << i+1 << std::endl;
@@ -732,6 +736,9 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		}
 
 		board.unmake_move();
+
+		nodecnt[move.src()][move.dst()] += nodes - prev_nodes;
+		prev_nodes = nodes;
 
 		if (score > best_score) {
 			pvtable[0][0] = move;
@@ -908,6 +915,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 
 	for (int i = 0; i < 64; i++) {
 		for (int j = 0; j < 64; j++) {
+			nodecnt[i][j] = 0;
 			history[0][i][j] /= 2;
 			history[1][i][j] /= 2;
 		}
@@ -1043,6 +1051,11 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 			// higher complexity = spend more time, lower complexity = spend less time
 			soft = 0.3 + 0.4 * factor;
 		}
+		uint64_t bm_nodes = nodecnt[best_move.src()][best_move.dst()];
+		double node_adjustment = 1.5 - (bm_nodes / (double)nodes);
+		soft *= node_adjustment;
+		// std::cout << std::setprecision(2) << "info string soft limit: " << mxtime * soft << " ms (" << (int)(soft * 100) << "%), node adjustment: " << node_adjustment << std::endl;
+		// std::cout << "info string best move nodes: " << bm_nodes << ", total nodes: " << nodes << std::setprecision(0) << std::endl;
 		if (time_elapsed > mxtime * soft) {
 			// We probably won't be able to complete the next ID loop
 			break;
