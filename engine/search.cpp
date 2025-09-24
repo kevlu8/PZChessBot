@@ -485,7 +485,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, ply, tentry);
 	int end = scores.size();
 
-	if (depth > 4 && !tentry) {
+	if (depth > 4 && !(tentry && tentry->best_move != NullMove)) {
 		depth -= 2; // Internal iterative reductions
 	}
 
@@ -618,6 +618,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		if (score > best) {
 			if (score > alpha) {
+				best_move = move;
 				alpha = score;
 				alpha_raise++;
 				if (score < beta) {
@@ -629,7 +630,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				}
 			}
 			best = score;
-			best_move = move;
 		}
 
 		if (score >= beta) {
@@ -690,7 +690,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	if (line[ply].excl == NullMove) {
-		board.ttable.store(board.zobrist, best, depth, alpha_raise ? EXACT : UPPER_BOUND, best_move, board.halfmove);
+		Move tt_move = best_move != NullMove ? best_move : tentry ? tentry->best_move : NullMove;
+		board.ttable.store(board.zobrist, best, depth, alpha_raise ? EXACT : UPPER_BOUND, tt_move, board.halfmove);
 	}
 
 	return best;
