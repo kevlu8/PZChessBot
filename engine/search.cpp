@@ -502,7 +502,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (line[ply].excl == NullMove && depth >= 8 && tentry && move == tentry->best_move && tentry->depth >= depth - 2 && tentry->flags != UPPER_BOUND) {
 			// Singular extension
 			line[ply].excl = move;
-			Value singular_beta = tentry->eval - 6 * depth;
+			Value singular_beta = tentry->eval - 4 * depth;
 			Value singular_score = __recurse(board, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
 			line[ply].excl = NullMove; // Reset exclusion move
 
