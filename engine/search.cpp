@@ -476,7 +476,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, ply, tentry);
 	int end = scores.size();
 
-	if (depth > 4 && !(tentry && tentry->best_move != NullMove)) {
+	if ((pv || cutnode) && depth > 4 && !(tentry && tentry->best_move != NullMove)) {
 		depth -= 2; // Internal iterative reductions
 	}
 
