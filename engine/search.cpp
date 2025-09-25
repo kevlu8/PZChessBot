@@ -639,7 +639,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 					update_history(board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
 				}
 				cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()] = move; // Update counter-move history
-				if (!in_check && !promo && best > raw_eval) update_corrhist(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), line[ply-1].move, best - raw_eval, depth);
 			} else { // Capture
 				const Value bonus = 1.81 * depth * depth + 0.52 * depth + 0.40;
 				update_capthist(PieceType(board.mailbox[move.src()] & 7), PieceType(board.mailbox[move.dst()] & 7), move.dst(), bonus);
@@ -658,19 +657,19 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		i++;
 	}
 
-	bool best_iscapture = (board.piece_boards[OPPOCC(board.side)] & square_bits(best_move.dst()));
-	bool best_ispromo = (best_move.type() == PROMOTION);
-	if (flag != LOWER_BOUND && !in_check && !best_iscapture && !best_ispromo && !(best < alpha && best >= raw_eval)) {
-		// Best move is a quiet move, update CorrHist
-		update_corrhist(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), line[ply-1].move, best - raw_eval, depth);
-	}
-
 	// Stalemate detection
 	if (best == -VALUE_MATE) {
 		// If our engine thinks we are mated but we are not in check, we are stalemated
 		if (line[ply].excl != NullMove) return alpha;
 		else if (in_check) return -VALUE_MATE + ply;
 		else return 0;
+	}
+
+	bool best_iscapture = (board.piece_boards[OPPOCC(board.side)] & square_bits(best_move.dst()));
+	bool best_ispromo = (best_move.type() == PROMOTION);
+	if (abs(best) < VALUE_MATE_MAX_PLY && !in_check && !best_iscapture && !best_ispromo && !(best < alpha && best >= raw_eval) && !(best >= beta && best <= raw_eval)) {
+		// Best move is a quiet move, update CorrHist
+		update_corrhist(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), line[ply-1].move, best - raw_eval, depth);
 	}
 
 	if (line[ply].excl == NullMove) {
