@@ -356,15 +356,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 	}
 
-	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
-		// If black has no king, this is mate for white
-		return (VALUE_MATE) * side;
-	}
-	if (!(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])) {
-		// Likewise, if white has no king, this is mate for black
-		return (-VALUE_MATE) * side;
-	}
-
 	// Control on white king and black king respectively
 	auto wcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]));
 	auto bcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]));
@@ -372,11 +363,11 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (board.side == WHITE) {
 		// If it is white to move and white controls black's king, it's mate
 		if (bcontrol.first > 0)
-			return VALUE_MATE - 1;
+			return VALUE_MATE;
 	} else {
 		// Likewise, the contrary also applies.
 		if (wcontrol.second > 0)
-			return VALUE_MATE - 1;
+			return VALUE_MATE;
 	}
 
 	// Threefold or 50 move rule
@@ -492,6 +483,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	Move best_move = NullMove;
 
 	int alpha_raise = 0;
+	TTFlag flag = UPPER_BOUND;
 
 	pzstd::vector<Move> quiets, captures;
 
@@ -611,9 +603,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			score = -__recurse(board, newdepth, -beta, -alpha, -side, 1, false, ply+1);
 		}
 
-		if (abs(score) >= VALUE_MATE_MAX_PLY)
-			score = score - (uint16_t(score >> 15) << 1) - 1; // Mate score fix
-
 		board.unmake_move();
 
 		if (score > best) {
@@ -621,6 +610,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				best_move = move;
 				alpha = score;
 				alpha_raise++;
+				flag = EXACT;
 				if (score < beta) {
 					pvtable[ply][0] = move;
 					pvlen[ply] = pvlen[ply+1]+1;
@@ -633,12 +623,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 
 		if (score >= beta) {
+			flag = LOWER_BOUND;
 			if (abs(score) < VALUE_MATE_MAX_PLY && abs(alpha) < VALUE_MATE_MAX_PLY) {
 				// note that best and score are functionally equivalent here; best is just what's returned + stored to TT
 				best = (score * depth + beta) / (depth + 1); // wtf?????
-			}
-			if (line[ply].excl == NullMove) {
-				board.ttable.store(board.zobrist, best, depth, LOWER_BOUND, best_move, board.halfmove);
 			}
 			if (killer[0][ply] != move) {
 				killer[1][ply] = killer[0][ply];
@@ -659,7 +647,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 					update_capthist(PieceType(board.mailbox[cmove.src()] & 7), PieceType(board.mailbox[cmove.dst()] & 7), cmove.dst(), -bonus);
 				}
 			}
-			return best;
+			break;
 		}
 
 		if (early_exit)
@@ -672,26 +660,22 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	bool best_iscapture = (board.piece_boards[OPPOCC(board.side)] & square_bits(best_move.dst()));
 	bool best_ispromo = (best_move.type() == PROMOTION);
-	if (!in_check && !best_iscapture && !best_ispromo && !(best < alpha && best >= raw_eval)) {
+	if (flag != LOWER_BOUND && !in_check && !best_iscapture && !best_ispromo && !(best < alpha && best >= raw_eval)) {
 		// Best move is a quiet move, update CorrHist
 		update_corrhist(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), line[ply-1].move, best - raw_eval, depth);
 	}
 
 	// Stalemate detection
-	if (best == -VALUE_MATE + 2) {
+	if (best == -VALUE_MATE) {
 		// If our engine thinks we are mated but we are not in check, we are stalemated
-		if (board.side == WHITE) {
-			if (!board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second)
-				best = 0;
-		} else {
-			if (!board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])).first)
-				best = 0;
-		}
+		if (line[ply].excl != NullMove) return alpha;
+		else if (in_check) return -VALUE_MATE + ply;
+		else return 0;
 	}
 
 	if (line[ply].excl == NullMove) {
 		Move tt_move = best_move != NullMove ? best_move : tentry ? tentry->best_move : NullMove;
-		board.ttable.store(board.zobrist, best, depth, alpha_raise ? EXACT : UPPER_BOUND, tt_move, board.halfmove);
+		board.ttable.store(board.zobrist, best, depth, flag, tt_move, board.halfmove);
 	}
 
 	return best;
