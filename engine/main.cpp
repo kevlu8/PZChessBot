@@ -10,6 +10,9 @@
 #include "movetimings.hpp"
 #include "search.hpp"
 #include "ttable.hpp"
+#include "tunables.hpp"
+
+BoardState bs[NINPUTS * 2][NINPUTS * 2];
 
 // Options
 int TT_SIZE = DEFAULT_TT_SIZE;
@@ -63,6 +66,11 @@ void run_uci() {
 				tis = new ThreadInfo[num_threads];
 				for (int i = 0; i < num_threads; i++) tis[i].set_bs();
 				std::cout << "info string Using " << num_threads << " threads" << std::endl;
+			} else {
+				// Try to set tunable parameter
+				if (!set_tunable_value(optionname, std::stoi(optionvalue))) {
+					std::cerr << "Unknown option: " << optionname << std::endl;
+				}
 			}
 		} else if (command == "ucinewgame") {
 			board = Board();
@@ -161,6 +169,9 @@ void run_uci() {
 __attribute__((weak)) int main(int argc, char *argv[]) {
 	tis = new ThreadInfo[1]; // single thread for now
 	tis[0].set_bs();
+	// Initialize and print tunables on startup
+	init_tunables();
+	print_tunables();
 	if (argc == 2 && std::string(argv[1]) == "bench") {
 		const std::string bench_positions[] = {
 			"r3k2r/2pb1ppp/2pp1q2/p7/1nP1B3/1P2P3/P2N1PPP/R2QK2R w KQkq - 0 14",
