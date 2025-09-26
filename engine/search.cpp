@@ -147,6 +147,28 @@ void apply_correction(bool side, uint64_t pshash, uint64_t mathash, uint64_t nph
 	eval = std::clamp(eval + corr / CORRHIST_GRAIN, -VALUE_MATE_MAX_PLY + 1, VALUE_MATE_MAX_PLY - 1);
 }
 
+TUNE(cmh_bonus, 1021, 0, 3000, 150, 0.002);
+TUNE(killer1, 1500, 0, 3000, 150, 0.002);
+TUNE(killer2, 800, 0, 1000, 50, 0.002);
+TUNE(delta, 300, 0, 800, 40, 0.002);
+TUNE(rfp_base, 131, 0, 250, 12, 0.002);
+TUNE(rfp_improving, 30, 0, 100, 5, 0.002);
+TUNE(nmp_eval, 400, 1, 600, 40, 0.002);
+TUNE(razoring_margin, 241, 0, 600, 20, 0.002);
+TUNE(history_margin, 4000, 0, 8000, 400, 0.002);
+TUNE(futility1, 304, 0, 800, 20, 0.002);
+TUNE(futility2, 692, 0, 1500, 50, 0.002);
+TUNE(see_base, 100, 0, 200, 10, 0.002);
+TUNE(see_capt, 100, 0, 200, 10, 0.002);
+TUNE(pv_red, 1024, 0, 2048, 128, 0.002);
+TUNE(cut_red, 1024, 0, 2048, 128, 0.002);
+TUNE(kill_red, 1024, 0, 2048, 128, 0.002);
+TUNE(aspir, 32, 0, 80, 5, 0.002);
+TUNE(soft_base, 50, 30, 70, 5, 0.002);
+TUNE(cmplx_base, 30, 10, 50, 5, 0.002);
+TUNE(cmplx_mul, 40, 10, 70, 5, 0.002);
+TUNE(node_tm, 150, 100, 200, 5, 0.002);
+
 /**
  * Order the moves based on various factors.
  * Move ordering priority:
@@ -184,12 +206,12 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 			// 3. Quiets
 			score = QUIET_BASE + history[board.side][move.src()][move.dst()];
 			if (ply && move == cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()]) {
-				score += 1021; // Counter-move bonus
+				score += cmh_bonus; // Counter-move bonus
 			}
 			if (move == killer[0][ply]) {
-				score += 1500; // Killer bonus
+				score += killer1; // Killer bonus
 			} else if (move == killer[1][ply]) {
-				score += 800; // Second killer bonus
+				score += killer2; // Second killer bonus
 			}
 		}
 
@@ -304,7 +326,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 			} else {
 				// QS Futility pruning
 				// use see score for added safety
-				if (DELTA_THRESHOLD + 4 * see + stand_pat < alpha) continue;
+				if (delta + 4 * see + stand_pat < alpha) continue;
 			}
 		}
 
@@ -428,7 +450,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * 
 		 * We need to make sure that we aren't in check (since we might get mated)
 		 */
-		int margin = (RFP_THRESHOLD - improving * RFP_IMPROVING) * depth;
+		int margin = (rfp_base - rfp_improving * improving) * depth;
 		if (cur_eval >= beta + margin)
 			return (cur_eval + beta) / 2;
 	}
@@ -450,7 +472,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 */
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
-		Value r = NMP_R_VALUE + depth / 4 + std::min(3, (cur_eval - beta) / 400) + improving;
+		Value r = NMP_R_VALUE + depth / 4 + std::min(3, (cur_eval - beta) / nmp_eval) + improving;
 		Value null_score = -__recurse(board, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
 		board.unmake_move();
 		if (null_score >= beta)
@@ -458,7 +480,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Razoring
-	if (!pv && !in_check && depth <= 8 && cur_eval + RAZOR_MARGIN * depth < alpha) {
+	if (!pv && !in_check && depth <= 8 && cur_eval + razoring_margin * depth < alpha) {
 		/**
 		 * If we are losing by a lot, check w/ qsearch to see if we could possibly improve.
 		 * If not, we can prune the search.
@@ -535,7 +557,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * Depth condition is necessary to avoid overflow
 			 */
 			Value hist = history[board.side][move.src()][move.dst()];
-			if (hist < -HISTORY_MARGIN * depth) {
+			if (hist < -history_margin * depth) {
 				continue;
 			}
 		}
@@ -547,8 +569,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * If we are at the leaf of the search, we can prune moves that are
 			 * probably not going to be better than alpha.
 			 */
-			if (depth == 1 && cur_eval + FUTILITY_THRESHOLD < alpha) continue;
-			if (depth == 2 && cur_eval + FUTILITY_THRESHOLD2 < alpha) continue;
+			if (depth == 1 && cur_eval + futility1 < alpha) continue;
+			if (depth == 2 && cur_eval + futility2 < alpha) continue;
 		}
 
 		if (depth <= 3 && !promo && best > -VALUE_INFINITE) {
@@ -558,7 +580,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * Skip searching moves with bad SEE scores
 			 */
 			Value see = board.see_capture(move);
-			if (see < (-100 - 100 * capt) * depth)
+			if (see < (-see_base - see_capt * capt) * depth)
 				continue;
 		}
 
@@ -584,9 +606,11 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (depth >= 2 && i > 3) {
 			Value r = reduction[i][depth];
 
-			r -= 1024 * pv;
-			r += 1024 * (!pv && cutnode);
-			if (move == killer[0][ply] || move == killer[1][ply]) r -= 1024;
+			r -= pv_red * pv;
+			r += cut_red * (!pv && cutnode);
+			if (move == killer[0][ply] || move == killer[1][ply]) r -= kill_red;
+
+			r = std::max((int)r, 1024);
 
 			Value searched_depth = depth - r / 1024;
 
@@ -926,7 +950,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 	bool aspiration_enabled = true;
 	for (int d = 1; d <= depth; d++) {
 		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
-		Value window_size = ASPIRATION_WINDOW;
+		Value window_size = aspir;
 		
 		if (eval != -VALUE_INFINITE && aspiration_enabled) {
 			/**
@@ -1041,16 +1065,16 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 		}
 
 		int time_elapsed = (clock() - start) / CLOCKS_PER_MS;
-		double soft = 0.5;
+		double soft = (double)soft_base / 100.0;
 		if (depth >= 6 && !best_iscapt && !best_ispromo && !in_check) {
 			// adjust soft limit based on complexity
 			Value complexity = abs(eval - static_eval);
 			double factor = std::clamp(complexity / 200.0, 0.0, 1.0);
 			// higher complexity = spend more time, lower complexity = spend less time
-			soft = 0.3 + 0.4 * factor;
+			soft = (double)cmplx_base / 100.0 + (double)cmplx_mul / 100.0 * factor;
 		}
 		uint64_t bm_nodes = nodecnt[best_move.src()][best_move.dst()];
-		double node_adjustment = 1.5 - (bm_nodes / (double)nodes);
+		double node_adjustment = (double)node_tm / 100.0 - (bm_nodes / (double)nodes);
 		soft *= node_adjustment;
 		// std::cout << std::setprecision(2) << "info string soft limit: " << mxtime * soft << " ms (" << (int)(soft * 100) << "%), node adjustment: " << node_adjustment << std::endl;
 		// std::cout << "info string best move nodes: " << bm_nodes << ", total nodes: " << nodes << std::setprecision(0) << std::endl;

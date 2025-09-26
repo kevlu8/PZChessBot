@@ -30,6 +30,11 @@ std::vector<TunableParam>& get_tunable_params();
 // Auto-registration helper
 struct TunableRegistrar {
     TunableRegistrar(const std::string& name, int* value_ptr, int initial, int min, int max, int increment, double learning_rate) {
+		int expected_inc = (max - min) / 20;
+		if (increment != expected_inc) {
+			std::cerr << "Warning: Increment for tunable parameter '" << name << "' is unusual (" << increment << "), expected " << expected_inc << std::endl;
+			increment = expected_inc; // im lazy
+		}
         register_tunable(name, value_ptr, initial, min, max, increment, learning_rate);
     }
 };
