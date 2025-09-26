@@ -8,7 +8,7 @@
 #include "movegen.hpp"
 #include "movepicker.hpp"
 #include "ttable.hpp"
-
+#include "tunables.hpp"
 #include <algorithm>
 
 // Eval per ply threshold for RFP

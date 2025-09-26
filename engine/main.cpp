@@ -9,6 +9,7 @@
 #include "movegen.hpp"
 #include "movetimings.hpp"
 #include "search.hpp"
+#include "tunables.hpp"
 
 BoardState bs[NINPUTS * 2][NINPUTS * 2];
 
@@ -55,6 +56,11 @@ void run_uci() {
 				quiet = optionvalue == "true";
 			} else if (optionname == "MultiPV") {
 				multipv = std::stoi(optionvalue);
+			} else {
+				// Try to set tunable parameter
+				if (!set_tunable_value(optionname, std::stoi(optionvalue))) {
+					std::cerr << "Unknown option: " << optionname << std::endl;
+				}
 			}
 		} else if (command == "ucinewgame") {
 			board = Board(TT_SIZE);
@@ -152,6 +158,10 @@ void run_uci() {
 }
 
 __attribute__((weak)) int main(int argc, char *argv[]) {
+	// Initialize and print tunables on startup
+	init_tunables();
+	print_tunables();
+	
 	if (argc == 2 && std::string(argv[1]) == "bench") {
 		const std::string bench_positions[] = {
 			"r3k2r/2pb1ppp/2pp1q2/p7/1nP1B3/1P2P3/P2N1PPP/R2QK2R w KQkq - 0 14",
