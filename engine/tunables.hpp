@@ -45,6 +45,9 @@ bool set_tunable_value(const std::string& name, int value);
 void init_tunables();
 
 // Macro for easy tunable parameter definition
-#define TUNE(param, initial, min, max, increment, LR) \
+#define TUNE(param, initial, min, max, increment) \
     int param = initial; \
-    static TunableRegistrar param##_registrar(#param, &param, initial, min, max, increment, LR);
+    static TunableRegistrar param##_registrar(#param, &param, initial, min, max, increment, 0.002);
+#define AUTOTUNE(param, initial, min, max) \
+	int param = initial; \
+	static TunableRegistrar param##_registrar(#param, &param, initial, min, max, (max - min) / 20, 0.002);

@@ -147,27 +147,27 @@ void apply_correction(bool side, uint64_t pshash, uint64_t mathash, uint64_t nph
 	eval = std::clamp(eval + corr / CORRHIST_GRAIN, -VALUE_MATE_MAX_PLY + 1, VALUE_MATE_MAX_PLY - 1);
 }
 
-TUNE(cmh_bonus, 1021, 0, 3000, 150, 0.002);
-TUNE(killer1, 1500, 0, 3000, 150, 0.002);
-TUNE(killer2, 800, 0, 1000, 50, 0.002);
-TUNE(delta, 300, 0, 800, 40, 0.002);
-TUNE(rfp_base, 131, 0, 250, 12, 0.002);
-TUNE(rfp_improving, 30, 0, 100, 5, 0.002);
-TUNE(nmp_eval, 400, 1, 600, 40, 0.002);
-TUNE(razoring_margin, 241, 0, 600, 20, 0.002);
-TUNE(history_margin, 4000, 0, 8000, 400, 0.002);
-TUNE(futility1, 304, 0, 800, 20, 0.002);
-TUNE(futility2, 692, 0, 1500, 50, 0.002);
-TUNE(see_base, 100, 0, 200, 10, 0.002);
-TUNE(see_capt, 100, 0, 200, 10, 0.002);
-TUNE(pv_red, 1024, 0, 2048, 128, 0.002);
-TUNE(cut_red, 1024, 0, 2048, 128, 0.002);
-TUNE(kill_red, 1024, 0, 2048, 128, 0.002);
-TUNE(aspir, 32, 0, 80, 5, 0.002);
-TUNE(soft_base, 50, 30, 70, 5, 0.002);
-TUNE(cmplx_base, 30, 10, 50, 5, 0.002);
-TUNE(cmplx_mul, 40, 10, 70, 5, 0.002);
-TUNE(node_tm, 150, 100, 200, 5, 0.002);
+AUTOTUNE(cmh_bonus, 1021, 0, 3000);
+AUTOTUNE(killer1, 1500, 0, 3000);
+AUTOTUNE(killer2, 800, 0, 1000);
+AUTOTUNE(delta, 300, 0, 800);
+AUTOTUNE(rfp_base, 131, 0, 250);
+AUTOTUNE(rfp_improving, 30, 0, 100);
+AUTOTUNE(nmp_eval, 400, 1, 600);
+AUTOTUNE(razoring_margin, 241, 0, 600);
+AUTOTUNE(history_margin, 4000, 0, 8000);
+AUTOTUNE(futility1, 304, 0, 800);
+AUTOTUNE(futility2, 692, 0, 1500);
+AUTOTUNE(see_base, 100, 0, 200);
+AUTOTUNE(see_capt, 100, 0, 200);
+AUTOTUNE(pv_red, 1024, 0, 2048);
+AUTOTUNE(cut_red, 1024, 0, 2048);
+AUTOTUNE(kill_red, 1024, 0, 2048);
+AUTOTUNE(aspir, 32, 0, 80);
+AUTOTUNE(soft_base, 50, 30, 70);
+AUTOTUNE(cmplx_base, 30, 10, 50);
+AUTOTUNE(cmplx_mul, 40, 10, 70);
+AUTOTUNE(node_tm, 150, 100, 200);
 
 /**
  * Order the moves based on various factors.
