@@ -5,8 +5,8 @@
 #include "nnue/network.hpp"
 
 struct BoardState {
-	Accumulator w_acc, b_acc;
-	Piece mailbox[64] = {};
+	Accumulator w_acc[NINPUTS * 2][NINPUTS * 2], b_acc[NINPUTS * 2][NINPUTS * 2];
+	Piece mailbox[NINPUTS * 2][NINPUTS * 2][64] = {};
 };
 
-extern BoardState bs[NINPUTS * 2][NINPUTS * 2];
+extern BoardState bs[64];
