@@ -4,6 +4,7 @@
 #include "eval.hpp"
 #include "movegen.hpp"
 #include "ttable.hpp"
+#include "tunables.hpp"
 #include <algorithm>
 
 // Eval per ply threshold for RFP
