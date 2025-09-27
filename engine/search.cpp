@@ -518,7 +518,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		line[ply].move = move;
 
-		if (!in_check && !capt && !promo && i > 5 + 2 * depth * depth) {
+		if (!in_check && !capt && !promo && i > 5 + depth * depth) {
 			/**
 			 * Late Move Pruning
 			 * 
