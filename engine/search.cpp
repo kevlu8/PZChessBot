@@ -246,11 +246,9 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 		if (tentry->flags == EXACT) return tentry->eval;
 		if (tentry->flags == LOWER_BOUND) {
 			if (tentry->eval >= beta) return tentry->eval;
-			// alpha = std::max(alpha, tentry->eval);
 		}
 		if (tentry->flags == UPPER_BOUND) {
 			if (tentry->eval <= alpha) return tentry->eval;
-			// beta = std::min(beta, tentry->eval);
 		}
 	}
 
@@ -296,7 +294,11 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 	Move move = NullMove;
 	int end = scores.size();
 
+	int idx = 0;
+
 	while ((move = next_move(scores, end)) != NullMove) {
+		if (!pv && idx >= 3) break; // QS LMP
+
 		if (move.type() != PROMOTION) {
 			Value see = board.see_capture(move);
 			if (see < 0) {
@@ -314,6 +316,8 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 		_mm_prefetch(&board.ttable.TT[board.zobrist % board.ttable.TT_SIZE], _MM_HINT_T0);
 		Value score = -quiesce(board, -beta, -alpha, -side, depth + 1, pv);
 		board.unmake_move();
+
+		idx++;
 
 		line[depth].move = NullMove;
 
