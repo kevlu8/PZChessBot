@@ -279,13 +279,21 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 	// Sort captures and promotions
 	pzstd::vector<std::pair<Move, Value>> scores;
 	for (Move &move : moves) {
+		Value score = 0;
 		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
-			Value score = 0;
-			score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
-			scores.push_back({move, score});
-		} else if (move.type() == PROMOTION) {
-			scores.push_back({move, PieceValue[move.promotion() + KNIGHT] - PawnValue});
+			if (move.type() != PROMOTION) {
+				score = board.see_capture(move);
+				if (score < 0) continue; // Don't search moves that lose material
+				else if (DELTA_THRESHOLD + 4 * score + stand_pat < alpha) continue; // QS Futility pruning
+			} else {
+				// Promotions that are also captures
+				score = MVV_LVA[board.mailbox[move.dst()] & 7][PAWN];
+			}
 		}
+		if (move.type() == PROMOTION) {
+			score += PieceValue[move.promotion() + KNIGHT];
+		}
+		scores.push_back({move, score});
 	}
 
 	Value best = stand_pat;
@@ -297,17 +305,6 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 	int end = scores.size();
 
 	while ((move = next_move(scores, end)) != NullMove) {
-		if (move.type() != PROMOTION) {
-			Value see = board.see_capture(move);
-			if (see < 0) {
-				continue; // Don't search moves that lose material
-			} else {
-				// QS Futility pruning
-				// use see score for added safety
-				if (DELTA_THRESHOLD + 4 * see + stand_pat < alpha) continue;
-			}
-		}
-
 		line[depth].move = move;
 
 		board.make_move(move);
