@@ -518,13 +518,13 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		line[ply].move = move;
 
-		if (!in_check && !capt && !promo && i > 5 + 2 * depth * depth) {
+		if (best > -VALUE_MATE_MAX_PLY && i >= 5 + 2 * depth * depth) {
 			/**
 			 * Late Move Pruning
 			 * 
 			 * Just skip later moves that probably aren't good
 			 */
-			continue;
+			break;
 		}
 
 		if (!in_check && !capt && !promo && depth <= 5) {
@@ -535,9 +535,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 * Depth condition is necessary to avoid overflow
 			 */
 			Value hist = history[board.side][move.src()][move.dst()];
-			if (hist < -HISTORY_MARGIN * depth) {
-				continue;
-			}
+			if (hist < -HISTORY_MARGIN * depth)
+				break;
 		}
 
 		if (depth <= 2 && i > 0 && !in_check && !capt && !promo && abs(alpha) < VALUE_MATE_MAX_PLY && abs(beta) < VALUE_MATE_MAX_PLY) {
