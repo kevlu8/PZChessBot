@@ -275,7 +275,7 @@ void writerThread(char *argv[]) {
 		send(s, buffer.c_str(), buffer.size(), 0);
 	}
 	shutdown(s, SHUT_RDWR);
-	while (read(s, recv_buf, __SIZE_MAX__) > 0);
+	while (read(s, recv_buf, 8) > 0);
 	close(s);
 
 	std::cout << "Writer thread finished." << std::endl;

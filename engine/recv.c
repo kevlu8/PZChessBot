@@ -40,7 +40,7 @@ void handle(int c) {
 		// pthread_mutex_unlock(&m);
 	}
 	shutdown(c, SHUT_RDWR);
-	while (read(c, buf, __SIZE_MAX__) > 0);
+	while (read(c, buf, sizeof(buf)) > 0);
 	close(c);
 	return;
 }
