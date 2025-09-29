@@ -631,15 +631,14 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				killer[1][ply] = killer[0][ply];
 				killer[0][ply] = move; // Update killer moves
 			}
+			const Value bonus = std::min(1896, 4 * depth * depth + 120 * depth - 120); // saturate updates at depth 12
 			if (!capt) { // Not a capture
-				const Value bonus = 1.56 * depth * depth + 0.91 * depth + 0.62;
 				update_history(board.side, move.src(), move.dst(), bonus);
 				for (auto &qmove : quiets) {
 					update_history(board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
 				}
 				cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()] = move; // Update counter-move history
 			} else { // Capture
-				const Value bonus = 1.81 * depth * depth + 0.52 * depth + 0.40;
 				update_capthist(PieceType(board.mailbox[move.src()] & 7), PieceType(board.mailbox[move.dst()] & 7), move.dst(), bonus);
 				for (auto &cmove : captures) {
 					update_capthist(PieceType(board.mailbox[cmove.src()] & 7), PieceType(board.mailbox[cmove.dst()] & 7), cmove.dst(), -bonus);
