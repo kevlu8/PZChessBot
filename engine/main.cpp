@@ -12,6 +12,10 @@
 #include <thread>
 #include <vector>
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+
 #include "bitboard.hpp"
 #include "eval.hpp"
 #include "movegen.hpp"
@@ -214,13 +218,31 @@ void generateGames(int worker_id) {
 }
 
 // Writer thread function to handle file I/O
-void writerThread(std::ofstream &outfile) {
+void writerThread(char *argv[]) {
 	std::string data;
 	std::string buffer;
 	const size_t BUFFER_SIZE = 64 * 1024 * 1024; // 64MB buffer
 	auto lastFlush = std::chrono::steady_clock::now();
 	const auto FLUSH_INTERVAL = std::chrono::seconds(30); // Flush every 30 seconds
-	
+	char recv_buf[8];
+
+	// Create socket connection to remote server
+	int s = socket(AF_INET, SOCK_STREAM, 0);
+	if (s < 0) {
+		std::cerr << "Error creating socket" << std::endl;
+		return;
+	}
+	struct sockaddr_in server_addr = {
+		.sin_family = AF_INET,
+		.sin_port = htons(atoi(argv[2])),
+		.sin_addr = inet_addr(argv[1]),
+	};
+	if (connect(s, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+		std::cerr << "Error connecting to server" << std::endl;
+		close(s);
+		return;
+	}
+
 	while (!stopWriter.load() || !gameDataQueue.empty()) {
 		if (gameDataQueue.pop(data)) {
 			buffer += data;
@@ -228,8 +250,16 @@ void writerThread(std::ofstream &outfile) {
 			// Flush if buffer is large enough or enough time has passed
 			auto now = std::chrono::steady_clock::now();
 			if (buffer.size() >= BUFFER_SIZE || (now - lastFlush) >= FLUSH_INTERVAL) {
-				outfile << buffer;
-				outfile.flush();
+				// outfile << buffer;
+				// outfile.flush();
+				int outbuf_size = buffer.size();
+				send(s, &outbuf_size, 4, 0);
+				send(s, buffer.c_str(), outbuf_size, 0);
+				int c = recv(s, recv_buf, sizeof(recv_buf), 0); // Wait for ACK before continuing
+				if (c <= 0) {
+					std::cerr << "Server disconnected, stopping writer thread." << std::endl;
+					break;
+				}
 				buffer.clear();
 				lastFlush = now;
 			}
@@ -237,13 +267,17 @@ void writerThread(std::ofstream &outfile) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Prevent CPU spinning
 		}
 	}
-	
+
 	// Final flush of remaining data
 	if (!buffer.empty()) {
-		outfile << buffer;
-		outfile.flush();
+		// outfile << buffer;
+		// outfile.flush();
+		send(s, buffer.c_str(), buffer.size(), 0);
 	}
-	
+	shutdown(s, SHUT_RDWR);
+	while (read(s, recv_buf, __SIZE_MAX__) > 0);
+	close(s);
+
 	std::cout << "Writer thread finished." << std::endl;
 }
 
@@ -281,9 +315,12 @@ void signalHandler(int signal) {
 }
 
 int main(int argc, char *argv[]) {
+	if (argc < 3) {
+		std::cerr << "Usage: " << argv[0] << " <remote ip> <remote port>" << std::endl;
+		return 1;
+	}
+
 	init_network(bs); // Initialize the neural network
-	// Data generation script
-	std::ofstream outfile(OUT_FILE, std::ios::app); // Append mode in case of restart
 
 	const int NUM_THREADS = std::thread::hardware_concurrency();
 	// const int NUM_THREADS = 1;
@@ -299,7 +336,7 @@ int main(int argc, char *argv[]) {
 	std::signal(SIGINT, signalHandler);
 
 	// Create writer thread
-	std::thread writer(writerThread, std::ref(outfile));
+	std::thread writer(writerThread, argv);
 
 	// Create monitor thread
 	std::thread monitor(monitorThread, start);
@@ -339,6 +376,5 @@ int main(int argc, char *argv[]) {
 	std::cout << "Generated " << positions << " positions in " << games << " games in " << elapsedSecs << "s" << std::endl;
 	std::cout << "Positions / second: " << (positions / elapsedSecs) << std::endl;
 
-	outfile.close();
 	return 0;
 }
