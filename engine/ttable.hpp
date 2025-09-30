@@ -9,7 +9,8 @@ enum TTFlag {
 	EXACT = 0,
 	LOWER_BOUND = 1, // eval might be higher than stored value
 	UPPER_BOUND = 2, // eval might be lower than stored value
-	INVALID = 3
+	INVALID = 3,
+	TTPV = 4
 };
 
 struct TTable {
@@ -23,6 +24,8 @@ struct TTable {
 
 		TTEntry() : key(0), best_move(NullMove), eval(0), depth(0), flags(INVALID), age(0) {}
 		const bool valid() const { return flags != INVALID; }
+		const TTFlag bound() const { return TTFlag(flags & 3); }
+		const bool ttpv() const { return flags >> 2; }
 	};
 
 	struct TTBucket {
@@ -53,9 +56,9 @@ struct TTable {
 		return *this;
 	}
 
-	void store(uint64_t key, Value eval, uint8_t depth, TTFlag flag, Move best_move, uint8_t age);
+	void store(uint64_t key, Value eval, uint8_t depth, uint8_t bound, bool ttpv, Move best_move, uint8_t age);
 
-	TTEntry *probe(uint64_t key, Value depth=0);
+	TTEntry *probe(uint64_t key);
 
 	constexpr uint64_t size() const { return tsize; }
 	constexpr uint64_t mxsize() const { return TT_SIZE * 2; }
