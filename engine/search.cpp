@@ -243,12 +243,12 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
 	if (!pv && tentry) {
-		if (tentry->flags == EXACT) return tentry->eval;
-		if (tentry->flags == LOWER_BOUND) {
+		if (tentry->bound() == EXACT) return tentry->eval;
+		if (tentry->bound() == LOWER_BOUND) {
 			if (tentry->eval >= beta) return tentry->eval;
 			// alpha = std::max(alpha, tentry->eval);
 		}
-		if (tentry->flags == UPPER_BOUND) {
+		if (tentry->bound() == UPPER_BOUND) {
 			if (tentry->eval <= alpha) return tentry->eval;
 			// beta = std::min(beta, tentry->eval);
 		}
@@ -329,12 +329,12 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 			best_move = move;
 		}
 		if (score >= beta) {
-			board.ttable.store(board.zobrist, score, 0, LOWER_BOUND, move, depth);
+			board.ttable.store(board.zobrist, score, 0, LOWER_BOUND, pv, move, depth);
 			return best;
 		}
 	}
 
-	board.ttable.store(board.zobrist, best, 0, alpha_raise ? EXACT : UPPER_BOUND, best_move, depth);
+	board.ttable.store(board.zobrist, best, 0, alpha_raise ? EXACT : UPPER_BOUND, pv, best_move, depth);
 
 	return best;
 }
@@ -389,18 +389,22 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		return quiesce(board, alpha, beta, side, ply, pv);
 	}
 
+	bool ttpv = pv;
+
 	// Check for TTable cutoff
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
 	if (!pv && tentry && tentry->depth >= depth && line[ply].excl == NullMove) {
 		// Check for cutoffs
-		if (tentry->flags == EXACT) {
+		if (tentry->bound() == EXACT) {
 			return tentry->eval;
-		} else if (tentry->flags == LOWER_BOUND && tentry->eval >= beta) {
+		} else if (tentry->bound() == LOWER_BOUND && tentry->eval >= beta) {
 			return tentry->eval;
-		} else if (tentry->flags == UPPER_BOUND && tentry->eval <= alpha) {
+		} else if (tentry->bound() == UPPER_BOUND && tentry->eval <= alpha) {
 			return tentry->eval;
 		}
 	}
+
+	if (tentry) ttpv |= tentry->ttpv();
 
 	Value cur_eval = 0;
 	Value raw_eval = 0; // For CorrHist
@@ -499,7 +503,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		
 		int extension = 0;
 
-		if (line[ply].excl == NullMove && depth >= 8 && tentry && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->flags != UPPER_BOUND) {
+		if (line[ply].excl == NullMove && depth >= 8 && tentry && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
 			// Singular extension
 			line[ply].excl = move;
 			Value singular_beta = tentry->eval - 4 * depth;
@@ -588,6 +592,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			r -= 1024 * pv;
 			r += 1024 * (!pv && cutnode);
 			if (move == killer[0][ply] || move == killer[1][ply]) r -= 1024;
+			r -= 1024 * ttpv;
 
 			Value searched_depth = depth - r / 1024;
 
@@ -674,7 +679,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (line[ply].excl == NullMove) {
 		Move tt_move = best_move != NullMove ? best_move : tentry ? tentry->best_move : NullMove;
-		board.ttable.store(board.zobrist, best, depth, flag, tt_move, board.halfmove);
+		board.ttable.store(board.zobrist, best, depth, flag, ttpv, tt_move, board.halfmove);
 	}
 
 	return best;
@@ -752,7 +757,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 		}
 
 		if (score >= beta) {
-			board.ttable.store(board.zobrist, best_score, depth, LOWER_BOUND, best_move, board.halfmove);
+			board.ttable.store(board.zobrist, best_score, depth, LOWER_BOUND, true, best_move, board.halfmove);
 			if (killer[0][0] != move) {
 				killer[1][0] = killer[0][0];
 				killer[0][0] = move;
@@ -767,9 +772,9 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	}
 
 	if (best_score <= alpha) {
-		board.ttable.store(board.zobrist, alpha, depth, UPPER_BOUND, best_move, board.halfmove);
+		board.ttable.store(board.zobrist, alpha, depth, UPPER_BOUND, true, best_move, board.halfmove);
 	} else {
-		board.ttable.store(board.zobrist, best_score, depth, EXACT, best_move, board.halfmove);
+		board.ttable.store(board.zobrist, best_score, depth, EXACT, true, best_move, board.halfmove);
 	}
 
 	return {best_move, best_score};
@@ -844,7 +849,7 @@ pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv
 		}
 
 		if (score >= beta) {
-			board.ttable.store(board.zobrist, score, depth, LOWER_BOUND, move, board.halfmove);
+			board.ttable.store(board.zobrist, score, depth, LOWER_BOUND, true, move, board.halfmove);
 			if (killer[0][0] != move) {
 				killer[1][0] = killer[0][0];
 				killer[0][0] = move;
@@ -873,7 +878,7 @@ pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv
 		multipv_res.push_back({best_move[i], best_score[i]});
 	}
 
-	board.ttable.store(board.zobrist, final_best_score, depth, alpha_raise ? EXACT : UPPER_BOUND, final_best_move, board.halfmove);
+	board.ttable.store(board.zobrist, final_best_score, depth, alpha_raise ? EXACT : UPPER_BOUND, true, final_best_move, board.halfmove);
 
 	return multipv_res;
 }
