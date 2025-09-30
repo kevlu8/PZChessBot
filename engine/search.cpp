@@ -580,7 +580,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * the search.
 		 */
 		Value score;
-		if (depth >= 2 && i > 3) {
+		if (depth >= 2 && i >= 1 + 2 * pv) {
 			Value r = reduction[i][depth];
 
 			r -= 1024 * pv;
