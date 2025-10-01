@@ -105,7 +105,7 @@ struct Board {
 
 	void legal_moves(pzstd::vector<Move> &) const;
 	void captures(pzstd::vector<Move> &) const;
-	std::pair<int, int> control(int) const;
+	bool control(int, bool) const;
 	Value see_capture(Move);
 	Bitboard __lva(Square, int side, PieceType &p, Bitboard occ) const;
 	bool is_pseudolegal(Move) const;
