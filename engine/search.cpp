@@ -986,7 +986,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 				__print_pv(1);
 				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			} else {
-				std::cout << "info depth " << d << " seldepth " << seldepth << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
+				std::cout << "info depth " << d << " seldepth " << seldepth << " score cp " << eval << " nodes " << nodes << " nps "
 				<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
 				__print_pv();
 				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
@@ -1013,7 +1013,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 				score_color = (mate_moves > 0) ? GREEN : RED;
 				score_text = "mate " + std::to_string(mate_moves);
 			} else {
-				int cp_score = eval / CP_SCALE_FACTOR;
+				int cp_score = eval;
 				if (cp_score > 200) score_color = GREEN;
 				else if (cp_score > 0) score_color = YELLOW;
 				else if (cp_score > -200) score_color = MAGENTA;
@@ -1065,7 +1065,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 		}
 	}
 
-	return {best_move, eval / CP_SCALE_FACTOR};
+	return {best_move, eval};
 }
 
 pzstd::vector<std::pair<Move, Value>> search_multipv(Board &board, int multipv, int64_t time, int depth, int64_t maxnodes, int quiet) {
@@ -1116,7 +1116,7 @@ pzstd::vector<std::pair<Move, Value>> search_multipv(Board &board, int multipv, 
 					<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << multipv_res[i].first.to_string()
 					<< " hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 				} else {
-					std::cout << "info depth " << d << " seldepth " << seldepth << " multipv " << i+1 << " score cp " << eval / CP_SCALE_FACTOR << " nodes " << nodes << " nps "
+					std::cout << "info depth " << d << " seldepth " << seldepth << " multipv " << i+1 << " score cp " << eval << " nodes " << nodes << " nps "
 					<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << multipv_res[i].first.to_string()
 					<< " hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 				}

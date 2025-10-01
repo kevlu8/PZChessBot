@@ -303,7 +303,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 					std::string indicator = (i == nbucket) ? GREEN "→ " : "  ";
 					std::string current_marker = (i == nbucket) ? BOLD GREEN " (CURRENT)" RESET : "";
 
-					Value display_score = score[i] / CP_SCALE_FACTOR * (board.side == BLACK ? -1 : 1);
+					Value display_score = score[i] * (board.side == BLACK ? -1 : 1);
 
 					std::string score_color;
 					if (display_score > 100) score_color = GREEN;
@@ -318,8 +318,8 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 
 				std::cout << CYAN "─────────────────────────────" RESET << std::endl;
 				std::cout << YELLOW "Current evaluation: " RESET
-						  << (score[nbucket] / CP_SCALE_FACTOR * (board.side == BLACK ? -1 : 1) > 0 ? GREEN : RED)
-						  << std::showpos << (score[nbucket] / CP_SCALE_FACTOR * (board.side == BLACK ? -1 : 1)) 
+						  << (score[nbucket] * (board.side == BLACK ? -1 : 1) > 0 ? GREEN : RED)
+						  << std::showpos << (score[nbucket] * (board.side == BLACK ? -1 : 1)) 
 						  << " centipawns" << RESET << std::endl;
 				std::cout << CYAN "═══════════════════════════════════════" RESET << std::endl << std::endl;
 				std::cout << std::noshowpos;
@@ -350,8 +350,8 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				int ms = std::stoi(command.substr(3));
 				auto res = search(board, ms, MAX_PLY, 1e18, 2); // Use quiet level 2 for pretty output
 				std::cout << CYAN "Best move: " RESET BOLD << res.first.to_string() << RESET
-						  << CYAN " with score: " RESET << (res.second / CP_SCALE_FACTOR * (board.side == BLACK ? -1 : 1) > 0 ? GREEN : RED)
-						  << std::showpos << res.second / CP_SCALE_FACTOR * (board.side == BLACK ? -1 : 1) << " cp" << RESET << std::endl << std::noshowpos;
+						  << CYAN " with score: " RESET << (res.second * (board.side == BLACK ? -1 : 1) > 0 ? GREEN : RED)
+						  << std::showpos << res.second * (board.side == BLACK ? -1 : 1) << " cp" << RESET << std::endl << std::noshowpos;
 			} else if (command == "undo") {
 				board.unmake_move();
 				board.print_board_pretty();

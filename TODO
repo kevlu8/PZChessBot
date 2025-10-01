@@ -1,4 +1,0 @@
-- Refactor NN code to be less messy
-- TTable takes up 2x memory because of a double-allocation when replacing board, try to delete board then replace to only have 1 copy
-- 50 move rule detection
-- dangerous code (casting `void *` into `Board *`)
