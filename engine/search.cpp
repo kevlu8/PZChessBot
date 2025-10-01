@@ -556,7 +556,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				 * Skip moves with very bad history scores
 				 * Depth condition is necessary to avoid overflow
 				 */
-				Value hist = history[board.side][move.src()][move.dst()];
+				Value hist = get_history(board, move, ply);
 				if (hist < -HISTORY_MARGIN * depth)
 					break;
 			}
