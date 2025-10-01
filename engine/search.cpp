@@ -97,12 +97,6 @@ Value corrhist_mat[2][CORRHIST_SZ]; // [side][material hash]
 Value corrhist_prev[2][64][64]; // [side][from][to]
 Value corrhist_np[2][CORRHIST_SZ]; // [side][non-pawn hash]
 
-/**
- * The counter-move heuristic is a move ordering heuristic that helps sort moves that
- * have refuted other moves in the past. It works by storing the move upon a beta cutoff.
- */
-Move cmh[2][64][64];
-
 SSEntry line[MAX_PLY]; // Currently searched line
 
 Move pvtable[MAX_PLY][MAX_PLY];
@@ -202,9 +196,6 @@ pzstd::vector<std::pair<Move, int>> assign_values(Board &board, pzstd::vector<Mo
 		} else {
 			// 3. Quiets
 			score = QUIET_BASE + get_history(board, move, ply);
-			if (ply && move == cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()]) {
-				score += 1021; // Counter-move bonus
-			}
 			if (move == killer[0][ply]) {
 				score += 1500; // Killer bonus
 			} else if (move == killer[1][ply]) {
@@ -667,7 +658,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				for (auto &qmove : quiets) {
 					update_history(board, qmove, ply, -bonus); // Penalize quiet moves
 				}
-				cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()] = move; // Update counter-move history
 			} else { // Capture
 				update_capthist(PieceType(board.mailbox[move.src()] & 7), PieceType(board.mailbox[move.dst()] & 7), move.dst(), bonus);
 				for (auto &cmove : captures) {
@@ -1164,7 +1154,6 @@ void clear_search_vars() {
 		for (int j = 0; j < 64; j++) {
 			history[0][i][j] = history[1][i][j] = 0;
 			corrhist_prev[0][i][j] = corrhist_prev[1][i][j] = 0;
-			cmh[0][i][j] = cmh[1][i][j] = NullMove;
 		}
 		for (int j = 0; j < 6; j++) {
 			for (int k = 0; k < 6; k++) {
