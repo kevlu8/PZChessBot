@@ -79,6 +79,7 @@ Move killer[2][MAX_PLY];
  * We store a history table for each side indexed by [src][dst].
  */
 Value history[2][64][64];
+ContHistEntry cont_hist[2][6][64]; // [side][piecetype][to]
 
 /**
  * Capture history is a heuristic similar to the history heuristic, but it's used for
@@ -109,12 +110,28 @@ int pvlen[MAX_PLY];
 
 uint64_t nodecnt[64][64];
 
+int get_conthist(Board &board, Move move, int ply) {
+	int score = 0;
+	if (ply >= 1 && line[ply-1].cont_hist) score += line[ply-1].cont_hist->hist[board.side][board.mailbox[move.src()] & 7][move.dst()];
+	return score;
+}
+
+int get_history(Board &board, Move move, int ply) {
+	int score = history[board.side][move.src()][move.dst()];
+	score += get_conthist(board, move, ply);
+	return score;
+}
+
 /**
  * Use the history gravity formula to update our history values
  */
-void update_history(bool side, Square from, Square to, Value bonus) {
+void update_history(Board &board, Move &move, int ply, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
-	history[side][from][to] += cbonus - history[side][from][to] * abs(bonus) / MAX_HISTORY;
+	history[board.side][move.src()][move.dst()] += cbonus - history[board.side][move.src()][move.dst()] * abs(bonus) / MAX_HISTORY;
+	int conthist = get_conthist(board, move, ply);
+	if (ply >= 1 && line[ply-1].cont_hist) {
+		line[ply-1].cont_hist->hist[board.side][board.mailbox[move.src()] & 7][move.dst()] += cbonus - conthist * abs(bonus) / MAX_HISTORY;
+	}
 }
 
 void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonus) {
@@ -154,12 +171,12 @@ void apply_correction(bool side, uint64_t pshash, uint64_t mathash, uint64_t nph
  * 2. Captures + promotions (sorted by MVV+CaptHist)
  * 3. Quiets (sorted by history heuristic + counter-move heuristic + killer bonus)
  */
-pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<Move> &moves, int ply, TTable::TTEntry *tentry) {
-	pzstd::vector<std::pair<Move, Value>> scores;
+pzstd::vector<std::pair<Move, int>> assign_values(Board &board, pzstd::vector<Move> &moves, int ply, TTable::TTEntry *tentry) {
+	pzstd::vector<std::pair<Move, int>> scores;
 
-	const Value TT_MOVE_BASE = VALUE_INFINITE;
-	const Value CAPTURE_PROMO_BASE = 12000; // max value: base + mvv[queen] + max_history + promo = 12000 + 1002 + 16384 + 1002 = 30388
-	const Value QUIET_BASE = -6000; // max value: base + max_history + cmh bonus = -6000 + 16384 + 1021 = 11405
+	const int TT_MOVE_BASE = 2147483647;
+	const int CAPTURE_PROMO_BASE = 1000000;
+	const int QUIET_BASE = 0;
 
 	for (Move &move : moves) {
 		// 1. TTMove must be first (don't do this outside loop because zobrist collisions can lead to illegal moves)
@@ -171,7 +188,7 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
 		bool promo = (move.type() == PROMOTION);
 
-		Value score = 0;
+		int score = 0;
 
 		if (capt || promo) {
 			// 2. Captures + promotions
@@ -182,7 +199,7 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 				score += PieceValue[move.promotion() + KNIGHT] - PawnValue;
 		} else {
 			// 3. Quiets
-			score = QUIET_BASE + history[board.side][move.src()][move.dst()];
+			score = QUIET_BASE + get_history(board, move, ply);
 			if (ply && move == cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()]) {
 				score += 1021; // Counter-move bonus
 			}
@@ -199,10 +216,10 @@ pzstd::vector<std::pair<Move, Value>> assign_values(Board &board, pzstd::vector<
 	return scores;
 }
 
-Move next_move(pzstd::vector<std::pair<Move, Value>> &scores, int &end) {
+Move next_move(pzstd::vector<std::pair<Move, int>> &scores, int &end) {
 	if (end == 0) return NullMove; // Ran out
 	Move best_move = NullMove;
-	Value best_score = -VALUE_INFINITE;
+	int best_score = -2147483647;
 	int idx = 0;
 	for (int i = 0; i < end; i++) {
 		if (scores[i].second > best_score) {
@@ -277,10 +294,10 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 		return stand_pat;
 
 	// Sort captures and promotions
-	pzstd::vector<std::pair<Move, Value>> scores;
+	pzstd::vector<std::pair<Move, int>> scores;
 	for (Move &move : moves) {
 		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
-			Value score = 0;
+			int score = 0;
 			score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
 			scores.push_back({move, score});
 		} else if (move.type() == PROMOTION) {
@@ -477,7 +494,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 
-	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, ply, tentry);
+	pzstd::vector<std::pair<Move, int>> scores = assign_values(board, moves, ply, tentry);
 	int end = scores.size();
 
 	if ((pv || cutnode) && depth > 4 && !(tentry && tentry->best_move != NullMove)) {
@@ -567,6 +584,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			}
 		}
 
+		line[ply].cont_hist = &cont_hist[board.side][board.mailbox[move.src()] & 7][move.dst()];
+
 		board.make_move(move);
 
 		_mm_prefetch(&board.ttable.TT[board.zobrist % board.ttable.TT_SIZE], _MM_HINT_T0);
@@ -611,6 +630,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		board.unmake_move();
 
+		line[ply].cont_hist = nullptr;
+
 		if (score > best) {
 			if (score > alpha) {
 				best_move = move;
@@ -640,9 +661,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			}
 			const Value bonus = std::min(1896, 4 * depth * depth + 120 * depth - 120); // saturate updates at depth 12
 			if (!capt) { // Not a capture
-				update_history(board.side, move.src(), move.dst(), bonus);
+				update_history(board, move, ply, bonus);
 				for (auto &qmove : quiets) {
-					update_history(board.side, qmove.src(), qmove.dst(), -bonus); // Penalize quiet moves
+					update_history(board, qmove, ply, -bonus); // Penalize quiet moves
 				}
 				cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()] = move; // Update counter-move history
 			} else { // Capture
@@ -695,7 +716,7 @@ std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_IN
 	board.legal_moves(moves);
 
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
-	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, 0, tentry);
+	pzstd::vector<std::pair<Move, int>> scores = assign_values(board, moves, 0, tentry);
 
 	Move move = NullMove;
 	int end = scores.size();
@@ -803,7 +824,7 @@ pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv
 	board.legal_moves(moves);
 
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
-	pzstd::vector<std::pair<Move, Value>> scores = assign_values(board, moves, 0, tentry);
+	pzstd::vector<std::pair<Move, int>> scores = assign_values(board, moves, 0, tentry);
 
 	Move move = NullMove;
 	int end = scores.size();

@@ -2,6 +2,7 @@
 
 #include "bitboard.hpp"
 #include "eval.hpp"
+#include "history.hpp"
 #include "movegen.hpp"
 #include "ttable.hpp"
 #include <algorithm>
@@ -53,7 +54,9 @@ struct SSEntry {
 	Move move;
 	Value eval;
 	Move excl;
-	SSEntry() : move(NullMove), eval(VALUE_NONE), excl(NullMove) {}
+	ContHistEntry *cont_hist;
+
+	SSEntry() : move(NullMove), eval(VALUE_NONE), excl(NullMove), cont_hist(nullptr) {}
 };
 
 std::pair<Move, Value> search(Board &board, int64_t time = 1e9, int depth = MAX_PLY, int64_t nodes = 1e18, int quiet = 0);
