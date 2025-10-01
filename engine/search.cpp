@@ -113,6 +113,7 @@ uint64_t nodecnt[64][64];
 int get_conthist(Board &board, Move move, int ply) {
 	int score = 0;
 	if (ply >= 1 && line[ply-1].cont_hist) score += line[ply-1].cont_hist->hist[board.side][board.mailbox[move.src()] & 7][move.dst()];
+	if (ply >= 2 && line[ply-2].cont_hist) score += line[ply-2].cont_hist->hist[board.side][board.mailbox[move.src()] & 7][move.dst()];
 	return score;
 }
 
@@ -129,9 +130,10 @@ void update_history(Board &board, Move &move, int ply, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
 	history[board.side][move.src()][move.dst()] += cbonus - history[board.side][move.src()][move.dst()] * abs(bonus) / MAX_HISTORY;
 	int conthist = get_conthist(board, move, ply);
-	if (ply >= 1 && line[ply-1].cont_hist) {
+	if (ply >= 1 && line[ply-1].cont_hist)
 		line[ply-1].cont_hist->hist[board.side][board.mailbox[move.src()] & 7][move.dst()] += cbonus - conthist * abs(bonus) / MAX_HISTORY;
-	}
+	if (ply >= 2 && line[ply-2].cont_hist)
+		line[ply-2].cont_hist->hist[board.side][board.mailbox[move.src()] & 7][move.dst()] += cbonus - conthist * abs(bonus) / MAX_HISTORY;
 }
 
 void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonus) {
