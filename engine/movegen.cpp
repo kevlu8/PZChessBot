@@ -583,15 +583,12 @@ bool Board::control(int sq, bool side) const {
 	if (knight_movetable[sq] & piece_boards[KNIGHT] & piece_boards[OCC(side)])
 		return true;
 
-	if (side == WHITE) {
-		if (((square_bits(Square(sq - 9)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq - 7)) & 0xfefefefefefefefe)) & piece_boards[PAWN] &
-			piece_boards[OCC(WHITE)])
-			return true;
-	} else {
-		if (((square_bits(Square(sq + 9)) & 0xfefefefefefefefe) | (square_bits(Square(sq + 7)) & 0x7f7f7f7f7f7f7f7f)) & piece_boards[PAWN] &
-			piece_boards[OCC(BLACK)])
-			return true;
-	}
+	if (((square_bits(Square(sq - 9)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq - 7)) & 0xfefefefefefefefe)) & piece_boards[PAWN] &
+		piece_boards[OCC(WHITE)] & piece_boards[OCC(side)])
+		return true;
+	if (((square_bits(Square(sq + 9)) & 0xfefefefefefefefe) | (square_bits(Square(sq + 7)) & 0x7f7f7f7f7f7f7f7f)) & piece_boards[PAWN] &
+		piece_boards[OCC(BLACK)] & piece_boards[OCC(side)])
+		return true;
 
 	if (king_movetable[sq] & piece_boards[KING] & piece_boards[OCC(side)])
 		return true;
