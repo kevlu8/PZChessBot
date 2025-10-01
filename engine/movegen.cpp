@@ -388,25 +388,26 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 		return;
 	int sq = _tzcnt_u64(piece);
 	// Castling
-	if (board.side == WHITE && !board.control(SQ_E1).second) {
+	if (board.side == WHITE && !board.control(SQ_E1, BLACK)) {
 		if (board.castling & WHITE_OO) {
 			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_F1) | square_bits(SQ_G1))) &&
-				!board.control(SQ_F1).second)
+				!board.control(SQ_F1, BLACK))
 				moves.push_back(Move::make<CASTLING>(SQ_E1, SQ_G1));
 		}
 		if (board.castling & WHITE_OOO) {
 			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_D1) | square_bits(SQ_C1) | square_bits(SQ_B1))) &&
-				!board.control(SQ_D1).second)
+				!board.control(SQ_D1, BLACK))
 				moves.push_back(Move::make<CASTLING>(SQ_E1, SQ_C1));
 		}
-	} else if (board.side == BLACK && !board.control(SQ_E8).first) {
+	} else if (board.side == BLACK && !board.control(SQ_E8, WHITE)) {
 		if (board.castling & BLACK_OO) {
-			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_F8) | square_bits(SQ_G8))) && !board.control(SQ_F8).first)
+			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_F8) | square_bits(SQ_G8))) &&
+				!board.control(SQ_F8, WHITE))
 				moves.push_back(Move::make<CASTLING>(SQ_E8, SQ_G8));
 		}
 		if (board.castling & BLACK_OOO) {
 			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_D8) | square_bits(SQ_C8) | square_bits(SQ_B8))) &&
-				!board.control(SQ_D8).first)
+				!board.control(SQ_D8, WHITE))
 				moves.push_back(Move::make<CASTLING>(SQ_E8, SQ_C8));
 		}
 	}
@@ -568,34 +569,31 @@ void Board::captures(pzstd::vector<Move> &moves) const {
 	king_captures(*this, moves);
 }
 
-std::pair<int, int> Board::control(int sq) const {
-	int white = 0;
-	int black = 0;
+bool Board::control(int sq, bool side) const {
+	// Go in order of decreasing probability
 
 	uint32_t idx = rook_magics[sq].offset + _pext_u64(piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)], rook_magics[sq].mask);
-	white += _mm_popcnt_u64(rook_movetable[idx] & (piece_boards[ROOK] | piece_boards[QUEEN]) & piece_boards[OCC(WHITE)]);
-	black += _mm_popcnt_u64(rook_movetable[idx] & (piece_boards[ROOK] | piece_boards[QUEEN]) & piece_boards[OCC(BLACK)]);
+	if (rook_movetable[idx] & (piece_boards[ROOK] | piece_boards[QUEEN]) & piece_boards[OCC(side)])
+		return true;
 
 	idx = bishop_magics[sq].offset + _pext_u64(piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)], bishop_magics[sq].mask);
-	white += _mm_popcnt_u64(bishop_movetable[idx] & (piece_boards[BISHOP] | piece_boards[QUEEN]) & piece_boards[OCC(WHITE)]);
-	black += _mm_popcnt_u64(bishop_movetable[idx] & (piece_boards[BISHOP] | piece_boards[QUEEN]) & piece_boards[OCC(BLACK)]);
+	if (bishop_movetable[idx] & (piece_boards[BISHOP] | piece_boards[QUEEN]) & piece_boards[OCC(side)])
+		return true;
 
-	white += _mm_popcnt_u64(knight_movetable[sq] & piece_boards[KNIGHT] & piece_boards[OCC(WHITE)]);
-	black += _mm_popcnt_u64(knight_movetable[sq] & piece_boards[KNIGHT] & piece_boards[OCC(BLACK)]);
+	if (knight_movetable[sq] & piece_boards[KNIGHT] & piece_boards[OCC(side)])
+		return true;
 
-	white += _mm_popcnt_u64(
-		((square_bits(Square(sq - 9)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq - 7)) & 0xfefefefefefefefe)) & piece_boards[PAWN] &
-		piece_boards[OCC(WHITE)]
-	);
-	black += _mm_popcnt_u64(
-		((square_bits(Square(sq + 9)) & 0xfefefefefefefefe) | (square_bits(Square(sq + 7)) & 0x7f7f7f7f7f7f7f7f)) & piece_boards[PAWN] &
-		piece_boards[OCC(BLACK)]
-	);
+	if (((square_bits(Square(sq - 9)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq - 7)) & 0xfefefefefefefefe)) & piece_boards[PAWN] &
+		piece_boards[OCC(WHITE)] & piece_boards[OCC(side)])
+		return true;
+	if (((square_bits(Square(sq + 9)) & 0xfefefefefefefefe) | (square_bits(Square(sq + 7)) & 0x7f7f7f7f7f7f7f7f)) & piece_boards[PAWN] &
+		piece_boards[OCC(BLACK)] & piece_boards[OCC(side)])
+		return true;
 
-	white += _mm_popcnt_u64(king_movetable[sq] & piece_boards[KING] & piece_boards[OCC(WHITE)]);
-	black += _mm_popcnt_u64(king_movetable[sq] & piece_boards[KING] & piece_boards[OCC(BLACK)]);
+	if (king_movetable[sq] & piece_boards[KING] & piece_boards[OCC(side)])
+		return true;
 
-	return {white, black};
+	return false;
 }
 
 Bitboard rook_attacks(Square sq, Bitboard occ) {
@@ -806,26 +804,26 @@ bool Board::is_pseudolegal(Move move) const {
 			if ((castling & (1 << rights_idx)) == 0)
 				return false;
 
-			if (side == WHITE && control(SQ_E1).second)
+			if (side == WHITE && control(SQ_E1, BLACK))
 				return false;
-			if (side == BLACK && control(SQ_E8).first)
+			if (side == BLACK && control(SQ_E8, WHITE))
 				return false;
 
 			Bitboard mask = 0;
 			if (rights_idx == 0b00) {
-				if (control(SQ_F1).second)
+				if (control(SQ_F1, BLACK))
 					return false;
 				mask = rook_blockers[SQ_E1][SQ_H1];
 			} else if (rights_idx == 0b01) {
-				if (control(SQ_D1).second)
+				if (control(SQ_D1, BLACK))
 					return false;
 				mask = rook_blockers[SQ_E1][SQ_A1];
 			} else if (rights_idx == 0b10) {
-				if (control(SQ_F8).first)
+				if (control(SQ_F8, WHITE))
 					return false;
 				mask = rook_blockers[SQ_E8][SQ_H8];
 			} else if (rights_idx == 0b11) {
-				if (control(SQ_D8).first)
+				if (control(SQ_D8, WHITE))
 					return false;
 				mask = rook_blockers[SQ_E8][SQ_A8];
 			}

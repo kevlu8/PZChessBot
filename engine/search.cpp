@@ -11,10 +11,10 @@ clock_t start = 0;
 
 uint64_t perft(Board &board, int depth) {
 	// If white's turn is beginning and black is in check
-	if (board.side == WHITE && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7])).first)
+	if (board.side == WHITE && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7]), WHITE))
 		return 0;
 	// If black's turn is beginning and white is in check
-	else if (board.side == BLACK && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6])).second)
+	else if (board.side == BLACK && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6]), BLACK))
 		return 0;
 	if (depth == 0)
 		return 1;
@@ -374,16 +374,16 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Control on white king and black king respectively
-	auto wcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]));
-	auto bcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]));
-	
+	bool wcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK);
+	bool bcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE);
+
 	if (board.side == WHITE) {
 		// If it is white to move and white controls black's king, it's mate
-		if (bcontrol.first > 0)
+		if (bcontrol > 0)
 			return VALUE_MATE;
 	} else {
 		// Likewise, the contrary also applies.
-		if (wcontrol.second > 0)
+		if (wcontrol > 0)
 			return VALUE_MATE;
 	}
 
@@ -394,9 +394,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	bool in_check = false;
 	if (board.side == WHITE) {
-		in_check = wcontrol.second > 0;
+		in_check = wcontrol > 0;
 	} else {
-		in_check = bcontrol.first > 0;
+		in_check = bcontrol > 0;
 	}
 
 	if (in_check) depth++; // Check extensions
@@ -992,9 +992,9 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 		bool best_ispromo = (best_move.type() == PROMOTION);
 		bool in_check = false;
 		if (board.side == WHITE) {
-			in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])).second > 0;
+			in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK) > 0;
 		} else {
-			in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])).first > 0;
+			in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE) > 0;
 		}
 		
 		seldepth = std::max(seldepth, d);
