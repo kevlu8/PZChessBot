@@ -434,8 +434,15 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				 * If we are at the leaf of the search, we can prune moves that are
 				 * probably not going to be better than alpha.
 				 */
-				if (depth == 1 && cur_eval + FUTILITY_THRESHOLD < alpha) continue;
-				if (depth == 2 && cur_eval + FUTILITY_THRESHOLD2 < alpha) continue;
+				if (depth == 1 && cur_eval + FUTILITY_THRESHOLD < alpha) {
+					mp.skip_quiets();
+					continue;
+				}
+
+				if (depth == 2 && cur_eval + FUTILITY_THRESHOLD2 < alpha) {
+					mp.skip_quiets();
+					continue;
+				}
 			}
 
 			if (depth <= 3 && !promo && best > -VALUE_INFINITE) {
