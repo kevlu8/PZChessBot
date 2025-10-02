@@ -20,11 +20,10 @@ Move MovePicker::next() {
 		board.legal_moves(moves);
 
 		const int CAPTURE_PROMO_BASE = 1000000;
-		const int KILLER_BASE = 800000;
 		const int QUIET_BASE = 0;
 
 		for (Move move : moves) {
-			if (move == ttMove || move == ss->killer[0] || move == ss->killer[1])
+			if (move == ttMove)
 				continue;
 
 			int score = 0;
@@ -42,8 +41,8 @@ Move MovePicker::next() {
 			} else {
 				if (qskip) continue;
 				score = QUIET_BASE + main_hist->get_history(board, move, ply, ss);
-				if (move == ss->killer[0]) score += KILLER_BASE + 1500;
-				else if (move == ss->killer[1]) score += KILLER_BASE + 1200;
+				if (move == ss->killer[0]) score += 1500;
+				else if (move == ss->killer[1]) score += 800;
 			}
 			scores.push_back({move, score});
 		}
@@ -74,5 +73,5 @@ Move MovePicker::next() {
 	}
 
 	std::cout << "Invalid MovePicker stage: " << stage << std::endl;
-	throw std::runtime_error("Il faut que nous mourions");
+	throw std::runtime_error("Il faut que vous mouriez");
 }
