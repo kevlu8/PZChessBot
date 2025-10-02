@@ -116,7 +116,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 		}
 	}
 
-	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
+	TTable::TTEntry *tentry = board.ttable->probe(board.zobrist);
 	if (!pv && tentry) {
 		if (tentry->bound() == EXACT) return tentry->eval;
 		if (tentry->bound() == LOWER_BOUND) {
@@ -184,7 +184,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 		line[depth].move = move;
 
 		board.make_move(move);
-		_mm_prefetch(&board.ttable.TT[board.zobrist % board.ttable.TT_SIZE], _MM_HINT_T0);
+		_mm_prefetch(&board.ttable->TT[board.zobrist % board.ttable->TT_SIZE], _MM_HINT_T0);
 		Value score = -quiesce(board, -beta, -alpha, -side, depth + 1, pv);
 		board.unmake_move();
 
@@ -202,12 +202,12 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 			best_move = move;
 		}
 		if (score >= beta) {
-			board.ttable.store(board.zobrist, score, 0, LOWER_BOUND, pv, move, depth);
+			board.ttable->store(board.zobrist, score, 0, LOWER_BOUND, pv, move, depth);
 			return best;
 		}
 	}
 
-	board.ttable.store(board.zobrist, best, 0, alpha_raise ? EXACT : UPPER_BOUND, pv, best_move, depth);
+	board.ttable->store(board.zobrist, best, 0, alpha_raise ? EXACT : UPPER_BOUND, pv, best_move, depth);
 
 	return best;
 }
@@ -265,7 +265,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	bool ttpv = pv;
 
 	// Check for TTable cutoff
-	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
+	TTable::TTEntry *tentry = board.ttable->probe(board.zobrist);
 	if (!pv && tentry && tentry->depth >= depth && line[ply].excl == NullMove) {
 		// Check for cutoffs
 		if (tentry->bound() == EXACT) {
@@ -449,7 +449,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		board.make_move(move);
 
-		_mm_prefetch(&board.ttable.TT[board.zobrist % board.ttable.TT_SIZE], _MM_HINT_T0);
+		_mm_prefetch(&board.ttable->TT[board.zobrist % board.ttable->TT_SIZE], _MM_HINT_T0);
 
 		Value newdepth = depth - 1 + extension;
 
@@ -566,7 +566,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (line[ply].excl == NullMove) {
 		Move tt_move = best_move != NullMove ? best_move : tentry ? tentry->best_move : NullMove;
-		board.ttable.store(board.zobrist, best, depth, flag, ttpv, tt_move, board.halfmove);
+		board.ttable->store(board.zobrist, best, depth, flag, ttpv, tt_move, board.halfmove);
 	}
 
 	return best;
@@ -593,7 +593,7 @@ pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv
 		return std::make_pair(min, idx);
 	};
 
-	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
+	TTable::TTEntry *tentry = board.ttable->probe(board.zobrist);
 
 	MovePicker mp(board, &line[0], 0, &main_hist, tentry);
 
@@ -640,7 +640,7 @@ pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv
 		}
 
 		if (score >= beta) {
-			board.ttable.store(board.zobrist, score, depth, LOWER_BOUND, true, move, board.halfmove);
+			board.ttable->store(board.zobrist, score, depth, LOWER_BOUND, true, move, board.halfmove);
 			if (line[0].killer[0] != move) {
 				line[0].killer[1] = line[0].killer[0];
 				line[0].killer[0] = move;
@@ -669,7 +669,7 @@ pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv
 		multipv_res.push_back({best_move[i], best_score[i]});
 	}
 
-	board.ttable.store(board.zobrist, final_best_score, depth, alpha_raise ? EXACT : UPPER_BOUND, true, final_best_move, board.halfmove);
+	board.ttable->store(board.zobrist, final_best_score, depth, alpha_raise ? EXACT : UPPER_BOUND, true, final_best_move, board.halfmove);
 
 	return multipv_res;
 }
@@ -775,12 +775,12 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 				std::cout << "info depth " << d << " seldepth " << seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
 				<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
 				__print_pv(1);
-				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+				std::cout << "hashfull " << (board.ttable->size() * 1000 / board.ttable->mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			} else {
 				std::cout << "info depth " << d << " seldepth " << seldepth << " score cp " << eval << " nodes " << nodes << " nps "
 				<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
 				__print_pv();
-				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+				std::cout << "hashfull " << (board.ttable->size() * 1000 / board.ttable->mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			}
 		} else if (quiet == 2) { // quiet level: formatted output
 			auto format_number = [](uint64_t num) -> std::string {
@@ -794,7 +794,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 
 			uint64_t time_ms = (clock() - start) / CLOCKS_PER_MS;
 			uint64_t nps = time_ms > 0 ? (nodes * 1000 / time_ms) : 0;
-			uint32_t hashfull = board.ttable.size() * 1000 / board.ttable.mxsize();
+			uint32_t hashfull = board.ttable->size() * 1000 / board.ttable->mxsize();
 
 			std::string score_color;
 			std::string score_text;
@@ -903,11 +903,11 @@ pzstd::vector<std::pair<Move, Value>> search_multipv(Board &board, int multipv, 
 				if (abs(eval) >= VALUE_MATE_MAX_PLY) {
 					std::cout << "info depth " << d << " seldepth " << seldepth << " multipv " << i+1 << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
 					<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << multipv_res[i].first.to_string()
-					<< " hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+					<< " hashfull " << (board.ttable->size() * 1000 / board.ttable->mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 				} else {
 					std::cout << "info depth " << d << " seldepth " << seldepth << " multipv " << i+1 << " score cp " << eval << " nodes " << nodes << " nps "
 					<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << multipv_res[i].first.to_string()
-					<< " hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+					<< " hashfull " << (board.ttable->size() * 1000 / board.ttable->mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 				}
 			}
 		}

@@ -29,12 +29,12 @@ void TTable::store(uint64_t key, Value eval, uint8_t depth, uint8_t bound, bool 
 	if (depth_entry->depth < depth || (depth_entry->depth == depth && depth_entry->age < age)) {
 		if (depth_entry->flags == INVALID) tsize++;
 		depth_entry->key = key;
-		depth_entry->eval = eval;
+		depth_entry->eval = eval;	
 		depth_entry->depth = depth;
 		depth_entry->flags = bound | (ttpv ? TTPV : 0);
 		depth_entry->best_move = best_move;
 		depth_entry->age = age;
-		return;
+		return;	
 	}
 
 	// 2. Always replace the second entry

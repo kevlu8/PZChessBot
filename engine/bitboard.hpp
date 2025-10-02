@@ -69,7 +69,7 @@ struct Board {
 	uint64_t zobrist = 0;
 	uint64_t pawn_hash = 0;
 	uint64_t nonpawn_hashval = 0;
-	TTable ttable;
+	TTable *ttable;
 	pzstd::largevector<uint64_t> hash_hist;
 
 	// Mailbox representation of the board for faster queries of certain data
@@ -80,12 +80,14 @@ struct Board {
 	std::stack<HistoryEntry> move_hist;
 	std::stack<uint8_t> halfmove_hist;
 
-	Board(int ttsize=DEFAULT_TT_SIZE) : ttable(ttsize) {
+	Board() = delete;
+
+	Board(TTable *t) : ttable(t) {
 		reset_board();
 		recompute_hash();
 	}
 
-	Board(std::string fen, int ttsize=DEFAULT_TT_SIZE) : ttable(ttsize) {
+	Board(std::string fen, TTable *t) : ttable(t) {
 		load_fen(fen);
 		recompute_hash();
 	};

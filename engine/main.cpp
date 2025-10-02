@@ -15,11 +15,12 @@ BoardState bs[NINPUTS * 2][NINPUTS * 2];
 // Options
 int TT_SIZE = DEFAULT_TT_SIZE;
 bool quiet = false, online = false;
-int multipv = 1;
+int multipv = 1, threads = 1;
 
 void run_uci() {
 	std::string command;
-	Board board = Board(TT_SIZE);
+	TTable *t = new TTable(TT_SIZE);
+	Board board = Board(t);
 	while (getline(std::cin, command)) {
 		if (command == "uci") {
 			std::cout << "id name PZChessBot " << VERSION << std::endl;
@@ -44,20 +45,27 @@ void run_uci() {
 					ss >> optionvalue;
 				}
 			}
-			if (optionname == "Hash") {
+			if (optionname == "Threads") {
+				int optionint = std::stoi(optionvalue);
+				threads = optionint;
+			} else if (optionname == "Hash") {
 				int optionint = std::stoi(optionvalue);
 				if (optionint < 1 || optionint > 1024) {
 					std::cerr << "Invalid hash size: " << optionint << std::endl;
 					continue;
 				}
 				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTBucket);
+				delete t;
+				t = new TTable(TT_SIZE);
 			} else if (optionname == "Quiet") {
 				quiet = optionvalue == "true";
 			} else if (optionname == "MultiPV") {
 				multipv = std::stoi(optionvalue);
 			}
 		} else if (command == "ucinewgame") {
-			board = Board(TT_SIZE);
+			delete t;
+			t = new TTable(TT_SIZE);
+			board = Board(t);
 			clear_search_vars();
 		} else if (command.substr(0, 8) == "position") {
 			// either `position startpos` or `position fen ...`
@@ -152,6 +160,7 @@ void run_uci() {
 }
 
 __attribute__((weak)) int main(int argc, char *argv[]) {
+	TTable *t = new TTable(TT_SIZE);
 	if (argc == 2 && std::string(argv[1]) == "bench") {
 		const std::string bench_positions[] = {
 			"r3k2r/2pb1ppp/2pp1q2/p7/1nP1B3/1P2P3/P2N1PPP/R2QK2R w KQkq - 0 14",
@@ -205,7 +214,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
             "3br1k1/p1pn3p/1p3n2/5pNq/2P1p3/1PN3PP/P2Q1PB1/4R1K1 w - - 0 23",
             "2r2b2/5p2/5k2/p1r1pP2/P2pB3/1P3P2/K1P3R1/7R w - - 23 93",
 		};
-		Board board = Board(TT_SIZE);
+		Board board = Board(t);
 		uint64_t tot_nodes = 0;
 		uint64_t start = clock();
 		for (const auto &fen : bench_positions) {
@@ -233,7 +242,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			else if (token == "book")
 				ss >> token; // ignore book for now
 		}
-		Board board = Board(TT_SIZE);
+		Board board = Board(t);
 		std::mt19937 rng(s);
 		while (n--) {
 			board.reset_startpos();
@@ -258,7 +267,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 	online = argc >= 2 && std::string(argv[1]) == "--online=1";
 	std::cout << "PZChessBot " << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
 	std::string command;
-	Board board = Board(TT_SIZE);
+	Board board = Board(t);
 	std::thread searchthread;
 	while (getline(std::cin, command)) {
 		if (command == "uci") {
@@ -356,10 +365,12 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				board.unmake_move();
 				board.print_board_pretty();
 			} else if (command == "reset") {
-				board = Board(TT_SIZE);
+				delete t;
+				t = new TTable(TT_SIZE);
+				board = Board(t);
 				std::cout << "Done" << std::endl;
 			} else if (command.substr(0, 3) == "fen") {
-				board = Board(TT_SIZE);
+				board = Board(t);
 				std::string fen = command.substr(4);
 				board.reset(fen);
 				std::cout << "Done" << std::endl;
