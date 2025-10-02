@@ -1,10 +1,14 @@
 #pragma once
 
+#include "includes.hpp"
+
 #include "bitboard.hpp"
 #include "eval.hpp"
 #include "history.hpp"
 #include "movegen.hpp"
+#include "movepicker.hpp"
 #include "ttable.hpp"
+
 #include <algorithm>
 
 // Eval per ply threshold for RFP
@@ -43,21 +47,7 @@
 // This is the margin for history pruning (in centipawns)
 #define HISTORY_MARGIN 4000
 
-// Correction history table size
-#define CORRHIST_SZ 32768
-#define CORRHIST_GRAIN 256
-#define CORRHIST_WEIGHT 256
-
 extern uint64_t nodes;
-
-struct SSEntry {
-	Move move;
-	Value eval;
-	Move excl;
-	ContHistEntry *cont_hist;
-
-	SSEntry() : move(NullMove), eval(VALUE_NONE), excl(NullMove), cont_hist(nullptr) {}
-};
 
 std::pair<Move, Value> search(Board &board, int64_t time = 1e9, int depth = MAX_PLY, int64_t nodes = 1e18, int quiet = 0);
 
