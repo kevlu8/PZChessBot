@@ -67,12 +67,6 @@ __attribute__((constructor)) void init_mvvlva() {
 
 History main_hist;
 
-/**
- * The counter-move heuristic is a move ordering heuristic that helps sort moves that
- * have refuted other moves in the past. It works by storing the move upon a beta cutoff.
- */
-Move cmh[2][64][64];
-
 SSEntry line[MAX_PLY]; // Currently searched line
 
 Move pvtable[MAX_PLY][MAX_PLY];
@@ -539,7 +533,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				for (auto &qmove : quiets) {
 					main_hist.update_history(board, qmove, ply, &line[ply], -bonus); // Penalize quiet moves
 				}
-				cmh[board.side][line[ply-1].move.src()][line[ply-1].move.dst()] = move; // Update counter-move history
 			} else { // Capture
 				main_hist.update_capthist(PieceType(board.mailbox[move.src()] & 7), PieceType(board.mailbox[move.dst()] & 7), move.dst(), bonus);
 				for (auto &cmove : captures) {
@@ -1027,7 +1020,6 @@ void clear_search_vars() {
 		for (int j = 0; j < 64; j++) {
 			main_hist.history[0][i][j] = main_hist.history[1][i][j] = 0;
 			main_hist.corrhist_prev[0][i][j] = main_hist.corrhist_prev[1][i][j] = 0;
-			cmh[0][i][j] = cmh[1][i][j] = NullMove;
 		}
 		for (int j = 0; j < 6; j++) {
 			for (int k = 0; k < 6; k++) {
