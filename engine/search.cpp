@@ -214,7 +214,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 	return best;
 }
 
-Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 1) {
+Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 0, bool root = false) {
 	pvlen[ply] = 0;
 
 	nodes++;
@@ -291,13 +291,13 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		else
 			cur_eval = eval(board) * side;
 		raw_eval = cur_eval;
-		main_hist.apply_correction(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), line[ply - 1].move, cur_eval);
+		main_hist.apply_correction(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), ply >= 1 ? line[ply - 1].move : NullMove, cur_eval);
 	}
 
 	line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
 
 	bool improving = false;
-	if (!in_check && ply >= 3 && line[ply-2].eval != VALUE_NONE && cur_eval > line[ply-2].eval) improving = true;
+	if (!in_check && ply >= 2 && line[ply-2].eval != VALUE_NONE && cur_eval > line[ply-2].eval) improving = true;
 
 	// Reverse futility pruning
 	if (!in_check && !pv && depth <= 8) {
@@ -370,6 +370,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	Move move = NullMove;
 	int i = 0;
+
+	uint64_t prev_nodes = nodes;
 
 	while ((move = mp.next()) != NullMove) {
 		if (move == line[ply].excl)
@@ -500,6 +502,11 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		line[ply].cont_hist = nullptr;
 
+		if (root) {
+			nodecnt[move.src()][move.dst()] += nodes - prev_nodes;
+			prev_nodes = nodes;
+		}
+
 		if (score > best) {
 			if (score > alpha) {
 				best_move = move;
@@ -574,90 +581,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 }
 
 int g_quiet;
-// Search function from the first layer of moves
-std::pair<Move, Value> __search(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
-	Move best_move = NullMove;
-	Value best_score = -VALUE_INFINITE;
-
-	// pzstd::vector<Move> moves;
-	// board.legal_moves(moves);
-
-	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
-	// pzstd::vector<std::pair<Move, int>> scores = assign_values(board, moves, 0, tentry);
-
-	MovePicker mp(board, &line[0], 0, &main_hist, tentry);
-
-	Move move = NullMove;
-	int i = 0;
-
-	bool printing_currmove = false;
-
-	uint64_t prev_nodes = nodes;
-
-	while ((move = mp.next()) != NullMove) {
-		line[0].move = move;
-		board.make_move(move);
-		
-		Value score;
-		Value newdepth = depth - 1;
-
-		if (i > 3) {
-			Value r = reduction[i][depth];
-
-			Value searched_depth = depth - r / 1024;
-
-			score = -__recurse(board, searched_depth, -alpha - 1, -alpha, -side, 0, true);
-			if (score > alpha && searched_depth < newdepth) {
-				score = -__recurse(board, newdepth, -alpha - 1, -alpha, -side, 0, true);
-			}
-		} else if (i > 0) {
-			score = -__recurse(board, newdepth, -alpha - 1, -alpha, -side, 0, true);
-		}
-		if (i == 0 || score > alpha) {
-			score = -__recurse(board, newdepth, -beta, -alpha, -side, 1, false);
-		}
-
-		board.unmake_move();
-
-		nodecnt[move.src()][move.dst()] += nodes - prev_nodes;
-		prev_nodes = nodes;
-
-		if (score > best_score) {
-			pvtable[0][0] = move;
-			pvlen[0] = pvlen[1]+1;
-			for (int i = 0; i < pvlen[1]; i++) {
-				pvtable[0][i+1] = pvtable[1][i];
-			}
-			if (score > alpha) {
-				alpha = score;
-			}
-			best_score = score;
-			best_move = move;
-		}
-
-		if (score >= beta) {
-			board.ttable.store(board.zobrist, best_score, depth, LOWER_BOUND, true, best_move, board.halfmove);
-			if (line[0].killer[0] != move) {
-				line[0].killer[1] = line[0].killer[0];
-				line[0].killer[0] = move;
-			}
-			return {best_move, best_score};
-		}
-
-		if (early_exit)
-			break;
-
-		i++;
-	}
-
-	if (best_score <= alpha) {
-		board.ttable.store(board.zobrist, alpha, depth, UPPER_BOUND, true, best_move, board.halfmove);
-	} else {
-		board.ttable.store(board.zobrist, best_score, depth, EXACT, true, best_move, board.halfmove);
-	}
-
-	return {best_move, best_score};
-}
 
 pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1) {
 	Move best_move[256];
@@ -825,27 +748,27 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 			beta = eval + window_size;
 		}
 		
-		auto result = __search(board, d, alpha, beta, board.side ? -1 : 1);
+		auto result = __recurse(board, d, alpha, beta, board.side ? -1 : 1, 1, false, 0, true);
 		
 		// Gradually expand the window if we fail high or low
-		while ((result.second >= beta || result.second <= alpha) && window_size < VALUE_INFINITE / 4) {
-			if (result.second >= beta) {
+		while ((result >= beta || result <= alpha) && window_size < VALUE_INFINITE / 4) {
+			if (result >= beta) {
 				// Fail high - expand upper bound
 				beta = eval + window_size * 2;
 				if (beta >= VALUE_INFINITE / 4) beta = VALUE_INFINITE;
 			}
-			if (result.second <= alpha) {
+			if (result <= alpha) {
 				// Fail low - expand lower bound  
 				alpha = eval - window_size * 2;
 				if (alpha <= -VALUE_INFINITE / 4) alpha = -VALUE_INFINITE;
 			}
 			window_size *= 2;
-			result = __search(board, d, alpha, beta, board.side ? -1 : 1);
+			result = __recurse(board, d, alpha, beta, board.side ? -1 : 1, 1, false, 0, true);
 			if (early_exit) break;
 		}
 		if (early_exit) break;
-		eval = result.second;
-		best_move = result.first;
+		eval = result;
+		best_move = pvtable[0][0];
 
 		bool best_iscapt = (board.piece_boards[OPPOCC(board.side)] & square_bits(best_move.dst()));
 		bool best_ispromo = (best_move.type() == PROMOTION);
@@ -855,9 +778,9 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 		} else {
 			in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE) > 0;
 		}
-		
+
 		seldepth = std::max(seldepth, d);
-		
+
 		#ifndef NOUCI
 		if (!quiet) {
 			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
