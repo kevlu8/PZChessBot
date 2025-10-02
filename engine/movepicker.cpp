@@ -29,19 +29,17 @@ Move MovePicker::next() {
 
 	if (stage == MP_STAGE_GEN) {
 		stage = MP_STAGE_SCORE;
-		moves = new pzstd::vector<Move>();
-		board.legal_moves(*moves);
-		end = moves->size();
+		board.legal_moves(moves);
+		end = moves.size();
 	}
 
 	if (stage == MP_STAGE_SCORE) {
 		stage = MP_STAGE_MOVES;
-		scores = new pzstd::vector<std::pair<Move, int>>();
 
 		const int CAPTURE_PROMO_BASE = 1000000;
 		const int QUIET_BASE = 0;
 
-		for (Move move : *moves) {
+		for (Move move : moves) {
 			if (move == ttMove || move == ss->killer[0] || move == ss->killer[1])
 				continue;
 
@@ -60,7 +58,7 @@ Move MovePicker::next() {
 			} else {
 				score = QUIET_BASE + main_hist->get_history(board, move, ply, ss);
 			}
-			scores->push_back(std::make_pair(move, score));
+			scores.push_back(std::make_pair(move, score));
 		}
 	}
 
@@ -74,13 +72,13 @@ Move MovePicker::next() {
 		int best_score = -2147483647;
 		int idx = 0;
 		for (int i = 0; i < end; i++) {
-			if ((*scores)[i].second > best_score) {
-				best_score = (*scores)[i].second;
-				best_move = (*scores)[i].first;
+			if (scores[i].second > best_score) {
+				best_score = scores[i].second;
+				best_move = scores[i].first;
 				idx = i;
 			}
 		}
-		std::swap((*scores)[idx], (*scores)[end - 1]);
+		std::swap(scores[idx], scores[end - 1]);
 		end--;
 		return best_move;
 	}

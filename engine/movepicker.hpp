@@ -9,7 +9,7 @@
 #include "move.hpp"
 #include "ttable.hpp"
 
-enum MP_STAGE {
+enum MP_Stage {
 	MP_STAGE_TT,
 	MP_STAGE_KILLER1,
 	MP_STAGE_KILLER2,
@@ -22,14 +22,14 @@ enum MP_STAGE {
 class MovePicker {
 private:
 	Board &board;
-	pzstd::vector<Move> *moves;
-	pzstd::vector<std::pair<Move, int>> *scores;
+	pzstd::vector<Move> moves;
+	pzstd::vector<std::pair<Move, int>> scores;
 	Move ttMove;
 	SSEntry *ss;
 	History *main_hist;
 	int ply, end;
 
-	MP_STAGE stage;
+	MP_Stage stage;
 	bool qskip = false;
 
 public:
