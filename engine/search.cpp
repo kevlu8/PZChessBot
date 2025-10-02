@@ -121,11 +121,9 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 		if (tentry->bound() == EXACT) return tentry->eval;
 		if (tentry->bound() == LOWER_BOUND) {
 			if (tentry->eval >= beta) return tentry->eval;
-			// alpha = std::max(alpha, tentry->eval);
 		}
 		if (tentry->bound() == UPPER_BOUND) {
 			if (tentry->eval <= alpha) return tentry->eval;
-			// beta = std::min(beta, tentry->eval);
 		}
 	}
 
@@ -348,12 +346,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	Value best = -VALUE_INFINITE;
-
-	// pzstd::vector<Move> moves;
-	// board.legal_moves(moves);
-
-	// pzstd::vector<std::pair<Move, int>> scores = assign_values(board, moves, ply, tentry);
-	// int end = scores.size();
 
 	MovePicker mp(board, &line[ply], ply, &main_hist, tentry);
 
@@ -601,11 +593,7 @@ pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv
 		return std::make_pair(min, idx);
 	};
 
-	// pzstd::vector<Move> moves;
-	// board.legal_moves(moves);
-
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
-	// pzstd::vector<std::pair<Move, int>> scores = assign_values(board, moves, 0, tentry);
 
 	MovePicker mp(board, &line[0], 0, &main_hist, tentry);
 
@@ -860,8 +848,6 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 		uint64_t bm_nodes = nodecnt[best_move.src()][best_move.dst()];
 		double node_adjustment = 1.5 - (bm_nodes / (double)nodes);
 		soft *= node_adjustment;
-		// std::cout << std::setprecision(2) << "info string soft limit: " << mxtime * soft << " ms (" << (int)(soft * 100) << "%), node adjustment: " << node_adjustment << std::endl;
-		// std::cout << "info string best move nodes: " << bm_nodes << ", total nodes: " << nodes << std::setprecision(0) << std::endl;
 		if (time_elapsed > mxtime * soft) {
 			// We probably won't be able to complete the next ID loop
 			break;
