@@ -374,6 +374,8 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				std::string fen = command.substr(4);
 				board.reset(fen);
 				std::cout << "Done" << std::endl;
+			} else if (command == "stop") {
+				early_exit = true;
 			} else {
 				std::cout << "Unknown command: " << command << std::endl;
 			}

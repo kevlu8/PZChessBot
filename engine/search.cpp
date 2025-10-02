@@ -2,7 +2,7 @@
 
 #define MOVENUM(x) ((((#x)[1] - '1') << 12) | (((#x)[0] - 'a') << 8) | (((#x)[3] - '1') << 4) | ((#x)[2] - 'a'))
 
-uint64_t nodes = 0; // Node count
+std::atomic<uint64_t> nodes = 0; // Node count
 int seldepth = 0; // Maximum searched depth, including quiescence search
 uint64_t mx_nodes = 1e18; // Maximum nodes to search
 uint64_t mxtime = 1000; // Maximum time to search in milliseconds
@@ -72,7 +72,7 @@ SSEntry line[MAX_PLY]; // Currently searched line
 Move pvtable[MAX_PLY][MAX_PLY];
 int pvlen[MAX_PLY];
 
-uint64_t nodecnt[64][64];
+thread_local uint64_t nodecnt[64][64];
 
 Move next_move(pzstd::vector<std::pair<Move, int>> &scores, int &end) {
 	if (end == 0) return NullMove; // Ran out
@@ -127,7 +127,10 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 		}
 	}
 
-	seldepth = std::max(depth, seldepth);
+	do {
+		seldepth = depth;
+	} while (seldepth < depth);
+
 	Value stand_pat = 0;
 	if (tentry && abs(tentry->eval) < VALUE_MATE_MAX_PLY) stand_pat = tentry->eval;
 	else stand_pat = eval(board) * side;

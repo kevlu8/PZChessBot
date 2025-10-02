@@ -10,6 +10,7 @@
 #include "ttable.hpp"
 
 #include <algorithm>
+#include <atomic>
 
 // Eval per ply threshold for RFP
 // RFP stops searching if our position is so good that
@@ -47,7 +48,8 @@
 // This is the margin for history pruning (in centipawns)
 #define HISTORY_MARGIN 4000
 
-extern uint64_t nodes;
+extern std::atomic<uint64_t> nodes;
+extern bool early_exit;
 
 std::pair<Move, Value> search(Board &board, int64_t time = 1e9, int depth = MAX_PLY, int64_t nodes = 1e18, int quiet = 0);
 
