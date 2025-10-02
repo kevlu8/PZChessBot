@@ -109,6 +109,9 @@ struct Board {
 	Value see_capture(Move);
 	Bitboard __lva(Square, int side, PieceType &p, Bitboard occ) const;
 	bool is_pseudolegal(Move) const;
+	constexpr bool is_capture(Move m) const {
+		return (piece_boards[OPPOCC(side)] & square_bits(m.dst()));
+	}
 
 	void recompute_hash();
 
