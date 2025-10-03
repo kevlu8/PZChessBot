@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <thread>
 
 // Eval per ply threshold for RFP
 // RFP stops searching if our position is so good that
@@ -51,7 +52,22 @@
 extern std::atomic<uint64_t> nodes;
 extern bool early_exit;
 
-std::pair<Move, Value> search(Board &board, int64_t time = 1e9, int depth = MAX_PLY, int64_t nodes = 1e18, int quiet = 0);
+struct ThreadData {
+	Board b;
+	Value v;
+
+	History history;
+
+	Move pvtable[MAX_PLY][MAX_PLY];
+	int pvlen[MAX_PLY];
+
+	SSEntry line[MAX_PLY];
+	uint64_t nodecnt[64][64];
+
+	ThreadData(TTable *tt) : b(tt) {}
+};
+
+std::pair<Move, Value> search(Board &board, int64_t time = 1e9, int depth = MAX_PLY, int64_t nodes = 1e18, int quiet = 0, int num_threads = 1);
 
 pzstd::vector<std::pair<Move, Value>> search_multipv(Board &board, int multipv, int64_t time = 1e9, int depth = MAX_PLY, int64_t maxnodes = 1e18, int quiet = 0);
 

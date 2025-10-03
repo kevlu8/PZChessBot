@@ -9,6 +9,9 @@ uint64_t mxtime = 1000; // Maximum time to search in milliseconds
 bool early_exit = false, exit_allowed = false; // Whether or not to exit the search, and if we are allowed to exit (so we don't exit on the depth 1)
 clock_t start = 0;
 
+std::vector<ThreadData *> thread_datas;
+thread_local ThreadData *local_data = nullptr;
+
 uint64_t perft(Board &board, int depth) {
 	// If white's turn is beginning and black is in check
 	if (board.side == WHITE && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7]), WHITE))
@@ -64,15 +67,6 @@ __attribute__((constructor)) void init_mvvlva() {
 		}
 	}
 }
-
-History main_hist;
-
-SSEntry line[MAX_PLY]; // Currently searched line
-
-Move pvtable[MAX_PLY][MAX_PLY];
-int pvlen[MAX_PLY];
-
-thread_local uint64_t nodecnt[64][64];
 
 Move next_move(pzstd::vector<std::pair<Move, int>> &scores, int &end) {
 	if (end == 0) return NullMove; // Ran out
@@ -134,7 +128,9 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 	Value stand_pat = 0;
 	if (tentry && abs(tentry->eval) < VALUE_MATE_MAX_PLY) stand_pat = tentry->eval;
 	else stand_pat = eval(board) * side;
-	main_hist.apply_correction(board.side, board.pawn_struct_hash(), board.material_hash(), board.nonpawn_hash(), line[depth - 1].move, stand_pat);
+	local_data->history.apply_correction(
+		board.side, board.pawn_struct_hash(), board.material_hash(), board.nonpawn_hash(), local_data->line[depth - 1].move, stand_pat
+	);
 
 	// If it's a mate, stop here since there's no point in searching further
 	// Theoretically shouldn't ever happen because of stand pat
@@ -184,14 +180,14 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 			}
 		}
 
-		line[depth].move = move;
+		local_data->line[depth].move = move;
 
 		board.make_move(move);
 		_mm_prefetch(&board.ttable->TT[board.zobrist % board.ttable->TT_SIZE], _MM_HINT_T0);
 		Value score = -quiesce(board, -beta, -alpha, -side, depth + 1, pv);
 		board.unmake_move();
 
-		line[depth].move = NullMove;
+		local_data->line[depth].move = NullMove;
 
 		if (score >= VALUE_MATE_MAX_PLY)
 			score = score - (uint16_t(score >> 15) << 1) - 1; // Fixes "mate 0" bug
@@ -216,7 +212,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 }
 
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 0, bool root = false) {
-	pvlen[ply] = 0;
+	local_data->pvlen[ply] = 0;
 
 	nodes++;
 
@@ -269,7 +265,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	// Check for TTable cutoff
 	TTable::TTEntry *tentry = board.ttable->probe(board.zobrist);
-	if (!pv && tentry && tentry->depth >= depth && line[ply].excl == NullMove) {
+	if (!pv && tentry && tentry->depth >= depth && local_data->line[ply].excl == NullMove) {
 		// Check for cutoffs
 		if (tentry->bound() == EXACT) {
 			return tentry->eval;
@@ -292,13 +288,16 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		else
 			cur_eval = eval(board) * side;
 		raw_eval = cur_eval;
-		main_hist.apply_correction(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), ply >= 1 ? line[ply - 1].move : NullMove, cur_eval);
+		local_data->history.apply_correction(
+			board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), ply >= 1 ? local_data->line[ply - 1].move : NullMove, cur_eval
+		);
 	}
 
-	line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
+	local_data->line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
 
 	bool improving = false;
-	if (!in_check && ply >= 2 && line[ply-2].eval != VALUE_NONE && cur_eval > line[ply-2].eval) improving = true;
+	if (!in_check && ply >= 2 && local_data->line[ply - 2].eval != VALUE_NONE && cur_eval > local_data->line[ply - 2].eval)
+		improving = true;
 
 	// Reverse futility pruning
 	if (!in_check && !pv && depth <= 8) {
@@ -316,14 +315,14 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	// Null-move pruning
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 	int npawns_and_kings = _mm_popcnt_u64(board.piece_boards[PAWN] | board.piece_boards[KING]);
-	if (!in_check && npieces != npawns_and_kings && cur_eval >= beta && depth >= 2 && line[ply].excl == NullMove) { // Avoid NMP in pawn endgames
+	if (!in_check && npieces != npawns_and_kings && cur_eval >= beta && depth >= 2 && local_data->line[ply].excl == NullMove) { // Avoid NMP in pawn endgames
 		/**
 		 * This works off the *null-move observation*.
-		 * 
+		 *
 		 * The general idea is that a null move will almost always be worse than the best move
 		 * in a given position. So, if we can play a suboptimal move (in this case the null move)
 		 * and still be winning, we were probably winning in the first place.
-		 * 
+		 *
 		 * The only issue with this approach is that it will fail in Zugzwang positions. There's
 		 * really no good way of preventing this except for disabling NMP in positions where there
 		 * are probably Zugzwangs (e.g. endgames).
@@ -350,7 +349,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	Value best = -VALUE_INFINITE;
 
-	MovePicker mp(board, &line[ply], ply, &main_hist, tentry);
+	MovePicker mp(board, &local_data->line[ply], ply, &local_data->history, tentry);
 
 	if ((pv || cutnode) && depth > 4 && !(tentry && tentry->best_move != NullMove)) {
 		depth -= 2; // Internal iterative reductions
@@ -369,7 +368,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	uint64_t prev_nodes = nodes;
 
 	while ((move = mp.next()) != NullMove) {
-		if (move == line[ply].excl)
+		if (move == local_data->line[ply].excl)
 			continue;
 		
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
@@ -377,12 +376,13 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		
 		int extension = 0;
 
-		if (line[ply].excl == NullMove && depth >= 8 && tentry && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
+		if (local_data->line[ply].excl == NullMove && depth >= 8 && tentry && move == tentry->best_move && tentry->depth >= depth - 3 &&
+			tentry->bound() != UPPER_BOUND) {
 			// Singular extension
-			line[ply].excl = move;
+			local_data->line[ply].excl = move;
 			Value singular_beta = tentry->eval - 4 * depth;
 			Value singular_score = __recurse(board, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
-			line[ply].excl = NullMove; // Reset exclusion move
+			local_data->line[ply].excl = NullMove; // Reset exclusion move
 
 			if (singular_score < singular_beta) {
 				depth++;
@@ -394,7 +394,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			}
 		}
 
-		line[ply].move = move;
+		local_data->line[ply].move = move;
 
 		if (best > -VALUE_MATE_MAX_PLY) {
 			if (i >= 5 + 2 * depth * depth) {
@@ -413,7 +413,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				 * Skip moves with very bad history scores
 				 * Depth condition is necessary to avoid overflow
 				 */
-				Value hist = main_hist.get_history(board, move, ply, &line[ply]);
+				Value hist = local_data->history.get_history(board, move, ply, &local_data->line[ply]);
 				if (hist < -HISTORY_MARGIN * depth)
 					break;
 			}
@@ -448,7 +448,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			}
 		}
 
-		line[ply].cont_hist = &main_hist.cont_hist[board.side][board.mailbox[move.src()] & 7][move.dst()];
+		local_data->line[ply].cont_hist = &local_data->history.cont_hist[board.side][board.mailbox[move.src()] & 7][move.dst()];
 
 		board.make_move(move);
 
@@ -474,7 +474,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 			r -= 1024 * pv;
 			r += 1024 * (!pv && cutnode);
-			if (move == line[ply].killer[0] || move == line[ply].killer[1])
+			if (move == local_data->line[ply].killer[0] || move == local_data->line[ply].killer[1])
 				r -= 1024;
 			r -= 1024 * ttpv;
 
@@ -495,10 +495,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		board.unmake_move();
 
-		line[ply].cont_hist = nullptr;
+		local_data->line[ply].cont_hist = nullptr;
 
 		if (root) {
-			nodecnt[move.src()][move.dst()] += nodes - prev_nodes;
+			local_data->nodecnt[move.src()][move.dst()] += nodes - prev_nodes;
 			prev_nodes = nodes;
 		}
 
@@ -509,10 +509,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				alpha_raise++;
 				flag = EXACT;
 				if (score < beta) {
-					pvtable[ply][0] = move;
-					pvlen[ply] = pvlen[ply+1]+1;
-					for (int i = 0; i < pvlen[ply+1]; i++) {
-						pvtable[ply][i+1] = pvtable[ply+1][i];
+					local_data->pvtable[ply][0] = move;
+					local_data->pvlen[ply] = local_data->pvlen[ply + 1] + 1;
+					for (int i = 0; i < local_data->pvlen[ply + 1]; i++) {
+						local_data->pvtable[ply][i + 1] = local_data->pvtable[ply + 1][i];
 					}
 				}
 			}
@@ -525,20 +525,22 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				// note that best and score are functionally equivalent here; best is just what's returned + stored to TT
 				best = (score * depth + beta) / (depth + 1); // wtf?????
 			}
-			if (line[ply].killer[0] != move) {
-				line[ply].killer[1] = line[ply].killer[0];
-				line[ply].killer[0] = move; // Update killer moves
+			if (local_data->line[ply].killer[0] != move) {
+				local_data->line[ply].killer[1] = local_data->line[ply].killer[0];
+				local_data->line[ply].killer[0] = move; // Update killer moves
 			}
 			const Value bonus = std::min(1896, 4 * depth * depth + 120 * depth - 120); // saturate updates at depth 12
 			if (!capt) { // Not a capture
-				main_hist.update_history(board, move, ply, &line[ply], bonus);
+				local_data->history.update_history(board, move, ply, &local_data->line[ply], bonus);
 				for (auto &qmove : quiets) {
-					main_hist.update_history(board, qmove, ply, &line[ply], -bonus); // Penalize quiet moves
+					local_data->history.update_history(board, qmove, ply, &local_data->line[ply], -bonus); // Penalize quiet moves
 				}
 			} else { // Capture
-				main_hist.update_capthist(PieceType(board.mailbox[move.src()] & 7), PieceType(board.mailbox[move.dst()] & 7), move.dst(), bonus);
+				local_data->history.update_capthist(PieceType(board.mailbox[move.src()] & 7), PieceType(board.mailbox[move.dst()] & 7), move.dst(), bonus);
 				for (auto &cmove : captures) {
-					main_hist.update_capthist(PieceType(board.mailbox[cmove.src()] & 7), PieceType(board.mailbox[cmove.dst()] & 7), cmove.dst(), -bonus);
+					local_data->history.update_capthist(
+						PieceType(board.mailbox[cmove.src()] & 7), PieceType(board.mailbox[cmove.dst()] & 7), cmove.dst(), -bonus
+					);
 				}
 			}
 			break;
@@ -555,7 +557,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	// Stalemate detection
 	if (best == -VALUE_MATE) {
 		// If our engine thinks we are mated but we are not in check, we are stalemated
-		if (line[ply].excl != NullMove) return alpha;
+		if (local_data->line[ply].excl != NullMove)
+			return alpha;
 		else if (in_check) return -VALUE_MATE + ply;
 		else return 0;
 	}
@@ -564,10 +567,12 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	bool best_ispromo = (best_move.type() == PROMOTION);
 	if (abs(best) < VALUE_MATE_MAX_PLY && !in_check && !best_iscapture && !best_ispromo && !(best < alpha && best >= raw_eval) && !(best >= beta && best <= raw_eval)) {
 		// Best move is a quiet move, update CorrHist
-		main_hist.update_corrhist(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), line[ply - 1].move, best - raw_eval, depth);
+		local_data->history.update_corrhist(
+			board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), ply >= 1 ? local_data->line[ply - 1].move : NullMove, best - raw_eval, depth
+		);
 	}
 
-	if (line[ply].excl == NullMove) {
+	if (local_data->line[ply].excl == NullMove) {
 		Move tt_move = best_move != NullMove ? best_move : tentry ? tentry->best_move : NullMove;
 		board.ttable->store(board.zobrist, best, depth, flag, ttpv, tt_move, board.halfmove);
 	}
@@ -598,7 +603,7 @@ pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv
 
 	TTable::TTEntry *tentry = board.ttable->probe(board.zobrist);
 
-	MovePicker mp(board, &line[0], 0, &main_hist, tentry);
+	MovePicker mp(board, &local_data->line[0], 0, &local_data->history, tentry);
 
 	Move move = NullMove;
 	int i = 0;
@@ -613,7 +618,7 @@ pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv
 
 		auto res = min_score(best_score);
 
-		line[0].move = move;
+		local_data->line[0].move = move;
 		board.make_move(move);
 		Value score;
 		Value used_alpha = res.first;
@@ -629,10 +634,10 @@ pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv
 		board.unmake_move();
 
 		if (score > res.first) {
-			pvtable[0][0] = move;
-			pvlen[0] = pvlen[1]+1;
-			for (int i = 0; i < pvlen[1]; i++) {
-				pvtable[0][i+1] = pvtable[1][i];
+			local_data->pvtable[0][0] = move;
+			local_data->pvlen[0] = local_data->pvlen[1] + 1;
+			for (int i = 0; i < local_data->pvlen[1]; i++) {
+				local_data->pvtable[0][i + 1] = local_data->pvtable[1][i];
 			}
 			if (score > alpha) {
 				alpha = score;
@@ -644,9 +649,9 @@ pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv
 
 		if (score >= beta) {
 			board.ttable->store(board.zobrist, score, depth, LOWER_BOUND, true, move, board.halfmove);
-			if (line[0].killer[0] != move) {
-				line[0].killer[1] = line[0].killer[0];
-				line[0].killer[0] = move;
+			if (local_data->line[0].killer[0] != move) {
+				local_data->line[0].killer[1] = local_data->line[0].killer[0];
+				local_data->line[0].killer[0] = move;
 			}
 			pzstd::vector<std::pair<Move, Value>> multipv_res;
 			multipv_res.push_back({move, score});
@@ -677,24 +682,26 @@ pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv
 	return multipv_res;
 }
 
-void __print_pv(bool omit_last = 0) { // Need to omit last to prevent illegal moves during mates
+void __print_pv(ThreadData *data, bool omit_last = 0) { // Need to omit last to prevent illegal moves during mates
 	const int ROOT_PLY = 0;
-	for (int i = 0; i < pvlen[ROOT_PLY] - omit_last; i++) {
-		if (pvtable[ROOT_PLY][i] == NullMove) break;
-		std::cout << pvtable[ROOT_PLY][i].to_string() << ' ';
+	for (int i = 0; i < data->pvlen[ROOT_PLY] - omit_last; i++) {
+		if (data->pvtable[ROOT_PLY][i] == NullMove)
+			break;
+		std::cout << data->pvtable[ROOT_PLY][i].to_string() << ' ';
 	}
 }
 
-void __print_pv_clipped(bool omit_last = 0) {
+void __print_pv_clipped(ThreadData *data, bool omit_last = 0) {
 	const int MAX_PLY = 10;
-	int len = std::min(pvlen[0] - omit_last, MAX_PLY);
+	int len = std::min(data->pvlen[0] - omit_last, MAX_PLY);
 	for (int i = 0; i < len; i++) {
-		if (pvtable[0][i] == NullMove) break;
-		std::cout << pvtable[0][i].to_string() << ' ';
+		if (data->pvtable[0][i] == NullMove)
+			break;
+		std::cout << data->pvtable[0][i].to_string() << ' ';
 	}
 }
 
-std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t maxnodes, int quiet) {
+std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t maxnodes, int quiet, int num_threads) {
 	g_quiet = quiet;
 
 	std::cout << std::fixed << std::setprecision(0);
@@ -703,19 +710,35 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 	start = clock();
 	mxtime = time;
 	mx_nodes = maxnodes;
-	
-	// Clear killer moves and history heuristic
-	for (int i = 0; i < MAX_PLY; i++) {
-		line[i].killer[0] = line[i].killer[1] = NullMove;
-		pvlen[i] = 0;
+
+	// Initialize thread data
+	while (thread_datas.size() > num_threads) {
+		delete thread_datas.back();
+		thread_datas.pop_back();
+	}
+	while (thread_datas.size() < num_threads) {
+		thread_datas.push_back(new ThreadData(board.ttable));
 	}
 
-	for (int i = 0; i < 64; i++) {
-		for (int j = 0; j < 64; j++) {
-			nodecnt[i][j] = 0;
-			main_hist.history[0][i][j] /= 2;
-			main_hist.history[1][i][j] /= 2;
+	for (int t = 0; t < num_threads; t++) {
+		ThreadData *data = thread_datas[t];
+
+		// Clear killer moves and history heuristic
+		for (int i = 0; i < MAX_PLY; i++) {
+			data->line[i].killer[0] = data->line[i].killer[1] = NullMove;
+			data->pvlen[i] = 0;
 		}
+
+		for (int i = 0; i < 64; i++) {
+			for (int j = 0; j < 64; j++) {
+				data->nodecnt[i][j] = 0;
+				data->history.history[0][i][j] /= 2;
+				data->history.history[1][i][j] /= 2;
+			}
+		}
+
+		// Fix the board
+		data->b = board;
 	}
 
 	Value static_eval = eval(board) * (board.side ? -1 : 1);
@@ -738,9 +761,28 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 			alpha = eval - window_size;
 			beta = eval + window_size;
 		}
-		
-		auto result = __recurse(board, d, alpha, beta, board.side ? -1 : 1, 1, false, 0, true);
-		
+
+		// Spawn threads
+		std::thread *threads[num_threads];
+		std::atomic<Value> result = VALUE_NONE;
+		for (int i = 0; i < num_threads; i++) {
+			threads[i] = new std::thread([d, alpha, beta, i, board, &result]() {
+				local_data = thread_datas[i];
+				local_data->v = __recurse(local_data->b, d, alpha, beta, local_data->b.side ? -1 : 1, 1, false, 0, true);
+				if (result == VALUE_NONE)
+					result = local_data->v;
+				// else if (result != local_data->v) {
+				// 	std::cout << "expected " << result << " got " << local_data->v << std::endl;
+				// 	throw std::runtime_error("Il faut que nous mourions");
+				// }
+			});
+		}
+
+		for (int i = 0; i < num_threads; i++) {
+			threads[i]->join();
+			delete threads[i];
+		}
+
 		// Gradually expand the window if we fail high or low
 		while ((result >= beta || result <= alpha) && window_size < VALUE_INFINITE / 4) {
 			if (result >= beta) {
@@ -754,12 +796,30 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 				if (alpha <= -VALUE_INFINITE / 4) alpha = -VALUE_INFINITE;
 			}
 			window_size *= 2;
-			result = __recurse(board, d, alpha, beta, board.side ? -1 : 1, 1, false, 0, true);
+
+			// Spawn threads
+			std::thread *threads[num_threads];
+			std::atomic<Value> result = VALUE_NONE;
+			for (int i = 0; i < num_threads; i++) {
+				threads[i] = new std::thread([d, alpha, beta, i, board, &result]() {
+					local_data = thread_datas[i];
+					local_data->v = __recurse(local_data->b, d, alpha, beta, local_data->b.side ? -1 : 1, 1, false, 0, true);
+					if (result == VALUE_NONE)
+						result = local_data->v;
+					// else if (result != local_data->v)
+					// 	throw std::runtime_error("Il faut que nous mourions");
+				});
+			}
+
+			for (int i = 0; i < num_threads; i++) {
+				threads[i]->join();
+				delete threads[i];
+			}
 			if (early_exit) break;
 		}
 		if (early_exit) break;
 		eval = result;
-		best_move = pvtable[0][0];
+		best_move = thread_datas[0]->pvtable[0][0];
 
 		bool best_iscapt = (board.piece_boards[OPPOCC(board.side)] & square_bits(best_move.dst()));
 		bool best_ispromo = (best_move.type() == PROMOTION);
@@ -777,12 +837,12 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
 				std::cout << "info depth " << d << " seldepth " << seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
 				<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
-				__print_pv(1);
+				__print_pv(thread_datas[0], 1);
 				std::cout << "hashfull " << (board.ttable->size() * 1000 / board.ttable->mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			} else {
 				std::cout << "info depth " << d << " seldepth " << seldepth << " score cp " << eval << " nodes " << nodes << " nps "
 				<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
-				__print_pv();
+				__print_pv(thread_datas[0]);
 				std::cout << "hashfull " << (board.ttable->size() * 1000 / board.ttable->mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			}
 		} else if (quiet == 2) { // quiet level: formatted output
@@ -826,7 +886,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 			std::cout << CYAN "│ " YELLOW "Time:     " RESET << BOLD << time_ms << RESET " ms" << std::endl;
 			std::cout << CYAN "│ " YELLOW "Hash:     " RESET << BOLD << hashfull / 10.0 << RESET "%" << std::endl;
 			std::cout << CYAN "│ " YELLOW "Short PV: " RESET << BLUE;
-			__print_pv_clipped(abs(eval) >= VALUE_MATE_MAX_PLY);
+			__print_pv_clipped(thread_datas[0], abs(eval) >= VALUE_MATE_MAX_PLY);
 			std::cout << RESET << std::endl;
 			std::cout << CYAN "└────────────────────────────────┘" RESET << std::endl;
 		}
@@ -848,7 +908,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 			// higher complexity = spend more time, lower complexity = spend less time
 			soft = 0.3 + 0.4 * factor;
 		}
-		uint64_t bm_nodes = nodecnt[best_move.src()][best_move.dst()];
+		uint64_t bm_nodes = thread_datas[0]->nodecnt[best_move.src()][best_move.dst()];
 		double node_adjustment = 1.5 - (bm_nodes / (double)nodes);
 		soft *= node_adjustment;
 		if (time_elapsed > mxtime * soft) {
@@ -874,13 +934,13 @@ pzstd::vector<std::pair<Move, Value>> search_multipv(Board &board, int multipv, 
 	
 	// Clear killer moves and history heuristic
 	for (int i = 0; i < MAX_PLY; i++) {
-		line[i].killer[0] = line[i].killer[1] = NullMove;
-		pvlen[i] = 0;
+		local_data->line[i].killer[0] = local_data->line[i].killer[1] = NullMove;
+		local_data->pvlen[i] = 0;
 	}
 
 	for (int i = 0; i < 64; i++) {
 		for (int j = 0; j < 64; j++) {
-			main_hist.history[0][i][j] = main_hist.history[1][i][j] = 0;
+			local_data->history.history[0][i][j] = local_data->history.history[1][i][j] = 0;
 		}
 	}
 
@@ -924,24 +984,29 @@ pzstd::vector<std::pair<Move, Value>> search_multipv(Board &board, int multipv, 
 void clear_search_vars() {
 	nodes = seldepth = 0;
 	early_exit = exit_allowed = false;
-	for (int i = 0; i < MAX_PLY; i++) {
-		pvlen[i] = 0;
-		line[i] = SSEntry();
-	}
-	for (int i = 0; i < 64; i++) {
-		for (int j = 0; j < 64; j++) {
-			main_hist.history[0][i][j] = main_hist.history[1][i][j] = 0;
-			main_hist.corrhist_prev[0][i][j] = main_hist.corrhist_prev[1][i][j] = 0;
+
+	for (int t = 0; t < thread_datas.size(); t++) {
+		ThreadData *data = thread_datas[t];
+
+		for (int i = 0; i < MAX_PLY; i++) {
+			data->pvlen[i] = 0;
+			data->line[i] = SSEntry();
 		}
-		for (int j = 0; j < 6; j++) {
-			for (int k = 0; k < 6; k++) {
-				main_hist.capthist[j][k][i] = 0;
+		for (int i = 0; i < 64; i++) {
+			for (int j = 0; j < 64; j++) {
+				data->history.history[0][i][j] = data->history.history[1][i][j] = 0;
+				data->history.corrhist_prev[0][i][j] = data->history.corrhist_prev[1][i][j] = 0;
+			}
+			for (int j = 0; j < 6; j++) {
+				for (int k = 0; k < 6; k++) {
+					data->history.capthist[j][k][i] = 0;
+				}
 			}
 		}
-	}
-	for (int i = 0; i < CORRHIST_SZ; i++) {
-		main_hist.corrhist_ps[0][i] = main_hist.corrhist_ps[1][i] = 0;
-		main_hist.corrhist_mat[0][i] = main_hist.corrhist_mat[1][i] = 0;
-		main_hist.corrhist_np[0][i] = main_hist.corrhist_np[1][i] = 0;
+		for (int i = 0; i < CORRHIST_SZ; i++) {
+			data->history.corrhist_ps[0][i] = data->history.corrhist_ps[1][i] = 0;
+			data->history.corrhist_mat[0][i] = data->history.corrhist_mat[1][i] = 0;
+			data->history.corrhist_np[0][i] = data->history.corrhist_np[1][i] = 0;
+		}
 	}
 }
