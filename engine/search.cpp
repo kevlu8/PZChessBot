@@ -11,6 +11,7 @@ std::atomic<bool> exit_allowed = false; // Whether or not to exit the search, an
 clock_t start = 0;
 
 std::vector<ThreadData *> thread_datas;
+std::vector<std::thread *> thread_pool;
 thread_local ThreadData *local_data = nullptr;
 
 uint64_t perft(Board &board, int depth) {
@@ -705,6 +706,46 @@ void __print_pv_clipped(ThreadData *data, bool omit_last = 0) {
 	}
 }
 
+void do_work(ThreadData *data) {
+	local_data = data;
+	while (true) {
+		std::unique_lock lk(data->m);
+		data->cv.wait(lk, [data] { return data->runnable; });
+
+		data->runnable = false;
+		data->v = __recurse(local_data->b, data->d, data->alpha, data->beta, local_data->b.side ? -1 : 1, 1, false, 0, true);
+		data->completed = true;
+
+		lk.unlock();
+		data->cv.notify_one();
+	}
+}
+
+// Returns {value, index of thread with decided PV}
+std::pair<Value, int> wake_threads(int depth, Value alpha, Value beta) {
+	int num_threads = thread_pool.size();
+	Value result = VALUE_NONE;
+
+	for (int i = 0; i < num_threads; i++) {
+		{
+			std::lock_guard lk(thread_datas[i]->m);
+			thread_datas[i]->d = depth;
+			thread_datas[i]->alpha = alpha;
+			thread_datas[i]->beta = beta;
+			thread_datas[i]->runnable = true;
+			thread_datas[i]->completed = false;
+		}
+		thread_datas[i]->cv.notify_one();
+	}
+	for (int i = 0; i < num_threads; i++) {
+		std::unique_lock lk(thread_datas[i]->m);
+		thread_datas[i]->cv.wait(lk, [&] { return thread_datas[i]->completed; });
+		result = std::max(result, thread_datas[i]->v);
+	}
+	/// TODO: Use democratic process
+	return {thread_datas[0]->v, 0};
+}
+
 std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t maxnodes, int quiet, int num_threads) {
 	g_quiet = quiet;
 
@@ -719,11 +760,14 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 
 	// Initialize thread data
 	while (thread_datas.size() > num_threads) {
+		delete thread_pool.back();
+		thread_pool.pop_back();
 		delete thread_datas.back();
 		thread_datas.pop_back();
 	}
 	while (thread_datas.size() < num_threads) {
 		thread_datas.push_back(new ThreadData(board.ttable));
+		thread_pool.push_back(new std::thread(do_work, thread_datas.back()));
 	}
 
 	for (int t = 0; t < num_threads; t++) {
@@ -743,8 +787,9 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 			}
 		}
 
-		// Fix the board
+		// Set the board
 		data->b = board;
+		data->reset_bs();
 	}
 
 	Value static_eval = eval(board, thread_datas[0]) * (board.side ? -1 : 1); // just pick an arbitrary thread
@@ -768,21 +813,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 			beta = eval + window_size;
 		}
 
-		// Spawn threads
-		std::thread *threads[num_threads];
-		Value results[num_threads];
-		for (int i = 0; i < num_threads; i++) {
-			threads[i] = new std::thread([d, alpha, beta, i, board, &results]() {
-				local_data = thread_datas[i];
-				results[i] = __recurse(local_data->b, d, alpha, beta, local_data->b.side ? -1 : 1, 1, false, 0, true);
-			});
-		}
-
-		for (int i = 0; i < num_threads; i++) {
-			threads[i]->join();
-			delete threads[i];
-		}
-		Value result = results[0]; // all results should be same
+		auto [result, idx] = wake_threads(d, alpha, beta);
 
 		// Gradually expand the window if we fail high or low
 		while ((result >= beta || result <= alpha) && window_size < VALUE_INFINITE / 4) {
@@ -798,21 +829,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 			}
 			window_size *= 2;
 
-			// Spawn threads
-			std::thread *threads[num_threads];
-			Value results[num_threads];
-			for (int i = 0; i < num_threads; i++) {
-				threads[i] = new std::thread([d, alpha, beta, i, board, &results]() {
-					local_data = thread_datas[i];
-					results[i] = __recurse(local_data->b, d, alpha, beta, local_data->b.side ? -1 : 1, 1, false, 0, true);
-				});
-			}
-
-			for (int i = 0; i < num_threads; i++) {
-				threads[i]->join();
-				delete threads[i];
-			}
-			result = results[0]; // Use result from thread 0 for determinism
+			auto [result, idx] = wake_threads(d, alpha, beta);
 			if (early_exit.load()) break;
 		}
 		if (early_exit.load()) break;
@@ -922,6 +939,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 }
 
 pzstd::vector<std::pair<Move, Value>> search_multipv(Board &board, int multipv, int64_t time, int depth, int64_t maxnodes, int quiet) {
+	/// TODO: Fix multipv threading
 	pzstd::vector<std::pair<Move, Value>> results;
 
 	g_quiet = quiet;

@@ -6,10 +6,20 @@
 #include "includes.hpp"
 #include "boardstate.hpp"
 
+#include <condition_variable>
+
 extern Network nnue_network;
 
 struct ThreadData {
+	std::mutex m;
+	std::condition_variable cv;
+	bool runnable = false;
+	bool completed = false;
+
 	Board b;
+	int d;
+	Value alpha, beta;
+
 	Value v;
 
 	History history;
@@ -22,7 +32,7 @@ struct ThreadData {
 
 	BoardState bs[NINPUTS * 2][NINPUTS * 2];
 
-	ThreadData(TTable *tt) : b(tt) {
+	void reset_bs() {
 		for (int j = 0; j < NINPUTS * 2; j++) {
 			for (int k = 0; k < NINPUTS * 2; k++) {
 				for (int i = 0; i < HL_SIZE; i++) {
@@ -32,6 +42,10 @@ struct ThreadData {
 				for (int i = 0; i < 64; i++) bs[j][k].mailbox[i] = NO_PIECE;
 			}
 		}
+	}
+
+	ThreadData(TTable *tt) : b(tt) {
+		reset_bs();
 	}
 };
 
