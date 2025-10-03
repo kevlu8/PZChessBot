@@ -2,12 +2,42 @@
 
 #include "bitboard.hpp"
 #include "nnue/network.hpp"
+#include "history.hpp"
 #include "includes.hpp"
 #include "boardstate.hpp"
 
+extern Network nnue_network;
+
+struct ThreadData {
+	Board b;
+	Value v;
+
+	History history;
+
+	Move pvtable[MAX_PLY][MAX_PLY];
+	int pvlen[MAX_PLY];
+
+	SSEntry line[MAX_PLY];
+	uint64_t nodecnt[64][64];
+
+	BoardState bs[NINPUTS * 2][NINPUTS * 2];
+
+	ThreadData(TTable *tt) : b(tt) {
+		for (int j = 0; j < NINPUTS * 2; j++) {
+			for (int k = 0; k < NINPUTS * 2; k++) {
+				for (int i = 0; i < HL_SIZE; i++) {
+					bs[j][k].w_acc.val[i] = nnue_network.accumulator_biases[i];
+					bs[j][k].b_acc.val[i] = nnue_network.accumulator_biases[i];
+				}
+				for (int i = 0; i < 64; i++) bs[j][k].mailbox[i] = NO_PIECE;
+			}
+		}
+	}
+};
+
 Value simple_eval(Board &board);
 
-Value eval(Board &board);
+Value eval(Board &board, ThreadData *tdata);
 
 std::array<Value, 8> debug_eval(Board &board);
 

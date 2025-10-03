@@ -131,7 +131,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 
 	Value stand_pat = 0;
 	if (tentry && abs(tentry->eval) < VALUE_MATE_MAX_PLY) stand_pat = tentry->eval;
-	else stand_pat = eval(board) * side;
+	else stand_pat = eval(board, local_data) * side;
 	local_data->history.apply_correction(
 		board.side, board.pawn_struct_hash(), board.material_hash(), board.nonpawn_hash(), local_data->line[depth - 1].move, stand_pat
 	);
@@ -290,7 +290,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (tentry && abs(tentry->eval) < VALUE_MATE_MAX_PLY)
 			cur_eval = tentry->eval;
 		else
-			cur_eval = eval(board) * side;
+			cur_eval = eval(board, local_data) * side;
 		raw_eval = cur_eval;
 		local_data->history.apply_correction(
 			board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), ply >= 1 ? local_data->line[ply - 1].move : NullMove, cur_eval
@@ -747,7 +747,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 		data->b = board;
 	}
 
-	Value static_eval = eval(board) * (board.side ? -1 : 1);
+	Value static_eval = eval(board, thread_datas[0]) * (board.side ? -1 : 1); // just pick an arbitrary thread
 
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
