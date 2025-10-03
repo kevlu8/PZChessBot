@@ -3,10 +3,11 @@
 #define MOVENUM(x) ((((#x)[1] - '1') << 12) | (((#x)[0] - 'a') << 8) | (((#x)[3] - '1') << 4) | ((#x)[2] - 'a'))
 
 std::atomic<uint64_t> nodes = 0; // Node count
-int seldepth = 0; // Maximum searched depth, including quiescence search
+std::atomic<int> seldepth = 0; // Maximum searched depth, including quiescence search
 uint64_t mx_nodes = 1e18; // Maximum nodes to search
 uint64_t mxtime = 1000; // Maximum time to search in milliseconds
-bool early_exit = false, exit_allowed = false; // Whether or not to exit the search, and if we are allowed to exit (so we don't exit on the depth 1)
+std::atomic<bool> early_exit = false;
+std::atomic<bool> exit_allowed = false; // Whether or not to exit the search, and if we are allowed to exit (so we don't exit on the depth 1)
 clock_t start = 0;
 
 std::vector<ThreadData *> thread_datas;
@@ -98,14 +99,14 @@ Move next_move(pzstd::vector<std::pair<Move, int>> &scores, int &end) {
 Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool pv=false) {
 	nodes++;
 
-	if (early_exit) return 0;
+	if (early_exit.load()) return 0;
 
 	if (!(nodes & 4095)) {
 		// Check for early exit
 		// We check every 4096 nodes to avoid slowing down the search too much
 		uint64_t time = (clock() - start) / CLOCKS_PER_MS;
-		if ((time > mxtime || nodes > mx_nodes) && exit_allowed) {
-			early_exit = true;
+		if ((time > mxtime || nodes > mx_nodes) && exit_allowed.load()) {
+			early_exit.store(true);
 			return 0;
 		}
 	}
@@ -122,8 +123,11 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 	}
 
 	do {
-		seldepth = depth;
-	} while (seldepth < depth);
+		int current_seldepth = seldepth.load();
+		while (current_seldepth < depth && !seldepth.compare_exchange_weak(current_seldepth, depth)) {
+			// Keep trying until we successfully update or find a higher value
+		}
+	} while (false);
 
 	Value stand_pat = 0;
 	if (tentry && abs(tentry->eval) < VALUE_MATE_MAX_PLY) stand_pat = tentry->eval;
@@ -216,14 +220,14 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	nodes++;
 
-	if (early_exit) return 0;
+	if (early_exit.load()) return 0;
 
 	if (!(nodes & 4095)) {
 		// Check for early exit
 		// We check every 4096 nodes to avoid slowing down the search too much
 		uint64_t time = (clock() - start) / CLOCKS_PER_MS;
-		if ((time > mxtime || nodes > mx_nodes) && exit_allowed) {
-			early_exit = true;
+		if ((time > mxtime || nodes > mx_nodes) && exit_allowed.load()) {
+			early_exit.store(true);
 			return 0;
 		}
 	}
@@ -546,7 +550,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			break;
 		}
 
-		if (early_exit)
+		if (early_exit.load())
 			break;
 
 		if (!capt && !promo) quiets.push_back(move);
@@ -658,7 +662,7 @@ pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv
 			return multipv_res;
 		}
 
-		if (early_exit)
+		if (early_exit.load())
 			break;
 
 		i++;
@@ -705,8 +709,10 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 	g_quiet = quiet;
 
 	std::cout << std::fixed << std::setprecision(0);
-	nodes = seldepth = 0;
-	early_exit = exit_allowed = false;
+	nodes.store(0);
+	seldepth.store(0);
+	early_exit.store(false);
+	exit_allowed.store(false);
 	start = clock();
 	mxtime = time;
 	mx_nodes = maxnodes;
@@ -764,17 +770,11 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 
 		// Spawn threads
 		std::thread *threads[num_threads];
-		std::atomic<Value> result = VALUE_NONE;
+		Value results[num_threads];
 		for (int i = 0; i < num_threads; i++) {
-			threads[i] = new std::thread([d, alpha, beta, i, board, &result]() {
+			threads[i] = new std::thread([d, alpha, beta, i, board, &results]() {
 				local_data = thread_datas[i];
-				local_data->v = __recurse(local_data->b, d, alpha, beta, local_data->b.side ? -1 : 1, 1, false, 0, true);
-				if (result == VALUE_NONE)
-					result = local_data->v;
-				// else if (result != local_data->v) {
-				// 	std::cout << "expected " << result << " got " << local_data->v << std::endl;
-				// 	throw std::runtime_error("Il faut que nous mourions");
-				// }
+				results[i] = __recurse(local_data->b, d, alpha, beta, local_data->b.side ? -1 : 1, 1, false, 0, true);
 			});
 		}
 
@@ -782,6 +782,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 			threads[i]->join();
 			delete threads[i];
 		}
+		Value result = results[0]; // all results should be same
 
 		// Gradually expand the window if we fail high or low
 		while ((result >= beta || result <= alpha) && window_size < VALUE_INFINITE / 4) {
@@ -799,15 +800,11 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 
 			// Spawn threads
 			std::thread *threads[num_threads];
-			std::atomic<Value> result = VALUE_NONE;
+			Value results[num_threads];
 			for (int i = 0; i < num_threads; i++) {
-				threads[i] = new std::thread([d, alpha, beta, i, board, &result]() {
+				threads[i] = new std::thread([d, alpha, beta, i, board, &results]() {
 					local_data = thread_datas[i];
-					local_data->v = __recurse(local_data->b, d, alpha, beta, local_data->b.side ? -1 : 1, 1, false, 0, true);
-					if (result == VALUE_NONE)
-						result = local_data->v;
-					// else if (result != local_data->v)
-					// 	throw std::runtime_error("Il faut que nous mourions");
+					results[i] = __recurse(local_data->b, d, alpha, beta, local_data->b.side ? -1 : 1, 1, false, 0, true);
 				});
 			}
 
@@ -815,9 +812,10 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 				threads[i]->join();
 				delete threads[i];
 			}
-			if (early_exit) break;
+			result = results[0]; // Use result from thread 0 for determinism
+			if (early_exit.load()) break;
 		}
-		if (early_exit) break;
+		if (early_exit.load()) break;
 		eval = result;
 		best_move = thread_datas[0]->pvtable[0][0];
 
@@ -830,7 +828,10 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 			in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE) > 0;
 		}
 
-		seldepth = std::max(seldepth, d);
+		int current_seldepth = seldepth.load();
+		while (current_seldepth < d && !seldepth.compare_exchange_weak(current_seldepth, d)) {
+			// Keep trying until we successfully update or find a higher value
+		}
 
 		#ifndef NOUCI
 		if (!quiet) {
@@ -892,7 +893,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 		}
 		#endif
 		
-		exit_allowed = true;
+		exit_allowed.store(true);
 		
 		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
 			return {best_move, eval};
@@ -926,8 +927,10 @@ pzstd::vector<std::pair<Move, Value>> search_multipv(Board &board, int multipv, 
 	g_quiet = quiet;
 
 	std::cout << std::fixed << std::setprecision(0);
-	nodes = seldepth = 0;
-	early_exit = exit_allowed = false;
+	nodes.store(0);
+	seldepth.store(0);
+	early_exit.store(false);
+	exit_allowed.store(false);
 	start = clock();
 	mxtime = time;
 	mx_nodes = maxnodes;
@@ -949,7 +952,7 @@ pzstd::vector<std::pair<Move, Value>> search_multipv(Board &board, int multipv, 
 	for (int d = 1; d <= depth; d++) {
 		auto result = __search_multipv(board, multipv, d, -VALUE_INFINITE, VALUE_INFINITE, board.side ? -1 : 1);
 
-		if (early_exit)
+		if (early_exit.load())
 			break;
 
 		multipv_res = result;
@@ -975,15 +978,17 @@ pzstd::vector<std::pair<Move, Value>> search_multipv(Board &board, int multipv, 
 			}
 		}
 
-		exit_allowed = true;
+		exit_allowed.store(true);
 	}
 
 	return multipv_res;
 }
 
 void clear_search_vars() {
-	nodes = seldepth = 0;
-	early_exit = exit_allowed = false;
+	nodes.store(0);
+	seldepth.store(0);
+	early_exit.store(false);
+	exit_allowed.store(false);
 
 	for (int t = 0; t < thread_datas.size(); t++) {
 		ThreadData *data = thread_datas[t];

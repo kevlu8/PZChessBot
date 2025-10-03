@@ -50,7 +50,7 @@
 #define HISTORY_MARGIN 4000
 
 extern std::atomic<uint64_t> nodes;
-extern bool early_exit;
+extern std::atomic<bool> early_exit;
 
 struct ThreadData {
 	Board b;
