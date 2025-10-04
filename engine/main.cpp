@@ -258,8 +258,12 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			if (!restart) {
 				if (_mm_popcnt_u64(board.piece_boards[KING]) != 2) restart = true;
 				else {
-					auto res = search(board, 1e9, MAX_PLY, 10000, 1);
-					if (abs(res.second) >= VALUE_MATE_MAX_PLY) restart = true;
+					auto s_eval = eval(board);
+					if (abs(s_eval) >= 600) restart = true; // do a fast static eval to quickly filter out crazy positions
+					else {
+						auto res = search(board, 1e9, MAX_PLY, 10000, 1);
+						if (abs(res.second) >= 400) restart = true;
+					}
 				}
 			}
 			if (restart) {
