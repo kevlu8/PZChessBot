@@ -3,9 +3,9 @@
 #include "../includes.hpp"
 
 #define INPUT_SIZE 768
-#define NINPUTS 8
-#define HL_SIZE 512
-#define NBUCKETS 8
+#define NINPUTS 1
+#define HL_SIZE 32
+#define NBUCKETS 1
 #define SCALE 400
 #define QA 255
 #define QB 64

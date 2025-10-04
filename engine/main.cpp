@@ -211,7 +211,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		for (const auto &fen : bench_positions) {
 			board.reset(fen);
 			clear_search_vars();
-			search(board, 1e9, 11, 1e18, 0);
+			search(board, 1e9, 8, 1e18, 0);
 			tot_nodes += nodes;
 		}
 		uint64_t end = clock();
@@ -252,7 +252,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				if (_mm_popcnt_u64(board.piece_boards[KING]) != 2) restart = true;
 				else {
 					auto res = search(board, 1e9, MAX_PLY, 10000, 1);
-					if (abs(res.second) >= 300) restart = true;
+					if (abs(res.second) >= VALUE_MATE_MAX_PLY) restart = true;
 				}
 			}
 			if (restart) {
