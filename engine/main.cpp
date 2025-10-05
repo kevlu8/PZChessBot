@@ -238,7 +238,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		while (n--) {
 			board.reset_startpos();
 			bool restart = false;
-			for (int i = 0; i < 10; i++) {
+			for (int i = 0; i < 12; i++) {
 				pzstd::vector<Move> moves;
 				board.legal_moves(moves);
 				if (moves.size() == 0) {
