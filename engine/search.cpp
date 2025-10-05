@@ -925,22 +925,12 @@ void clear_search_vars() {
 		pvlen[i] = 0;
 		line[i] = SSEntry();
 	}
-	for (int i = 0; i < 64; i++) {
-		for (int j = 0; j < 64; j++) {
-			main_hist.history[0][i][j] = main_hist.history[1][i][j] = 0;
-			main_hist.corrhist_prev[0][i][j] = main_hist.corrhist_prev[1][i][j] = 0;
-		}
-		for (int j = 0; j < 6; j++) {
-			for (int k = 0; k < 6; k++) {
-				main_hist.capthist[j][k][i] = 0;
-			}
-		}
-	}
-	for (int i = 0; i < CORRHIST_SZ; i++) {
-		main_hist.corrhist_ps[0][i] = main_hist.corrhist_ps[1][i] = 0;
-		main_hist.corrhist_mat[0][i] = main_hist.corrhist_mat[1][i] = 0;
-		main_hist.corrhist_np[0][i] = main_hist.corrhist_np[1][i] = 0;
-	}
 
+	memset(main_hist.history, 0, sizeof(main_hist.history));
+	memset(main_hist.corrhist_prev, 0, sizeof(main_hist.corrhist_prev));
+	memset(main_hist.capthist, 0, sizeof(main_hist.capthist));
+	memset(main_hist.corrhist_ps, 0, sizeof(main_hist.corrhist_ps));
+	memset(main_hist.corrhist_mat, 0, sizeof(main_hist.corrhist_mat));
+	memset(main_hist.corrhist_np, 0, sizeof(main_hist.corrhist_np));
 	memset(main_hist.cont_hist, 0, sizeof(main_hist.cont_hist));
 }
