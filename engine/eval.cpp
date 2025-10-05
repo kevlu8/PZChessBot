@@ -285,7 +285,8 @@ Value eval(Board &board) {
 
 	memcpy(bs[winbucket][binbucket].mailbox, board.mailbox, sizeof(bs[winbucket][binbucket].mailbox));
 
-	int nbucket = (npieces - 2) / 4;
+	// int nbucket = (npieces - 2) / 4;
+	int nbucket = 0;
 
 	if (board.side == WHITE) {
 		score = nnue_eval(nnue_network, bs[winbucket][binbucket].w_acc, bs[winbucket][binbucket].b_acc, nbucket);
@@ -348,11 +349,11 @@ std::array<Value, 8> debug_eval(Board &board) {
 	std::array<Value, 8> score = {};
 	if (board.side == WHITE) {
 		for (int i = 0; i < 8; i++) {
-			score[i] = nnue_eval(nnue_network, bs[winbucket][binbucket].w_acc, bs[winbucket][binbucket].b_acc, i);
+			score[i] = nnue_eval(nnue_network, bs[winbucket][binbucket].w_acc, bs[winbucket][binbucket].b_acc, 0);
 		}
 	} else {
 		for (int i = 0; i < 8; i++) {
-			score[i] = -nnue_eval(nnue_network, bs[winbucket][binbucket].b_acc, bs[winbucket][binbucket].w_acc, i);
+			score[i] = -nnue_eval(nnue_network, bs[winbucket][binbucket].b_acc, bs[winbucket][binbucket].w_acc, 0);
 		}
 	}
 

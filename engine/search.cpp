@@ -941,4 +941,6 @@ void clear_search_vars() {
 		main_hist.corrhist_mat[0][i] = main_hist.corrhist_mat[1][i] = 0;
 		main_hist.corrhist_np[0][i] = main_hist.corrhist_np[1][i] = 0;
 	}
+
+	memset(main_hist.cont_hist, 0, sizeof(main_hist.cont_hist));
 }

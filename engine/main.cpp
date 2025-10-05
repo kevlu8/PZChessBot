@@ -211,7 +211,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		for (const auto &fen : bench_positions) {
 			board.reset(fen);
 			clear_search_vars();
-			search(board, 1e9, 11, 1e18, 0);
+			search(board, 1e9, 8, 1e18, 0);
 			tot_nodes += nodes;
 		}
 		uint64_t end = clock();
@@ -234,7 +234,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				ss >> token; // ignore book for now
 		}
 		Board board = Board(TT_SIZE);
-		std::mt19937 rng(s);
+		std::mt19937_64 rng(s);
 		while (n--) {
 			board.reset_startpos();
 			bool restart = false;
@@ -247,12 +247,23 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				}
 				board.make_move(moves[rng() % moves.size()]);
 			}
+			bool in_check = false;
+			if (board.side == WHITE) {
+				in_check = board.control(_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK);
+			} else {
+				in_check = board.control(_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE);
+			}
+			if (in_check) restart = true;
 			// make sure position is legal and somewhat balanced
 			if (!restart) {
 				if (_mm_popcnt_u64(board.piece_boards[KING]) != 2) restart = true;
 				else {
-					auto res = search(board, 1e9, MAX_PLY, 10000, 1);
-					if (abs(res.second) >= 300) restart = true;
+					auto s_eval = eval(board);
+					if (abs(s_eval) >= 600) restart = true; // do a fast static eval to quickly filter out crazy positions
+					else {
+						auto res = search(board, 1e9, MAX_PLY, 10000, 1);
+						if (abs(res.second) >= 400) restart = true;
+					}
 				}
 			}
 			if (restart) {
