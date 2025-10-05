@@ -5,7 +5,7 @@
 #define INPUT_SIZE 768
 #define NINPUTS 1
 #define HL_SIZE 64
-#define NBUCKETS 1
+#define NBUCKETS 8
 #define SCALE 400
 #define QA 255
 #define QB 64
