@@ -695,12 +695,17 @@ void __print_pv_clipped(bool omit_last = 0) {
 std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t maxnodes, int quiet) {
 	g_quiet = quiet;
 
+	uint64_t soft_nodes = 1e18;
+
 	std::cout << std::fixed << std::setprecision(0);
 	nodes = seldepth = 0;
 	early_exit = exit_allowed = false;
 	start = clock();
 	mxtime = time;
-	mx_nodes = maxnodes;
+	if (maxnodes != 1e18) {
+		mx_nodes = 1000000;
+		soft_nodes = maxnodes;
+	}
 	
 	// Clear killer moves and history heuristic
 	for (int i = 0; i < MAX_PLY; i++) {
@@ -831,6 +836,8 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 		#endif
 		
 		exit_allowed = true;
+
+		if (nodes >= soft_nodes) break; // soft node limit
 		
 		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
 			return {best_move, eval};
