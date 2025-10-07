@@ -129,8 +129,9 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 
 	seldepth = std::max(depth, seldepth);
 	Value stand_pat = 0;
-	if (tentry && abs(tentry->eval) < VALUE_MATE_MAX_PLY) stand_pat = tentry->eval;
-	else stand_pat = eval(board) * side;
+	// if (tentry && abs(tentry->eval) < VALUE_MATE_MAX_PLY) stand_pat = tentry->eval;
+	// else stand_pat = eval(board) * side;
+	stand_pat = eval(board) * side;
 	main_hist.apply_correction(board.side, board.pawn_struct_hash(), board.material_hash(), board.nonpawn_hash(), line[depth - 1].move, stand_pat);
 
 	// If it's a mate, stop here since there's no point in searching further
@@ -284,9 +285,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	uint64_t pawn_hash = 0;
 	if (!in_check) {
 		pawn_hash = board.pawn_struct_hash();
-		if (tentry && abs(tentry->eval) < VALUE_MATE_MAX_PLY)
-			cur_eval = tentry->eval;
-		else
+		// if (tentry && abs(tentry->eval) < VALUE_MATE_MAX_PLY)
+		// 	cur_eval = tentry->eval;
+		// else
 			cur_eval = eval(board) * side;
 		raw_eval = cur_eval;
 		main_hist.apply_correction(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), ply >= 1 ? line[ply - 1].move : NullMove, cur_eval);
