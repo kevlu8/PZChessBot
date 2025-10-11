@@ -11,13 +11,14 @@ A chess engine created by two high school students, started when we were in midd
 |      Version     | CCRL Blitz | CCRL 40/15 | Lichess Rapid |
 | ---------------- | ---------- | ---------- | ------------- |
 | v20250311T07     |   ~1900    |     -      |     2000      |
-| v1.0             |    2713    |     -      |     2500      |
+| v1.0             |    2712    |     -      |     2500      |
 | v20250421T23-dev |   ~3000    |     -      |     2600      |
-| v2.0             |    2994    |     -      |     2650      |
+| v2.0             |    2986    |     -      |     2650      |
 | v20250621T09-dev |   ~3100    |     -      |     2700      |
 | v20250623T22-dev |   ~3160    |     -      |     2800      |
-| v3.0             |    3314    |    3275    |     2850      |
+| v3.0             |    3305    |    3275    |     2850      |
 | v20250729T08-dev |   ~3400    |     -      |     2900      |
+| v4.0             |    3433    |     -      |     2900      |
 
 ## Logistics & Features
 
@@ -51,7 +52,7 @@ PZChessBot is a basic negamax engine.
 
 - NNUE-type evaluation with king buckets
 - Runs a (768x16->512)x2->1x8 model
-- Trained on a mix of Stockfish and Lc0 Data
+- Trained from zero-knowledge using self-play games
 
 ### Special Thanks
 
