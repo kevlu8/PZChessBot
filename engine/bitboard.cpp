@@ -441,7 +441,7 @@ void Board::print_board_pretty(bool print_meta) const {
 			if (piece == NO_PIECE) {
 				std::cout << "   "; // 3 spaces
 			} else {
-				std::cout << BLACK_PIECE " " << pieces[piece] << " ";
+				std::cout << " " << pieces[piece] << " ";
 			}
 			std::cout << RESET;
 		}

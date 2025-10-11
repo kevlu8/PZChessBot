@@ -819,7 +819,16 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 			}
 
 			if (d > 1)
-				std::cout << "\033[9A\033[J";
+				std::cout << "\033[21A\033[J"; // Move cursor up 9 lines and clear
+
+			int moves = 0;
+			for (int i = 0; i < pvlen[0]; i++) {
+				if (pvtable[0][i] == NullMove) break;
+				board.make_move(pvtable[0][i]);
+				moves++;
+			}
+			board.print_board_pretty();
+			while (moves--) board.unmake_move();
 
 			std::cout << CYAN "┌─────────── " BOLD "Depth " << d << RESET CYAN " ───────────┐" RESET << std::endl;
 			std::cout << CYAN "│ " YELLOW "Depth:    " RESET BOLD << d << RESET CYAN " (" << seldepth << " sel)" RESET << std::endl;
