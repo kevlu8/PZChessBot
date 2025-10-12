@@ -282,15 +282,15 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	Value cur_eval = 0;
 	Value raw_eval = 0; // For CorrHist
+	Value tt_corr_eval = 0;
 	uint64_t pawn_hash = 0;
 	if (!in_check) {
 		pawn_hash = board.pawn_struct_hash();
-		// if (tentry && abs(tentry->eval) < VALUE_MATE_MAX_PLY)
-		// 	cur_eval = tentry->eval;
-		// else
-			cur_eval = eval(board) * side;
-		raw_eval = cur_eval;
+		cur_eval = eval(board) * side;
+		raw_eval = tt_corr_eval = cur_eval;
 		main_hist.apply_correction(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), ply >= 1 ? line[ply - 1].move : NullMove, cur_eval);
+		if (tentry && tentry->valid() && abs(tentry->eval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tentry->eval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
+			tt_corr_eval = tentry->eval;
 	}
 
 	line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
@@ -307,14 +307,14 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * We need to make sure that we aren't in check (since we might get mated)
 		 */
 		int margin = (RFP_THRESHOLD - improving * RFP_IMPROVING) * depth;
-		if (cur_eval >= beta + margin)
-			return (cur_eval + beta) / 2;
+		if (tt_corr_eval >= beta + margin)
+			return (tt_corr_eval + beta) / 2;
 	}
 
 	// Null-move pruning
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 	int npawns_and_kings = _mm_popcnt_u64(board.piece_boards[PAWN] | board.piece_boards[KING]);
-	if (!in_check && npieces != npawns_and_kings && cur_eval >= beta && depth >= 2 && line[ply].excl == NullMove) { // Avoid NMP in pawn endgames
+	if (!in_check && npieces != npawns_and_kings && tt_corr_eval >= beta && depth >= 2 && line[ply].excl == NullMove) { // Avoid NMP in pawn endgames
 		/**
 		 * This works off the *null-move observation*.
 		 * 
@@ -328,7 +328,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 */
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
-		Value r = NMP_R_VALUE + depth / 4 + std::min(3, (cur_eval - beta) / 400) + improving;
+		Value r = NMP_R_VALUE + depth / 4 + std::min(3, (tt_corr_eval - beta) / 400) + improving;
 		Value null_score = -__recurse(board, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
 		board.unmake_move();
 		if (null_score >= beta)
@@ -336,7 +336,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Razoring
-	if (!pv && !in_check && depth <= 8 && cur_eval + RAZOR_MARGIN * depth < alpha) {
+	if (!pv && !in_check && depth <= 8 && tt_corr_eval + RAZOR_MARGIN * depth < alpha) {
 		/**
 		 * If we are losing by a lot, check w/ qsearch to see if we could possibly improve.
 		 * If not, we can prune the search.
