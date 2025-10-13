@@ -90,6 +90,26 @@ Move next_move(pzstd::vector<std::pair<Move, int>> &scores, int &end) {
 	return best_move;
 }
 
+Value score_to_tt(Value score, int ply) {
+	if (score >= VALUE_MATE_MAX_PLY) {
+		return score + ply;
+	} else if (score <= -VALUE_MATE_MAX_PLY) {
+		return score - ply;
+	} else {
+		return score;
+	}
+}
+
+Value tt_to_score(Value score, int ply) {
+	if (score >= VALUE_MATE_MAX_PLY) {
+		return score - ply;
+	} else if (score <= -VALUE_MATE_MAX_PLY) {
+		return score + ply;
+	} else {
+		return score;
+	}
+}
+
 /**
  * Perform the quiescence search
  * 
@@ -117,13 +137,15 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 	}
 
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
+	Value tteval = 0;
+	if (tentry) tteval = tt_to_score(tentry->eval, depth);
 	if (!pv && tentry) {
-		if (tentry->bound() == EXACT) return tentry->eval;
+		if (tentry->bound() == EXACT) return tteval;
 		if (tentry->bound() == LOWER_BOUND) {
-			if (tentry->eval >= beta) return tentry->eval;
+			if (tteval >= beta) return tteval;
 		}
 		if (tentry->bound() == UPPER_BOUND) {
-			if (tentry->eval <= alpha) return tentry->eval;
+			if (tteval <= alpha) return tteval;
 		}
 	}
 
@@ -191,9 +213,6 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 
 		line[depth].move = NullMove;
 
-		if (score >= VALUE_MATE_MAX_PLY)
-			score = score - (uint16_t(score >> 15) << 1) - 1; // Fixes "mate 0" bug
-
 		if (score > best) {
 			if (score > alpha) {
 				alpha = score;
@@ -203,12 +222,12 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 			best_move = move;
 		}
 		if (score >= beta) {
-			board.ttable.store(board.zobrist, score, 0, LOWER_BOUND, pv, move, depth);
+			board.ttable.store(board.zobrist, score_to_tt(score, depth), 0, LOWER_BOUND, pv, move, depth);
 			return best;
 		}
 	}
 
-	board.ttable.store(board.zobrist, best, 0, alpha_raise ? EXACT : UPPER_BOUND, pv, best_move, depth);
+	board.ttable.store(board.zobrist, score_to_tt(best, depth), 0, alpha_raise ? EXACT : UPPER_BOUND, pv, best_move, depth);
 
 	return best;
 }
@@ -228,6 +247,19 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			early_exit = true;
 			return 0;
 		}
+	}
+
+	/**
+	 * Mate-distance pruning
+	 * 
+	 * If we are at `ply` plies away from the root and we know we already have a mate-in-N
+	 * such that N <= ply, we can stop searching this branch since it's longer than our
+	 * current best mate.
+	 */
+	alpha = std::max((int)alpha, -VALUE_MATE + ply);
+	beta = std::min((int)beta, VALUE_MATE - ply + 1);
+	if (alpha >= beta) {
+		return alpha;
 	}
 
 	// Control on white king and black king respectively
@@ -267,14 +299,16 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	// Check for TTable cutoff
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
+	Value tteval = 0;
+	if (tentry) tteval = tt_to_score(tentry->eval, ply);
 	if (!pv && tentry && tentry->depth >= depth && line[ply].excl == NullMove) {
 		// Check for cutoffs
 		if (tentry->bound() == EXACT) {
-			return tentry->eval;
-		} else if (tentry->bound() == LOWER_BOUND && tentry->eval >= beta) {
-			return tentry->eval;
-		} else if (tentry->bound() == UPPER_BOUND && tentry->eval <= alpha) {
-			return tentry->eval;
+			return tteval;
+		} else if (tentry->bound() == LOWER_BOUND && tteval >= beta) {
+			return tteval;
+		} else if (tentry->bound() == UPPER_BOUND && tteval <= alpha) {
+			return tteval;
 		}
 	}
 
@@ -289,8 +323,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		cur_eval = eval(board) * side;
 		raw_eval = tt_corr_eval = cur_eval;
 		main_hist.apply_correction(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), ply >= 1 ? line[ply - 1].move : NullMove, cur_eval);
-		if (tentry && tentry->valid() && abs(tentry->eval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tentry->eval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
-			tt_corr_eval = tentry->eval;
+		if (tentry && tentry->valid() && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
+			tt_corr_eval = tteval;
 	}
 
 	line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
@@ -378,13 +412,13 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (line[ply].excl == NullMove && depth >= 8 && tentry && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
 			// Singular extension
 			line[ply].excl = move;
-			Value singular_beta = tentry->eval - 4 * depth;
+			Value singular_beta = tteval - 4 * depth;
 			Value singular_score = __recurse(board, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
 			line[ply].excl = NullMove; // Reset exclusion move
 
 			if (singular_score < singular_beta) {
 				depth++;
-			} else if (tentry->eval >= beta) {
+			} else if (tteval >= beta) {
 				// Negative extensions
 				extension -= 3;
 			} else if (cutnode) {
@@ -567,7 +601,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (line[ply].excl == NullMove) {
 		Move tt_move = best_move != NullMove ? best_move : tentry ? tentry->best_move : NullMove;
-		board.ttable.store(board.zobrist, best, depth, flag, ttpv, tt_move, board.halfmove);
+		board.ttable.store(board.zobrist, score_to_tt(best, ply), depth, flag, ttpv, tt_move, board.halfmove);
 	}
 
 	return best;
@@ -778,7 +812,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 		#ifndef NOUCI
 		if (!quiet) {
 			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
-				std::cout << "info depth " << d << " seldepth " << seldepth << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
+				std::cout << "info depth " << d << " seldepth " << seldepth << " score mate " << (VALUE_MATE - abs(eval) + 1) / 2 * (eval > 0 ? 1 : -1) << " nodes "
 				<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
 				__print_pv(1);
 				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
@@ -806,7 +840,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 			std::string score_text;
 
 			if (abs(eval) >= VALUE_MATE_MAX_PLY) {
-				int mate_moves = (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1);
+				int mate_moves = (VALUE_MATE - abs(eval) + 1) / 2 * (eval > 0 ? 1 : -1);
 				score_color = (mate_moves > 0) ? GREEN : RED;
 				score_text = "mate " + std::to_string(mate_moves);
 			} else {
@@ -848,10 +882,10 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 
 		if (nodes >= soft_nodes) break; // soft node limit
 		
-		if (abs(eval) >= VALUE_MATE_MAX_PLY) {
-			return {best_move, eval};
-			// We don't need to search further, we found mate
-		}
+		// if (abs(eval) >= VALUE_MATE_MAX_PLY) {
+		// 	return {best_move, eval};
+		// 	// We don't need to search further, we found mate
+		// }
 
 		int time_elapsed = (clock() - start) / CLOCKS_PER_MS;
 		double soft = 0.5;
