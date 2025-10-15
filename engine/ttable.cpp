@@ -1,6 +1,6 @@
 #include "ttable.hpp"
 
-void TTable::store(uint64_t key, Value eval, uint8_t depth, uint8_t bound, bool ttpv, Move best_move, uint8_t age) {
+void TTable::store(uint64_t key, Value eval, Value s_eval, uint8_t depth, uint8_t bound, bool ttpv, Move best_move, uint8_t age) {
 	TTBucket *bucket = TT + (key % TT_SIZE);
 
 	key >>= 32; // Use upper 32 bits for the key (since we already verified bottom n bits)
@@ -11,12 +11,14 @@ void TTable::store(uint64_t key, Value eval, uint8_t depth, uint8_t bound, bool 
 		// Update an existing entry
 		if (depth_entry->key == key) {
 			depth_entry->eval = eval;
+			depth_entry->s_eval = s_eval;
 			depth_entry->depth = depth;
 			depth_entry->flags = bound | (ttpv ? TTPV : 0);
 			depth_entry->best_move = best_move;
 			depth_entry->age = age;
 		} else if (always_entry->key == key) {
 			always_entry->eval = eval;
+			always_entry->s_eval = s_eval;
 			always_entry->depth = depth;
 			always_entry->flags = bound | (ttpv ? TTPV : 0);
 			always_entry->best_move = best_move;
@@ -27,9 +29,9 @@ void TTable::store(uint64_t key, Value eval, uint8_t depth, uint8_t bound, bool 
 
 	// 1. Check if we can replace the depth entry
 	if (depth_entry->depth < depth || (depth_entry->depth == depth && depth_entry->age < age)) {
-		if (depth_entry->flags == INVALID) tsize++;
 		depth_entry->key = key;
 		depth_entry->eval = eval;
+		depth_entry->s_eval = s_eval;
 		depth_entry->depth = depth;
 		depth_entry->flags = bound | (ttpv ? TTPV : 0);
 		depth_entry->best_move = best_move;
@@ -38,9 +40,9 @@ void TTable::store(uint64_t key, Value eval, uint8_t depth, uint8_t bound, bool 
 	}
 
 	// 2. Always replace the second entry
-	if (always_entry->flags == INVALID) tsize++;
 	always_entry->key = key;
 	always_entry->eval = eval;
+	always_entry->s_eval = s_eval;
 	always_entry->depth = depth;
 	always_entry->flags = bound | (ttpv ? TTPV : 0);
 	always_entry->best_move = best_move;
