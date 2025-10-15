@@ -418,6 +418,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 			if (singular_score < singular_beta) {
 				depth++;
+
+				if (singular_score <= singular_beta - 20)
+					extension++;
 			} else if (tteval >= beta) {
 				// Negative extensions
 				extension -= 3;
