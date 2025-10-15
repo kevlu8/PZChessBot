@@ -110,6 +110,17 @@ Value tt_to_score(Value score, int ply) {
 	}
 }
 
+double get_ttable_sz(Board &board) {
+	TTable &ttable = board.ttable;
+	int cnt = 0;
+	for (int i = 0; i < 1024; i++) {
+		if (i >= ttable.TT_SIZE) break;
+		if (ttable.TT[i].entries[0].valid()) cnt++;
+		if (ttable.TT[i].entries[1].valid()) cnt++;
+	}
+	return cnt / 2048.0;
+}
+
 /**
  * Perform the quiescence search
  * 
@@ -138,8 +149,8 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
 	Value tteval = 0;
-	if (tentry) tteval = tt_to_score(tentry->eval, depth);
-	if (!pv && tentry) {
+	if (tentry && tentry->valid()) tteval = tt_to_score(tentry->eval, depth);
+	if (!pv && tentry && tentry->valid()) {
 		if (tentry->bound() == EXACT) return tteval;
 		if (tentry->bound() == LOWER_BOUND) {
 			if (tteval >= beta) return tteval;
@@ -151,10 +162,12 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 
 	seldepth = std::max(depth, seldepth);
 	Value stand_pat = 0;
-	// if (tentry && abs(tentry->eval) < VALUE_MATE_MAX_PLY) stand_pat = tentry->eval;
-	// else stand_pat = eval(board) * side;
-	stand_pat = eval(board) * side;
+	Value raw_eval = 0;
+	stand_pat = tentry ? tentry->s_eval : eval(board) * side;
+	raw_eval = stand_pat;
 	main_hist.apply_correction(board.side, board.pawn_struct_hash(), board.material_hash(), board.nonpawn_hash(), line[depth - 1].move, stand_pat);
+
+	if (!tentry) board.ttable.store(board.zobrist, -VALUE_INFINITE, stand_pat, 0, NONE, false, NullMove, depth);
 
 	// If it's a mate, stop here since there's no point in searching further
 	// Theoretically shouldn't ever happen because of stand pat
@@ -222,12 +235,12 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 			best_move = move;
 		}
 		if (score >= beta) {
-			board.ttable.store(board.zobrist, score_to_tt(score, depth), 0, LOWER_BOUND, pv, move, depth);
+			board.ttable.store(board.zobrist, score_to_tt(score, depth), raw_eval, 0, LOWER_BOUND, pv, move, depth);
 			return best;
 		}
 	}
 
-	board.ttable.store(board.zobrist, score_to_tt(best, depth), 0, alpha_raise ? EXACT : UPPER_BOUND, pv, best_move, depth);
+	board.ttable.store(board.zobrist, score_to_tt(best, depth), raw_eval, 0, alpha_raise ? EXACT : UPPER_BOUND, pv, best_move, depth);
 
 	return best;
 }
@@ -300,7 +313,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	// Check for TTable cutoff
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
 	Value tteval = 0;
-	if (tentry) tteval = tt_to_score(tentry->eval, ply);
+	if (tentry && tentry->valid()) tteval = tt_to_score(tentry->eval, ply);
 	if (!pv && tentry && tentry->depth >= depth && line[ply].excl == NullMove) {
 		// Check for cutoffs
 		if (tentry->bound() == EXACT) {
@@ -320,11 +333,12 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	uint64_t pawn_hash = 0;
 	if (!in_check) {
 		pawn_hash = board.pawn_struct_hash();
-		cur_eval = eval(board) * side;
+		cur_eval = tentry ? tentry->s_eval : eval(board) * side;
 		raw_eval = tt_corr_eval = cur_eval;
 		main_hist.apply_correction(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), ply >= 1 ? line[ply - 1].move : NullMove, cur_eval);
 		if (tentry && tentry->valid() && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
 			tt_corr_eval = tteval;
+		else if (!tentry) board.ttable.store(board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove, board.halfmove);
 	}
 
 	line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
@@ -601,7 +615,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (line[ply].excl == NullMove) {
 		Move tt_move = best_move != NullMove ? best_move : tentry ? tentry->best_move : NullMove;
-		board.ttable.store(board.zobrist, score_to_tt(best, ply), depth, flag, ttpv, tt_move, board.halfmove);
+		board.ttable.store(board.zobrist, score_to_tt(best, ply), raw_eval, depth, flag, ttpv, tt_move, board.halfmove);
 	}
 
 	return best;
@@ -675,7 +689,6 @@ pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv
 		}
 
 		if (score >= beta) {
-			board.ttable.store(board.zobrist, score, depth, LOWER_BOUND, true, move, board.halfmove);
 			if (line[0].killer[0] != move) {
 				line[0].killer[1] = line[0].killer[0];
 				line[0].killer[0] = move;
@@ -703,8 +716,6 @@ pzstd::vector<std::pair<Move, Value>> __search_multipv(Board &board, int multipv
 		}
 		multipv_res.push_back({best_move[i], best_score[i]});
 	}
-
-	board.ttable.store(board.zobrist, final_best_score, depth, alpha_raise ? EXACT : UPPER_BOUND, true, final_best_move, board.halfmove);
 
 	return multipv_res;
 }
@@ -815,12 +826,12 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 				std::cout << "info depth " << d << " seldepth " << seldepth << " score mate " << (VALUE_MATE - abs(eval) + 1) / 2 * (eval > 0 ? 1 : -1) << " nodes "
 				<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
 				__print_pv(1);
-				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+				std::cout << "hashfull " << (get_ttable_sz(board) * 1000) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			} else {
 				std::cout << "info depth " << d << " seldepth " << seldepth << " score cp " << eval << " nodes " << nodes << " nps "
 				<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv ";
 				__print_pv();
-				std::cout << "hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+				std::cout << "hashfull " << (get_ttable_sz(board) * 1000) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 			}
 		} else if (quiet == 2) { // quiet level: formatted output
 			auto format_number = [](uint64_t num) -> std::string {
@@ -834,7 +845,7 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 
 			uint64_t time_ms = (clock() - start) / CLOCKS_PER_MS;
 			uint64_t nps = time_ms > 0 ? (nodes * 1000 / time_ms) : 0;
-			uint32_t hashfull = board.ttable.size() * 1000 / board.ttable.mxsize();
+			uint32_t hashfull = get_ttable_sz(board) * 1000 / board.ttable.mxsize();
 
 			std::string score_color;
 			std::string score_text;
@@ -954,11 +965,11 @@ pzstd::vector<std::pair<Move, Value>> search_multipv(Board &board, int multipv, 
 				if (abs(eval) >= VALUE_MATE_MAX_PLY) {
 					std::cout << "info depth " << d << " seldepth " << seldepth << " multipv " << i+1 << " score mate " << (VALUE_MATE - abs(eval)) / 2 * (eval > 0 ? 1 : -1) << " nodes "
 					<< nodes << " nps " << (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << multipv_res[i].first.to_string()
-					<< " hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+					<< " hashfull " << (get_ttable_sz(board) * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 				} else {
 					std::cout << "info depth " << d << " seldepth " << seldepth << " multipv " << i+1 << " score cp " << eval << " nodes " << nodes << " nps "
 					<< (nodes / ((double)(clock() - start) / CLOCKS_PER_SEC)) << " pv " << multipv_res[i].first.to_string()
-					<< " hashfull " << (board.ttable.size() * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
+					<< " hashfull " << (get_ttable_sz(board) * 1000 / board.ttable.mxsize()) << " time " << (clock() - start) / CLOCKS_PER_MS << std::endl;
 				}
 			}
 		}

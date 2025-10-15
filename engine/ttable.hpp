@@ -9,7 +9,7 @@ enum TTFlag {
 	EXACT = 0,
 	LOWER_BOUND = 1, // eval might be higher than stored value
 	UPPER_BOUND = 2, // eval might be lower than stored value
-	INVALID = 3,
+	NONE = 3,
 	TTPV = 4
 };
 
@@ -17,13 +17,13 @@ struct TTable {
 	struct TTEntry {
 		uint32_t key;
 		Move best_move;
-		Value eval;
+		Value eval, s_eval;
 		uint8_t depth;
 		uint8_t flags; // 0: exact, 1: lower bound, 2: upper, 3: empty
 		uint8_t age; // half-move clock when this entry was last updated
 
-		TTEntry() : key(0), best_move(NullMove), eval(0), depth(0), flags(INVALID), age(0) {}
-		const bool valid() const { return flags != INVALID; }
+		TTEntry() : key(0), best_move(NullMove), eval(0), s_eval(0), depth(0), flags(NONE), age(0) {}
+		const bool valid() const { return flags != NONE; }
 		const TTFlag bound() const { return TTFlag(flags & 3); }
 		const bool ttpv() const { return flags >> 2; }
 	};
@@ -33,7 +33,6 @@ struct TTable {
 	};
 
 	TTBucket *TT;
-	uint64_t tsize = 0;
 	int TT_SIZE;
 
 	TTable(int size) : TT_SIZE(size) { TT = new TTBucket[size]; }
@@ -51,15 +50,13 @@ struct TTable {
 			delete[] TT;
 			TT_SIZE = o.TT_SIZE;
 			TT = new TTBucket[TT_SIZE];
-			tsize = 0;
 		}
 		return *this;
 	}
 
-	void store(uint64_t key, Value eval, uint8_t depth, uint8_t bound, bool ttpv, Move best_move, uint8_t age);
+	void store(uint64_t key, Value eval, Value s_eval, uint8_t depth, uint8_t bound, bool ttpv, Move best_move, uint8_t age);
 
 	TTEntry *probe(uint64_t key);
 
-	constexpr uint64_t size() const { return tsize; }
 	constexpr uint64_t mxsize() const { return TT_SIZE * 2; }
 };
