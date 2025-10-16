@@ -1,0 +1,37 @@
+name: PZ Compilation Verification
+
+on:
+  push:
+    branches: [ "main", "ci" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Obtain Reference Bench
+      run: |
+        benchref=$(git show -s --format=%B HEAD | sed '1!G;h;$!d' | grep -m 1 -o -x '[[:space:]]*\b[Bb]ench[ :]\+[1-9][0-9]*\b[[:space:]]*' | sed 's/[^0-9]//g')
+        if [[ -n "$benchref" ]]; then
+          echo "benchref=$benchref" >> $GITHUB_ENV
+          echo "Reference bench: $benchref"
+        else
+          echo "ERROR: No reference bench found"
+          exit 1
+        fi
+    - name: Fetch latest NNUE
+      run: wget https://github.com/kevlu8/PZChessBot-Networks/releases/latest/download/nnue.bin
+    - name: Compile
+      run: make
+    - name: Check Bench
+      run: |
+        obtained=$(eval "./clockwork bench 2>&1" | tail -n 1 | awk '{print $1}')
+        if [ "${{ env.benchref }}" != "$obtained" ]; then
+          echo "signature mismatch: reference ${{ env.benchref }} obtained: $obtained."
+          exit 1
+        fi
+        echo "signature OK: $obtained"
