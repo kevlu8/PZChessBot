@@ -29,7 +29,7 @@ jobs:
       run: make
     - name: Check Bench
       run: |
-        obtained=$(eval "./clockwork bench 2>&1" | tail -n 1 | awk '{print $1}')
+        obtained=$(eval "./pzchessbot bench 2>&1" | tail -n 1 | awk '{print $1}')
         if [ "${{ env.benchref }}" != "$obtained" ]; then
           echo "signature mismatch: reference ${{ env.benchref }} obtained: $obtained."
           exit 1
