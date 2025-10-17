@@ -16,8 +16,8 @@
 // we can afford to lose RFP_THRESHOLD eval units per ply
 // and still be in a better position. The lower the value,
 // the more aggressive RFP is.
-#define RFP_THRESHOLD 131
-#define RFP_IMPROVING 30
+#define RFP_THRESHOLD 100
+#define RFP_IMPROVING 20
 
 // Aspiration window size(s)
 // The aspiration window is the range of values we search
