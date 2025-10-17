@@ -12,7 +12,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    # - uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
     - name: Obtain Reference Bench
       run: |
         benchref=$(git show -s --format=%B HEAD | sed '1!G;h;$!d' | grep -m 1 -o -x '[[:space:]]*\b[Bb]ench[ :]\+[1-9][0-9]*\b[[:space:]]*' | sed 's/[^0-9]//g')
