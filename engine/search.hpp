@@ -45,7 +45,7 @@
 
 // History pruning margin
 // This is the margin for history pruning (in centipawns)
-#define HISTORY_MARGIN 4000
+#define HISTORY_MARGIN 2000
 
 extern uint64_t nodes;
 
