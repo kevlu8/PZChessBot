@@ -18,7 +18,7 @@ struct TunableParam {
     int increment;
     double learning_rate;
     
-    TunableParam(const std::string& n, int* ptr, int init, int mn, int mx, int inc, double lr)
+    TunableParam(const std::string& n, int* ptr, int init, int mn, int mx, int inc, double lr=0.002)
         : name(n), value_ptr(ptr), initial(init), min(mn), max(mx), increment(inc), learning_rate(lr) {
         *value_ptr = init; // Set initial value
     }
