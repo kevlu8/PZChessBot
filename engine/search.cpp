@@ -521,6 +521,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (depth >= 2 && i >= 1 + 2 * pv) {
 			Value r = reduction[i][depth];
 
+			if (capt || promo) r = r * 3 / 4;
+
 			r -= 1024 * pv;
 			r += 1024 * (!pv && cutnode);
 			if (move == line[ply].killer[0] || move == line[ply].killer[1])
