@@ -613,7 +613,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	bool best_ispromo = (best_move.type() == PROMOTION);
 	if (abs(best) < VALUE_MATE_MAX_PLY && !in_check && !best_iscapture && !best_ispromo && !(best < alpha && best >= raw_eval) && !(best >= beta && best <= raw_eval)) {
 		// Best move is a quiet move, update CorrHist
-		main_hist.update_corrhist(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), line[ply - 1].move, best - raw_eval, depth);
+		main_hist.update_corrhist(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), ply >= 1 ? line[ply - 1].move : NullMove, best - raw_eval, depth);
 	}
 
 	if (line[ply].excl == NullMove) {
