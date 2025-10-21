@@ -167,7 +167,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 	raw_eval = stand_pat;
 	main_hist.apply_correction(board.side, board.pawn_struct_hash(), board.material_hash(), board.nonpawn_hash(), line[depth - 1].move, stand_pat);
 
-	if (!tentry) board.ttable.store(board.zobrist, -VALUE_INFINITE, stand_pat, 0, NONE, false, NullMove, depth);
+	if (!tentry) board.ttable.store(board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove, depth);
 
 	// If it's a mate, stop here since there's no point in searching further
 	// Theoretically shouldn't ever happen because of stand pat
