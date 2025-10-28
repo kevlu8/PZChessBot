@@ -51,6 +51,10 @@ Move MovePicker::next() {
 	}
 
 	if (stage == MP_STAGE_MOVES) {
+		if (end == 0) {
+			stage = MP_STAGE_DONE;
+			return NullMove;
+		}
 		Move best_move = NullMove;
 		int best_score = -2147483647;
 		int idx = 0;
