@@ -936,7 +936,8 @@ void Board::recompute_hash() {
 
 bool Board::threefold(int ply) {
 	int cnt = 0, plies = 0;
-	for (const uint64_t h : hash_hist) {
+	for (int idx = hash_hist.size() - 1; idx >= 0; idx--) {
+		const uint64_t& h = hash_hist[idx];
 		if (h == zobrist)
 			cnt++;
 		if (plies < ply && cnt >= 2)
