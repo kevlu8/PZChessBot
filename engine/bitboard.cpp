@@ -934,15 +934,20 @@ void Board::recompute_hash() {
 	zobrist ^= zobrist_side * side;
 }
 
-int Board::threefold() {
-	int cnt = 0;
+bool Board::threefold(int ply) {
+	if (!move_hist.empty() && (move_hist.top().prev_piece() != NO_PIECE || move_hist.top().move().type() == PROMOTION))
+		return false; // Can't be threefold if the last move was a capture or promotion
+
+	int cnt = 0, plies = 0;
 	for (const uint64_t h : hash_hist) {
 		if (h == zobrist)
 			cnt++;
-		if (cnt >= 3)
-			return 3;
+		if (plies < ply && cnt >= 2)
+			return true;
+		plies++;
+		if (cnt >= 3) return true;
 	}
-	return cnt;
+	return false;
 }
 
 uint64_t Board::pawn_struct_hash() const {
