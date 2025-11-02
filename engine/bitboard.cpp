@@ -935,9 +935,6 @@ void Board::recompute_hash() {
 }
 
 bool Board::threefold(int ply) {
-	if (!move_hist.empty() && (move_hist.top().prev_piece() != NO_PIECE || move_hist.top().move().type() == PROMOTION))
-		return false; // Can't be threefold if the last move was a capture or promotion
-
 	int cnt = 0, plies = 0;
 	for (const uint64_t h : hash_hist) {
 		if (h == zobrist)
