@@ -948,6 +948,42 @@ bool Board::threefold(int ply) {
 	return false;
 }
 
+bool Board::insufficient_material() const {
+	Bitboard all_pieces = piece_boards[PAWN] | piece_boards[ROOK] | piece_boards[QUEEN];
+	if (all_pieces != 0) return false; // There is at least one pawn, rook or queen
+
+	int nknights = _mm_popcnt_u64(piece_boards[KNIGHT]);
+	int nbishops = _mm_popcnt_u64(piece_boards[BISHOP]);
+
+	if (nknights > 2) return false; // More than 2 knights
+
+	if (nbishops > 2) return false; // More than 2 bishops
+
+	if (nbishops == 2) {
+		// Check if they are on same color
+		Bitboard bishops = piece_boards[BISHOP];
+		Square first_bishop = (Square)_tzcnt_u64(bishops);
+		bishops ^= square_bits(first_bishop);
+		Square second_bishop = (Square)_tzcnt_u64(bishops);
+		if (((first_bishop ^ second_bishop) & 0b1) == 0) {
+			return true; // Both bishops on same color
+		} else {
+			return false;
+		}
+	}
+
+	if (nbishops == 1) {
+		// Check if there is any knight
+		if (nknights >= 1) return false;
+		return true;
+	}
+
+	// No bishops
+	if (nknights <= 1) return true;
+
+	return false;
+}
+
 uint64_t Board::pawn_struct_hash() const {
 	return pawn_hash;
 }

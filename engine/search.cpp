@@ -290,7 +290,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Threefold or 50 move rule
-	if (!root && (board.threefold(ply) || board.halfmove >= 100)) {
+	if (!root && (board.threefold(ply) || board.halfmove >= 100 || board.insufficient_material())) {
 		return 0;
 	}
 
