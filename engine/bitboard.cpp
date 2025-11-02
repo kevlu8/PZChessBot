@@ -934,15 +934,15 @@ void Board::recompute_hash() {
 	zobrist ^= zobrist_side * side;
 }
 
-bool Board::threefold() {
+int Board::threefold() {
 	int cnt = 0;
 	for (const uint64_t h : hash_hist) {
 		if (h == zobrist)
 			cnt++;
 		if (cnt >= 3)
-			return true;
+			return 3;
 	}
-	return false;
+	return cnt;
 }
 
 uint64_t Board::pawn_struct_hash() const {
