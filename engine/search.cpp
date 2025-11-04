@@ -290,7 +290,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Threefold or 50 move rule
-	if (!root && (board.threefold(ply) || board.halfmove >= 100)) {
+	if (!root && (board.threefold(ply) || board.halfmove >= 100 || board.insufficient_material())) {
 		return 0;
 	}
 
@@ -446,7 +446,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		line[ply].move = move;
 
 		if (best > -VALUE_MATE_MAX_PLY) {
-			if (i >= 5 + 2 * depth * depth) {
+			if (i >= 5 + depth * depth) {
 				/**
 				 * Late Move Pruning
 				 * 
@@ -465,24 +465,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				Value hist = main_hist.get_history(board, move, ply, &line[ply]);
 				if (hist < -HISTORY_MARGIN * depth)
 					break;
-			}
-
-			if (depth <= 2 && !in_check && !capt && !promo && abs(alpha) < VALUE_MATE_MAX_PLY && abs(beta) < VALUE_MATE_MAX_PLY) {
-				/**
-				 * Futility pruning
-				 * 
-				 * If we are at the leaf of the search, we can prune moves that are
-				 * probably not going to be better than alpha.
-				 */
-				if (depth == 1 && cur_eval + FUTILITY_THRESHOLD < alpha) {
-					mp.skip_quiets();
-					continue;
-				}
-
-				if (depth == 2 && cur_eval + FUTILITY_THRESHOLD2 < alpha) {
-					mp.skip_quiets();
-					continue;
-				}
 			}
 
 			if (depth <= 3 && !promo && best > -VALUE_INFINITE) {

@@ -116,6 +116,7 @@ struct Board {
 	void recompute_hash();
 
 	bool threefold(int ply);
+	bool insufficient_material() const;
 
 	uint64_t pawn_struct_hash() const;
 	uint64_t nonpawn_hash() const;
