@@ -335,8 +335,9 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (!in_check) {
 		pawn_hash = board.pawn_struct_hash();
 		cur_eval = tentry ? tentry->s_eval : eval(board) * side;
-		raw_eval = tt_corr_eval = cur_eval;
+		raw_eval = cur_eval;
 		main_hist.apply_correction(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), ply >= 1 ? line[ply - 1].move : NullMove, cur_eval);
+		tt_corr_eval = cur_eval;
 		if (tentry && tentry->valid() && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
 			tt_corr_eval = tteval;
 		else if (!tentry) board.ttable.store(board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove, board.halfmove);
