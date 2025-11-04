@@ -64,6 +64,7 @@ public:
 
 	int get_conthist(Board &board, Move move, int ply, SSEntry *line);
 	int get_history(Board &board, Move move, int ply, SSEntry *line);
+	int get_capthist(Board &board, Move move);
 
 	void update_history(Board &board, Move &move, int ply, SSEntry *line, Value bonus);
 	void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonus);

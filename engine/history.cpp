@@ -15,6 +15,11 @@ int History::get_history(Board &board, Move move, int ply, SSEntry *line) {
 	return score;
 }
 
+int History::get_capthist(Board &board, Move move) {
+	int score = capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
+	return score;
+}
+
 // History gravity formula
 void History::update_history(Board &board, Move &move, int ply, SSEntry *line, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);

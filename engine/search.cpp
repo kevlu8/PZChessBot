@@ -1,4 +1,5 @@
 #include "search.hpp"
+#include <utility>
 
 #define MOVENUM(x) ((((#x)[1] - '1') << 12) | (((#x)[0] - 'a') << 8) | (((#x)[3] - '1') << 4) | ((#x)[2] - 'a'))
 
@@ -445,6 +446,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		line[ply].move = move;
 
+		Value hist = capt ? main_hist.get_capthist(board, move) : main_hist.get_history(board, move, ply, &line[ply]);
 		if (best > -VALUE_MATE_MAX_PLY) {
 			if (i >= 5 + depth * depth) {
 				/**
@@ -462,7 +464,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				 * Skip moves with very bad history scores
 				 * Depth condition is necessary to avoid overflow
 				 */
-				Value hist = main_hist.get_history(board, move, ply, &line[ply]);
 				if (hist < -HISTORY_MARGIN * depth)
 					break;
 			}
@@ -508,6 +509,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (move == line[ply].killer[0] || move == line[ply].killer[1])
 				r -= 1024;
 			r -= 1024 * ttpv;
+			r -= hist / 16 * !capt;
 
 			Value searched_depth = depth - r / 1024;
 
