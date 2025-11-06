@@ -221,9 +221,11 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 	if (argc == 3 && std::string(argv[2]) == "quit") {
 		// assume genfens
 		// ./pzchessbot "genfens N seed S book None" "quit"
+		bool filter_weird = true;
+		int nmoves = 12;
 		std::string genfens = argv[1];
 		std::stringstream ss(genfens);
-		std::string token;
+		std::string book, token;
 		uint64_t n = 0, s = 0;
 		while (ss >> token) {
 			if (token == "genfens")
@@ -231,14 +233,33 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			else if (token == "seed")
 				ss >> s;
 			else if (token == "book")
-				ss >> token; // ignore book for now
+				ss >> book;
+			else if (token == "filter") {
+				ss >> token;
+				filter_weird = token == "1" || token == "true";
+			} else if (token == "nmoves") {
+				ss >> nmoves;
+			}
 		}
 		Board board = Board(TT_SIZE);
 		std::mt19937_64 rng(s);
+		std::ifstream bookfile(book == "None" ? "" : book);
+		std::vector<std::string> fens;
+		if (bookfile.is_open()) {
+			std::string line;
+			while (getline(bookfile, line)) {
+				fens.push_back(line);
+			}
+			bookfile.clear();
+			bookfile.close();
+		}
 		while (n--) {
-			board.reset_startpos();
+			if (fens.empty()) board.reset_startpos();
+			else {
+				board.reset(fens[rng() % fens.size()]);
+			}
 			bool restart = false;
-			for (int i = 0; i < 12; i++) {
+			for (int i = 0; i < nmoves; i++) {
 				pzstd::vector<Move> moves;
 				board.legal_moves(moves);
 				if (moves.size() == 0) {
@@ -247,17 +268,19 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				}
 				board.make_move(moves[rng() % moves.size()]);
 			}
-			bool in_check = false;
+			bool in_check = false, checking_opponent = false;
 			if (board.side == WHITE) {
 				in_check = board.control(_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK);
+				checking_opponent = board.control(_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE);
 			} else {
 				in_check = board.control(_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE);
+				checking_opponent = board.control(_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK);
 			}
-			if (in_check) restart = true;
+			if (in_check || checking_opponent) restart = true;
 			// make sure position is legal and somewhat balanced
 			if (!restart) {
 				if (_mm_popcnt_u64(board.piece_boards[KING]) != 2) restart = true;
-				else {
+				else if (filter_weird) {
 					auto s_eval = eval(board);
 					if (abs(s_eval) >= 600) restart = true; // do a fast static eval to quickly filter out crazy positions
 					else {
