@@ -148,6 +148,9 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 		}
 	}
 
+	if (depth >= MAX_PLY)
+		return eval(board) * side; // Just in case
+
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
 	Value tteval = 0;
 	if (tentry && tentry->valid()) tteval = tt_to_score(tentry->eval, depth);
@@ -247,7 +250,10 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 }
 
 Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 0, bool root = false) {
-	pvlen[ply] = 0;
+	if (pv) pvlen[ply] = 0;
+
+	if (ply >= MAX_PLY)
+		return eval(board) * side;
 
 	nodes++;
 
