@@ -169,7 +169,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 	Value raw_eval = 0;
 	stand_pat = tentry ? tentry->s_eval : eval(board) * side;
 	raw_eval = stand_pat;
-	main_hist.apply_correction(board.side, board.pawn_struct_hash(), board.material_hash(), board.nonpawn_hash(), line[depth - 1].move, stand_pat);
+	main_hist.apply_correction(board, stand_pat);
 
 	if (!tentry) board.ttable.store(board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove, depth);
 
@@ -342,7 +342,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		pawn_hash = board.pawn_struct_hash();
 		cur_eval = tentry ? tentry->s_eval : eval(board) * side;
 		raw_eval = cur_eval;
-		main_hist.apply_correction(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), ply >= 1 ? line[ply - 1].move : NullMove, cur_eval);
+		main_hist.apply_correction(board, cur_eval);
 		tt_corr_eval = cur_eval;
 		if (tentry && tentry->valid() && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
 			tt_corr_eval = tteval;
@@ -602,9 +602,10 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	bool best_iscapture = (board.piece_boards[OPPOCC(board.side)] & square_bits(best_move.dst()));
 	bool best_ispromo = (best_move.type() == PROMOTION);
-	if (abs(best) < VALUE_MATE_MAX_PLY && !in_check && !best_iscapture && !best_ispromo && !(best < alpha && best >= raw_eval) && !(best >= beta && best <= raw_eval)) {
+	if (!in_check && !(best_move != NullMove && (best_iscapture || best_ispromo))
+		&& !(best < alpha && best >= raw_eval) && !(best >= beta && best <= raw_eval)) {
 		// Best move is a quiet move, update CorrHist
-		main_hist.update_corrhist(board.side, pawn_hash, board.material_hash(), board.nonpawn_hash(), ply >= 1 ? line[ply - 1].move : NullMove, best - raw_eval, depth);
+		main_hist.update_corrhist(board, best - raw_eval, depth);
 	}
 
 	if (line[ply].excl == NullMove) {
