@@ -51,6 +51,7 @@ void History::update_corrhist(bool side, uint64_t pshash, uint64_t mathash, uint
 }
 
 void History::apply_correction(bool side, uint64_t pshash, uint64_t mathash, uint64_t nphash, Move prev, Value &eval) {
+	return;
 	if (abs(eval) >= VALUE_MATE_MAX_PLY)
 		return; // Don't apply correction if we are already at a mate score
 	const Value pscorr = corrhist_ps[side][pshash % CORRHIST_SZ];
