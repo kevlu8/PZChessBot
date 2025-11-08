@@ -170,6 +170,8 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 	stand_pat = tentry ? tentry->s_eval : eval(board) * side;
 	raw_eval = stand_pat;
 	main_hist.apply_correction(board, stand_pat);
+	if (tentry && tentry->valid() && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
+		stand_pat = tteval;
 
 	if (!tentry) board.ttable.store(board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove, depth);
 
