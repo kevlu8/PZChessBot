@@ -38,7 +38,7 @@ void History::update_capthist(PieceType piece, PieceType captured, Square dst, V
 
 // Moving exponential average for corrhist
 void History::update_corrhist(Board &board, Value diff, int depth) {
-	const Value sdiff = diff * CORRHIST_GRAIN;
+	const int sdiff = diff * CORRHIST_GRAIN;
 	const Value weight = std::min(depth + 1, 16);
 	
 	auto update_entry = [=](Value &entry) {
