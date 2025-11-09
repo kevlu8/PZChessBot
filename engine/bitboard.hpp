@@ -68,7 +68,8 @@ struct Board {
 	Square ep_square = SQ_NONE;
 	uint64_t zobrist = 0;
 	uint64_t pawn_hash = 0;
-	uint64_t nonpawn_hashval = 0;
+	uint64_t nonpawn_hashval[2] = {0, 0}; // [side]
+	uint64_t major_hash = 0, minor_hash = 0;
 	TTable ttable;
 	pzstd::largevector<uint64_t> hash_hist;
 
@@ -119,6 +120,6 @@ struct Board {
 	bool insufficient_material() const;
 
 	uint64_t pawn_struct_hash() const;
-	uint64_t nonpawn_hash() const;
+	uint64_t nonpawn_hash(bool color) const;
 	uint64_t material_hash() const;
 };
