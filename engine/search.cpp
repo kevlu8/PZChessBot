@@ -312,13 +312,6 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (in_check) depth++; // Check extensions
 
-	if (depth <= 0) {
-		// Reached the maximum depth, perform quiescence search
-		return quiesce(board, alpha, beta, side, ply, pv);
-	}
-
-	bool ttpv = pv;
-
 	// Check for TTable cutoff
 	TTable::TTEntry *tentry = board.ttable.probe(board.zobrist);
 	Value tteval = 0;
@@ -334,6 +327,12 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 	}
 
+	if (depth <= 0) {
+		// Reached the maximum depth, perform quiescence search
+		return quiesce(board, alpha, beta, side, ply, pv);
+	}
+
+	bool ttpv = pv;
 	if (tentry) ttpv |= tentry->ttpv();
 
 	Value cur_eval = 0;
