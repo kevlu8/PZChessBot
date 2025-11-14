@@ -390,7 +390,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		Value null_score = -__recurse(board, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
 		board.unmake_move();
 		if (null_score >= beta)
-			return null_score;
+			return null_score >= VALUE_MATE_MAX_PLY ? beta : null_score;
 	}
 
 	// Razoring
