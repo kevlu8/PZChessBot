@@ -3,8 +3,8 @@
 #include "../includes.hpp"
 
 #define INPUT_SIZE 768
-#define NINPUTS 4
-#define HL_SIZE 1024
+#define NINPUTS 16
+#define HL_SIZE 512
 #define NBUCKETS 8
 #define SCALE 400
 #define QA 255
