@@ -41,7 +41,7 @@ __attribute__((constructor)) void init_lmr() {
 	for (int i = 0; i < 250; i++) {
 		for (int d = 0; d < MAX_PLY; d++) {
 			if (d <= 1 || i <= 1) reduction[i][d] = 1024;
-			else reduction[i][d] = (0.77 + log2(i) * log2(d) / 2.36) * 1024;
+			else reduction[i][d] = (0.77 + log(i) * log(d) / 2.36) * 1024;
 		}
 	}
 }
@@ -420,7 +420,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	pzstd::vector<Move> quiets, captures;
 
 	Move move = NullMove;
-	int i = 0;
+	int i = 1;
 
 	uint64_t prev_nodes = nodes;
 
@@ -433,11 +433,11 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		
 		int extension = 0;
 
-		if (line[ply].excl == NullMove && depth >= 8 && i == 0 && tentry && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
+		if (line[ply].excl == NullMove && depth >= 8 && i == 1 && tentry && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
 			// Singular extension
 			line[ply].excl = move;
 			Value singular_beta = tteval - 4 * depth;
-			Value singular_score = __recurse(board, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
+			Value singular_score = __recurse(board, (depth - 1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
 			line[ply].excl = NullMove; // Reset exclusion move
 
 			if (singular_score < singular_beta) {
@@ -510,7 +510,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * the search.
 		 */
 		Value score;
-		if (depth >= 2 && i >= 1 + 2 * pv) {
+		if (depth >= 2 && i >= 2 + 2 * pv) {
 			Value r = reduction[i][depth];
 
 			r -= 1024 * pv;
@@ -520,16 +520,16 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			r -= 1024 * ttpv;
 			r -= hist / 16 * !capt;
 
-			Value searched_depth = depth - r / 1024;
+			Value searched_depth = newdepth - r / 1024;
 
 			score = -__recurse(board, searched_depth, -alpha - 1, -alpha, -side, 0, true, ply+1);
 			if (score > alpha && searched_depth < newdepth) {
 				score = -__recurse(board, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
 			}
-		} else if (!pv || i > 0) {
+		} else if (!pv || i > 1) {
 			score = -__recurse(board, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
 		}
-		if (pv && (i == 0 || score > alpha)) {
+		if (pv && (i == 1 || score > alpha)) {
 			if (tentry && move == tentry->best_move && tentry->depth > 1)
 				newdepth = std::max((int)newdepth, 1); // Make sure we don't enter QS if we have an available TT move
 			score = -__recurse(board, newdepth, -beta, -alpha, -side, 1, false, ply+1);
