@@ -457,7 +457,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		Value hist = capt ? main_hist.get_capthist(board, move) : main_hist.get_history(board, move, ply, &line[ply]);
 		if (best > -VALUE_MATE_MAX_PLY) {
-			if (i >= 5 + depth * depth) {
+			if (i >= (5 + depth * depth) / (2 - improving)) {
 				/**
 				 * Late Move Pruning
 				 * 
