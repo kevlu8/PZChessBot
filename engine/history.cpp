@@ -10,6 +10,8 @@ int History::get_conthist(Board &board, Move move, int ply, SSEntry *line) {
 		score += (line - 3)->cont_hist->hist[board.side][board.mailbox[move.src()] & 7][move.dst()];
 	if (ply >= 4 && (line - 4)->cont_hist)
 		score += (line - 4)->cont_hist->hist[board.side][board.mailbox[move.src()] & 7][move.dst()];
+	if (ply >= 5 && (line - 5)->cont_hist)
+		score += (line - 5)->cont_hist->hist[board.side][board.mailbox[move.src()] & 7][move.dst()];
 	return score;
 }
 
@@ -37,6 +39,8 @@ void History::update_history(Board &board, Move &move, int ply, SSEntry *line, V
 		(line - 3)->cont_hist->hist[board.side][board.mailbox[move.src()] & 7][move.dst()] += cbonus - conthist * abs(bonus) / MAX_HISTORY;
 	if (ply >= 4 && (line - 4)->cont_hist)
 		(line - 4)->cont_hist->hist[board.side][board.mailbox[move.src()] & 7][move.dst()] += cbonus - conthist * abs(bonus) / MAX_HISTORY;
+	if (ply >= 5 && (line - 5)->cont_hist)
+		(line - 5)->cont_hist->hist[board.side][board.mailbox[move.src()] & 7][move.dst()] += cbonus - conthist * abs(bonus) / MAX_HISTORY;
 }
 
 void History::update_capthist(PieceType piece, PieceType captured, Square dst, Value bonus) {
