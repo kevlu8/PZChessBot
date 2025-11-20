@@ -607,7 +607,8 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (!in_check && !(best_move != NullMove && (best_iscapture || best_ispromo))
 		&& !(best < alpha && best >= raw_eval) && !(best >= beta && best <= raw_eval)) {
 		// Best move is a quiet move, update CorrHist
-		main_hist.update_corrhist(board, best - raw_eval, depth);
+		int bonus = (best - raw_eval) * depth / 8;
+		main_hist.update_corrhist(board, bonus);
 	}
 
 	if (line[ply].excl == NullMove) {
