@@ -7,9 +7,7 @@
 
 Value simple_eval(Board &board);
 
-Value eval(Board &board);
-
-std::array<Value, 8> debug_eval(Board &board);
+Value eval(Board &board, void *bs_ptr);
 
 #ifdef HCE
 constexpr int pawn_heatmap[64] = {

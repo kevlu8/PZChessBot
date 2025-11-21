@@ -35,6 +35,7 @@ struct Move {
 	};
 	std::string to_string() const;
 	static Move from_string(const std::string &, const void *);
+	std::string to_san(const void *) const;
 };
 
 static constexpr Move NullMove = Move(0);

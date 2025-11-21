@@ -16,6 +16,10 @@
 #include "pzstl/vector.hpp"
 #include "debug.hpp"
 
+#define DATAGEN_HARD_NODES 1000000
+#define DATAGEN_SOFT_NODES 5000
+#define DATAGEN_NUM_RAND 12
+
 #define VERSION "v5.0"
 
 typedef uint64_t Bitboard;
@@ -24,6 +28,7 @@ constexpr bool WHITE = false;
 constexpr bool BLACK = true;
 
 constexpr int MAX_PLY = 300;
+constexpr int MAX_THREADS = 64;
 
 typedef int16_t Value;
 constexpr Value VALUE_ZERO = 0;

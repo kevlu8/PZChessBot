@@ -5,6 +5,8 @@
 
 #define DEFAULT_TT_SIZE (16 * 1024 * 1024 / sizeof(TTable::TTBucket)) // 16 MB
 
+extern TTable ttable[MAX_THREADS];
+
 enum TTFlag {
 	EXACT = 0,
 	LOWER_BOUND = 1, // eval might be higher than stored value
@@ -35,6 +37,7 @@ struct TTable {
 	TTBucket *TT;
 	int TT_SIZE;
 
+	TTable() : TT_SIZE(DEFAULT_TT_SIZE) { TT = new TTBucket[DEFAULT_TT_SIZE]; }
 	TTable(int size) : TT_SIZE(size) { TT = new TTBucket[size]; }
 
 	~TTable() { delete[] TT; }
@@ -57,6 +60,10 @@ struct TTable {
 	void store(uint64_t key, Value eval, Value s_eval, uint8_t depth, uint8_t bound, bool ttpv, Move best_move, uint8_t age);
 
 	TTEntry *probe(uint64_t key);
+
+	void clear() {
+		memset(TT, 0, sizeof(TTBucket) * TT_SIZE);
+	}
 
 	constexpr uint64_t mxsize() const { return TT_SIZE * 2; }
 };

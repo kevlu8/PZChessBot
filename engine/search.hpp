@@ -50,10 +50,20 @@
 
 extern uint64_t nodes;
 
-std::pair<Move, Value> search(Board &board, int64_t time = 1e9, int depth = MAX_PLY, int64_t nodes = 1e18, int quiet = 0);
+struct ThreadInfo {
+    Board board;
+    uint64_t nodes = 0;
+    History thread_hist;
+    SSEntry line[MAX_PLY] = {};
+    Move best_move;
+    bool early_exit = false;
+    int id = 0;
 
-pzstd::vector<std::pair<Move, Value>> search_multipv(Board &board, int multipv, int64_t time = 1e9, int depth = MAX_PLY, int64_t maxnodes = 1e18, int quiet = 0);
+    void *bs = nullptr; // points to BoardState[][] for this thread
+};
+
+std::pair<Move, Value> search(ThreadInfo &ti);
 
 uint64_t perft(Board &board, int depth);
 
-void clear_search_vars();
+void clear_search_vars(ThreadInfo &ti);
