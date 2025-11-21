@@ -1,8 +1,34 @@
 #include "movepicker.hpp"
 
+/**
+ * MVV_LVA (most valuable victim - least valuable attacker) is a metric for move ordering that helps
+ * sort captures and promotions. We basically sort high-value captures first, and low-value captures
+ * last.
+ * 
+ * Currently only used in quiescence search in favor of MVV+CaptHist in the main search
+ */
+Value MVV_LVA[6][6];
+
+__attribute__((constructor)) void init_mvvlva() {
+	for (int i = 0; i < 6; i++) {
+		for (int j = 0; j < 6; j++) {
+			if (i == KING)
+				MVV_LVA[i][j] = QueenValue * 13 + 1; // Prioritize over all other captures
+			else
+				MVV_LVA[i][j] = PieceValue[i] * 13 - PieceValue[j];
+		}
+	}
+}
+
 MovePicker::MovePicker(Board &board, SSEntry *ss, int ply, History *main_hist, TTable::TTEntry *tentry) : board(board), ss(ss), ply(ply), main_hist(main_hist) {
 	stage = MP_STAGE_TT;
 	ttMove = tentry ? tentry->best_move : NullMove;
+}
+
+MovePicker::MovePicker(Board &board) : board(board) {
+	stage = MP_QS_GEN;
+	ttMove = NullMove;
+	qskip = true;
 }
 
 Move MovePicker::next() {
@@ -50,6 +76,23 @@ Move MovePicker::next() {
 		end = scores.size();
 	}
 
+	if (stage == MP_QS_GEN) {
+		stage = MP_STAGE_MOVES;
+		board.captures(moves);
+
+		for (Move move : moves) {
+			int score = 0;
+			if (board.is_capture(move)) {
+				score += MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
+			} else {
+				score += PieceValue[move.promotion() + KNIGHT] - PawnValue;
+			}
+			scores.push_back({move, score});
+		}
+
+		end = scores.size();
+	}
+
 	if (stage == MP_STAGE_MOVES) {
 		if (end == 0) {
 			stage = MP_STAGE_DONE;
@@ -59,7 +102,7 @@ Move MovePicker::next() {
 		int best_score = -2147483647;
 		int idx = 0;
 		for (int i = 0; i < end; i++) {
-			if (board.is_capture(scores[i].first) && qskip) continue;
+			if (!board.is_capture(scores[i].first) && qskip) continue;
 			if (scores[i].second > best_score) {
 				best_score = scores[i].second;
 				best_move = scores[i].first;

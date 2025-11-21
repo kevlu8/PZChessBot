@@ -46,26 +46,6 @@ __attribute__((constructor)) void init_lmr() {
 	}
 }
 
-/**
- * MVV_LVA (most valuable victim - least valuable attacker) is a metric for move ordering that helps
- * sort captures and promotions. We basically sort high-value captures first, and low-value captures
- * last.
- * 
- * Currently only used in quiescence search in favor of MVV+CaptHist in the main search
- */
-Value MVV_LVA[6][6];
-
-__attribute__((constructor)) void init_mvvlva() {
-	for (int i = 0; i < 6; i++) {
-		for (int j = 0; j < 6; j++) {
-			if (i == KING)
-				MVV_LVA[i][j] = QueenValue * 13 + 1; // Prioritize over all other captures
-			else
-				MVV_LVA[i][j] = PieceValue[i] * 13 - PieceValue[j];
-		}
-	}
-}
-
 History main_hist;
 
 SSEntry line[MAX_PLY]; // Currently searched line
@@ -186,22 +166,7 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 	if (stand_pat > alpha)
 		alpha = stand_pat;
 
-	pzstd::vector<Move> moves;
-	board.captures(moves);
-	if (moves.empty())
-		return stand_pat;
-
-	// Sort captures and promotions
-	pzstd::vector<std::pair<Move, int>> scores;
-	for (Move &move : moves) {
-		if (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst())) {
-			int score = 0;
-			score = MVV_LVA[board.mailbox[move.dst()] & 7][board.mailbox[move.src()] & 7];
-			scores.push_back({move, score});
-		} else if (move.type() == PROMOTION) {
-			scores.push_back({move, PieceValue[move.promotion() + KNIGHT] - PawnValue});
-		}
-	}
+	MovePicker mp(board);
 
 	Value best = stand_pat;
 	Move best_move = NullMove;
@@ -209,9 +174,8 @@ Value quiesce(Board &board, Value alpha, Value beta, int side, int depth, bool p
 	int alpha_raise = 0;
 
 	Move move = NullMove;
-	int end = scores.size();
 
-	while ((move = next_move(scores, end)) != NullMove) {
+	while ((move = mp.next()) != NullMove) {
 		if (move.type() != PROMOTION) {
 			Value see = board.see_capture(move);
 			if (see < 0) {

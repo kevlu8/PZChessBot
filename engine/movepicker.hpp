@@ -14,6 +14,8 @@ enum MP_Stage {
 	MP_STAGE_GEN,
 	MP_STAGE_MOVES,
 	MP_STAGE_DONE,
+
+	MP_QS_GEN,
 };
 
 class MovePicker {
@@ -31,6 +33,7 @@ private:
 
 public:
 	MovePicker(Board &board, SSEntry *ss, int ply, History *main_hist, TTable::TTEntry *tentry);
+	MovePicker(Board &board); // QS constructor
 
 	Move next();
 
