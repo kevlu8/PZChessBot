@@ -45,13 +45,10 @@ void History::update_capthist(PieceType piece, PieceType captured, Square dst, V
 }
 
 // Moving exponential average for corrhist
-void History::update_corrhist(Board &board, Value diff, int depth) {
-	const int sdiff = diff * CORRHIST_GRAIN;
-	const Value weight = std::min(depth + 1, 16);
-	
+void History::update_corrhist(Board &board, int bonus) {
 	auto update_entry = [=](Value &entry) {
-		int update = entry * (CORRHIST_WEIGHT - weight) + sdiff * weight;
-		entry = std::clamp(update / CORRHIST_WEIGHT, -MAX_HISTORY, (int)MAX_HISTORY);
+		int update = std::clamp(bonus, -MAX_CORRHIST / 4, MAX_CORRHIST / 4);
+		entry += update - entry * abs(update) / MAX_CORRHIST;
 	};
 
 	update_entry(corrhist_ps[board.side][board.pawn_struct_hash() % CORRHIST_SZ]);
@@ -62,7 +59,7 @@ void History::apply_correction(Board &board, Value &eval) {
 		return; // Don't apply correction if we are already at a mate score
 	
 	int corr = 0;
-	corr += corrhist_ps[board.side][board.pawn_struct_hash() % CORRHIST_SZ];
+	corr += 128 * corrhist_ps[board.side][board.pawn_struct_hash() % CORRHIST_SZ];
 	
-	eval += corr / CORRHIST_GRAIN;
+	eval += corr / 2048;
 }

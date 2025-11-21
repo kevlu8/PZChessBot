@@ -69,6 +69,6 @@ public:
 	void update_history(Board &board, Move &move, int ply, SSEntry *line, Value bonus);
 	void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonus);
 
-	void update_corrhist(Board &board, Value diff, int depth);
+	void update_corrhist(Board &board, int bonus);
 	void apply_correction(Board &board, Value &eval);
 };

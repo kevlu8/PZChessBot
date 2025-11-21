@@ -40,6 +40,7 @@ constexpr Value QueenValue = 1002;
 constexpr Value VALUE_MAX = QueenValue * 9 + (KnightValue + BishopValue + RookValue) * 2;
 
 constexpr Value MAX_HISTORY = 16384;
+constexpr Value MAX_CORRHIST = 1024;
 
 #ifndef NNUE_PATH
 #define NNUE_PATH "nnue.bin"
