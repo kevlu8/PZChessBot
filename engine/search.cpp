@@ -333,6 +333,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			return tteval;
 		}
 	}
+	bool ttcapt = tentry && tentry->best_move != NullMove && board.is_capture(tentry->best_move);
 
 	if (tentry) ttpv |= tentry->ttpv();
 
@@ -519,6 +520,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 				r -= 1024;
 			r -= 1024 * ttpv;
 			r -= hist / 16 * !capt;
+			r += 1024 * ttcapt;
 
 			Value searched_depth = depth - r / 1024;
 
