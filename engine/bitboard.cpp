@@ -492,14 +492,16 @@ void Board::make_move(Move move) {
 #ifdef HASHCHECK
 	uint64_t old_hash = zobrist;
 	uint64_t old_pawn_hash = pawn_hash;
-	uint64_t old_nonpawn_hash = nonpawn_hashval[side];
+	uint64_t old_nonpawn_hash_white = nonpawn_hashval[WHITE];
+	uint64_t old_nonpawn_hash_black = nonpawn_hashval[BLACK];
 	uint64_t old_major_hash = major_hash;
 	uint64_t old_minor_hash = minor_hash;
 	recompute_hash();
-	if (old_hash != zobrist || old_pawn_hash != pawn_hash || old_nonpawn_hash != nonpawn_hashval[side] || old_major_hash != major_hash || old_minor_hash != minor_hash) {
+	if (old_hash != zobrist || old_pawn_hash != pawn_hash || old_nonpawn_hash_white != nonpawn_hashval[WHITE] || old_nonpawn_hash_black != nonpawn_hashval[BLACK] || old_major_hash != major_hash || old_minor_hash != minor_hash) {
 		std::cerr << "Hash mismatch before move: expected " << zobrist << " got " << old_hash << '\n';
 		std::cerr << "Or, pawn hash mismatch before move: expected " << pawn_hash << " got " << old_pawn_hash << '\n';
-		std::cerr << "Or, nonpawn hash mismatch before move: expected " << nonpawn_hashval[side] << " got " << old_nonpawn_hash << '\n';
+		std::cerr << "Or, nonpawn hash mismatch before move (white): expected " << nonpawn_hashval[WHITE] << " got " << old_nonpawn_hash_white << '\n';
+		std::cerr << "Or, nonpawn hash mismatch before move (black): expected " << nonpawn_hashval[BLACK] << " got " << old_nonpawn_hash_black << '\n';
 		std::cerr << "Or, major hash mismatch before move: expected " << major_hash << " got " << old_major_hash << '\n';
 		std::cerr << "Or, minor hash mismatch before move: expected " << minor_hash << " got " << old_minor_hash << '\n';
 		abort();
@@ -708,15 +710,17 @@ void Board::make_move(Move move) {
 #ifdef HASHCHECK
 	old_hash = zobrist;
 	old_pawn_hash = pawn_hash;
-	old_nonpawn_hash = nonpawn_hashval[side];
+	old_nonpawn_hash_white = nonpawn_hashval[WHITE];
+	old_nonpawn_hash_black = nonpawn_hashval[BLACK];
 	old_major_hash = major_hash;
 	old_minor_hash = minor_hash;
 	recompute_hash();
-	if (zobrist != old_hash || pawn_hash != old_pawn_hash || nonpawn_hashval[side] != old_nonpawn_hash || major_hash != old_major_hash || minor_hash != old_minor_hash) {
+	if (zobrist != old_hash || pawn_hash != old_pawn_hash || nonpawn_hashval[WHITE] != old_nonpawn_hash_white || nonpawn_hashval[BLACK] != old_nonpawn_hash_black || major_hash != old_major_hash || minor_hash != old_minor_hash) {
 		print_board();
 		std::cerr << "Hash mismatch after make: expected " << old_hash << " got " << zobrist << std::endl;
 		std::cerr << "Or, pawn hash mismatch after make: expected " << old_pawn_hash << " got " << pawn_hash << std::endl;
-		std::cerr << "Or, nonpawn hash mismatch after make: expected " << old_nonpawn_hash << " got " << nonpawn_hashval[side] << std::endl;
+		std::cerr << "Or, nonpawn hash mismatch after make: expected " << old_nonpawn_hash_white << " got " << nonpawn_hashval[WHITE] << std::endl;
+		std::cerr << "Or, nonpawn hash mismatch after make: expected " << old_nonpawn_hash_black << " got " << nonpawn_hashval[BLACK] << std::endl;
 		std::cerr << "Or, major hash mismatch after make: expected " << old_major_hash << " got " << major_hash << std::endl;
 		std::cerr << "Or, minor hash mismatch after make: expected " << old_minor_hash << " got " << minor_hash << std::endl;
 		std::cerr << "Move: " << move.to_string() << std::endl;
@@ -754,14 +758,16 @@ void Board::unmake_move() {
 #ifdef HASHCHECK
 	uint64_t old_hash = zobrist;
 	uint64_t old_pawn_hash = pawn_hash;
-	uint64_t old_nonpawn_hash = nonpawn_hashval[side];
+	uint64_t old_nonpawn_hash_white = nonpawn_hashval[WHITE];
+	uint64_t old_nonpawn_hash_black = nonpawn_hashval[BLACK];
 	uint64_t old_major_hash = major_hash;
 	uint64_t old_minor_hash = minor_hash;
 	recompute_hash();
-	if (old_hash != zobrist || old_pawn_hash != pawn_hash || old_nonpawn_hash != nonpawn_hashval[side]) {
+	if (old_hash != zobrist || old_pawn_hash != pawn_hash || old_nonpawn_hash_white != nonpawn_hashval[WHITE] || old_nonpawn_hash_black != nonpawn_hashval[BLACK] || old_major_hash != major_hash || old_minor_hash != minor_hash) {
 		std::cerr << "Hash mismatch before unmake: expected " << zobrist << " got " << old_hash << '\n';
 		std::cerr << "Or, pawn hash mismatch before unmake: expected " << pawn_hash << " got " << old_pawn_hash << '\n';
-		std::cerr << "Or, pawn hash mismatch before unmake: expected " << nonpawn_hashval[side] << " got " << old_nonpawn_hash << '\n';
+		std::cerr << "Or, nonpawn hash mismatch before unmake (white): expected " << nonpawn_hashval[WHITE] << " got " << old_nonpawn_hash_white << '\n';
+		std::cerr << "Or, nonpawn hash mismatch before unmake (black): expected " << nonpawn_hashval[BLACK] << " got " << old_nonpawn_hash_black << '\n';
 		std::cerr << "Or, major hash mismatch before unmake: expected " << major_hash << " got " << old_major_hash << '\n';
 		std::cerr << "Or, minor hash mismatch before unmake: expected " << minor_hash << " got " << old_minor_hash << '\n';
 		abort();
@@ -802,9 +808,9 @@ void Board::unmake_move() {
 			piece_boards[piece] ^= square_bits(move.dst());
 			piece_boards[OPPOCC(side)] ^= square_bits(move.dst());
 			nonpawn_hashval[!side] ^= zobrist_square[move.dst()][prev.prev_piece()];
-			if ((prev.prev_piece() & 7) == QUEEN || (prev.prev_piece() & 7) == ROOK)
+			if ((prev.prev_piece() & 7) == KING || (prev.prev_piece() & 7) == QUEEN || (prev.prev_piece() & 7) == ROOK)
 				major_hash ^= zobrist_square[move.dst()][prev.prev_piece()];
-			if ((prev.prev_piece() & 7) == BISHOP || (prev.prev_piece() & 7) == KNIGHT)
+			if ((prev.prev_piece() & 7) == KING || (prev.prev_piece() & 7) == BISHOP || (prev.prev_piece() & 7) == KNIGHT)
 				minor_hash ^= zobrist_square[move.dst()][prev.prev_piece()];
 		}
 	} else if (move.type() == EN_PASSANT) {
@@ -910,9 +916,9 @@ void Board::unmake_move() {
 			pawn_hash ^= zobrist_square[move.dst()][prev.prev_piece()];
 		} else {
 			nonpawn_hashval[!side] ^= zobrist_square[move.dst()][prev.prev_piece()];
-			if ((prev.prev_piece() & 7) == QUEEN || (prev.prev_piece() & 7) == ROOK)
+			if ((prev.prev_piece() & 7) == KING || (prev.prev_piece() & 7) == QUEEN || (prev.prev_piece() & 7) == ROOK)
 				major_hash ^= zobrist_square[move.dst()][prev.prev_piece()];
-			if ((prev.prev_piece() & 7) == BISHOP || (prev.prev_piece() & 7) == KNIGHT)
+			if ((prev.prev_piece() & 7) == KING || (prev.prev_piece() & 7) == BISHOP || (prev.prev_piece() & 7) == KNIGHT)
 				minor_hash ^= zobrist_square[move.dst()][prev.prev_piece()];
 		}
 		mailbox[move.src()] = mailbox[move.dst()];
@@ -946,18 +952,20 @@ void Board::unmake_move() {
 #ifdef HASHCHECK
 	old_hash = zobrist;
 	old_pawn_hash = pawn_hash;
-	old_nonpawn_hash = nonpawn_hashval[side];
+	old_nonpawn_hash_white = nonpawn_hashval[WHITE];
+	old_nonpawn_hash_black = nonpawn_hashval[BLACK];
 	old_major_hash = major_hash;
 	old_minor_hash = minor_hash;
 	recompute_hash();
-	if (zobrist != old_hash || pawn_hash != old_pawn_hash || nonpawn_hashval[side] != old_nonpawn_hash) {
+	if (zobrist != old_hash || pawn_hash != old_pawn_hash || nonpawn_hashval[WHITE] != old_nonpawn_hash_white || nonpawn_hashval[BLACK] != old_nonpawn_hash_black || major_hash != old_major_hash || minor_hash != old_minor_hash) {
 		print_board();
-		std::cerr << "Hash mismatch after unmake: expected " << zobrist << " got " << old_hash << '\n';
-		std::cerr << "Or, pawn hash mismatch after unmake: expected " << pawn_hash << " got " << old_pawn_hash << '\n';
-		std::cerr << "Or, nonpawn hash mismatch after unmake: expected " << nonpawn_hashval[side] << " got " << old_nonpawn_hash << '\n';
-		std::cerr << "Or, major hash mismatch after unmake: expected " << major_hash << " got " << old_major_hash << '\n';
-		std::cerr << "Or, minor hash mismatch after unmake: expected " << minor_hash << " got " << old_minor_hash << '\n';
-		std::cerr << prev.move().to_string() << std::endl;
+		std::cerr << "Hash mismatch after unmake: expected " << old_hash << " got " << zobrist << std::endl;
+		std::cerr << "Or, pawn hash mismatch after unmake: expected " << old_pawn_hash << " got " << pawn_hash << std::endl;
+		std::cerr << "Or, nonpawn hash mismatch after unmake: expected " << old_nonpawn_hash_white << " got " << nonpawn_hashval[WHITE] << std::endl;
+		std::cerr << "Or, nonpawn hash mismatch after unmake: expected " << old_nonpawn_hash_black << " got " << nonpawn_hashval[BLACK] << std::endl;
+		std::cerr << "Or, major hash mismatch after unmake: expected " << old_major_hash << " got " << major_hash << std::endl;
+		std::cerr << "Or, minor hash mismatch after unmake: expected " << old_minor_hash << " got " << minor_hash << std::endl;
+		std::cerr << "Move: " << move.to_string() << std::endl;
 		abort();
 	}
 #endif
