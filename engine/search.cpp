@@ -987,10 +987,8 @@ void clear_search_vars() {
 	}
 
 	memset(main_hist.history, 0, sizeof(main_hist.history));
-	memset(main_hist.corrhist_prev, 0, sizeof(main_hist.corrhist_prev));
 	memset(main_hist.capthist, 0, sizeof(main_hist.capthist));
 	memset(main_hist.corrhist_ps, 0, sizeof(main_hist.corrhist_ps));
-	memset(main_hist.corrhist_mat, 0, sizeof(main_hist.corrhist_mat));
-	memset(main_hist.corrhist_np, 0, sizeof(main_hist.corrhist_np));
+	memset(main_hist.corrhist_maj, 0, sizeof(main_hist.corrhist_maj));
 	memset(main_hist.cont_hist, 0, sizeof(main_hist.cont_hist));
 }

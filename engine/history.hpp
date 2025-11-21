@@ -49,17 +49,13 @@ public:
 	 * a variety of factors (e.g. pawn structure, minor pieces, etc)
 	 */
 	Value corrhist_ps[2][CORRHIST_SZ]; // [side][pawn hash]
-	Value corrhist_mat[2][CORRHIST_SZ]; // [side][material hash]
-	Value corrhist_prev[2][64][64]; // [side][from][to]
-	Value corrhist_np[2][CORRHIST_SZ]; // [side][non-pawn hash]
+	Value corrhist_maj[2][CORRHIST_SZ]; // [side][major piece hash]
 
 	History() {
 		memset(history, 0, sizeof(history));
 		memset(capthist, 0, sizeof(capthist));
 		memset(corrhist_ps, 0, sizeof(corrhist_ps));
-		memset(corrhist_mat, 0, sizeof(corrhist_mat));
-		memset(corrhist_prev, 0, sizeof(corrhist_prev));
-		memset(corrhist_np, 0, sizeof(corrhist_np));
+		memset(corrhist_maj, 0, sizeof(corrhist_maj));
 	}
 
 	int get_conthist(Board &board, Move move, int ply, SSEntry *line);
