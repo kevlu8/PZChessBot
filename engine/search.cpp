@@ -514,7 +514,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 			Value r = reduction[i][depth];
 
 			r -= 1024 * pv;
-			r += 1024 * (!pv && cutnode);
+			r += 2048 * (!pv && cutnode);
 			if (move == line[ply].killer[0] || move == line[ply].killer[1])
 				r -= 1024;
 			r -= 1024 * ttpv;
