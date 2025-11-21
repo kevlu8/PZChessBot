@@ -12,15 +12,17 @@
 #include "ttable.hpp"
 
 BoardState bs[MAX_THREADS][NINPUTS * 2][NINPUTS * 2];
-ThreadInfo ti[MAX_THREADS];
+ThreadInfo ti[MAX_THREADS * 2];
 
-void datagen(ThreadInfo &ti) {
-	std::fstream outfile(std::to_string(ti.id) + "_datagen.pgn", std::ios::out | std::ios::app);
+void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
+	int id = tiw.id;
+	std::fstream outfile(std::to_string(id) + "_datagen.pgn", std::ios::out | std::ios::app);
 	int games = 0;
-	std::mt19937_64 rng(ti.id + std::chrono::system_clock::now().time_since_epoch().count());
+	std::mt19937_64 rng(id + std::chrono::system_clock::now().time_since_epoch().count());
 	while (true) {
-		clear_search_vars(ti);
-		Board &board = ti.board;
+		clear_search_vars(tiw);
+		clear_search_vars(tib);
+		Board &board = tiw.board;
 
 		for (int i = 0; i < DATAGEN_NUM_RAND; i++) {
 			pzstd::vector<Move> moves;
@@ -48,16 +50,42 @@ void datagen(ThreadInfo &ti) {
 
 		std::vector<std::string> movelist;
 
-		int consec_draw = 0, consec_win = 0;
+		std::string game_res = "";
+
+		int consec_draw = 0, consec_w_win = 0, consec_b_win = 0;
 		int plies = DATAGEN_NUM_RAND;
 		while (true) {
 			auto result = search(ti);
 			Move bestmove = result.first;
 			Value score = result.second;
+			Value w_score = score * (board.side == WHITE ? 1 : -1);
 
-			if (score < 20 && plies >= 80) consec_draw++;
+			if (abs(score) <= 20 && plies >= 80) consec_draw++;
 			else consec_draw = 0;
 			
+			if (score >= 600) consec_w_win++;
+			else consec_w_win = 0;
+
+			if (score <= -600) consec_b_win++;
+			else consec_b_win = 0;
+
+			if (consec_draw >= 16) {
+				game_res = "1/2-1/2";
+				break;
+			}
+
+			if (consec_w_win >= 8) {
+				game_res = "1-0";
+				break;
+			}
+
+			if (consec_b_win >= 8) {
+				game_res = "0-1";
+				break;
+			}
+
+			board.make_move(bestmove);
+			movelist.push_back(bestmove.to_san((void*)&ti.board));
 		}
 	}
 }
