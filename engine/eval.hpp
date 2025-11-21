@@ -5,9 +5,11 @@
 #include "includes.hpp"
 #include "boardstate.hpp"
 
+extern Network nnue_network;
+
 Value simple_eval(Board &board);
 
-Value eval(Board &board);
+Value eval(Board &board, BoardState *sv);
 
 std::array<Value, 8> debug_eval(Board &board);
 

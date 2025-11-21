@@ -5,6 +5,8 @@
 
 #define DEFAULT_TT_SIZE (16 * 1024 * 1024 / sizeof(TTable::TTBucket)) // 16 MB
 
+extern TTable ttable;
+
 enum TTFlag {
 	EXACT = 0,
 	LOWER_BOUND = 1, // eval might be higher than stored value

@@ -49,6 +49,20 @@
 #define HISTORY_MARGIN 2000
 
 extern uint64_t nodes;
+extern uint16_t num_threads;
+
+struct SearchVars {
+	Board board;
+	uint64_t nodes = 0;
+	uint64_t nodecnt[64][64] = {{}};
+	int seldepth = 0;
+	bool is_main = false;
+	History history;
+	SSEntry line[MAX_PLY] = {};
+	Move pvtable[MAX_PLY][MAX_PLY];
+	int pvlen[MAX_PLY];
+	BoardState bs[NINPUTS * 2][NINPUTS * 2];
+};
 
 std::pair<Move, Value> search(Board &board, int64_t time = 1e9, int depth = MAX_PLY, int64_t nodes = 1e18, int quiet = 0);
 
