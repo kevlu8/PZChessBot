@@ -60,15 +60,6 @@ float multi(int x) {
 __attribute__((constructor)) void init_network() {
 #ifndef HCE
 	nnue_network.load();
-	for (int j = 0; j < NINPUTS * 2; j++) {
-		for (int k = 0; k < NINPUTS * 2; k++) {
-			for (int i = 0; i < HL_SIZE; i++) {
-				bs[j][k].w_acc.val[i] = nnue_network.accumulator_biases[i];
-				bs[j][k].b_acc.val[i] = nnue_network.accumulator_biases[i];
-			}
-			for (int i = 0; i < 64; i++) bs[j][k].mailbox[i] = NO_PIECE;
-		}
-	}
 #endif
 }
 

@@ -28,7 +28,13 @@ constexpr bool WHITE = false;
 constexpr bool BLACK = true;
 
 constexpr int MAX_PLY = 300;
-constexpr int MAX_THREADS = 64;
+
+// Instead of using a code-level constant, we define it in
+// the Makefile because an excessively high number will just
+// eat up memory, even when we aren't using all threads.
+#ifndef MAX_THREADS
+#define MAX_THREADS 16
+#endif
 
 typedef int16_t Value;
 constexpr Value VALUE_ZERO = 0;

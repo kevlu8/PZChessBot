@@ -6,8 +6,11 @@ EVALFILE ?= nnue.bin
 CXX      := g++
 WINCXX   := x86_64-w64-mingw32-g++
 
+# Get number of CPU cores for parallel builds
+NPROC    := $(shell nproc)
+
 # Flags
-BASEFLAGS   := -std=c++17 -DNNUE_PATH=\"$(EVALFILE)\" -m64
+BASEFLAGS   := -std=c++17 -DNNUE_PATH=\"$(EVALFILE)\" -m64 -DMAX_THREADS=$(NPROC)
 OPTFLAGS    := -O3 -flto=auto
 DEBUGFLAGS  := -g -fsanitize=address,undefined -march=native
 

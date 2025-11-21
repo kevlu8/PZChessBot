@@ -5,6 +5,8 @@
 #include "includes.hpp"
 #include "boardstate.hpp"
 
+extern Network nnue_network;
+
 Value simple_eval(Board &board);
 
 Value eval(Board &board, void *bs_ptr);

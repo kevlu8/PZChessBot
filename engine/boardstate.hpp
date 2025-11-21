@@ -9,4 +9,4 @@ struct BoardState {
 	Piece mailbox[64] = {};
 };
 
-extern BoardState bs[NINPUTS * 2][NINPUTS * 2];
+extern BoardState bs[MAX_THREADS][NINPUTS * 2][NINPUTS * 2];

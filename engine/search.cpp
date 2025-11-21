@@ -384,8 +384,6 @@ Value __recurse(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value 
 	Move move = NullMove;
 	int i = 0;
 
-	uint64_t prev_nodes = nodes;
-
 	while ((move = mp.next()) != NullMove) {
 		if (move == ti.line[ply].excl)
 			continue;
@@ -629,7 +627,7 @@ std::pair<Move, Value> search(ThreadInfo &ti) {
 			in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE) > 0;
 		}
 
-		if (nodes >= DATAGEN_SOFT_NODES) break; // soft node limit
+		if (ti.nodes >= DATAGEN_SOFT_NODES) break; // soft node limit
 	}
 
 	return {best_move, eval};
