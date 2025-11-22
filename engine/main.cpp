@@ -1,6 +1,8 @@
 #include "includes.hpp"
 
+#include <atomic>
 #include <cassert>
+#include <chrono>
 #include <random>
 #include <sstream>
 #include <thread>
@@ -15,12 +17,15 @@
 BoardState bs[MAX_THREADS][NINPUTS * 2][NINPUTS * 2];
 ThreadInfo ti[MAX_THREADS * 2];
 
+std::atomic<uint64_t> g_tot_pos(0);
+bool stop_all_threads = false;
+
 void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 	int id = tiw.id / 2;
 	std::fstream outfile(std::to_string(id) + "_datagen.pgn", std::ios::out | std::ios::app);
-	int games = 0;
+	uint64_t games = 0, total_pos = 0;
 	std::mt19937_64 rng(id + std::chrono::system_clock::now().time_since_epoch().count());
-	while (true) {
+	while (!stop_all_threads) {
 		clear_search_vars(tiw);
 		clear_search_vars(tib);
 		Board &board = tiw.board;
@@ -46,8 +51,8 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 		if (_mm_popcnt_u64(board.piece_boards[KING]) != 2) continue;
 		auto s_eval = eval(board, tiw.bs);
 		if (abs(s_eval) >= 800) continue; // ridiculous position
-		auto res = search(tiw).second;
-		if (abs(res) >= 600) continue; // unbalanced position
+		// auto res = search(tiw).second;
+		// if (abs(res) >= 600) continue; // unbalanced position
 
 		std::string startfen = board.get_fen();
 
@@ -64,17 +69,20 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 			Value score = result.second;
 			Value w_score = score * (board.side == WHITE ? 1 : -1);
 
-			movelist.push_back(bestmove.to_san((void*)&ti.board) + " {" + bestmove.to_string() + "} ");
+			std::stringstream movess;
+			movess << bestmove.to_san((void *)&ti.board) << " {" << std::fixed << std::setprecision(2) << std::showpos << (score / 100.0) << "}";
+
+			movelist.push_back(movess.str());
 			tiw.board.make_move(bestmove);
 			tib.board.make_move(bestmove);
 
 			if (abs(score) <= 20 && plies >= 80) consec_draw++;
 			else consec_draw = 0;
 
-			if (score >= 600) consec_w_win++;
+			if (w_score >= 600) consec_w_win++;
 			else consec_w_win = 0;
 
-			if (score <= -600) consec_b_win++;
+			if (w_score <= -600) consec_b_win++;
 			else consec_b_win = 0;
 
 			if (consec_draw >= 16 || tiw.board.threefold(0) || tiw.board.insufficient_material() || tiw.board.halfmove >= 100) {
@@ -91,26 +99,43 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 				game_res = "0-1";
 				break;
 			}
+
+			plies++;
 		}
 		games++;
+		total_pos += plies;
 
-		outfile << "[Event \"Datagen\"]\n";
-		outfile << "[White \"pzchessbot-w\"]\n";
-		outfile << "[Black \"pzchessbot-b\"]\n";
 		outfile << "[Result \"" << game_res << "\"]\n";
 		outfile << "[FEN \"" << startfen << "\"]\n";
 		outfile << "\n";
 
 		for (int i = 0; i < movelist.size(); i++) {
-			if (i % 2 == 0) {
-				outfile << (i / 2 + 1) << ". ";
-			}
 			outfile << movelist[i] << " ";
 		}
 		outfile << "\n\n";
 		outfile.flush();
 
-		std::cout << "Completed game " << games << std::endl;
+		if (games % 100 == 0) {
+			g_tot_pos += total_pos;
+			total_pos = 0;
+		}
+	}
+
+	std::cout << "Thread " << id << " stopped." << std::endl;
+}
+
+void reporter() {
+	auto start_time = std::chrono::high_resolution_clock::now();
+	auto last_report = start_time;
+	while (!stop_all_threads) {
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+		auto current_time = std::chrono::high_resolution_clock::now();
+		if (last_report + std::chrono::seconds(30) > current_time) continue;
+		last_report = current_time;
+		auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(current_time - start_time).count();
+		uint64_t positions = g_tot_pos.load();
+		double pps = positions / (double)elapsed;
+		std::cout << "Positions: " << positions << ", Time: " << elapsed << "s, PPS: " << pps << std::endl;
 	}
 }
 
@@ -139,11 +164,28 @@ int main(int argc, char *argv[]) {
 	}
 
 	for (int i = 0; i < n_threads * 2; i++) {
-		ti[i].id = i / 2;
-		ti[i].bs = (void*)&bs[i / 2];
+		ti[i].id = i;
+		ti[i].bs = (void *)&bs[i / 2];
 		ti[i].board = Board();
 	}
 
-	// test for now
-	datagen(ti[0], ti[1]);
+	std::vector<std::thread> threads;
+	for (int i = 0; i < n_threads; i++) {
+		threads.emplace_back(datagen, std::ref(ti[i * 2]), std::ref(ti[i * 2 + 1]));
+	}
+
+	std::thread rep_thread(reporter);
+
+	std::cout << "Press enter to stop..." << std::endl;
+	std::cin.get();
+
+	std::cout << "Stopping threads..." << std::endl;
+
+	stop_all_threads = true;
+	for (auto &t : threads) {
+		t.join();
+	}
+	rep_thread.join();
+
+	std::cout << "Done. Total positions: " << g_tot_pos.load() << std::endl;
 }

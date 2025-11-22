@@ -499,6 +499,9 @@ Value __recurse(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value 
 
 		ti.line[ply].cont_hist = nullptr;
 
+		if (ti.early_exit)
+			break;
+
 		if (score > best) {
 			if (score > alpha) {
 				best_move = move;
@@ -537,9 +540,6 @@ Value __recurse(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value 
 			break;
 		}
 
-		if (ti.early_exit)
-			break;
-
 		if (!capt && !promo) quiets.push_back(move);
 		else if (capt) captures.push_back(move);
 		i++;
@@ -574,8 +574,6 @@ std::pair<Move, Value> search(ThreadInfo &ti) {
 	Board &board = ti.board;
 
 	std::cout << std::fixed << std::setprecision(0);
-
-	Value static_eval = eval(board, ti.bs) * (board.side ? -1 : 1);
 
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
@@ -617,15 +615,6 @@ std::pair<Move, Value> search(ThreadInfo &ti) {
 		if (ti.early_exit) break;
 		eval = result;
 		best_move = ti.best_move;
-
-		bool best_iscapt = (board.piece_boards[OPPOCC(board.side)] & square_bits(best_move.dst()));
-		bool best_ispromo = (best_move.type() == PROMOTION);
-		bool in_check = false;
-		if (board.side == WHITE) {
-			in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK) > 0;
-		} else {
-			in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE) > 0;
-		}
 
 		if (ti.nodes >= DATAGEN_SOFT_NODES) break; // soft node limit
 	}
