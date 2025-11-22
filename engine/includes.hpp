@@ -43,6 +43,7 @@ constexpr Value VALUE_INFINITE = 32000;
 constexpr Value VALUE_MATE = 30002; // Add 2 as a consequence of our evaluation function only returning MATE when king is taken
 constexpr Value VALUE_MATE_MAX_PLY = VALUE_MATE - MAX_PLY;
 constexpr Value VALUE_NONE = -31000;
+constexpr Value VALUE_STALE = 29700;
 
 constexpr Value PawnValue = 98;
 constexpr Value KnightValue = 350;

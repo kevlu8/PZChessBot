@@ -550,6 +550,7 @@ Value __recurse(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value 
 		// If our engine thinks we are mated but we are not in check, we are stalemated
 		if (ti.line[ply].excl != NullMove) return alpha;
 		else if (in_check) return -VALUE_MATE + ply;
+		else if (root) return VALUE_STALE; // so we can stop the game
 		else return 0;
 	}
 
@@ -572,8 +573,6 @@ Value __recurse(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value 
 
 std::pair<Move, Value> search(ThreadInfo &ti) {
 	Board &board = ti.board;
-
-	std::cout << std::fixed << std::setprecision(0);
 
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;

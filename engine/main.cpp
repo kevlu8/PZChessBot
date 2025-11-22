@@ -54,8 +54,8 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 		if (_mm_popcnt_u64(board.piece_boards[KING]) != 2) continue;
 		auto s_eval = eval(board, tiw.bs);
 		if (abs(s_eval) >= 800) continue; // ridiculous position
-		// auto res = search(tiw).second;
-		// if (abs(res) >= 600) continue; // unbalanced position
+		auto res = search(tiw).second;
+		if (abs(res) >= 600) continue; // unbalanced position
 
 		std::string startfen = board.get_fen();
 
@@ -71,6 +71,11 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 			Move bestmove = result.first;
 			Value score = result.second;
 			Value w_score = score * (board.side == WHITE ? 1 : -1);
+
+			if (score == VALUE_STALE) {
+				game_res = "1/2-1/2";
+				break;
+			}
 
 			std::stringstream movess;
 			movess << bestmove.to_san((void *)&ti.board) << " {" << std::fixed << std::setprecision(2) << std::showpos << (score / 100.0) << "}";
