@@ -17,13 +17,16 @@
 BoardState bs[MAX_THREADS][NINPUTS * 2][NINPUTS * 2];
 ThreadInfo ti[MAX_THREADS * 2];
 
-std::atomic<uint64_t> g_tot_pos(0);
+std::atomic<uint64_t> g_tot_pos(0), g_tot_games(0);
 bool stop_all_threads = false;
 
 void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 	int id = tiw.id / 2;
-	std::fstream outfile(std::to_string(id) + "_datagen.pgn", std::ios::out | std::ios::app);
-	uint64_t games = 0, total_pos = 0;
+
+	std::string filename = std::to_string(id) + "_datagen.pgn";
+
+	std::fstream outfile(filename, std::ios::out);
+	uint64_t games = 0, total_pos = 0, prevgames = 0;
 	std::mt19937_64 rng(id + std::chrono::system_clock::now().time_since_epoch().count());
 	while (!stop_all_threads) {
 		clear_search_vars(tiw);
@@ -118,6 +121,23 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 		if (games % 100 == 0) {
 			g_tot_pos += total_pos;
 			total_pos = 0;
+			g_tot_games += 100;
+		}
+
+		if (games >= prevgames + DATAGEN_UPLOAD_EVERY) {
+			prevgames = games;
+			std::cout << "Thread " << id << " completed " << games << " games." << std::endl;
+			std::cout << "Compressing..." << std::endl;
+			// compress then upload
+			system(("zstd -19 -q " + filename).c_str());
+			std::cout << "Uploading..." << std::endl;
+			system(("curl -X POST -H \"X-Keyword: OpenBench\" --data-binary @" + filename + ".zst https://pgn.int0x80.ca/").c_str());
+			// delete leftovers
+			system(("rm " + filename + " " + filename + ".zst").c_str());
+			// clear
+			outfile.close();
+			outfile.open(filename, std::ios::out); // clear file contents
+			std::cout << "Done." << std::endl;
 		}
 	}
 
@@ -135,7 +155,7 @@ void reporter() {
 		auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(current_time - start_time).count();
 		uint64_t positions = g_tot_pos.load();
 		double pps = positions / (double)elapsed;
-		std::cout << "Positions: " << positions << ", Time: " << elapsed << "s, PPS: " << pps << std::endl;
+		std::cout << "Positions: " << positions << ", Time: " << elapsed << "s, PPS: " << pps << " Games: " << g_tot_games.load() << std::endl;
 	}
 }
 
@@ -186,6 +206,14 @@ int main(int argc, char *argv[]) {
 		t.join();
 	}
 	rep_thread.join();
+
+	std::cout << "Deleting temporary files and uploading remaining data..." << std::endl;
+	for (int i = 0; i < n_threads; i++) {
+		std::string filename = std::to_string(i) + "_datagen.pgn";
+		system(("zstd -19 -q " + filename).c_str());
+		system(("curl -X POST -H \"X-Keyword: OpenBench\" --data-binary @" + filename + ".zst https://pgn.int0x80.ca/").c_str());
+		system(("rm " + filename + " " + filename + ".zst").c_str());
+	}
 
 	std::cout << "Done. Total positions: " << g_tot_pos.load() << std::endl;
 }
