@@ -574,6 +574,13 @@ Value __recurse(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value 
 std::pair<Move, Value> search(ThreadInfo &ti) {
 	Board &board = ti.board;
 
+	for (int i = 0; i < 64; i++) {
+		for (int j = 0; j < 64; j++) {
+			ti.thread_hist.history[0][i][j] /= 2;
+			ti.thread_hist.history[1][i][j] /= 2;
+		}
+	}
+
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
 	bool aspiration_enabled = true;
