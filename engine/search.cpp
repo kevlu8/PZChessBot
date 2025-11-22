@@ -759,8 +759,6 @@ std::pair<Move, Value> search(Board &board, int64_t time, int depth, int64_t max
 	for (int i = 0; i < 64; i++) {
 		for (int j = 0; j < 64; j++) {
 			nodecnt[i][j] = 0;
-			main_hist.history[0][i][j] /= 2;
-			main_hist.history[1][i][j] /= 2;
 		}
 	}
 
