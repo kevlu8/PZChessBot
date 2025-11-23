@@ -131,18 +131,17 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 
 		if (games >= prevgames + DATAGEN_UPLOAD_EVERY) {
 			prevgames = games;
-			std::cout << "Thread " << id << " completed " << games << " games." << std::endl;
-			std::cout << "Compressing..." << std::endl;
+			std::cout << "[" << id << "] Compressing..." << std::endl;
 			// compress then upload
 			system(("zstd -19 -q " + filename).c_str());
-			std::cout << "Uploading..." << std::endl;
+			std::cout << "[" << id << "] Uploading..." << std::endl;
 			system(("curl -X POST -H \"X-Keyword: OpenBench\" --data-binary @" + filename + ".zst https://pgn.int0x80.ca/").c_str());
 			// delete leftovers
 			system(("rm " + filename + " " + filename + ".zst").c_str());
 			// clear
 			outfile.close();
 			outfile.open(filename, std::ios::out); // clear file contents
-			std::cout << "Done." << std::endl;
+			std::cout << "[" << id << "] Done." << std::endl;
 		}
 	}
 
