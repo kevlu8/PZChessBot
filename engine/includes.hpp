@@ -17,9 +17,16 @@
 #include "debug.hpp"
 
 #define DATAGEN_HARD_NODES 1000000
+
+#ifndef DATAGEN_SOFT_NODES
 #define DATAGEN_SOFT_NODES 5000
+#endif
+
+#ifndef DATAGEN_NUM_RAND
 #define DATAGEN_NUM_RAND 12
-#define DATAGEN_UPLOAD_EVERY 50000
+#endif
+
+#define DATAGEN_MAX_GAMES 50000
 
 #define VERSION "v5.0"
 

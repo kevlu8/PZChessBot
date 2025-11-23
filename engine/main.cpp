@@ -26,9 +26,9 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 	std::string filename = std::to_string(id) + "_datagen.pgn";
 
 	std::fstream outfile(filename, std::ios::out);
-	uint64_t games = 0, total_pos = 0, prevgames = 0;
+	uint64_t games = 0, total_pos = 0;
 	std::mt19937_64 rng(id + std::chrono::system_clock::now().time_since_epoch().count());
-	while (!stop_all_threads) {
+	while (!stop_all_threads && games < DATAGEN_MAX_GAMES) {
 		clear_search_vars(tiw);
 		clear_search_vars(tib);
 		Board &board = tiw.board;
@@ -128,24 +128,19 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 			total_pos = 0;
 			g_tot_games += 100;
 		}
-
-		if (games >= prevgames + DATAGEN_UPLOAD_EVERY) {
-			prevgames = games;
-			std::cout << "[" << id << "] Compressing..." << std::endl;
-			// compress then upload
-			system(("zstd -19 -q " + filename).c_str());
-			std::cout << "[" << id << "] Uploading..." << std::endl;
-			system(("curl -X POST -H \"X-Keyword: OpenBench\" --data-binary @" + filename + ".zst https://pgn.int0x80.ca/").c_str());
-			// delete leftovers
-			system(("rm " + filename + " " + filename + ".zst").c_str());
-			// clear
-			outfile.close();
-			outfile.open(filename, std::ios::out); // clear file contents
-			std::cout << "[" << id << "] Done." << std::endl;
-		}
 	}
 
-	std::cout << "Thread " << id << " stopped." << std::endl;
+	std::cout << "[" << id << "] Compressing..." << std::endl;
+	// compress then upload
+	system(("zstd -19 -q " + filename).c_str());
+	std::cout << "[" << id << "] Uploading..." << std::endl;
+	system(("curl -X POST -H \"X-Keyword: OpenBench\" --data-binary @" + filename + ".zst https://pgn.int0x80.ca/").c_str());
+	// delete leftovers
+	system(("rm " + filename + " " + filename + ".zst").c_str());
+	// clear
+	outfile.close();
+	outfile.open(filename, std::ios::out); // clear file contents
+	std::cout << "[" << id << "] Done." << std::endl;
 }
 
 void reporter() {
@@ -210,14 +205,6 @@ int main(int argc, char *argv[]) {
 		t.join();
 	}
 	rep_thread.join();
-
-	std::cout << "Deleting temporary files and uploading remaining data..." << std::endl;
-	for (int i = 0; i < n_threads; i++) {
-		std::string filename = std::to_string(i) + "_datagen.pgn";
-		system(("zstd -19 -q " + filename).c_str());
-		system(("curl -X POST -H \"X-Keyword: OpenBench\" --data-binary @" + filename + ".zst https://pgn.int0x80.ca/").c_str());
-		system(("rm " + filename + " " + filename + ".zst").c_str());
-	}
 
 	std::cout << "Done. Total positions: " << g_tot_pos.load() << std::endl;
 }
