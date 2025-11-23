@@ -66,6 +66,8 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 		int consec_draw = 0, consec_w_win = 0, consec_b_win = 0;
 		int plies = DATAGEN_NUM_RAND;
 		while (true) {
+			tiw.nodes = tib.nodes = 0;
+			tiw.early_exit = tib.early_exit = false;
 			ThreadInfo &ti = (board.side == WHITE) ? tiw : tib;
 			auto result = search(ti);
 			Move bestmove = result.first;
@@ -123,13 +125,14 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 		outfile << "\n\n";
 		outfile.flush();
 
-		if (games % 100 == 0) {
+		if (games % 10 == 0) {
 			g_tot_pos += total_pos;
 			total_pos = 0;
 			g_tot_games += 100;
 		}
 	}
 
+	outfile.close();
 	std::cout << "[" << id << "] Compressing..." << std::endl;
 	// compress then upload
 	system(("zstd -19 -q " + filename).c_str());
@@ -138,8 +141,6 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 	// delete leftovers
 	system(("rm " + filename + " " + filename + ".zst").c_str());
 	// clear
-	outfile.close();
-	outfile.open(filename, std::ios::out); // clear file contents
 	std::cout << "[" << id << "] Done." << std::endl;
 }
 
