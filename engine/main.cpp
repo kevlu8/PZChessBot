@@ -133,16 +133,6 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 	}
 
 	outfile.close();
-	std::cout << "[" << id << "] Compressing..." << std::endl;
-	// compress then upload
-	system(("zstd -19 -q " + filename).c_str());
-	std::cout << "[" << id << "] Uploading..." << std::endl;
-	system(("curl -X POST -H \"X-Keyword: OpenBench\" --data-binary @" + filename + ".zst https://pgn.int0x80.ca/api/data").c_str());
-	// delete leftovers
-	system(("rm " + filename + " " + filename + ".zst").c_str());
-	// clear
-	std::cout << "[" << id << "] Done." << std::endl;
-
 	threads_done++;
 }
 
@@ -157,7 +147,7 @@ void reporter() {
 		auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(current_time - start_time).count();
 		uint64_t positions = g_tot_pos.load();
 		double pps = positions / (double)elapsed;
-		std::cout << "Positions: " << positions << ", Time: " << elapsed << "s, PPS: " << pps << " Games: " << g_tot_games.load() << std::endl;
+		std::cout << "Positions: " << positions << ", Time: " << elapsed << "s, PPS: " << pps << ", Games: " << g_tot_games.load() << std::endl;
 	}
 }
 

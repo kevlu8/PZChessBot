@@ -1,6 +1,7 @@
 import requests
 import time
 import subprocess
+import os
 import cpuinfo
 from random_username.generate import generate_username
 
@@ -51,16 +52,50 @@ def run_loop():
 		print(f"Using {ncores} cores.")
 		result = subprocess.Popen(["./pzchessbot", str(ncores)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 		captured_output = []
+		prev_pos, prev_games = 0, 0
 		for line in result.stdout:
-			print(line, end='')  # Print each line as it is received
+			print(f"[./pzchessbot]: {line}", end='')  # Print each line as it is received
 			captured_output.append(line)
+			# Positions: x, Time: xs, PPS: x(float), Games: x
+			if "Positions: " in line:
+				positions = line.split("Positions: ")[1].split(",")[0]
+				games = line.split("Games: ")[1].strip()
+				pps = line.split("PPS: ")[1].split(",")[0]
+				requests.post(f"{api}/report/{workerid}", json={"cpu": cpu, "positions": int(positions)-prev_pos, "games": int(games)-prev_games, "pps": int(round(float(pps)))})
+				prev_pos = int(positions)
+				prev_games = int(games)
 		result.stdout.close()
 		result.wait()
-		output = ''.join(captured_output)
-		# parse output for total games and positions
-		pos = output.split("Total positions: ")[1].split("\n")[0]
-		requests.post(f"{api}/report/{workerid}", json={"cpu": cpu, "games": 500 * int(ncores), "positions": int(pos)})
-		print("Reporting...")
+		# finished run, upload data
+		# files will be of name "<id>_datagen.pgn"
+		for i in range(int(ncores)):
+			filename = f"{i}_datagen.pgn"
+			# verify exists
+			try:
+				with open(filename, "rb") as f:
+					pass
+			except FileNotFoundError:
+				print(f"Data file {filename} not found, skipping upload.")
+				continue
+			# compress
+			print(f"Compressing and uploading {filename}...")
+			subprocess.run(["zstd", "-19", "-q", filename])
+			try:
+				with open(filename + ".zst", "rb") as f:
+					try:
+						resp = requests.post(f"{api}/data", headers={"X-Keyword": "OpenBench"}, data=f)
+						if resp.status_code == 200:
+							print(f"Successfully uploaded {filename}.")
+						else:
+							print(f"Failed to upload {filename}, status code: {resp.status_code}")
+					except Exception as e:
+						print(f"Error uploading {filename}: {e}")
+			except FileNotFoundError:
+				print(f"Compressed file {filename}.zst not found, skipping upload.")
+				continue
+			# delete files
+			os.remove(filename)
+			os.remove(filename + ".zst")
 
 def heartbeat():
 	while True:
