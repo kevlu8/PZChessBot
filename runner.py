@@ -7,7 +7,7 @@ from random_username.generate import generate_username
 
 api = "https://pgn.int0x80.ca/api"
 
-ncores = subprocess.check_output(["nproc"]).decode().strip()
+ncores = min(64, int(subprocess.check_output(["nproc"]).decode().strip()))
 
 cpu = cpuinfo.get_cpu_info()['brand_raw']
 
