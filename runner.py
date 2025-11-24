@@ -34,7 +34,7 @@ def run_loop():
 			print("Detected new network file.")
 			# fetch
 			try:
-				nf_resp = requests.get(f"{api}/{netfile}")
+				nf_resp = requests.get(f"{api}/net/{netfile}")
 				if nf_resp.status_code == 200:
 					with open("nnue.bin", "wb") as f:
 						f.write(nf_resp.content)
