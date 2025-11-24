@@ -61,3 +61,4 @@ test/test
 *.py
 *.epd
 !runner.py
+!requirements.txt
