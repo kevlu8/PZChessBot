@@ -17,8 +17,8 @@
 BoardState bs[MAX_THREADS][NINPUTS * 2][NINPUTS * 2];
 ThreadInfo ti[MAX_THREADS * 2];
 
-std::atomic<uint64_t> g_tot_pos(0), g_tot_games(0);
-bool stop_all_threads = false;
+std::atomic<uint64_t> g_tot_pos(0), g_tot_games(0), threads_done(0);
+int n_threads = 1;
 
 void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 	int id = tiw.id / 2;
@@ -28,7 +28,7 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 	std::fstream outfile(filename, std::ios::out);
 	uint64_t games = 0, total_pos = 0;
 	std::mt19937_64 rng(id + std::chrono::system_clock::now().time_since_epoch().count());
-	while (!stop_all_threads && games < DATAGEN_MAX_GAMES) {
+	while (threads_done.load() != n_threads && games < DATAGEN_MAX_GAMES) {
 		clear_search_vars(tiw);
 		clear_search_vars(tib);
 		Board &board = tiw.board;
@@ -128,7 +128,7 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 		if (games % 10 == 0) {
 			g_tot_pos += total_pos;
 			total_pos = 0;
-			g_tot_games += 100;
+			g_tot_games += 10;
 		}
 	}
 
@@ -137,17 +137,19 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 	// compress then upload
 	system(("zstd -19 -q " + filename).c_str());
 	std::cout << "[" << id << "] Uploading..." << std::endl;
-	system(("curl -X POST -H \"X-Keyword: OpenBench\" --data-binary @" + filename + ".zst https://pgn.int0x80.ca/").c_str());
+	system(("curl -X POST -H \"X-Keyword: OpenBench\" --data-binary @" + filename + ".zst https://pgn.int0x80.ca/api/data").c_str());
 	// delete leftovers
 	system(("rm " + filename + " " + filename + ".zst").c_str());
 	// clear
 	std::cout << "[" << id << "] Done." << std::endl;
+
+	threads_done++;
 }
 
 void reporter() {
 	auto start_time = std::chrono::high_resolution_clock::now();
 	auto last_report = start_time;
-	while (!stop_all_threads) {
+	while (threads_done.load() != n_threads) {
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 		auto current_time = std::chrono::high_resolution_clock::now();
 		if (last_report + std::chrono::seconds(30) > current_time) continue;
@@ -161,7 +163,6 @@ void reporter() {
 
 int main(int argc, char *argv[]) {
 	// ./pzchessbot [num_threads]
-	int n_threads = 1;
 	if (argc >= 2) {
 		n_threads = std::stoi(argv[1]);
 		if (n_threads < 1 || n_threads > MAX_THREADS) {
@@ -196,12 +197,10 @@ int main(int argc, char *argv[]) {
 
 	std::thread rep_thread(reporter);
 
-	std::cout << "Press enter to stop..." << std::endl;
-	std::cin.get();
+	while (threads_done.load() != n_threads) {
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+	}
 
-	std::cout << "Stopping threads..." << std::endl;
-
-	stop_all_threads = true;
 	for (auto &t : threads) {
 		t.join();
 	}
