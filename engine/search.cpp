@@ -704,6 +704,8 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 				break;
 			}
 		}
+
+		ti.maxdepth = d;
 	}
 
 	ti.eval = eval;
@@ -740,30 +742,17 @@ std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, i
 	for (int t = 0; t < num_threads; t++) {
 		thread_handles[t].join();
 	}
-
-	// obtain best move through thread voting
-	int votes[64][64] = {};
-	for (int t = 0; t < num_threads; t++) {
-		ThreadInfo &ti = threads[t];
-		Move tbest = ti.pvtable[0][0];
-		if (tbest != NullMove) {
-			votes[tbest.src()][tbest.dst()]++;
+	
+	// find best 
+	ThreadInfo &best_thread = threads[0];
+	for (int t = 1; t < num_threads; t++) {
+		if (threads[t].maxdepth > best_thread.maxdepth ||
+			(threads[t].maxdepth == best_thread.maxdepth && abs(threads[t].eval) > abs(best_thread.eval))) {
+			best_thread = threads[t];
 		}
 	}
 
-	int max_votes = 0;
-	for (int i = 0; i < 64; i++) {
-		for (int j = 0; j < 64; j++) {
-			if (votes[i][j] > max_votes) {
-				max_votes = votes[i][j];
-				best_move = Move(i, j);
-			}
-		}
-	}
-
-	eval = threads[0].eval;
-
-	return {best_move, eval};
+	return {best_thread.pvtable[0][0], best_thread.eval};
 }
 
 void clear_search_vars(ThreadInfo &ti) {
