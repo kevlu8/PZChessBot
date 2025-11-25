@@ -26,7 +26,7 @@
 #define DATAGEN_NUM_RAND 12
 #endif
 
-#define DATAGEN_MAX_GAMES 500
+#define DATAGEN_MAX_GAMES 1000
 
 #define VERSION "v5.0"
 
