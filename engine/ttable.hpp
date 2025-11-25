@@ -28,6 +28,8 @@ struct TTable {
 		const bool ttpv() const { return flags >> 2; }
 	};
 
+	TTEntry NO_ENTRY = TTEntry();
+
 	struct TTBucket {
 		TTEntry entries[2];
 	};

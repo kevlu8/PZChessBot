@@ -142,28 +142,28 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	if (depth >= MAX_PLY)
 		return eval(ti.board, (BoardState *)ti.bs) * side; // Just in case
 
-	TTable::TTEntry *tentry = ttable.probe(ti.board.zobrist);
+	TTable::TTEntry tentry = *ttable.probe(ti.board.zobrist);
 	Value tteval = 0;
-	if (tentry && tentry->valid()) tteval = tt_to_score(tentry->eval, depth);
-	if (!pv && tentry && tentry->valid()) {
-		if (tentry->bound() == EXACT) return tteval;
-		if (tentry->bound() == LOWER_BOUND) {
+	if (tentry.valid()) tteval = tt_to_score(tentry.eval, depth);
+	if (!pv && tentry.valid()) {
+		if (tentry.bound() == EXACT) return tteval;
+		if (tentry.bound() == LOWER_BOUND) {
 			if (tteval >= beta) return tteval;
 		}
-		if (tentry->bound() == UPPER_BOUND) {
+		if (tentry.bound() == UPPER_BOUND) {
 			if (tteval <= alpha) return tteval;
 		}
 	}
 
 	Value stand_pat = 0;
 	Value raw_eval = 0;
-	stand_pat = tentry ? tentry->s_eval : eval(ti.board, (BoardState *)ti.bs) * side;
+	stand_pat = tentry.valid() ? tentry.s_eval : eval(ti.board, (BoardState *)ti.bs) * side;
 	raw_eval = stand_pat;
 	ti.thread_hist.apply_correction(ti.board, stand_pat);
-	if (tentry && tentry->valid() && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
+	if (tentry.valid() && abs(tteval) < VALUE_MATE_MAX_PLY && tentry.bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
 		stand_pat = tteval;
 
-	if (!tentry) ttable.store(ti.board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove, depth);
+	if (!tentry.valid()) ttable.store(ti.board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove, depth);
 
 	// If it's a mate, stop here since there's no point in searching further
 	// Theoretically shouldn't ever happen because of stand pat
@@ -310,21 +310,21 @@ Value __recurse(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value 
 	bool ttpv = pv;
 
 	// Check for TTable cutoff
-	TTable::TTEntry *tentry = ttable.probe(board.zobrist);
+	TTable::TTEntry tentry = *ttable.probe(board.zobrist);
 	Value tteval = 0;
-	if (tentry && tentry->valid()) tteval = tt_to_score(tentry->eval, ply);
-	if (!pv && tentry && tentry->depth >= depth && ti.line[ply].excl == NullMove) {
+	if (tentry.valid()) tteval = tt_to_score(tentry.eval, ply);
+	if (!pv && tentry.valid() && tentry.depth >= depth && ti.line[ply].excl == NullMove) {
 		// Check for cutoffs
-		if (tentry->bound() == EXACT) {
+		if (tentry.bound() == EXACT) {
 			return tteval;
-		} else if (tentry->bound() == LOWER_BOUND && tteval >= beta) {
+		} else if (tentry.bound() == LOWER_BOUND && tteval >= beta) {
 			return tteval;
-		} else if (tentry->bound() == UPPER_BOUND && tteval <= alpha) {
+		} else if (tentry.bound() == UPPER_BOUND && tteval <= alpha) {
 			return tteval;
 		}
 	}
 
-	if (tentry) ttpv |= tentry->ttpv();
+	if (tentry.valid()) ttpv |= tentry.ttpv();
 
 	Value cur_eval = 0;
 	Value raw_eval = 0; // For CorrHist
@@ -332,13 +332,13 @@ Value __recurse(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value 
 	uint64_t pawn_hash = 0;
 	if (!in_check) {
 		pawn_hash = board.pawn_struct_hash();
-		cur_eval = tentry ? tentry->s_eval : eval(board, (BoardState *)ti.bs) * side;
+		cur_eval = tentry.valid() ? tentry.s_eval : eval(board, (BoardState *)ti.bs) * side;
 		raw_eval = cur_eval;
 		ti.thread_hist.apply_correction(board, cur_eval);
 		tt_corr_eval = cur_eval;
-		if (tentry && tentry->valid() && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
+		if (tentry.valid() && abs(tteval) < VALUE_MATE_MAX_PLY && tentry.bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
 			tt_corr_eval = tteval;
-		else if (!tentry) ttable.store(board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove, board.halfmove);
+		else if (!tentry.valid()) ttable.store(board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove, board.halfmove);
 	}
 
 	ti.line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
@@ -396,9 +396,9 @@ Value __recurse(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value 
 
 	Value best = -VALUE_INFINITE;
 
-	MovePicker mp(board, &ti.line[ply], ply, &ti.thread_hist, tentry);
+	MovePicker mp(board, &ti.line[ply], ply, &ti.thread_hist, &tentry);
 
-	if ((pv || cutnode) && depth > 4 && !(tentry && tentry->best_move != NullMove)) {
+	if ((pv || cutnode) && depth > 4 && !(tentry.valid() && tentry.best_move != NullMove)) {
 		depth -= 2; // Internal iterative reductions
 	}
 
@@ -423,7 +423,7 @@ Value __recurse(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value 
 		
 		int extension = 0;
 
-		if (ti.line[ply].excl == NullMove && depth >= 8 && i == 0 && tentry && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
+		if (ti.line[ply].excl == NullMove && depth >= 8 && i == 0 && tentry.valid() && move == tentry.best_move && tentry.depth >= depth - 3 && tentry.bound() != UPPER_BOUND) {
 			// Singular extension
 			ti.line[ply].excl = move;
 			Value singular_beta = tteval - 4 * depth;
@@ -520,7 +520,7 @@ Value __recurse(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value 
 			score = -__recurse(ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
 		}
 		if (pv && (i == 0 || score > alpha)) {
-			if (tentry && move == tentry->best_move && tentry->depth > 1)
+			if (tentry.valid() && move == tentry.best_move && tentry.depth > 1)
 				newdepth = std::max((int)newdepth, 1); // Make sure we don't enter QS if we have an available TT move
 			score = -__recurse(ti, newdepth, -beta, -alpha, -side, 1, false, ply+1);
 		}
@@ -602,7 +602,7 @@ Value __recurse(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value 
 	}
 
 	if (ti.line[ply].excl == NullMove) {
-		Move tt_move = best_move != NullMove ? best_move : tentry ? tentry->best_move : NullMove;
+		Move tt_move = best_move != NullMove ? best_move : tentry.valid() ? tentry.best_move : NullMove;
 		ttable.store(board.zobrist, score_to_tt(best, ply), raw_eval, depth, flag, ttpv, tt_move, board.halfmove);
 	}
 

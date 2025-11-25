@@ -60,5 +60,5 @@ TTable::TTEntry *TTable::probe(uint64_t key) {
 			continue;
 		return entry;
 	}
-	return nullptr;
+	return &NO_ENTRY;
 }
