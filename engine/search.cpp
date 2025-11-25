@@ -742,15 +742,8 @@ std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, i
 	for (int t = 0; t < num_threads; t++) {
 		thread_handles[t].join();
 	}
-	
-	// find best 
+
 	ThreadInfo &best_thread = threads[0];
-	for (int t = 1; t < num_threads; t++) {
-		if (threads[t].maxdepth > best_thread.maxdepth ||
-			(threads[t].maxdepth == best_thread.maxdepth && abs(threads[t].eval) > abs(best_thread.eval))) {
-			best_thread = threads[t];
-		}
-	}
 
 	return {best_thread.pvtable[0][0], best_thread.eval};
 }
