@@ -72,7 +72,14 @@ Value eval(Board &board, BoardState *bs) {
 	} else {
 		score = -nnue_eval(nnue_network, state.b_acc, state.w_acc, nbucket);
 	}
-	return score;
+	
+	const int mat_phase = PawnValue * _mm_popcnt_u64(board.piece_boards[PAWN])
+						+ KnightValue * _mm_popcnt_u64(board.piece_boards[KNIGHT])
+						+ BishopValue * _mm_popcnt_u64(board.piece_boards[BISHOP])
+						+ RookValue * _mm_popcnt_u64(board.piece_boards[ROOK])
+						+ QueenValue * _mm_popcnt_u64(board.piece_boards[QUEEN]);
+	
+	return score * (26500 + mat_phase) / 32768;
 }
 
 std::array<Value, 8> debug_eval(Board &board) {
