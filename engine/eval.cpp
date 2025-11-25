@@ -90,7 +90,7 @@ Value eval(Board &board, void *bs_ptr) {
 	int winbucket = IBUCKET_LAYOUT[wkingsq];
 	int binbucket = IBUCKET_LAYOUT[bkingsq ^ 56];
 
-	BoardState curstate = *((BoardState *)bs_ptr + (winbucket * NINPUTS * 2 + binbucket));
+	BoardState &curstate = ((BoardState *)bs_ptr)[winbucket * NINPUTS * 2 + binbucket];
 	// what the fuck??
 
 	for (uint16_t i = 0; i < 64; i++) {
