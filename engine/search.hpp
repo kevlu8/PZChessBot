@@ -48,26 +48,38 @@
 // This is the margin for history pruning (in centipawns)
 #define HISTORY_MARGIN 2000
 
-extern uint64_t nodes;
+extern uint64_t nodes[MAX_THREADS];
 extern uint16_t num_threads;
 
-struct SearchVars {
+struct ThreadInfo {
 	Board board;
-	uint64_t nodes = 0;
-	uint64_t nodecnt[64][64] = {{}};
 	int seldepth = 0;
+    Value eval = 0;
+    int id = 0;
 	bool is_main = false;
-	History history;
+	History thread_hist;
 	SSEntry line[MAX_PLY] = {};
 	Move pvtable[MAX_PLY][MAX_PLY];
-	int pvlen[MAX_PLY];
+	int pvlen[MAX_PLY] = {};
 	BoardState bs[NINPUTS * 2][NINPUTS * 2];
+
+    void set_bs() {
+        for (int i = 0; i < NINPUTS * 2; i++) {
+            for (int j = 0; j < NINPUTS * 2; j++) {
+                for (int k = 0; k < HL_SIZE; k++) {
+                    bs[i][j].w_acc.val[k] = nnue_network.accumulator_biases[k];
+                    bs[i][j].b_acc.val[k] = nnue_network.accumulator_biases[k];
+                }
+                for (int k = 0; k < 64; k++) {
+                    bs[i][j].mailbox[k] = NO_PIECE;
+                }
+            }
+        }
+    }
 };
 
-std::pair<Move, Value> search(Board &board, int64_t time = 1e9, int depth = MAX_PLY, int64_t nodes = 1e18, int quiet = 0);
-
-pzstd::vector<std::pair<Move, Value>> search_multipv(Board &board, int multipv, int64_t time = 1e9, int depth = MAX_PLY, int64_t maxnodes = 1e18, int quiet = 0);
+std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time = 1e9, int depth = MAX_PLY, int64_t nodes = 1e18, int quiet = 0);
 
 uint64_t perft(Board &board, int depth);
 
-void clear_search_vars();
+void clear_search_vars(ThreadInfo &ti);

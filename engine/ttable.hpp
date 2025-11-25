@@ -5,8 +5,6 @@
 
 #define DEFAULT_TT_SIZE (16 * 1024 * 1024 / sizeof(TTable::TTBucket)) // 16 MB
 
-extern TTable ttable;
-
 enum TTFlag {
 	EXACT = 0,
 	LOWER_BOUND = 1, // eval might be higher than stored value
@@ -60,5 +58,13 @@ struct TTable {
 
 	TTEntry *probe(uint64_t key);
 
+	void resize(int size) {
+		delete[] TT;
+		TT_SIZE = size;
+		TT = new TTBucket[size];
+	}
+
 	constexpr uint64_t mxsize() const { return TT_SIZE * 2; }
 };
+
+extern TTable ttable;

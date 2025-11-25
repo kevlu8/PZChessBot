@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -11,6 +12,7 @@
 #include <iostream>
 #include <stack>
 #include <string>
+#include <thread>
 #include <utility>
 
 #include "pzstl/vector.hpp"
