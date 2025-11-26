@@ -18,6 +18,7 @@ bool quiet = false, online = false;
 ThreadInfo *tis;
 
 void run_uci() {
+	std::thread searchthread;
 	std::string command;
 	Board board = Board();
 	while (getline(std::cin, command)) {
@@ -89,12 +90,11 @@ void run_uci() {
 				}
 			}
 		} else if (command == "quit") {
+			if (searchthread.joinable()) searchthread.join();
 			exit(0);
 		} else if (command == "stop") {
-			// stop the search thread
-			// if (searchthread.joinable()) {
-			// 	searchthread.join();
-			// }
+			stop_search = true;
+			if (searchthread.joinable()) searchthread.join();
 		} else if (command == "eval") {
 			std::array<Value, 8> score = debug_eval(board);
 			board.print_board();
@@ -108,6 +108,8 @@ void run_uci() {
 				std::cout << std::endl;
 			}
 		} else if (command.substr(0, 2) == "go") {
+			if (!stop_search) continue; // ignore
+			if (searchthread.joinable()) searchthread.join();
 #ifndef HCE
 			std::cout << "info string Using " << NNUE_PATH << " for evaluation" << std::endl;
 #endif
@@ -142,13 +144,16 @@ void run_uci() {
 			}
 			int timeleft = board.side ? btime : wtime;
 			int inc = board.side ? binc : winc;
-			std::pair<Move, Value> res;
-			if (inf) res = search(board, tis, 1e18, MAX_PLY, 1e18, quiet);
-			else if (depth != -1) res = search(board, tis, 1e18, depth, 1e18, quiet);
-			else if (nodes != -1) res = search(board, tis, 1e18, MAX_PLY, nodes, quiet);
-			else if (movetime != -1) res = search(board, tis, movetime, MAX_PLY, 1e18, quiet);
-			else res = search(board, tis, timemgmt(timeleft, inc, online), MAX_PLY, 1e18, quiet);
-			std::cout << "bestmove " << res.first.to_string() << std::endl;
+			searchthread = std::thread(
+				[&]() {
+					std::cout << "info string Starting search..." << std::endl;
+					if (inf) search(board, tis, 1e18, MAX_PLY, 1e18, 0);
+					else if (depth != -1) search(board, tis, 1e18, depth, 1e18, 0);
+					else if (nodes != -1) search(board, tis, 1e18, MAX_PLY, nodes, 0);
+					else if (movetime != -1) search(board, tis, movetime, MAX_PLY, 1e18, 0);
+					else search(board, tis, timemgmt(timeleft, inc, online), MAX_PLY, 1e18, 0);
+				}
+			);
 		}
 	}
 }

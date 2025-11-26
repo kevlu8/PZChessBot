@@ -48,6 +48,8 @@
 // This is the margin for history pruning (in centipawns)
 #define HISTORY_MARGIN 2000
 
+extern bool stop_search;
+
 extern uint64_t nodes[MAX_THREADS];
 extern uint16_t num_threads;
 

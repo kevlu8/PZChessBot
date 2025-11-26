@@ -4,13 +4,13 @@
 #define MOVENUM(x) ((((#x)[1] - '1') << 12) | (((#x)[0] - 'a') << 8) | (((#x)[3] - '1') << 4) | ((#x)[2] - 'a'))
 
 uint64_t mx_nodes = 1e18; // Maximum nodes to search
-bool stop_search = false;
+bool stop_search = true;
 std::chrono::steady_clock::time_point start;
 uint64_t mxtime = 1e18; // Maximum time to search in milliseconds
 
 uint16_t num_threads = 1;
 
-std::atomic<int> nodecnt[64][64] = {{}};
+std::atomic<uint64_t> nodecnt[64][64] = {{}};
 uint64_t nodes[MAX_THREADS] = {};
 
 uint64_t perft(Board &board, int depth) {
@@ -670,7 +670,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 			// UCI output from main thread only
 			auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
 			std::cout << "info depth " << d << " score cp " << eval << " time " << time_elapsed << " nodes " << tot_nodes << " nps "
-					  << (time_elapsed ? (tot_nodes * 1000 / time_elapsed) : tot_nodes) << " hashfull " << (int)(get_ttable_sz() * 100) << " pv";
+					  << (time_elapsed ? (tot_nodes * 1000 / time_elapsed) : tot_nodes) << " hashfull " << (int)(get_ttable_sz() * 1000) << " pv";
 			for (int ply = 0; ply < ti.pvlen[0]; ply++) {
 				std::cout << " " << ti.pvtable[0][ply].to_string();
 			}
@@ -710,10 +710,12 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 
 	ti.eval = eval;
 	stop_search = true;
+
+	std::cout << "bestmove " << best_move.to_string() << std::endl;
 }
 
 std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, int depth, int64_t maxnodes, int quiet) {
-	memset(nodecnt, 0, sizeof(nodecnt));
+	for (int i = 0; i < 64; i++) for (int j = 0; j < 64; j++) nodecnt[i][j] = 0;
 
 	mxtime = time;
 	mx_nodes = maxnodes;
