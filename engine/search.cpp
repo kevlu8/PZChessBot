@@ -115,6 +115,16 @@ double get_ttable_sz() {
 	return cnt / 2048.0;
 }
 
+std::string score_to_uci(Value score) {
+	if (score >= VALUE_MATE_MAX_PLY) {
+		return "mate " + std::to_string((VALUE_MATE - score + 1) / 2);
+	} else if (score <= -VALUE_MATE_MAX_PLY) {
+		return "mate " + std::to_string((-VALUE_MATE - score) / 2);
+	} else {
+		return "cp " + std::to_string(score);
+	}
+}
+
 /**
  * Perform the quiescence search
  * 
@@ -673,7 +683,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 
 			// UCI output from main thread only
 			auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-			std::cout << "info depth " << d << " score cp " << eval << " time " << time_elapsed << " nodes " << tot_nodes << " nps "
+			std::cout << "info depth " << d << " score " << score_to_uci(eval) << " time " << time_elapsed << " nodes " << tot_nodes << " nps "
 					  << (time_elapsed ? (tot_nodes * 1000 / time_elapsed) : tot_nodes) << " hashfull " << (int)(get_ttable_sz() * 1000) << " pv";
 			for (int ply = 0; ply < ti.pvlen[0]; ply++) {
 				std::cout << " " << ti.pvtable[0][ply].to_string();
