@@ -50,7 +50,7 @@ void run_uci() {
 					std::cerr << "Invalid hash size: " << optionint << std::endl;
 					continue;
 				}
-				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTBucket);
+				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTEntry);
 			} else if (optionname == "Quiet") {
 				quiet = optionvalue == "true";
 			} else if (optionname == "Threads") {

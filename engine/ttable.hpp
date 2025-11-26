@@ -3,7 +3,7 @@
 #include "includes.hpp"
 #include "move.hpp"
 
-#define DEFAULT_TT_SIZE (16 * 1024 * 1024 / sizeof(TTable::TTBucket)) // 16 MB
+#define DEFAULT_TT_SIZE (16 * 1024 * 1024 / sizeof(TTable::TTEntry)) // 16 MB
 
 enum TTFlag {
 	EXACT = 0,
@@ -30,14 +30,10 @@ struct TTable {
 
 	const TTEntry NO_ENTRY = TTEntry();
 
-	struct TTBucket {
-		TTEntry entries[2];
-	};
-
-	TTBucket *TT;
+	TTEntry *TT;
 	int TT_SIZE;
 
-	TTable(int size) : TT_SIZE(size) { TT = new TTBucket[size]; }
+	TTable(int size) : TT_SIZE(size) { TT = new TTEntry[size]; }
 
 	~TTable() { delete[] TT; }
 
@@ -51,7 +47,7 @@ struct TTable {
 		if (this != &o) {
 			delete[] TT;
 			TT_SIZE = o.TT_SIZE;
-			TT = new TTBucket[TT_SIZE];
+			TT = new TTEntry[TT_SIZE];
 		}
 		return *this;
 	}
@@ -63,7 +59,7 @@ struct TTable {
 	void resize(int size) {
 		delete[] TT;
 		TT_SIZE = size;
-		TT = new TTBucket[size];
+		TT = new TTEntry[size];
 	}
 
 	constexpr uint64_t mxsize() const { return TT_SIZE * 2; }
