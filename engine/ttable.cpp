@@ -51,7 +51,7 @@ void TTable::store(uint64_t key, Value eval, Value s_eval, uint8_t depth, uint8_
 	always_entry->age = age;
 }
 
-TTable::TTEntry *TTable::probe(uint64_t key) {
+const TTable::TTEntry *TTable::probe(uint64_t key) {
 	TTBucket *bucket = TT + (key % TT_SIZE);
 	key >>= 32;
 	for (int i = 0; i < 2; i++) {

@@ -28,7 +28,7 @@ struct TTable {
 		const bool ttpv() const { return flags >> 2; }
 	};
 
-	TTEntry NO_ENTRY = TTEntry();
+	const TTEntry NO_ENTRY = TTEntry();
 
 	struct TTBucket {
 		TTEntry entries[2];
@@ -58,7 +58,7 @@ struct TTable {
 
 	void store(uint64_t key, Value eval, Value s_eval, uint8_t depth, uint8_t bound, bool ttpv, Move best_move, uint8_t age);
 
-	TTEntry *probe(uint64_t key);
+	const TTEntry *probe(uint64_t key);
 
 	void resize(int size) {
 		delete[] TT;

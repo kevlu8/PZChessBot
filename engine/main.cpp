@@ -11,13 +11,11 @@
 #include "search.hpp"
 #include "ttable.hpp"
 
-BoardState bs[NINPUTS * 2][NINPUTS * 2];
-
 // Options
 int TT_SIZE = DEFAULT_TT_SIZE;
 bool quiet = false, online = false;
 
-ThreadInfo tis[MAX_THREADS];
+ThreadInfo *tis;
 
 void run_uci() {
 	std::string command;
@@ -56,6 +54,14 @@ void run_uci() {
 				quiet = optionvalue == "true";
 			} else if (optionname == "Threads") {
 				num_threads = std::stoi(optionvalue);
+				if (num_threads < 1 || num_threads > 64) {
+					std::cerr << "Invalid number of threads: " << num_threads << std::endl;
+					num_threads = 1;
+				}
+				delete[] tis;
+				tis = new ThreadInfo[num_threads];
+				for (int i = 0; i < num_threads; i++) tis[i].set_bs();
+				std::cout << "info string Using " << num_threads << " threads" << std::endl;
 			}
 		} else if (command == "ucinewgame") {
 			board = Board();
@@ -148,7 +154,8 @@ void run_uci() {
 }
 
 __attribute__((weak)) int main(int argc, char *argv[]) {
-	for (int i = 0; i < MAX_THREADS; i++) tis[i].set_bs();
+	tis = new ThreadInfo[1]; // single thread for now
+	tis[0].set_bs();
 	if (argc == 2 && std::string(argv[1]) == "bench") {
 		const std::string bench_positions[] = {
 			"r3k2r/2pb1ppp/2pp1q2/p7/1nP1B3/1P2P3/P2N1PPP/R2QK2R w KQkq - 0 14",

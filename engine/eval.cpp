@@ -16,7 +16,6 @@ Value simple_eval(Board &board) {
 	return score;
 }
 
-#ifndef NO_UE
 Value eval(Board &board, BoardState *bs) {
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
@@ -75,12 +74,6 @@ Value eval(Board &board, BoardState *bs) {
 	}
 	return score;
 }
-#else
-Value eval(Board &board, BoardState *bs) {
-	auto res = debug_eval(board);
-	return res[( _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) - 2) / 4];
-}
-#endif
 
 std::array<Value, 8> debug_eval(Board &board) {
 	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
