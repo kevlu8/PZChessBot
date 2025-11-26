@@ -137,9 +137,9 @@ void run_uci() {
 			int timeleft = board.side ? btime : wtime;
 			int inc = board.side ? binc : winc;
 			std::pair<Move, Value> res;
-			if (inf) res = search(board, tis, 1e9, MAX_PLY, 1e18, quiet);
-			else if (depth != -1) res = search(board, tis, 1e9, depth, 1e18, quiet);
-			else if (nodes != -1) res = search(board, tis, 1e9, MAX_PLY, nodes, quiet);
+			if (inf) res = search(board, tis, 1e18, MAX_PLY, 1e18, quiet);
+			else if (depth != -1) res = search(board, tis, 1e18, depth, 1e18, quiet);
+			else if (nodes != -1) res = search(board, tis, 1e18, MAX_PLY, nodes, quiet);
 			else if (movetime != -1) res = search(board, tis, movetime, MAX_PLY, 1e18, quiet);
 			else res = search(board, tis, timemgmt(timeleft, inc, online), MAX_PLY, 1e18, quiet);
 			std::cout << "bestmove " << res.first.to_string() << std::endl;
