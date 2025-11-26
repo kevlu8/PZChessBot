@@ -662,6 +662,10 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 		best_move = ti.pvtable[0][0];
 		
 		if (ti.is_main) {
+			// We must calculate best move nodes and total nodes at around the same time
+			// so that node counts don't change in between due to race conditions
+			// This is a really crude way of doing it (todo change later)
+			uint64_t bm_nodes = nodecnt[best_move.src()][best_move.dst()];
 			uint64_t tot_nodes = 0;
 			for (int t = 0; t < num_threads; t++) {
 				tot_nodes += nodes[t]; // ig this is dangerous but whatever
@@ -695,7 +699,6 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 				soft = 0.3 + 0.4 * factor;
 			}
 
-			uint64_t bm_nodes = nodecnt[best_move.src()][best_move.dst()];
 			double node_adjustment = 1.5 - (bm_nodes / (double)tot_nodes);
 			soft *= node_adjustment;
 			if (time_elapsed > mxtime * soft) {
@@ -711,7 +714,9 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 	ti.eval = eval;
 	stop_search = true;
 
-	std::cout << "bestmove " << best_move.to_string() << std::endl;
+	if (ti.is_main) {
+		std::cout << "bestmove " << best_move.to_string() << std::endl;
+	}
 }
 
 std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, int depth, int64_t maxnodes, int quiet) {
@@ -729,7 +734,7 @@ std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, i
 
 	for (int t = 0; t < num_threads; t++) {
 		ThreadInfo &ti = threads[t];
-		std::copy(&board, &board + 1, &ti.board);
+		ti.board = board;
 		nodes[t] = 0;
 		ti.id = t;
 		ti.is_main = (t == 0);
