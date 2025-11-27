@@ -29,6 +29,7 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 	uint64_t games = 0, total_pos = 0;
 	std::mt19937_64 rng(id + std::chrono::system_clock::now().time_since_epoch().count());
 	while (threads_done.load() != n_threads && games < DATAGEN_MAX_GAMES) {
+		bool do_adjudication = (rng() % 100) < DATAGEN_ADJUDICATION_PERCENT;
 		clear_search_vars(tiw);
 		clear_search_vars(tib);
 		Board &board = tiw.board;
@@ -95,17 +96,17 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 			if (w_score <= -600) consec_b_win++;
 			else consec_b_win = 0;
 
-			if (consec_draw >= 16 || tiw.board.threefold(0) || tiw.board.insufficient_material() || tiw.board.halfmove >= 100) {
+			if ((consec_draw >= 16 && do_adjudication) || tiw.board.threefold(0) || tiw.board.insufficient_material() || tiw.board.halfmove >= 100) {
 				game_res = "1/2-1/2";
 				break;
 			}
 
-			if (consec_w_win >= 8 || score >= VALUE_MATE_MAX_PLY) {
+			if ((consec_w_win >= 8 && do_adjudication) || w_score >= VALUE_MATE_MAX_PLY) {
 				game_res = "1-0";
 				break;
 			}
 
-			if (consec_b_win >= 8 || score <= -VALUE_MATE_MAX_PLY) {
+			if ((consec_b_win >= 8 && do_adjudication) || w_score <= -VALUE_MATE_MAX_PLY) {
 				game_res = "0-1";
 				break;
 			}
