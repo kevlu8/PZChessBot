@@ -340,14 +340,17 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	Value raw_eval = 0; // For CorrHist
 	Value tt_corr_eval = 0;
 	uint64_t pawn_hash = 0;
+	bool tt_corrected = false;
 	if (!in_check) {
 		pawn_hash = board.pawn_struct_hash();
 		cur_eval = tentry ? tentry->s_eval : eval(board) * side;
 		raw_eval = cur_eval;
 		main_hist.apply_correction(board, cur_eval);
 		tt_corr_eval = cur_eval;
-		if (tentry && tentry->valid() && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
+		if (tentry && tentry->valid() && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND)) {
 			tt_corr_eval = tteval;
+			tt_corrected = true;
+		}
 		else if (!tentry) board.ttable.store(board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove, board.halfmove);
 	}
 
@@ -364,7 +367,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * 
 		 * We need to make sure that we aren't in check (since we might get mated)
 		 */
-		int margin = (RFP_THRESHOLD - improving * RFP_IMPROVING) * depth + RFP_QUADRATIC * depth * depth;
+		int margin = (RFP_THRESHOLD - improving * RFP_IMPROVING - tt_corrected * 20) * depth + RFP_QUADRATIC * depth * depth;
 		if (tt_corr_eval >= beta + margin)
 			return (tt_corr_eval + beta) / 2;
 	}
