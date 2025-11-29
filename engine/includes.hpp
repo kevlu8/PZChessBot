@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -11,6 +12,7 @@
 #include <iostream>
 #include <stack>
 #include <string>
+#include <thread>
 #include <utility>
 
 #include "pzstl/vector.hpp"
@@ -24,6 +26,7 @@ constexpr bool WHITE = false;
 constexpr bool BLACK = true;
 
 constexpr int MAX_PLY = 300;
+constexpr int MAX_THREADS = 64;
 
 typedef int16_t Value;
 constexpr Value VALUE_ZERO = 0;

@@ -32,6 +32,8 @@ struct TTable {
 		TTEntry entries[2];
 	};
 
+	TTEntry NO_ENTRY = TTEntry();
+
 	TTBucket *TT;
 	int TT_SIZE;
 
@@ -58,5 +60,13 @@ struct TTable {
 
 	TTEntry *probe(uint64_t key);
 
+	void resize(int size) {
+		delete[] TT;
+		TT_SIZE = size;
+		TT = new TTBucket[size];
+	}
+
 	constexpr uint64_t mxsize() const { return TT_SIZE * 2; }
 };
+
+extern TTable ttable;
