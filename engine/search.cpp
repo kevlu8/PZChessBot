@@ -407,7 +407,7 @@ Value __recurse(Board &board, int depth, Value alpha = -VALUE_INFINITE, Value be
 	MovePicker mp(board, &line[ply], ply, &main_hist, tentry);
 
 	if ((pv || cutnode) && depth > 4 && !(tentry && tentry->best_move != NullMove)) {
-		depth -= 2; // Internal iterative reductions
+		depth--; // Internal iterative reductions
 	}
 
 	Move best_move = NullMove;
