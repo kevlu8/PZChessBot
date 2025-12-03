@@ -752,10 +752,6 @@ std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, i
 		thread_handles.emplace_back(iterativedeepening, std::ref(ti), depth);
 	}
 
-	while (!stop_search) {
-		std::this_thread::sleep_for(std::chrono::milliseconds(5));
-	}
-
 	for (int t = 0; t < num_threads; t++) {
 		thread_handles[t].join();
 	}
