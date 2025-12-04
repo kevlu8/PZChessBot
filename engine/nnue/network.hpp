@@ -30,3 +30,5 @@ void accumulator_add(const Network &net, Accumulator &acc, uint16_t index);
 void accumulator_sub(const Network &net, Accumulator &acc, uint16_t index);
 
 int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket);
+
+extern Network nnue_network;

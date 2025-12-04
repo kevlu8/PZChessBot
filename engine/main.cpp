@@ -9,24 +9,24 @@
 #include "movegen.hpp"
 #include "movetimings.hpp"
 #include "search.hpp"
-
-BoardState bs[NINPUTS * 2][NINPUTS * 2];
+#include "ttable.hpp"
 
 // Options
 int TT_SIZE = DEFAULT_TT_SIZE;
 bool quiet = false, online = false;
-int multipv = 1;
+
+ThreadInfo *tis;
 
 void run_uci() {
+	std::thread searchthread;
 	std::string command;
-	Board board = Board(TT_SIZE);
+	Board board = Board();
 	while (getline(std::cin, command)) {
 		if (command == "uci") {
 			std::cout << "id name PZChessBot " << VERSION << std::endl;
 			std::cout << "id author kevlu8 and wdotmathree" << std::endl;
 			std::cout << "option name Hash type spin default 16 min 1 max 1024" << std::endl;
-			std::cout << "option name Threads type spin default 1 min 1 max 1" << std::endl; // Not implemented yet
-			std::cout << "option name MultiPV type spin default 1 min 1 max 256" << std::endl;
+			std::cout << "option name Threads type spin default 1 min 1 max 64" << std::endl;
 			std::cout << "option name Quiet type check default false" << std::endl;
 			std::cout << "uciok" << std::endl;
 		} else if (command == "icu") {
@@ -50,15 +50,26 @@ void run_uci() {
 					std::cerr << "Invalid hash size: " << optionint << std::endl;
 					continue;
 				}
-				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTBucket);
+				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTEntry);
 			} else if (optionname == "Quiet") {
 				quiet = optionvalue == "true";
-			} else if (optionname == "MultiPV") {
-				multipv = std::stoi(optionvalue);
+			} else if (optionname == "Threads") {
+				num_threads = std::stoi(optionvalue);
+				if (num_threads < 1 || num_threads > 64) {
+					std::cerr << "Invalid number of threads: " << num_threads << std::endl;
+					num_threads = 1;
+				}
+				delete[] tis;
+				tis = new ThreadInfo[num_threads];
+				for (int i = 0; i < num_threads; i++) tis[i].set_bs();
+				std::cout << "info string Using " << num_threads << " threads" << std::endl;
 			}
 		} else if (command == "ucinewgame") {
-			board = Board(TT_SIZE);
-			clear_search_vars();
+			board = Board();
+			ttable.resize(TT_SIZE);
+			for (int i = 0; i < num_threads; i++) {
+				clear_search_vars(tis[i]);
+			}
 		} else if (command.substr(0, 8) == "position") {
 			// either `position startpos` or `position fen ...`
 			if (command.find("startpos") != std::string::npos) {
@@ -79,12 +90,11 @@ void run_uci() {
 				}
 			}
 		} else if (command == "quit") {
+			if (searchthread.joinable()) searchthread.join();
 			exit(0);
 		} else if (command == "stop") {
-			// stop the search thread
-			// if (searchthread.joinable()) {
-			// 	searchthread.join();
-			// }
+			stop_search = true;
+			if (searchthread.joinable()) searchthread.join();
 		} else if (command == "eval") {
 			std::array<Value, 8> score = debug_eval(board);
 			board.print_board();
@@ -98,6 +108,8 @@ void run_uci() {
 				std::cout << std::endl;
 			}
 		} else if (command.substr(0, 2) == "go") {
+			if (!stop_search) continue; // ignore
+			if (searchthread.joinable()) searchthread.join();
 #ifndef HCE
 			std::cout << "info string Using " << NNUE_PATH << " for evaluation" << std::endl;
 #endif
@@ -132,26 +144,23 @@ void run_uci() {
 			}
 			int timeleft = board.side ? btime : wtime;
 			int inc = board.side ? binc : winc;
-			std::pair<Move, Value> res;
-			if (multipv != 1) {
-				if (inf) res = search_multipv(board, multipv, 1e9, MAX_PLY, 1e18, quiet)[0];
-				else if (depth != -1) res = search_multipv(board, multipv, 1e9, depth, 1e18, quiet)[0];
-				else if (nodes != -1) res = search_multipv(board, multipv, 1e9, MAX_PLY, nodes, quiet)[0];
-				else if (movetime != -1) res = search_multipv(board, multipv, movetime, MAX_PLY, 1e18, quiet)[0];
-				else res = search_multipv(board, multipv, 1e9, MAX_PLY, 1e18, quiet)[0];
-			} else {
-				if (inf) res = search(board, 1e9, MAX_PLY, 1e18, quiet);
-				else if (depth != -1) res = search(board, 1e9, depth, 1e18, quiet);
-				else if (nodes != -1) res = search(board, 1e9, MAX_PLY, nodes, quiet);
-				else if (movetime != -1) res = search(board, movetime, MAX_PLY, 1e18, quiet);
-				else res = search(board, timemgmt(timeleft, inc, online), MAX_PLY, 1e18, quiet);
-			}
-			std::cout << "bestmove " << res.first.to_string() << std::endl;
+			searchthread = std::thread(
+				[&]() {
+					std::cout << "info string Starting search..." << std::endl;
+					if (inf) search(board, tis, 1e18, MAX_PLY, 1e18, 0);
+					else if (depth != -1) search(board, tis, 1e18, depth, 1e18, 0);
+					else if (nodes != -1) search(board, tis, 1e18, MAX_PLY, nodes, 0);
+					else if (movetime != -1) search(board, tis, movetime, MAX_PLY, 1e18, 0);
+					else search(board, tis, timemgmt(timeleft, inc, online), MAX_PLY, 1e18, 0);
+				}
+			);
 		}
 	}
 }
 
 __attribute__((weak)) int main(int argc, char *argv[]) {
+	tis = new ThreadInfo[1]; // single thread for now
+	tis[0].set_bs();
 	if (argc == 2 && std::string(argv[1]) == "bench") {
 		const std::string bench_positions[] = {
 			"r3k2r/2pb1ppp/2pp1q2/p7/1nP1B3/1P2P3/P2N1PPP/R2QK2R w KQkq - 0 14",
@@ -205,17 +214,17 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
             "3br1k1/p1pn3p/1p3n2/5pNq/2P1p3/1PN3PP/P2Q1PB1/4R1K1 w - - 0 23",
             "2r2b2/5p2/5k2/p1r1pP2/P2pB3/1P3P2/K1P3R1/7R w - - 23 93",
 		};
-		Board board = Board(TT_SIZE);
+		Board board = Board();
 		uint64_t tot_nodes = 0;
 		uint64_t start = clock();
 		for (const auto &fen : bench_positions) {
 			board.reset(fen);
-			clear_search_vars();
-			search(board, 1e9, 12, 1e18, 0);
-			tot_nodes += nodes;
+			clear_search_vars(tis[0]);
+			search(board, tis, 1e9, 12, 1e18, 0);
+			tot_nodes += nodes[0];
 		}
 		uint64_t end = clock();
-		std::cout << tot_nodes << " nodes " << (tot_nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
+		std::cout << tot_nodes << " nodes " << int(tot_nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
 		return 0;
 	}
 	if (argc == 3 && std::string(argv[2]) == "quit") {
@@ -241,7 +250,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				ss >> nmoves;
 			}
 		}
-		Board board = Board(TT_SIZE);
+		Board board = Board();
 		std::mt19937_64 rng(s);
 		std::ifstream bookfile(book == "None" ? "" : book);
 		std::vector<std::string> fens;
@@ -281,10 +290,11 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			if (!restart) {
 				if (_mm_popcnt_u64(board.piece_boards[KING]) != 2) restart = true;
 				else if (filter_weird) {
-					auto s_eval = eval(board);
+					int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
+					auto s_eval = debug_eval(board)[(npieces - 2) / 4] * (board.side == WHITE ? 1 : -1);
 					if (abs(s_eval) >= 600) restart = true; // do a fast static eval to quickly filter out crazy positions
 					else {
-						auto res = search(board, 1e9, MAX_PLY, 10000, 1);
+						auto res = search(board, tis, 1e9, MAX_PLY, 10000, 1);
 						if (abs(res.second) >= 400) restart = true;
 					}
 				}
@@ -300,15 +310,14 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 	online = argc >= 2 && std::string(argv[1]) == "--online=1";
 	std::cout << "PZChessBot " << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
 	std::string command;
-	Board board = Board(TT_SIZE);
+	Board board = Board();
 	std::thread searchthread;
 	while (getline(std::cin, command)) {
 		if (command == "uci") {
 			std::cout << "id name PZChessBot " << VERSION << std::endl;
 			std::cout << "id author kevlu8 and wdotmathree" << std::endl;
 			std::cout << "option name Hash type spin default 16 min 1 max 1024" << std::endl;
-			std::cout << "option name Threads type spin default 1 min 1 max 1" << std::endl; // Not implemented yet
-			std::cout << "option name MultiPV type spin default 1 min 1 max 256" << std::endl;
+			std::cout << "option name Threads type spin default 1 min 1 max 64" << std::endl;
 			std::cout << "option name Quiet type check default false" << std::endl;
 			std::cout << "uciok" << std::endl;
 			run_uci();
@@ -390,7 +399,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				}
 			} else if (command.substr(0, 2) == "go") {
 				int ms = std::stoi(command.substr(3));
-				auto res = search(board, ms, MAX_PLY, 1e18, 2); // Use quiet level 2 for pretty output
+				auto res = search(board, tis, ms, MAX_PLY, 1e18, 2); // Use quiet level 2 for pretty output
 				std::cout << CYAN "Best move: " RESET BOLD << res.first.to_string() << RESET
 						  << CYAN " with score: " RESET << (res.second * (board.side == BLACK ? -1 : 1) > 0 ? GREEN : RED)
 						  << std::showpos << res.second * (board.side == BLACK ? -1 : 1) << " cp" << RESET << std::endl << std::noshowpos;
@@ -398,10 +407,11 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				board.unmake_move();
 				board.print_board_pretty();
 			} else if (command == "reset") {
-				board = Board(TT_SIZE);
+				board = Board();
+				ttable.resize(TT_SIZE);
 				std::cout << "Done" << std::endl;
 			} else if (command.substr(0, 3) == "fen") {
-				board = Board(TT_SIZE);
+				board = Board();
 				std::string fen = command.substr(4);
 				board.reset(fen);
 				std::cout << "Done" << std::endl;
