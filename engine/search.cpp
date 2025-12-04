@@ -634,8 +634,8 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
 	for (int d = 1; d <= depth; d++) {
-		Value alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
-		Value window_sz = ASPIRATION_WINDOW;
+		int alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
+		int window_sz = ASPIRATION_WINDOW;
 
 		if (eval != -VALUE_INFINITE) {
 			/**
@@ -652,17 +652,21 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 		auto result = __recurse(ti, d, alpha, beta, board.side ? -1 : 1, 1, false, 0, true);
 
 		// Gradually expand the window if we fail high or low
-		while ((result >= beta || result <= alpha) && window_sz < VALUE_INFINITE / 4) {
+		while ((result >= beta || result <= alpha)) {
 			if (result >= beta) {
 				// Fail high - expand upper bound
 				beta = eval + window_sz * 2;
-				if (beta >= VALUE_INFINITE / 4) beta = VALUE_INFINITE;
 			}
 			if (result <= alpha) {
 				// Fail low - expand lower bound  
 				alpha = eval - window_sz * 2;
-				if (alpha <= -VALUE_INFINITE / 4) alpha = -VALUE_INFINITE;
 			}
+			if (window_sz >= VALUE_INFINITE / 4) { // give up, just use full window
+				alpha = -VALUE_INFINITE;
+				beta = VALUE_INFINITE;
+			}
+			alpha = std::clamp(alpha, -VALUE_INFINITE, (int)VALUE_INFINITE);
+			beta = std::clamp(beta, -VALUE_INFINITE, (int)VALUE_INFINITE);
 			window_sz *= 2;
 			result = __recurse(ti, d, alpha, beta, board.side ? -1 : 1, 1, false, 0, true);
 			if (stop_search) break;
