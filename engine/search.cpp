@@ -109,10 +109,9 @@ double get_ttable_sz() {
 	int cnt = 0;
 	for (int i = 0; i < 1024; i++) {
 		if (i >= ttable.TT_SIZE) break;
-		if (ttable.TT[i].entries[0].valid()) cnt++;
-		if (ttable.TT[i].entries[1].valid()) cnt++;
+		if (ttable.TT[i].valid()) cnt++;
 	}
-	return cnt / 2048.0;
+	return cnt / 1024.0;
 }
 
 std::string score_to_uci(Value score) {

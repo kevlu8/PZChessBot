@@ -3,7 +3,7 @@
 #include "includes.hpp"
 #include "move.hpp"
 
-#define DEFAULT_TT_SIZE (16 * 1024 * 1024 / sizeof(TTable::TTBucket)) // 16 MB
+#define DEFAULT_TT_SIZE (16 * 1024 * 1024 / sizeof(TTable::TTEntry)) // 16 MB
 
 enum TTFlag {
 	EXACT = 0,
@@ -22,22 +22,18 @@ struct TTable {
 		uint8_t flags; // 0: exact, 1: lower bound, 2: upper, 3: empty
 		uint8_t age; // half-move clock when this entry was last updated
 
-		TTEntry() : key(0), best_move(NullMove), eval(0), s_eval(0), depth(0), flags(NONE), age(0) {}
-		const bool valid() const { return flags != NONE; }
+		TTEntry() : key(0), best_move(NullMove), eval(0), s_eval(0), depth(0), flags(NONE), age(255) {}
+		const bool valid() const { return age != 255; }
 		const TTFlag bound() const { return TTFlag(flags & 3); }
 		const bool ttpv() const { return flags >> 2; }
 	};
 
-	struct TTBucket {
-		TTEntry entries[2];
-	};
-
 	TTEntry NO_ENTRY = TTEntry();
 
-	TTBucket *TT;
+	TTEntry *TT;
 	int TT_SIZE;
 
-	TTable(int size) : TT_SIZE(size) { TT = new TTBucket[size]; }
+	TTable(int size) : TT_SIZE(size) { TT = new TTEntry[size]; }
 
 	~TTable() { delete[] TT; }
 
@@ -51,7 +47,7 @@ struct TTable {
 		if (this != &o) {
 			delete[] TT;
 			TT_SIZE = o.TT_SIZE;
-			TT = new TTBucket[TT_SIZE];
+			TT = new TTEntry[TT_SIZE];
 		}
 		return *this;
 	}
@@ -63,7 +59,7 @@ struct TTable {
 	void resize(int size) {
 		delete[] TT;
 		TT_SIZE = size;
-		TT = new TTBucket[size];
+		TT = new TTEntry[size];
 	}
 
 	constexpr uint64_t mxsize() const { return TT_SIZE * 2; }
