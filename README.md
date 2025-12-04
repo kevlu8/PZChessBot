@@ -19,7 +19,7 @@ A chess engine created by two high school students, started when we were in midd
 | v3.0             |    3305    |    3275    |     2850      |
 | v20250729T08-dev |   ~3400    |     -      |     2900      |
 | v4.0             |    3444    |    3374    |     2900      |
-| v5.0             |   ~3540    |    3400    |     2900      |
+| v5.0             |    3457    |    3396    |     2900      |
 
 ## Logistics & Features
 
@@ -52,7 +52,7 @@ PZChessBot is a basic negamax engine.
 ### Evaluation
 
 - NNUE-type evaluation with horizontal mirroring
-- Runs a (768hm->1024)x2->1x8 model
+- Runs a (768x4hm->1024)x2->1x8 model
 - Trained from zero-knowledge using self-play games
 
 ### Special Thanks
