@@ -513,6 +513,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (depth >= 2 && i >= 1 + 2 * pv) {
 			Value r = reduction[i][depth];
 
+			// Base reduction offset
+			r -= 1024;
+
 			r -= 1024 * pv;
 			r += 1024 * (!pv && cutnode);
 			if (move == ti.line[ply].killer[0] || move == ti.line[ply].killer[1])
@@ -520,7 +523,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			r -= 1024 * ttpv;
 			r -= hist / 16 * !capt;
 
-			Value searched_depth = depth - r / 1024;
+			Value searched_depth = newdepth - r / 1024;
 
 			score = -negamax(ti, searched_depth, -alpha - 1, -alpha, -side, 0, true, ply+1);
 			if (score > alpha && searched_depth < newdepth) {
