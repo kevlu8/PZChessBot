@@ -107,7 +107,7 @@ struct Board {
 	void captures(pzstd::vector<Move> &) const;
 	bool control(int, bool) const;
 	Value see_capture(Move);
-	Bitboard __lva(Square, int side, PieceType &p, Bitboard occ) const;
+	Bitboard lva_(Square, int side, PieceType &p, Bitboard occ) const;
 	bool is_pseudolegal(Move) const;
 	constexpr bool is_capture(Move m) const {
 		return (piece_boards[OPPOCC(side)] & square_bits(m.dst()));

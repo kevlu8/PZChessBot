@@ -251,7 +251,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	return best;
 }
 
-Value __recurse(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 0, bool root = false) {
+Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 0, bool root = false) {
 	if (pv) ti.pvlen[ply] = 0;
 
 	Board &board = ti.board;
@@ -387,7 +387,7 @@ Value __recurse(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value 
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
 		Value r = NMP_R_VALUE + depth / 4 + std::min(3, (tt_corr_eval - beta) / 400) + improving;
-		Value null_score = -__recurse(ti, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
+		Value null_score = -negamax(ti, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
 		board.unmake_move();
 		if (null_score >= beta)
 			return null_score >= VALUE_MATE_MAX_PLY ? beta : null_score;
@@ -437,7 +437,7 @@ Value __recurse(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value 
 			// Singular extension
 			ti.line[ply].excl = move;
 			Value singular_beta = tteval - 4 * depth;
-			Value singular_score = __recurse(ti, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
+			Value singular_score = negamax(ti, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
 			ti.line[ply].excl = NullMove; // Reset exclusion move
 
 			if (singular_score < singular_beta) {
@@ -522,17 +522,17 @@ Value __recurse(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value 
 
 			Value searched_depth = depth - r / 1024;
 
-			score = -__recurse(ti, searched_depth, -alpha - 1, -alpha, -side, 0, true, ply+1);
+			score = -negamax(ti, searched_depth, -alpha - 1, -alpha, -side, 0, true, ply+1);
 			if (score > alpha && searched_depth < newdepth) {
-				score = -__recurse(ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
+				score = -negamax(ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
 			}
 		} else if (!pv || i > 0) {
-			score = -__recurse(ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
+			score = -negamax(ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
 		}
 		if (pv && (i == 0 || score > alpha)) {
 			if (tentry && move == tentry->best_move && tentry->depth > 1)
 				newdepth = std::max((int)newdepth, 1); // Make sure we don't enter QS if we have an available TT move
-			score = -__recurse(ti, newdepth, -beta, -alpha, -side, 1, false, ply+1);
+			score = -negamax(ti, newdepth, -beta, -alpha, -side, 1, false, ply+1);
 		}
 
 		board.unmake_move();
@@ -649,7 +649,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 			beta = eval + window_sz;
 		}
 
-		auto result = __recurse(ti, d, alpha, beta, board.side ? -1 : 1, 1, false, 0, true);
+		auto result = negamax(ti, d, alpha, beta, board.side ? -1 : 1, 1, false, 0, true);
 
 		// Gradually expand the window if we fail high or low
 		while ((result >= beta || result <= alpha) && window_sz < VALUE_INFINITE / 4) {
@@ -664,7 +664,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 				if (alpha <= -VALUE_INFINITE / 4) alpha = -VALUE_INFINITE;
 			}
 			window_sz *= 2;
-			result = __recurse(ti, d, alpha, beta, board.side ? -1 : 1, 1, false, 0, true);
+			result = negamax(ti, d, alpha, beta, board.side ? -1 : 1, 1, false, 0, true);
 			if (stop_search) break;
 		}
 		if (stop_search) break;

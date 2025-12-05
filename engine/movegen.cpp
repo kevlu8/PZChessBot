@@ -629,7 +629,7 @@ Bitboard pawn_attacks(Square sq, bool color) {
 		return ((square_bits(Square(sq - 7)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq - 9)) & 0xfefefefefefefefe));
 }
 
-Bitboard Board::__lva(Square sq, int side, PieceType &p, Bitboard occ) const {
+Bitboard Board::lva_(Square sq, int side, PieceType &p, Bitboard occ) const {
 	if (side == WHITE) {
 		Bitboard pawn = pawn_attacks(sq, BLACK) & piece_boards[PAWN] & piece_boards[OCC(WHITE)] & occ;
 		if (pawn) {
@@ -719,7 +719,7 @@ Value Board::see_capture(Move move) {
 
 		side ^= 1;
 
-		Bitboard attackers = __lva(dst, side, next_attacker, occ);
+		Bitboard attackers = lva_(dst, side, next_attacker, occ);
 		if (!attackers)
 			break;
 
