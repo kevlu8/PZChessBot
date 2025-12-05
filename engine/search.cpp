@@ -384,11 +384,13 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * really no good way of preventing this except for disabling NMP in positions where there
 		 * are probably Zugzwangs (e.g. endgames).
 		 */
+		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[board.side][0][0];
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
 		Value r = NMP_R_VALUE + depth / 4 + std::min(3, (tt_corr_eval - beta) / 400) + improving;
 		Value null_score = -negamax(ti, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
 		board.unmake_move();
+		ti.line[ply].cont_hist = nullptr;
 		if (null_score >= beta)
 			return null_score >= VALUE_MATE_MAX_PLY ? beta : null_score;
 	}
@@ -453,8 +455,6 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			}
 		}
 
-		ti.line[ply].move = move;
-
 		Value hist = capt ? ti.thread_hist.get_capthist(board, move) : ti.thread_hist.get_history(board, move, ply, &ti.line[ply]);
 		if (best > -VALUE_MATE_MAX_PLY) {
 			if (i >= (5 + depth * depth) / (2 - improving)) {
@@ -489,6 +489,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			}
 		}
 
+		ti.line[ply].move = move;
 		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[board.side][board.mailbox[move.src()] & 7][move.dst()];
 
 		board.make_move(move);
@@ -540,6 +541,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		board.unmake_move();
 
+		ti.line[ply].move = NullMove;
 		ti.line[ply].cont_hist = nullptr;
 
 		if (root) {
