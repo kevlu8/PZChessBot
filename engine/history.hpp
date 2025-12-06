@@ -35,7 +35,7 @@ public:
 	 * We store a history table for each side indexed by [src][dst].
 	 */
 	Value history[2][64][64];
-	ContHistEntry cont_hist[2][64][64]; // [side][from][to]
+	ContHistEntry cont_hist[2][7][64]; // [side][piece][to]
 
 	/**
 	 * Capture history is a heuristic similar to the history heuristic, but it's used for
