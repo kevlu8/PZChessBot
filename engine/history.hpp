@@ -49,7 +49,7 @@ public:
 	 * a variety of factors (e.g. pawn structure, minor pieces, etc)
 	 */
 	Value corrhist_ps[2][CORRHIST_SZ]; // [side][pawn hash]
-	Value corrhist_np[2][2][CORRHIST_SZ]; // [color][stm][non-pawn hash of color]
+	Value corrhist_np[2][CORRHIST_SZ]; // [stm][non-pawn hash]
 
 	History() {
 		memset(history, 0, sizeof(history));
