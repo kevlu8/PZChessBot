@@ -310,8 +310,6 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		in_check = bcontrol > 0;
 	}
 
-	if (in_check) depth++; // Check extensions
-
 	if (depth <= 0) {
 		// Reached the maximum depth, perform quiescence search
 		return quiesce(ti, alpha, beta, side, ply, pv);
