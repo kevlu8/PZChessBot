@@ -608,9 +608,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	bool best_iscapture = (board.piece_boards[OPPOCC(board.side)] & square_bits(best_move.dst()));
 	bool best_ispromo = (best_move.type() == PROMOTION);
 	if (!in_check && !(best_move != NullMove && (best_iscapture || best_ispromo))
-		&& !(flag == UPPER_BOUND && best >= raw_eval) && !(flag == LOWER_BOUND && best <= raw_eval)) {
+		&& !(flag == UPPER_BOUND && best >= cur_eval) && !(flag == LOWER_BOUND && best <= cur_eval)) {
 		// Best move is a quiet move, update CorrHist
-		int bonus = (best - raw_eval) * depth / 8;
+		int bonus = (best - cur_eval) * depth / 8;
 		ti.thread_hist.update_corrhist(board, bonus);
 	}
 
