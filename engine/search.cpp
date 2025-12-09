@@ -522,6 +522,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			r -= 1024 * ttpv;
 			r -= hist / 16 * !capt;
 
+			if (capt && r >= 3072)
+				r -= 1024; // Don't reduce captures too much
+
 			Value searched_depth = newdepth - r / 1024;
 
 			score = -negamax(ti, searched_depth, -alpha - 1, -alpha, -side, 0, true, ply+1);
