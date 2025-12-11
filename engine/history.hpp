@@ -6,8 +6,18 @@
 
 // Correction history table size
 #define CORRHIST_SZ 32768
-#define CORRHIST_GRAIN 256
-#define CORRHIST_WEIGHT 256
+constexpr std::pair<int, int> CORRHIST_PAIRS[] = {
+	{ PAWN, KNIGHT },
+	{ PAWN, BISHOP },
+	{ PAWN, ROOK },
+	{ PAWN, QUEEN },
+	{ KNIGHT, BISHOP },
+	{ KNIGHT, ROOK },
+	{ KNIGHT, QUEEN },
+	{ BISHOP, ROOK },
+	{ BISHOP, QUEEN },
+	{ ROOK, QUEEN },
+};
 
 struct ContHistEntry {
 	Value hist[2][6][64]; // [side][piecetype][to]
@@ -50,12 +60,14 @@ public:
 	 */
 	Value corrhist_ps[2][CORRHIST_SZ]; // [side][pawn hash]
 	Value corrhist_np[2][2][CORRHIST_SZ]; // [side][color][color non-pawn hash]
+	Value corrhist_pairs[2][10][CORRHIST_SZ]; // [side][combo][hash]
 
 	History() {
 		memset(history, 0, sizeof(history));
 		memset(capthist, 0, sizeof(capthist));
 		memset(corrhist_ps, 0, sizeof(corrhist_ps));
 		memset(corrhist_np, 0, sizeof(corrhist_np));
+		memset(corrhist_pairs, 0, sizeof(corrhist_pairs));
 	}
 
 	int get_conthist(Board &board, Move move, int ply, SSEntry *line);

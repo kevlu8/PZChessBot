@@ -54,6 +54,15 @@ void History::update_corrhist(Board &board, int bonus) {
 	update_entry(corrhist_ps[board.side][board.pawn_hash() % CORRHIST_SZ]);
 	update_entry(corrhist_np[board.side][WHITE][board.nonpawn_hash(WHITE) % CORRHIST_SZ]);
 	update_entry(corrhist_np[board.side][BLACK][board.nonpawn_hash(BLACK) % CORRHIST_SZ]);
+
+	// Pair corrhist updates
+	int idx = 0;
+	for (auto &p : CORRHIST_PAIRS) {
+		// Get hash for both w and b
+		uint64_t hash = board.piece_hashes[p.first] ^ board.piece_hashes[p.second] ^ board.piece_hashes[p.first + 8] ^ board.piece_hashes[p.second + 8];
+		update_entry(corrhist_pairs[board.side][idx][hash % CORRHIST_SZ]);
+		idx++;
+	}
 }
 
 void History::apply_correction(Board &board, Value &eval) {
@@ -64,6 +73,15 @@ void History::apply_correction(Board &board, Value &eval) {
 	corr += 128 * corrhist_ps[board.side][board.pawn_hash() % CORRHIST_SZ];
 	corr += 128 * corrhist_np[board.side][WHITE][board.nonpawn_hash(WHITE) % CORRHIST_SZ];
 	corr += 128 * corrhist_np[board.side][BLACK][board.nonpawn_hash(BLACK) % CORRHIST_SZ];
+
+	// Pair corrhist
+	int idx = 0;
+	for (auto &p : CORRHIST_PAIRS) {
+		// Get hash for both w and b
+		uint64_t hash = board.piece_hashes[p.first] ^ board.piece_hashes[p.second] ^ board.piece_hashes[p.first + 8] ^ board.piece_hashes[p.second + 8];
+		corr += 16 * corrhist_pairs[board.side][idx][hash % CORRHIST_SZ];
+		idx++;
+	}
 	
 	eval += corr / 2048;
 }
