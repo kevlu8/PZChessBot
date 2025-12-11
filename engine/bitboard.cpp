@@ -503,6 +503,15 @@ void Board::make_move(Move move) {
 		std::cerr << "Minor hash mismatch before move: expected " << minor_hash << " got " << (piece_hashes[WHITE_KING] ^ piece_hashes[WHITE_BISHOP] ^ piece_hashes[WHITE_KNIGHT] ^ piece_hashes[BLACK_KING] ^ piece_hashes[BLACK_BISHOP] ^ piece_hashes[BLACK_KNIGHT]) << '\n';
 		abort();
 	}
+	if ((piece_hashes[WHITE_KING] ^ piece_hashes[WHITE_QUEEN] ^ piece_hashes[WHITE_ROOK] ^ piece_hashes[WHITE_BISHOP] ^ piece_hashes[WHITE_KNIGHT]) != nonpawn_hashval[WHITE]) {
+		print_board();
+		std::cerr << "Nonpawn hash mismatch before move (white): expected " << nonpawn_hashval[WHITE] << " got " << (piece_hashes[WHITE_KING] ^ piece_hashes[WHITE_QUEEN] ^ piece_hashes[WHITE_ROOK] ^ piece_hashes[WHITE_BISHOP] ^ piece_hashes[WHITE_KNIGHT]) << '\n';
+		abort();
+	}
+	if ((piece_hashes[BLACK_KING] ^ piece_hashes[BLACK_QUEEN] ^ piece_hashes[BLACK_ROOK] ^ piece_hashes[BLACK_BISHOP] ^ piece_hashes[BLACK_KNIGHT]) != nonpawn_hashval[BLACK]) {
+		std::cerr << "Nonpawn hash mismatch before move (black): expected " << nonpawn_hashval[BLACK] << " got " << (piece_hashes[BLACK_KING] ^ piece_hashes[BLACK_QUEEN] ^ piece_hashes[BLACK_ROOK] ^ piece_hashes[BLACK_BISHOP] ^ piece_hashes[BLACK_KNIGHT]) << '\n';
+		abort();
+	}
 
 
 	uint64_t old_hash = zobrist;
@@ -535,7 +544,7 @@ void Board::make_move(Move move) {
 		piece_boards[piece] ^= square_bits(move.dst());
 		piece_boards[OPPOCC(side)] ^= square_bits(move.dst());
 		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-		piece_hashes[piece] ^= zobrist_square[move.dst()][mailbox[move.dst()]];
+		piece_hashes[mailbox[move.dst()]] ^= zobrist_square[move.dst()][mailbox[move.dst()]];
 		if ((mailbox[move.dst()] & 7) == PAWN) {
 			pawn_hash ^= zobrist_square[move.dst()][mailbox[move.dst()]];
 		} else {
@@ -750,6 +759,14 @@ void Board::make_move(Move move) {
 		std::cerr << "Minor hash mismatch after move: expected " << minor_hash << " got " << (piece_hashes[WHITE_KING] ^ piece_hashes[WHITE_BISHOP] ^ piece_hashes[WHITE_KNIGHT] ^ piece_hashes[BLACK_KING] ^ piece_hashes[BLACK_BISHOP] ^ piece_hashes[BLACK_KNIGHT]) << '\n';
 		abort();
 	}
+	if ((piece_hashes[WHITE_KING] ^ piece_hashes[WHITE_QUEEN] ^ piece_hashes[WHITE_ROOK] ^ piece_hashes[WHITE_BISHOP] ^ piece_hashes[WHITE_KNIGHT]) != nonpawn_hashval[WHITE]) {
+		std::cerr << "Nonpawn hash mismatch after move (white): expected " << nonpawn_hashval[WHITE] << " got " << (piece_hashes[WHITE_KING] ^ piece_hashes[WHITE_QUEEN] ^ piece_hashes[WHITE_ROOK] ^ piece_hashes[WHITE_BISHOP] ^ piece_hashes[WHITE_KNIGHT]) << '\n';
+		abort();
+	}
+	if ((piece_hashes[BLACK_KING] ^ piece_hashes[BLACK_QUEEN] ^ piece_hashes[BLACK_ROOK] ^ piece_hashes[BLACK_BISHOP] ^ piece_hashes[BLACK_KNIGHT]) != nonpawn_hashval[BLACK]) {
+		std::cerr << "Nonpawn hash mismatch after move (black): expected " << nonpawn_hashval[BLACK] << " got " << (piece_hashes[BLACK_KING] ^ piece_hashes[BLACK_QUEEN] ^ piece_hashes[BLACK_ROOK] ^ piece_hashes[BLACK_BISHOP] ^ piece_hashes[BLACK_KNIGHT]) << '\n';
+		abort();
+	}
 
 	old_hash = zobrist;
 	old_pawn_hash = pawn_hash;
@@ -809,6 +826,14 @@ void Board::unmake_move() {
 	}
 	if ((piece_hashes[WHITE_KING] ^ piece_hashes[WHITE_BISHOP] ^ piece_hashes[WHITE_KNIGHT] ^ piece_hashes[BLACK_KING] ^ piece_hashes[BLACK_BISHOP] ^ piece_hashes[BLACK_KNIGHT]) != minor_hash) {
 		std::cerr << "Minor hash mismatch before unmake: expected " << minor_hash << " got " << (piece_hashes[WHITE_KING] ^ piece_hashes[WHITE_BISHOP] ^ piece_hashes[WHITE_KNIGHT] ^ piece_hashes[BLACK_KING] ^ piece_hashes[BLACK_BISHOP] ^ piece_hashes[BLACK_KNIGHT]) << '\n';
+		abort();
+	}
+	if ((piece_hashes[WHITE_KING] ^ piece_hashes[WHITE_QUEEN] ^ piece_hashes[WHITE_ROOK] ^ piece_hashes[WHITE_BISHOP] ^ piece_hashes[WHITE_KNIGHT]) != nonpawn_hashval[WHITE]) {
+		std::cerr << "Nonpawn hash mismatch before unmake (white): expected " << nonpawn_hashval[WHITE] << " got " << (piece_hashes[WHITE_KING] ^ piece_hashes[WHITE_QUEEN] ^ piece_hashes[WHITE_ROOK] ^ piece_hashes[WHITE_BISHOP] ^ piece_hashes[WHITE_KNIGHT]) << '\n';
+		abort();
+	}
+	if ((piece_hashes[BLACK_KING] ^ piece_hashes[BLACK_QUEEN] ^ piece_hashes[BLACK_ROOK] ^ piece_hashes[BLACK_BISHOP] ^ piece_hashes[BLACK_KNIGHT]) != nonpawn_hashval[BLACK]) {
+		std::cerr << "Nonpawn hash mismatch before unmake (black): expected " << nonpawn_hashval[BLACK] << " got " << (piece_hashes[BLACK_KING] ^ piece_hashes[BLACK_QUEEN] ^ piece_hashes[BLACK_ROOK] ^ piece_hashes[BLACK_BISHOP] ^ piece_hashes[BLACK_KNIGHT]) << '\n';
 		abort();
 	}
 
@@ -1032,6 +1057,14 @@ void Board::unmake_move() {
 	if ((piece_hashes[WHITE_KING] ^ piece_hashes[WHITE_BISHOP] ^ piece_hashes[WHITE_KNIGHT] ^ piece_hashes[BLACK_KING] ^ piece_hashes[BLACK_BISHOP] ^ piece_hashes[BLACK_KNIGHT]) != minor_hash) {
 		std::cout << move.to_string() << '\n';
 		std::cerr << "Minor hash mismatch after unmake: expected " << minor_hash << " got " << (piece_hashes[WHITE_KING] ^ piece_hashes[WHITE_BISHOP] ^ piece_hashes[WHITE_KNIGHT] ^ piece_hashes[BLACK_KING] ^ piece_hashes[BLACK_BISHOP] ^ piece_hashes[BLACK_KNIGHT]) << '\n';
+		abort();
+	}
+	if ((piece_hashes[WHITE_KING] ^ piece_hashes[WHITE_QUEEN] ^ piece_hashes[WHITE_ROOK] ^ piece_hashes[WHITE_BISHOP] ^ piece_hashes[WHITE_KNIGHT]) != nonpawn_hashval[WHITE]) {
+		std::cerr << "Nonpawn hash mismatch after unmake (white): expected " << nonpawn_hashval[WHITE] << " got " << (piece_hashes[WHITE_KING] ^ piece_hashes[WHITE_QUEEN] ^ piece_hashes[WHITE_ROOK] ^ piece_hashes[WHITE_BISHOP] ^ piece_hashes[WHITE_KNIGHT]) << '\n';
+		abort();
+	}
+	if ((piece_hashes[BLACK_KING] ^ piece_hashes[BLACK_QUEEN] ^ piece_hashes[BLACK_ROOK] ^ piece_hashes[BLACK_BISHOP] ^ piece_hashes[BLACK_KNIGHT]) != nonpawn_hashval[BLACK]) {
+		std::cerr << "Nonpawn hash mismatch after unmake (black): expected " << nonpawn_hashval[BLACK] << " got " << (piece_hashes[BLACK_KING] ^ piece_hashes[BLACK_QUEEN] ^ piece_hashes[BLACK_ROOK] ^ piece_hashes[BLACK_BISHOP] ^ piece_hashes[BLACK_KNIGHT]) << '\n';
 		abort();
 	}
 
