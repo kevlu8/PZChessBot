@@ -7,7 +7,7 @@ CXX      := g++
 WINCXX   := x86_64-w64-mingw32-g++
 
 # Flags
-BASEFLAGS   := -std=c++17 -DNNUE_PATH=\"$(EVALFILE)\" -m64 -DHASHCHECK
+BASEFLAGS   := -std=c++17 -DNNUE_PATH=\"$(EVALFILE)\" -m64
 OPTFLAGS    := -O3 -flto=auto
 DEBUGFLAGS  := -g -fsanitize=address,undefined -march=native
 

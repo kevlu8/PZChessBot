@@ -51,7 +51,7 @@ void History::update_corrhist(Board &board, int bonus) {
 		entry += update - entry * abs(update) / MAX_CORRHIST;
 	};
 
-	update_entry(corrhist_ps[board.side][board.pawn_struct_hash() % CORRHIST_SZ]);
+	update_entry(corrhist_ps[board.side][board.pawn_hash() % CORRHIST_SZ]);
 	update_entry(corrhist_np[board.side][WHITE][board.nonpawn_hash(WHITE) % CORRHIST_SZ]);
 	update_entry(corrhist_np[board.side][BLACK][board.nonpawn_hash(BLACK) % CORRHIST_SZ]);
 }
@@ -61,7 +61,7 @@ void History::apply_correction(Board &board, Value &eval) {
 		return; // Don't apply correction if we are already at a mate score
 	
 	int corr = 0;
-	corr += 128 * corrhist_ps[board.side][board.pawn_struct_hash() % CORRHIST_SZ];
+	corr += 128 * corrhist_ps[board.side][board.pawn_hash() % CORRHIST_SZ];
 	corr += 128 * corrhist_np[board.side][WHITE][board.nonpawn_hash(WHITE) % CORRHIST_SZ];
 	corr += 128 * corrhist_np[board.side][BLACK][board.nonpawn_hash(BLACK) % CORRHIST_SZ];
 	

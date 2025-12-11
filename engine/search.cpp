@@ -337,9 +337,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	Value cur_eval = 0;
 	Value raw_eval = 0; // For CorrHist
 	Value tt_corr_eval = 0;
-	uint64_t pawn_hash = 0;
 	if (!in_check) {
-		pawn_hash = board.pawn_struct_hash();
 		cur_eval = tentry ? tentry->s_eval : eval(board, (BoardState *)ti.bs) * side;
 		raw_eval = cur_eval;
 		ti.thread_hist.apply_correction(board, cur_eval);
