@@ -491,19 +491,9 @@ void Board::make_move(Move move) {
 
 #ifdef HASHCHECK
 	uint64_t old_hash = zobrist;
-	uint64_t old_pawn_hash = pawn_hash;
-	uint64_t old_nonpawn_hash_white = nonpawn_hashval[WHITE];
-	uint64_t old_nonpawn_hash_black = nonpawn_hashval[BLACK];
-	uint64_t old_major_hash = major_hash;
-	uint64_t old_minor_hash = minor_hash;
 	recompute_hash();
-	if (old_hash != zobrist || old_pawn_hash != pawn_hash || old_nonpawn_hash_white != nonpawn_hashval[WHITE] || old_nonpawn_hash_black != nonpawn_hashval[BLACK] || old_major_hash != major_hash || old_minor_hash != minor_hash) {
+	if (old_hash != zobrist) {
 		std::cerr << "Hash mismatch before move: expected " << zobrist << " got " << old_hash << '\n';
-		std::cerr << "Or, pawn hash mismatch before move: expected " << pawn_hash << " got " << old_pawn_hash << '\n';
-		std::cerr << "Or, nonpawn hash mismatch before move (white): expected " << nonpawn_hashval[WHITE] << " got " << old_nonpawn_hash_white << '\n';
-		std::cerr << "Or, nonpawn hash mismatch before move (black): expected " << nonpawn_hashval[BLACK] << " got " << old_nonpawn_hash_black << '\n';
-		std::cerr << "Or, major hash mismatch before move: expected " << major_hash << " got " << old_major_hash << '\n';
-		std::cerr << "Or, minor hash mismatch before move: expected " << minor_hash << " got " << old_minor_hash << '\n';
 		abort();
 	}
 #endif
@@ -520,15 +510,7 @@ void Board::make_move(Move move) {
 		piece_boards[piece] ^= square_bits(move.dst());
 		piece_boards[OPPOCC(side)] ^= square_bits(move.dst());
 		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-		if ((mailbox[move.dst()] & 7) == PAWN) {
-			pawn_hash ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-		} else {
-			nonpawn_hashval[!side] ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-			if (piece == KING || piece == QUEEN || piece == ROOK)
-				major_hash ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-			if (piece == KING || piece == BISHOP || piece == KNIGHT)
-				minor_hash ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-		}
+		piece_hashes[mailbox[move.dst()]] ^= zobrist_square[move.dst()][mailbox[move.dst()]];
 
 		if (piece == ROOK) {
 			if (move.dst() == SQ_A1)
@@ -552,24 +534,20 @@ void Board::make_move(Move move) {
 	} else if (move.type() == PROMOTION) {
 		// Remove the pawn on the src and add the piece on the dst
 		zobrist ^= zobrist_square[move.src()][mailbox[move.src()]];
-		pawn_hash ^= zobrist_square[move.src()][mailbox[move.src()]];
+		piece_hashes[mailbox[move.src()]] ^= zobrist_square[move.src()][mailbox[move.src()]];
 		mailbox[move.src()] = NO_PIECE;
 		mailbox[move.dst()] = Piece(move.promotion() + ((!!side) << 3) + KNIGHT);
 		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]];
+		piece_hashes[mailbox[move.dst()]] ^= zobrist_square[move.dst()][mailbox[move.dst()]];
 		piece_boards[PAWN] ^= square_bits(move.src());
 		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
 		piece_boards[move.promotion() + KNIGHT] ^= square_bits(move.dst());
-		nonpawn_hashval[side] ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-		if (move.promotion() + KNIGHT == QUEEN || move.promotion() + KNIGHT == ROOK)
-			major_hash ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-		if (move.promotion() + KNIGHT == BISHOP || move.promotion() + KNIGHT == KNIGHT)
-			minor_hash ^= zobrist_square[move.dst()][mailbox[move.dst()]];
 	} else if (move.type() == EN_PASSANT) {
 		// Remove the pawn on the src and the taken pawn, then add the pawn on the dst
 		zobrist ^= zobrist_square[move.src()][mailbox[move.src()]] ^ zobrist_square[move.dst()][mailbox[move.src()]];
 		zobrist ^= zobrist_square[(move.src() & 0b111000) | (move.dst() & 0b111)][mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)]]; // Taken pawn
-		pawn_hash ^= zobrist_square[move.src()][mailbox[move.src()]] ^ zobrist_square[move.dst()][mailbox[move.src()]];
-		pawn_hash ^= zobrist_square[(move.src() & 0b111000) | (move.dst() & 0b111)][mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)]];
+		piece_hashes[mailbox[move.src()]] ^= zobrist_square[move.src()][mailbox[move.src()]] ^ zobrist_square[move.dst()][mailbox[move.src()]];
+		piece_hashes[mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)]] ^= zobrist_square[(move.src() & 0b111000) | (move.dst() & 0b111)][mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)]];
 		mailbox[move.dst()] = mailbox[move.src()];
 		mailbox[move.src()] = NO_PIECE;
 		mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)] = NO_PIECE;
@@ -590,11 +568,8 @@ void Board::make_move(Move move) {
 			piece_boards[ROOK] ^= square_bits(SQ_H1) | square_bits(SQ_F1);
 			zobrist ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
 			zobrist ^= zobrist_square[SQ_H1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F1][Piece(WHITE_ROOK)];
-			nonpawn_hashval[side] ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
-			nonpawn_hashval[side] ^= zobrist_square[SQ_H1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F1][Piece(WHITE_ROOK)];
-			major_hash ^= zobrist_square[SQ_H1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F1][Piece(WHITE_ROOK)];
-			major_hash ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
-			minor_hash ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
+			piece_hashes[WHITE_KING] ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
+			piece_hashes[WHITE_ROOK] ^= zobrist_square[SQ_H1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F1][Piece(WHITE_ROOK)];
 		} else if (move.data == 0b1100000100000010) {
 			// White O-O-O
 			mailbox[SQ_E1] = NO_PIECE;
@@ -606,11 +581,8 @@ void Board::make_move(Move move) {
 			piece_boards[ROOK] ^= square_bits(SQ_A1) | square_bits(SQ_D1);
 			zobrist ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
 			zobrist ^= zobrist_square[SQ_A1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D1][Piece(WHITE_ROOK)];
-			nonpawn_hashval[side] ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
-			nonpawn_hashval[side] ^= zobrist_square[SQ_A1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D1][Piece(WHITE_ROOK)];
-			major_hash ^= zobrist_square[SQ_A1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D1][Piece(WHITE_ROOK)];
-			major_hash ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
-			minor_hash ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
+			piece_hashes[WHITE_KING] ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
+			piece_hashes[WHITE_ROOK] ^= zobrist_square[SQ_A1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D1][Piece(WHITE_ROOK)];
 		} else if (move.data == 0b1100111100111110) {
 			// Black O-O
 			mailbox[SQ_E8] = NO_PIECE;
@@ -622,11 +594,8 @@ void Board::make_move(Move move) {
 			piece_boards[ROOK] ^= square_bits(SQ_H8) | square_bits(SQ_F8);
 			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
 			zobrist ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
-			nonpawn_hashval[side] ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
-			nonpawn_hashval[side] ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
-			major_hash ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
-			major_hash ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
-			minor_hash ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
+			piece_hashes[BLACK_KING] ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
+			piece_hashes[BLACK_ROOK] ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
 		} else if (move.data == 0b1100111100111010) {
 			// Black O-O-O
 			mailbox[SQ_E8] = NO_PIECE;
@@ -638,11 +607,8 @@ void Board::make_move(Move move) {
 			piece_boards[ROOK] ^= square_bits(SQ_A8) | square_bits(SQ_D8);
 			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
 			zobrist ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
-			nonpawn_hashval[side] ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
-			nonpawn_hashval[side] ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
-			major_hash ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
-			major_hash ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
-			minor_hash ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
+			piece_hashes[BLACK_KING] ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
+			piece_hashes[BLACK_ROOK] ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
 		} else {
 			std::cerr << "Il faut que tu meures" << std::endl;
 			volatile int *p = 0;
@@ -655,17 +621,7 @@ void Board::make_move(Move move) {
 		uint8_t piece = mailbox[move.src()] & 0b111;
 		// Update mailbox repr first
 		zobrist ^= zobrist_square[move.src()][mailbox[move.src()]] ^ zobrist_square[move.dst()][mailbox[move.src()]];
-		if (piece == PAWN) {
-			pawn_hash ^= zobrist_square[move.src()][mailbox[move.src()]];
-			pawn_hash ^= zobrist_square[move.dst()][mailbox[move.src()]];
-		} else {
-			nonpawn_hashval[side] ^= zobrist_square[move.src()][mailbox[move.src()]];
-			nonpawn_hashval[side] ^= zobrist_square[move.dst()][mailbox[move.src()]];
-			if (piece == KING || piece == QUEEN || piece == ROOK)
-				major_hash ^= zobrist_square[move.src()][mailbox[move.src()]] ^ zobrist_square[move.dst()][mailbox[move.src()]];
-			if (piece == KING || piece == BISHOP || piece == KNIGHT)
-				minor_hash ^= zobrist_square[move.src()][mailbox[move.src()]] ^ zobrist_square[move.dst()][mailbox[move.src()]];
-		}
+		piece_hashes[mailbox[move.src()]] ^= zobrist_square[move.src()][mailbox[move.src()]] ^ zobrist_square[move.dst()][mailbox[move.src()]];
 		mailbox[move.dst()] = mailbox[move.src()];
 		mailbox[move.src()] = NO_PIECE;
 		// Update piece and occupancy bitboard
@@ -709,20 +665,10 @@ void Board::make_move(Move move) {
 
 #ifdef HASHCHECK
 	old_hash = zobrist;
-	old_pawn_hash = pawn_hash;
-	old_nonpawn_hash_white = nonpawn_hashval[WHITE];
-	old_nonpawn_hash_black = nonpawn_hashval[BLACK];
-	old_major_hash = major_hash;
-	old_minor_hash = minor_hash;
 	recompute_hash();
-	if (zobrist != old_hash || pawn_hash != old_pawn_hash || nonpawn_hashval[WHITE] != old_nonpawn_hash_white || nonpawn_hashval[BLACK] != old_nonpawn_hash_black || major_hash != old_major_hash || minor_hash != old_minor_hash) {
+	if (zobrist != old_hash) {
 		print_board();
 		std::cerr << "Hash mismatch after make: expected " << old_hash << " got " << zobrist << std::endl;
-		std::cerr << "Or, pawn hash mismatch after make: expected " << old_pawn_hash << " got " << pawn_hash << std::endl;
-		std::cerr << "Or, nonpawn hash mismatch after make: expected " << old_nonpawn_hash_white << " got " << nonpawn_hashval[WHITE] << std::endl;
-		std::cerr << "Or, nonpawn hash mismatch after make: expected " << old_nonpawn_hash_black << " got " << nonpawn_hashval[BLACK] << std::endl;
-		std::cerr << "Or, major hash mismatch after make: expected " << old_major_hash << " got " << major_hash << std::endl;
-		std::cerr << "Or, minor hash mismatch after make: expected " << old_minor_hash << " got " << minor_hash << std::endl;
 		std::cerr << "Move: " << move.to_string() << std::endl;
 		abort();
 	}
@@ -757,19 +703,9 @@ void Board::unmake_move() {
 
 #ifdef HASHCHECK
 	uint64_t old_hash = zobrist;
-	uint64_t old_pawn_hash = pawn_hash;
-	uint64_t old_nonpawn_hash_white = nonpawn_hashval[WHITE];
-	uint64_t old_nonpawn_hash_black = nonpawn_hashval[BLACK];
-	uint64_t old_major_hash = major_hash;
-	uint64_t old_minor_hash = minor_hash;
 	recompute_hash();
-	if (old_hash != zobrist || old_pawn_hash != pawn_hash || old_nonpawn_hash_white != nonpawn_hashval[WHITE] || old_nonpawn_hash_black != nonpawn_hashval[BLACK] || old_major_hash != major_hash || old_minor_hash != minor_hash) {
+	if (old_hash != zobrist) {
 		std::cerr << "Hash mismatch before unmake: expected " << zobrist << " got " << old_hash << '\n';
-		std::cerr << "Or, pawn hash mismatch before unmake: expected " << pawn_hash << " got " << old_pawn_hash << '\n';
-		std::cerr << "Or, nonpawn hash mismatch before unmake (white): expected " << nonpawn_hashval[WHITE] << " got " << old_nonpawn_hash_white << '\n';
-		std::cerr << "Or, nonpawn hash mismatch before unmake (black): expected " << nonpawn_hashval[BLACK] << " got " << old_nonpawn_hash_black << '\n';
-		std::cerr << "Or, major hash mismatch before unmake: expected " << major_hash << " got " << old_major_hash << '\n';
-		std::cerr << "Or, minor hash mismatch before unmake: expected " << minor_hash << " got " << old_minor_hash << '\n';
 		abort();
 	}
 #endif
@@ -789,15 +725,12 @@ void Board::unmake_move() {
 	} else if (move.type() == PROMOTION) {
 		// Remove the piece on the dst and add the pawn on the src
 		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]] ^ zobrist_square[move.dst()][prev.prev_piece()];
-		nonpawn_hashval[side] ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-		if ((mailbox[move.dst()] & 7) == QUEEN || (mailbox[move.dst()] & 7) == ROOK)
-			major_hash ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-		if ((mailbox[move.dst()] & 7) == BISHOP || (mailbox[move.dst()] & 7) == KNIGHT)
-			minor_hash ^= zobrist_square[move.dst()][mailbox[move.dst()]];
+		piece_hashes[mailbox[move.dst()]] ^= zobrist_square[move.dst()][mailbox[move.dst()]];
+		piece_hashes[prev.prev_piece()] ^= zobrist_square[move.dst()][prev.prev_piece()];
 		mailbox[move.src()] = Piece(PAWN + ((!!side) << 3));
 		mailbox[move.dst()] = prev.prev_piece();
 		zobrist ^= zobrist_square[move.src()][mailbox[move.src()]];
-		pawn_hash ^= zobrist_square[move.src()][mailbox[move.src()]];
+		piece_hashes[mailbox[move.src()]] ^= zobrist_square[move.src()][mailbox[move.src()]];
 		piece_boards[PAWN] ^= square_bits(move.src());
 		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
 		piece_boards[((move.data >> 12) & 0b11) + KNIGHT] ^= square_bits(move.dst());
@@ -807,21 +740,16 @@ void Board::unmake_move() {
 			uint8_t piece = prev.prev_piece() & 0b111;
 			piece_boards[piece] ^= square_bits(move.dst());
 			piece_boards[OPPOCC(side)] ^= square_bits(move.dst());
-			nonpawn_hashval[!side] ^= zobrist_square[move.dst()][prev.prev_piece()];
-			if ((prev.prev_piece() & 7) == KING || (prev.prev_piece() & 7) == QUEEN || (prev.prev_piece() & 7) == ROOK)
-				major_hash ^= zobrist_square[move.dst()][prev.prev_piece()];
-			if ((prev.prev_piece() & 7) == KING || (prev.prev_piece() & 7) == BISHOP || (prev.prev_piece() & 7) == KNIGHT)
-				minor_hash ^= zobrist_square[move.dst()][prev.prev_piece()];
 		}
 	} else if (move.type() == EN_PASSANT) {
 		// Remove the pawn on the dst and add the pawn on the src and the taken pawn
 		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]] ^ zobrist_square[move.src()][mailbox[move.dst()]];
-		pawn_hash ^= zobrist_square[move.dst()][mailbox[move.dst()]] ^ zobrist_square[move.src()][mailbox[move.dst()]];
+		piece_hashes[mailbox[move.dst()]] ^= zobrist_square[move.dst()][mailbox[move.dst()]] ^ zobrist_square[move.src()][mailbox[move.dst()]];
 		mailbox[move.src()] = mailbox[move.dst()];
 		mailbox[move.dst()] = NO_PIECE;
 		mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)] = Piece(WHITE_PAWN + ((!side) << 3));
 		zobrist ^= zobrist_square[(move.src() & 0b111000) | (move.dst() & 0b111)][mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)]]; // Taken pawn
-		pawn_hash ^= zobrist_square[(move.src() & 0b111000) | (move.dst() & 0b111)][mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)]];
+		piece_hashes[mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)]] ^= zobrist_square[(move.src() & 0b111000) | (move.dst() & 0b111)][mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)]];
 		piece_boards[PAWN] ^= square_bits(move.src()) | square_bits(move.dst()) | square_bits(Rank(move.src() >> 3), File(move.dst() & 0b111));
 		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
 		piece_boards[OPPOCC(side)] ^= square_bits(Rank(move.src() >> 3), File(move.dst() & 0b111));
@@ -837,11 +765,8 @@ void Board::unmake_move() {
 			piece_boards[ROOK] ^= square_bits(SQ_H1) | square_bits(SQ_F1);
 			zobrist ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
 			zobrist ^= zobrist_square[SQ_H1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F1][Piece(WHITE_ROOK)];
-			nonpawn_hashval[side] ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
-			nonpawn_hashval[side] ^= zobrist_square[SQ_H1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F1][Piece(WHITE_ROOK)];
-			major_hash ^= zobrist_square[SQ_H1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F1][Piece(WHITE_ROOK)];
-			major_hash ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
-			minor_hash ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
+			piece_hashes[WHITE_KING] ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
+			piece_hashes[WHITE_ROOK] ^= zobrist_square[SQ_H1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F1][Piece(WHITE_ROOK)];
 		} else if (move.data == 0b1100000100000010) {
 			// White O-O-O
 			mailbox[SQ_C1] = NO_PIECE;
@@ -853,11 +778,8 @@ void Board::unmake_move() {
 			piece_boards[ROOK] ^= square_bits(SQ_A1) | square_bits(SQ_D1);
 			zobrist ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
 			zobrist ^= zobrist_square[SQ_A1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D1][Piece(WHITE_ROOK)];
-			nonpawn_hashval[side] ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
-			nonpawn_hashval[side] ^= zobrist_square[SQ_A1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D1][Piece(WHITE_ROOK)];
-			major_hash ^= zobrist_square[SQ_A1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D1][Piece(WHITE_ROOK)];
-			major_hash ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
-			minor_hash ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
+			piece_hashes[WHITE_KING] ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
+			piece_hashes[WHITE_ROOK] ^= zobrist_square[SQ_A1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D1][Piece(WHITE_ROOK)];
 		} else if (move.data == 0b1100111100111110) {
 			// Black O-O
 			mailbox[SQ_G8] = NO_PIECE;
@@ -869,11 +791,8 @@ void Board::unmake_move() {
 			piece_boards[ROOK] ^= square_bits(SQ_H8) | square_bits(SQ_F8);
 			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
 			zobrist ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
-			nonpawn_hashval[side] ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
-			nonpawn_hashval[side] ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
-			major_hash ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
-			major_hash ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
-			minor_hash ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
+			piece_hashes[BLACK_KING] ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
+			piece_hashes[BLACK_ROOK] ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
 		} else if (move.data == 0b1100111100111010) {
 			// Black O-O-O
 			mailbox[SQ_C8] = NO_PIECE;
@@ -885,11 +804,8 @@ void Board::unmake_move() {
 			piece_boards[ROOK] ^= square_bits(SQ_A8) | square_bits(SQ_D8);
 			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
 			zobrist ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
-			nonpawn_hashval[side] ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
-			nonpawn_hashval[side] ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
-			major_hash ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
-			major_hash ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
-			minor_hash ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
+			piece_hashes[BLACK_KING] ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
+			piece_hashes[BLACK_ROOK] ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
 		} else {
 			std::cerr << "Il faut que tu meures" << std::endl;
 			volatile int *p = 0;
@@ -901,26 +817,8 @@ void Board::unmake_move() {
 		// Update mailbox repr first
 		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]] ^ zobrist_square[move.src()][mailbox[move.dst()]];
 		zobrist ^= zobrist_square[move.dst()][prev.prev_piece()];
-		if (piece == PAWN) {
-			pawn_hash ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-			pawn_hash ^= zobrist_square[move.src()][mailbox[move.dst()]];
-		} else {
-			nonpawn_hashval[side] ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-			nonpawn_hashval[side] ^= zobrist_square[move.src()][mailbox[move.dst()]];
-			if (piece == KING || piece == QUEEN || piece == ROOK)
-				major_hash ^= zobrist_square[move.dst()][mailbox[move.dst()]] ^ zobrist_square[move.src()][mailbox[move.dst()]];
-			if (piece == KING || piece == BISHOP || piece == KNIGHT)
-				minor_hash ^= zobrist_square[move.dst()][mailbox[move.dst()]] ^ zobrist_square[move.src()][mailbox[move.dst()]];
-		}
-		if ((prev.prev_piece() & 7) == PAWN) {
-			pawn_hash ^= zobrist_square[move.dst()][prev.prev_piece()];
-		} else {
-			nonpawn_hashval[!side] ^= zobrist_square[move.dst()][prev.prev_piece()];
-			if ((prev.prev_piece() & 7) == KING || (prev.prev_piece() & 7) == QUEEN || (prev.prev_piece() & 7) == ROOK)
-				major_hash ^= zobrist_square[move.dst()][prev.prev_piece()];
-			if ((prev.prev_piece() & 7) == KING || (prev.prev_piece() & 7) == BISHOP || (prev.prev_piece() & 7) == KNIGHT)
-				minor_hash ^= zobrist_square[move.dst()][prev.prev_piece()];
-		}
+		piece_hashes[mailbox[move.dst()]] ^= zobrist_square[move.dst()][mailbox[move.dst()]] ^ zobrist_square[move.src()][mailbox[move.dst()]];
+		piece_hashes[prev.prev_piece()] ^= zobrist_square[move.dst()][prev.prev_piece()];
 		mailbox[move.src()] = mailbox[move.dst()];
 		mailbox[move.dst()] = prev.prev_piece();
 		// Update piece and occupancy bitboard
@@ -951,20 +849,10 @@ void Board::unmake_move() {
 
 #ifdef HASHCHECK
 	old_hash = zobrist;
-	old_pawn_hash = pawn_hash;
-	old_nonpawn_hash_white = nonpawn_hashval[WHITE];
-	old_nonpawn_hash_black = nonpawn_hashval[BLACK];
-	old_major_hash = major_hash;
-	old_minor_hash = minor_hash;
 	recompute_hash();
-	if (zobrist != old_hash || pawn_hash != old_pawn_hash || nonpawn_hashval[WHITE] != old_nonpawn_hash_white || nonpawn_hashval[BLACK] != old_nonpawn_hash_black || major_hash != old_major_hash || minor_hash != old_minor_hash) {
+	if (zobrist != old_hash) {
 		print_board();
 		std::cerr << "Hash mismatch after unmake: expected " << old_hash << " got " << zobrist << std::endl;
-		std::cerr << "Or, pawn hash mismatch after unmake: expected " << old_pawn_hash << " got " << pawn_hash << std::endl;
-		std::cerr << "Or, nonpawn hash mismatch after unmake: expected " << old_nonpawn_hash_white << " got " << nonpawn_hashval[WHITE] << std::endl;
-		std::cerr << "Or, nonpawn hash mismatch after unmake: expected " << old_nonpawn_hash_black << " got " << nonpawn_hashval[BLACK] << std::endl;
-		std::cerr << "Or, major hash mismatch after unmake: expected " << old_major_hash << " got " << major_hash << std::endl;
-		std::cerr << "Or, minor hash mismatch after unmake: expected " << old_minor_hash << " got " << minor_hash << std::endl;
 		std::cerr << "Move: " << move.to_string() << std::endl;
 		abort();
 	}
@@ -993,25 +881,11 @@ void Board::unmake_move() {
 
 void Board::recompute_hash() {
 	zobrist = 0;
-	pawn_hash = 0;
-	nonpawn_hashval[WHITE] = nonpawn_hashval[BLACK] = 0;
-	major_hash = minor_hash = 0;
+	for (int i = 0; i < 15; i++) piece_hashes[i] = 0;
 	for (int i = 0; i < 64; i++) {
 		PieceType pt = PieceType(mailbox[i] & 7);
 		zobrist ^= zobrist_square[i][mailbox[i]];
-		if (pt == PAWN) {
-			pawn_hash ^= zobrist_square[i][mailbox[i]];
-		} else if ((mailbox[i] >> 3) == WHITE) {
-			nonpawn_hashval[WHITE] ^= zobrist_square[i][mailbox[i]];
-		} else if ((mailbox[i] >> 3) == BLACK) {
-			nonpawn_hashval[BLACK] ^= zobrist_square[i][mailbox[i]];
-		}
-		if (pt == KING || pt == QUEEN || pt == ROOK) {
-			major_hash ^= zobrist_square[i][mailbox[i]];
-		}
-		if (pt == KING || pt == BISHOP || pt == KNIGHT) {
-			minor_hash ^= zobrist_square[i][mailbox[i]];
-		}
+		piece_hashes[mailbox[i]] ^= zobrist_square[i][mailbox[i]];
 	}
 	zobrist ^= zobrist_castling[castling];
 	if (ep_square != SQ_NONE) {
@@ -1070,19 +944,18 @@ bool Board::insufficient_material() const {
 	return false;
 }
 
-uint64_t Board::pawn_struct_hash() const {
-	return pawn_hash;
+uint64_t Board::pawn_hash() const {
+	return piece_hashes[WHITE_PAWN] ^ piece_hashes[BLACK_PAWN];
 }
 
 uint64_t Board::nonpawn_hash(bool color) const {
-	return nonpawn_hashval[color];
+	return piece_hashes[KING + (color << 3)] ^ piece_hashes[QUEEN + (color << 3)] ^ piece_hashes[ROOK + (color << 3)] ^ piece_hashes[BISHOP + (color << 3)] ^ piece_hashes[KNIGHT + (color << 3)];
 }
 
-uint64_t Board::material_hash() const {
-	int npawns = _mm_popcnt_u64(piece_boards[PAWN]);
-	int nknights = _mm_popcnt_u64(piece_boards[KNIGHT]);
-	int nbishops = _mm_popcnt_u64(piece_boards[BISHOP]);
-	int nrooks = _mm_popcnt_u64(piece_boards[ROOK]);
-	int nqueens = _mm_popcnt_u64(piece_boards[QUEEN]);
-	return npawns * 23 + nknights * 29 * 23 + nbishops * 31 * 29 * 23 + nrooks * 37 * 31 * 29 * 23 + nqueens * 41 * 37 * 31 * 29 * 23;
+uint64_t Board::major_hash() const {
+	return piece_hashes[WHITE_KING] ^ piece_hashes[WHITE_QUEEN] ^ piece_hashes[WHITE_ROOK] ^ piece_hashes[BLACK_KING] ^ piece_hashes[BLACK_QUEEN] ^ piece_hashes[BLACK_ROOK];
+}
+
+uint64_t Board::minor_hash() const {
+	return piece_hashes[WHITE_KING] ^ piece_hashes[WHITE_BISHOP] ^ piece_hashes[WHITE_KNIGHT] ^ piece_hashes[BLACK_KING] ^ piece_hashes[BLACK_BISHOP] ^ piece_hashes[BLACK_KNIGHT];
 }
