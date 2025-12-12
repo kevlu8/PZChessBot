@@ -596,7 +596,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Stalemate detection
-	if (best == -VALUE_MATE) {
+	// Second condition necessary for positions where one side is boxed in and can't move, but we can't mate
+	// e.g. 8/8/8/8/ppp1p3/krp1p2K/nbp1p3/nqrbN3 b - - 1 6
+	if (best == -VALUE_MATE || best == -VALUE_INFINITE) {
 		// If our engine thinks we are mated but we are not in check, we are stalemated
 		if (ti.line[ply].excl != NullMove) return alpha;
 		else if (in_check) return -VALUE_MATE + ply;

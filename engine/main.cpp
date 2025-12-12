@@ -145,7 +145,7 @@ void run_uci() {
 			int timeleft = board.side ? btime : wtime;
 			int inc = board.side ? binc : winc;
 			searchthread = std::thread(
-				[&]() {
+				[=, &board]() {
 					std::cout << "info string Starting search..." << std::endl;
 					if (inf) search(board, tis, 1e18, MAX_PLY, 1e18, 0);
 					else if (depth != -1) search(board, tis, 1e18, depth, 1e18, 0);
