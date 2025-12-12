@@ -434,7 +434,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (ti.line[ply].excl == NullMove && depth >= 8 && i == 0 && tentry && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
 			// Singular extension
 			ti.line[ply].excl = move;
-			Value singular_beta = tteval - 4 * depth;
+			Value singular_beta = tteval - 2 * depth;
 			Value singular_score = negamax(ti, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
 			ti.line[ply].excl = NullMove; // Reset exclusion move
 
