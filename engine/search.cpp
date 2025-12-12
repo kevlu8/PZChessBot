@@ -515,8 +515,6 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 			r -= 1024 * pv;
 			r += 1024 * (!pv && cutnode);
-			if (move == ti.line[ply].killer)
-				r -= 1024;
 			r -= 1024 * ttpv;
 			r -= hist / 16 * !capt;
 
@@ -570,9 +568,6 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (abs(score) < VALUE_MATE_MAX_PLY && abs(alpha) < VALUE_MATE_MAX_PLY) {
 				// note that best and score are functionally equivalent here; best is just what's returned + stored to TT
 				best = (score * depth + beta) / (depth + 1); // wtf?????
-			}
-			if (ti.line[ply].killer != move) {
-				ti.line[ply].killer = move; // Update killer moves
 			}
 			const Value bonus = std::min(1896, 4 * depth * depth + 120 * depth - 120); // saturate updates at depth 12
 			if (!capt) { // Not a capture
