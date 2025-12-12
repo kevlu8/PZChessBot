@@ -10,9 +10,15 @@ Move MovePicker::next() {
 		return NullMove;
 
 	if (stage == MP_STAGE_TT) {
-		stage = MP_STAGE_GEN;
+		stage = MP_STAGE_KILLER;
 		if (ttMove != NullMove && board.is_pseudolegal(ttMove))
 			return ttMove;
+	}
+
+	if (stage == MP_STAGE_KILLER) {
+		stage = MP_STAGE_GEN;
+		if (ss->killer != NullMove && board.is_pseudolegal(ss->killer))
+			return ss->killer;
 	}
 
 	if (stage == MP_STAGE_GEN) {
@@ -23,7 +29,7 @@ Move MovePicker::next() {
 		const int QUIET_BASE = 0;
 
 		for (Move move : moves) {
-			if (move == ttMove)
+			if (move == ttMove || move == ss->killer)
 				continue;
 
 			int score = 0;
@@ -41,7 +47,6 @@ Move MovePicker::next() {
 			} else {
 				if (qskip) continue;
 				score = QUIET_BASE + main_hist->get_history(board, move, ply, ss);
-				if (move == ss->killer) score += 1500;
 			}
 			scores.push_back({move, score});
 		}
