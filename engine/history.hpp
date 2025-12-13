@@ -22,7 +22,7 @@ struct SSEntry {
 	Value eval;
 	Move excl;
 	ContHistEntry *cont_hist;
-	Move killer[2] = {NullMove, NullMove};
+	Move killer = NullMove;
 
 	SSEntry() : move(NullMove), eval(VALUE_NONE), excl(NullMove), cont_hist(nullptr) {}
 };
