@@ -13,6 +13,36 @@ uint16_t num_threads = 1;
 std::atomic<uint64_t> nodecnt[64][64] = {{}};
 uint64_t nodes[MAX_THREADS] = {};
 
+TUNE(delta_threshold, 300, 0, 600, 15, 0.002);
+TUNE(qs_see, 0, -200, 200, 20, 0.002);
+TUNE(qs_see_mult, 4096, 0, 8192, 200, 0.002);
+TUNE(rfp_base, 70, 0, 140, 7, 0.002);
+TUNE(rfp_improving, 20, 0, 40, 2, 0.002);
+TUNE(rfp_quadratic, 6144, 0, 12288, 307, 0.002);
+TUNE(rfp_eval_mult, 8, 0, 16, 1, 0.002);
+TUNE(nmp_eval_div, 400, 0, 800, 40, 0.002);
+TUNE(razor_margin, 241, 0, 500, 25, 0.002);
+TUNE(double_margin, 20, 0, 40, 2, 0.002);
+TUNE(history_margin, 2000, 0, 4000, 200, 0.002);
+TUNE(see_base, 50, 0, 100, 5, 0.002);
+TUNE(see_capt, 50, 0, 100, 5, 0.002);
+TUNE(lmr_a, 77, 0, 150, 8, 0.002);
+TUNE(lmr_b, 236, 100, 400, 10, 0.002);
+TUNE(lmr_base, 1024, 0, 2048, 100, 0.002);
+TUNE(lmr_pv, 1024, 0, 2048, 100, 0.002);
+TUNE(lmr_cutnode, 1024, 0, 2048, 100, 0.002);
+TUNE(lmr_killer, 1024, 0, 2048, 100, 0.002);
+TUNE(lmr_ttpv, 1024, 0, 2048, 100, 0.002);
+TUNE(lmr_histdiv, 16, 1, 32, 1, 0.002);
+TUNE(corrhist_base, 16, 0, 32, 2, 0.002);
+TUNE(asp_sz, 32, 0, 100, 5, 0.002);
+TUNE(soft_tm, 50, 0, 100, 5, 0.002);
+TUNE(corrtm_div, 200, 100, 400, 10, 0.002);
+TUNE(corrtm_base, 30, 0, 60, 3, 0.002);
+TUNE(corrtm_mult, 40, 0, 80, 4, 0.002);
+TUNE(nodetm_base, 150, 50, 300, 10, 0.002);
+TUNE(nodetm_mult, 100, 0, 200, 10, 0.002);
+
 uint64_t perft(Board &board, int depth) {
 	// If white's turn is beginning and black is in check
 	if (board.side == WHITE && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7]), WHITE))
@@ -214,12 +244,12 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	while ((move = next_move(scores, end)) != NullMove) {
 		if (move.type() != PROMOTION) {
 			Value see = ti.board.see_capture(move);
-			if (see < 0) {
+			if (see < qs_see) {
 				continue; // Don't search moves that lose material
 			} else {
 				// QS Futility pruning
 				// use see score for added safety
-				if (DELTA_THRESHOLD + 4 * see + stand_pat < alpha) continue;
+				if (delta_threshold + qs_see_mult * see / 1024 + stand_pat < alpha) continue;
 			}
 		}
 
@@ -360,9 +390,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * 
 		 * We need to make sure that we aren't in check (since we might get mated)
 		 */
-		int margin = (RFP_THRESHOLD - improving * RFP_IMPROVING) * depth + RFP_QUADRATIC * depth * depth;
+		int margin = (rfp_base - improving * rfp_improving) * depth + rfp_quadratic * depth * depth / 1024;
 		if (tt_corr_eval >= beta + margin)
-			return (tt_corr_eval + beta) / 2;
+			return (rfp_eval_mult * tt_corr_eval + (16 - rfp_eval_mult) * beta) / 16;
 	}
 
 	// Null-move pruning
@@ -383,7 +413,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[board.side][0][0];
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
-		Value r = NMP_R_VALUE + depth / 4 + std::min(3, (tt_corr_eval - beta) / 400) + improving;
+		Value r = NMP_R_VALUE + depth / 4 + std::min(3, (tt_corr_eval - beta) / nmp_eval_div) + improving;
 		Value null_score = -negamax(ti, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
 		board.unmake_move();
 		ti.line[ply].cont_hist = nullptr;
@@ -392,7 +422,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Razoring
-	if (!pv && !in_check && depth <= 8 && tt_corr_eval + RAZOR_MARGIN * depth < alpha) {
+	if (!pv && !in_check && depth <= 8 && tt_corr_eval + razor_margin * depth < alpha) {
 		/**
 		 * If we are losing by a lot, check w/ qsearch to see if we could possibly improve.
 		 * If not, we can prune the search.
@@ -441,7 +471,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (singular_score < singular_beta) {
 				extension++;
 
-				if (singular_score <= singular_beta - 20)
+				if (singular_score <= singular_beta - double_margin)
 					extension++;
 			} else if (tteval >= beta) {
 				// Negative extensions
@@ -469,7 +499,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				 * Skip moves with very bad history scores
 				 * Depth condition is necessary to avoid overflow
 				 */
-				if (hist < -HISTORY_MARGIN * depth)
+				if (hist < -history_margin * depth)
 					break;
 			}
 
@@ -480,7 +510,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				 * Skip searching moves with bad SEE scores
 				 */
 				Value see = board.see_capture(move);
-				if (see < (-50 - 50 * capt) * depth)
+				if (see < (-see_base - see_capt * capt) * depth)
 					continue;
 			}
 		}
@@ -508,12 +538,13 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 */
 		Value score;
 		if (depth >= 2 && i >= 1 + 2 * pv) {
-			Value r = reduction[i][depth];
+			Value r = (lmr_a / 100.0 + log2(i) * log2(depth) / (lmr_b / 100.0)) * 1024;
+			if (i <= 1) r = 1024;
 
 			// Base reduction offset
-			r -= 1024;
+			r -= lmr_base;
 
-			r -= 1024 * pv;
+			r -= lmr_pv * pv;
 			r += 1024 * (!pv && cutnode);
 			if (move == ti.line[ply].killer)
 				r -= 1024;
@@ -609,7 +640,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (ti.line[ply].excl == NullMove && !in_check && !(best_move != NullMove && (best_iscapture || best_ispromo))
 		&& !(flag == UPPER_BOUND && best >= cur_eval) && !(flag == LOWER_BOUND && best <= cur_eval)) {
 		// Best move is a quiet move, update CorrHist
-		int bonus = (best - cur_eval) * depth / 8;
+		int bonus = corrhist_base * (best - cur_eval) * depth / 128;
 		ti.thread_hist.update_corrhist(board, bonus);
 	}
 
@@ -637,7 +668,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 	Value eval = -VALUE_INFINITE;
 	for (int d = 1; d <= depth; d++) {
 		int alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
-		int window_sz = ASPIRATION_WINDOW;
+		int window_sz = asp_sz;
 
 		if (eval != -VALUE_INFINITE) {
 			/**
@@ -706,16 +737,16 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 				in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE) > 0;
 			}
 
-			double soft = 0.5;
+			double soft = soft_tm / 100.0;
 			if (depth >= 6 && !best_iscapt && !best_ispromo && !in_check) {
 				// adjust soft limit based on complexity
 				Value complexity = abs(eval - static_eval);
-				double factor = std::clamp(complexity / 200.0, 0.0, 1.0);
+				double factor = std::clamp(complexity / (double)corrtm_div, 0.0, 1.0);
 				// higher complexity = spend more time, lower complexity = spend less time
-				soft = 0.3 + 0.4 * factor;
+				soft = corrtm_base / 100.0 + (corrtm_mult / 100.0) * factor;
 			}
 
-			double node_adjustment = 1.5 - (bm_nodes / (double)tot_nodes);
+			double node_adjustment = nodetm_base / 100.0 - nodetm_mult / 100.0 * (bm_nodes / (double)tot_nodes);
 			soft *= node_adjustment;
 			if (time_elapsed > mxtime * soft) {
 				// We probably won't be able to complete the next ID loop

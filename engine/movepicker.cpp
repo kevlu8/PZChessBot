@@ -5,6 +5,8 @@ MovePicker::MovePicker(Board &board, SSEntry *ss, int ply, History *main_hist, T
 	ttMove = tentry ? tentry->best_move : NullMove;
 }
 
+TUNE(killer_bonus, 1500, 500, 3000, 100, 0.002);
+
 Move MovePicker::next() {
 	if (stage == MP_STAGE_DONE)
 		return NullMove;
@@ -41,7 +43,7 @@ Move MovePicker::next() {
 			} else {
 				if (qskip) continue;
 				score = QUIET_BASE + main_hist->get_history(board, move, ply, ss);
-				if (move == ss->killer) score += 1500;
+				if (move == ss->killer) score += killer_bonus;
 			}
 			scores.push_back({move, score});
 		}

@@ -1,5 +1,9 @@
 #include "history.hpp"
 
+TUNE(corr_pawn, 128, 0, 256, 16, 0.002);
+TUNE(corr_np_w, 128, 0, 256, 16, 0.002);
+TUNE(corr_np_b, 128, 0, 256, 16, 0.002);
+
 int History::get_conthist(Board &board, Move move, int ply, SSEntry *line) {
 	int score = 0;
 	if (ply >= 1 && (line - 1)->cont_hist)
@@ -61,9 +65,9 @@ void History::apply_correction(Board &board, Value &eval) {
 		return; // Don't apply correction if we are already at a mate score
 	
 	int corr = 0;
-	corr += 128 * corrhist_ps[board.side][board.pawn_hash() % CORRHIST_SZ];
-	corr += 128 * corrhist_np[board.side][WHITE][board.nonpawn_hash(WHITE) % CORRHIST_SZ];
-	corr += 128 * corrhist_np[board.side][BLACK][board.nonpawn_hash(BLACK) % CORRHIST_SZ];
+	corr += corr_pawn * corrhist_ps[board.side][board.pawn_hash() % CORRHIST_SZ];
+	corr += corr_np_w * corrhist_np[board.side][WHITE][board.nonpawn_hash(WHITE) % CORRHIST_SZ];
+	corr += corr_np_b * corrhist_np[board.side][BLACK][board.nonpawn_hash(BLACK) % CORRHIST_SZ];
 	
 	eval += corr / 2048;
 }
