@@ -5,8 +5,8 @@ TTable ttable(DEFAULT_TT_SIZE);
 void TTable::store(uint64_t key, Value eval, Value s_eval, uint8_t depth, uint8_t bound, bool ttpv, Move best_move, uint8_t age) {
 	TTBucket *bucket = TT + (key % TT_SIZE);
 
-	key >>= 32; // Use upper 32 bits for the key (since we already verified bottom n bits)
-	
+	key >>= 48; // Use upper 16 bits for the key (since we already verified bottom n bits)
+
 	TTEntry *depth_entry = &bucket->entries[0];
 	TTEntry *always_entry = &bucket->entries[1];
 	if (depth_entry->key == key || always_entry->key == key) {
@@ -53,7 +53,7 @@ void TTable::store(uint64_t key, Value eval, Value s_eval, uint8_t depth, uint8_
 
 TTable::TTEntry *TTable::probe(uint64_t key) {
 	TTBucket *bucket = TT + (key % TT_SIZE);
-	key >>= 32;
+	key >>= 48;
 	for (int i = 0; i < 2; i++) {
 		TTEntry *entry = &bucket->entries[i];
 		if (entry->key != key)

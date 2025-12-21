@@ -15,7 +15,7 @@ enum TTFlag {
 
 struct TTable {
 	struct TTEntry {
-		uint32_t key;
+		uint16_t key;
 		Move best_move;
 		Value eval, s_eval;
 		uint8_t depth;
