@@ -35,9 +35,9 @@ struct TTable {
 	TTEntry NO_ENTRY = TTEntry();
 
 	TTBucket *TT;
-	int TT_SIZE;
+	size_t TT_SIZE;
 
-	TTable(int size) : TT_SIZE(size) { TT = new TTBucket[size]; }
+	TTable(size_t size) : TT_SIZE(size) { TT = new TTBucket[size]; }
 
 	~TTable() { delete[] TT; }
 
