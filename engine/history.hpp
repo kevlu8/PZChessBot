@@ -5,9 +5,7 @@
 #include "bitboard.hpp"
 
 // Correction history table size
-#define CORRHIST_SZ 32768
-#define CORRHIST_GRAIN 256
-#define CORRHIST_WEIGHT 256
+#define CORRHIST_SZ 16384
 
 struct ContHistEntry {
 	Value hist[2][6][64]; // [side][piecetype][to]
