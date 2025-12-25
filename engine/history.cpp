@@ -58,6 +58,7 @@ void History::update_corrhist(Board &board, int bonus) {
 }
 
 void History::apply_correction(Board &board, Value &eval) {
+	return;
 	if (abs(eval) >= VALUE_MATE_MAX_PLY)
 		return; // Don't apply correction if we are already at a mate score
 
