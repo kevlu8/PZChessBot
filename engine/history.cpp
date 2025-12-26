@@ -55,6 +55,7 @@ void History::update_corrhist(Board &board, int bonus) {
 	update_entry(corrhist_np[board.side][WHITE][board.nonpawn_hash(WHITE) % CORRHIST_SZ]);
 	update_entry(corrhist_np[board.side][BLACK][board.nonpawn_hash(BLACK) % CORRHIST_SZ]);
 	update_entry(corrhist_maj[board.side][board.major_hash() % CORRHIST_SZ]);
+	update_entry(corrhist_min[board.side][board.minor_hash() % CORRHIST_SZ]);
 }
 
 void History::apply_correction(Board &board, Value &eval) {
@@ -65,7 +66,8 @@ void History::apply_correction(Board &board, Value &eval) {
 	corr += 128 * corrhist_ps[board.side][board.pawn_hash() % CORRHIST_SZ];
 	corr += 128 * corrhist_np[board.side][WHITE][board.nonpawn_hash(WHITE) % CORRHIST_SZ];
 	corr += 128 * corrhist_np[board.side][BLACK][board.nonpawn_hash(BLACK) % CORRHIST_SZ];
-	corr += 128 * corrhist_maj[board.side][board.major_hash() & CORRHIST_SZ];
+	corr += 128 * corrhist_maj[board.side][board.major_hash() % CORRHIST_SZ];
+	corr += 128 * corrhist_min[board.side][board.minor_hash() % CORRHIST_SZ];
 
 	eval += corr / 2048;
 }
