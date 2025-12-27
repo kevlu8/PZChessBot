@@ -80,4 +80,4 @@ struct Corrhist {
 	void apply_correction(Board &board, SSEntry *line, int ply, Value &eval);
 };
 
-extern Corrhist shared_corrhist;
+extern Corrhist shared_corrhist[MAX_THREADS * 2];

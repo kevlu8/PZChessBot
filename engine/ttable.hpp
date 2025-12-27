@@ -41,33 +41,15 @@ struct TTable {
 	size_t TT_SIZE;
 	uint8_t age = 0;
 
-	void init_ttable() {
-		// Multithreaded initialization (capped by thread count)
-		const size_t MIN_CHUNK_SIZE = 4294967296 / sizeof(TTBucket);
-		size_t num_threads = std::clamp(TT_SIZE / MIN_CHUNK_SIZE, 1UL, (size_t)std::thread::hardware_concurrency());
-		std::vector<std::thread> threads;
-		size_t chunk_size = TT_SIZE / num_threads;
-		for (int t = 0; t < num_threads; t++) {
-			threads.emplace_back([this, t, chunk_size, num_threads]() {
-				size_t start = t * chunk_size;
-				size_t end = (t == num_threads - 1) ? TT_SIZE : start + chunk_size;
-				for (size_t i = start; i < end; i++) {
-					for (int j = 0; j < 3; j++) {
-						TT[i].entries[j] = TTEntry();
-					}
-				}
-			});
-		}
-		for (auto &th : threads)
-			th.join();
-		age = 0;
-	}
+	TTable() : TT_SIZE(DEFAULT_TT_SIZE) { TT = new TTBucket[DEFAULT_TT_SIZE]; }
+	TTable(int size) : TT_SIZE(size) { TT = new TTBucket[size]; }
 
 	void inc_gen() { age = (age + 1) % TT_GEN_SZ; }
 
 	TTable(size_t size) : TT_SIZE(size) {
 		TT = (TTBucket *)large_alloc(TT_SIZE * sizeof(TTBucket));
-		init_ttable();
+		// init_ttable();
+		TTable();
 	}
 
 	~TTable() { large_free(TT, TT_SIZE * sizeof(TTBucket)); }
@@ -83,7 +65,8 @@ struct TTable {
 			large_free(TT, TT_SIZE * sizeof(TTBucket));
 			TT_SIZE = o.TT_SIZE;
 			TT = (TTBucket *)large_alloc(TT_SIZE * sizeof(TTBucket));
-			init_ttable();
+			// init_ttable();
+			TTable();
 		}
 		return *this;
 	}
@@ -102,6 +85,12 @@ struct TTable {
 	}
 
 	constexpr uint64_t mxsize() const { return TT_SIZE * 3; }
+
+	void clear() {
+		memset(TT, 0, sizeof(TTBucket) * TT_SIZE);
+	}
+
+	constexpr uint64_t mxsize() const { return TT_SIZE * 2; }
 };
 
-extern TTable ttable;
+extern TTable ttable[MAX_THREADS * 2];

@@ -60,7 +60,12 @@ test/test
 *.png
 *.py
 *.epd
+<<<<<<< HEAD
 cutechess
 *.log
 base
 config.json
+=======
+!runner.py
+!requirements.txt
+>>>>>>> 4f8cac0 (Rebase stuff)
