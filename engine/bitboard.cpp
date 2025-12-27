@@ -53,6 +53,69 @@ std::string Move::to_string() const {
 	return str;
 }
 
+std::string Move::to_san(const void *b) const {
+	const Board *board = (const Board *)b;
+	std::string san = "";
+
+	PieceType moving_piece = PieceType(board->mailbox[src()] & 7);
+	bool is_capture = board->is_capture(*this) || (type() == EN_PASSANT);
+
+	if (moving_piece == PAWN) {
+		// i hate pawns
+		if (is_capture) {
+			san += ('a' + (src() & 0b111));
+			san += 'x';
+		}
+		san += (char)('a' + (dst() & 0b111));
+		san += (char)('1' + (dst() >> 3));
+		if (type() == PROMOTION) {
+			san += '=';
+			san += std::toupper(piecetype_letter[promotion() + KNIGHT]);
+		}
+		return san;
+	}
+
+	if (type() == CASTLING) {
+		if (dst() == SQ_G1 || dst() == SQ_G8) {
+			return "O-O";
+		} else {
+			return "O-O-O";
+		}
+	}
+
+	// non-pawn
+	// add piece letter
+	san += std::toupper(piecetype_letter[moving_piece]);
+	// disambiguation
+	bool need_file = false, need_rank = false;
+	for (Square sq = SQ_A1; sq <= SQ_H8; sq = Square(sq + 1)) {
+		if (sq == src()) continue;
+		if (board->mailbox[sq] == board->mailbox[src()]) {
+			// same piece found
+			Move test_move = Move(sq, dst());
+			if (board->is_pseudolegal(test_move)) {
+				// can move to the same square
+				if ((sq & 0b111) != (src() & 0b111))
+					need_file = true;
+				else
+					need_rank = true;
+			}
+		}
+	}
+
+	if (need_file)
+		san += ('a' + (src() & 0b111));
+	if (need_rank)
+		san += ('1' + (src() >> 3));
+	if (is_capture)
+		san += 'x';
+	san += (char)('a' + (dst() & 0b111));
+	san += (char)('1' + (dst() >> 3));
+	return san;
+
+	// note: no check/mate indicators because it is not strictly needed
+}
+
 Move Move::from_string(const std::string &str, const void *b) {
 	if (str == "0000")
 		return NullMove;

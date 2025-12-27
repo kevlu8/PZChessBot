@@ -37,6 +37,7 @@ struct TTable {
 	TTBucket *TT;
 	int TT_SIZE;
 
+	TTable() : TT_SIZE(DEFAULT_TT_SIZE) { TT = new TTBucket[DEFAULT_TT_SIZE]; }
 	TTable(int size) : TT_SIZE(size) { TT = new TTBucket[size]; }
 
 	~TTable() { delete[] TT; }
@@ -66,7 +67,11 @@ struct TTable {
 		TT = new TTBucket[size];
 	}
 
+	void clear() {
+		memset(TT, 0, sizeof(TTBucket) * TT_SIZE);
+	}
+
 	constexpr uint64_t mxsize() const { return TT_SIZE * 2; }
 };
 
-extern TTable ttable;
+extern TTable ttable[MAX_THREADS * 2];

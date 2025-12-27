@@ -1,6 +1,6 @@
 #include "ttable.hpp"
 
-TTable ttable(DEFAULT_TT_SIZE);
+TTable ttable[MAX_THREADS * 2] = { TTable() };
 
 void TTable::store(uint64_t key, Value eval, Value s_eval, uint8_t depth, uint8_t bound, bool ttpv, Move best_move) {
 	TTBucket *bucket = TT + (key % TT_SIZE);

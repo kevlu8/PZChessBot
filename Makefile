@@ -1,13 +1,19 @@
 # Project settings
 EXE      ?= pzchessbot
 EVALFILE ?= nnue.bin
+SNODES 	 ?= 5000
+NRAND    ?= 12
 
 # Compilers
 CXX      := g++
 WINCXX   := x86_64-w64-mingw32-g++
 
+# CPU Cores
+CORES    := $(shell nproc)
+NPROC    := $(shell if [ $(CORES) -lt 64 ]; then echo $(CORES); else echo 64; fi)
+
 # Flags
-BASEFLAGS   := -std=c++17 -DNNUE_PATH=\"$(EVALFILE)\" -m64
+BASEFLAGS   := -std=c++17 -DNNUE_PATH=\"$(EVALFILE)\" -m64 -DMAX_THREADS=$(NPROC) -DDATAGEN_SOFT_NODES=$(SNODES) -DDATAGEN_NUM_RAND=$(NRAND)
 OPTFLAGS    := -O3 -flto=auto
 DEBUGFLAGS  := -g -fsanitize=address,undefined -march=native
 
