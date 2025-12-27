@@ -633,6 +633,11 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 
 	Value static_eval = eval(board, (BoardState *)ti.bs) * (board.side ? -1 : 1);
 
+	uint64_t softnodes = mx_nodes;
+	if (mx_nodes <= 100000) { // um basically if nodes is low we interpret it as a soft limit
+		mx_nodes = 1000000;
+	}
+
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
 	for (int d = 1; d <= depth; d++) {
@@ -676,6 +681,8 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 		if (stop_search) break;
 		eval = result;
 		best_move = ti.pvtable[0][0];
+
+		ti.maxdepth = d;
 		
 		if (ti.is_main) {
 			// We must calculate best move nodes and total nodes at around the same time
@@ -695,6 +702,12 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 				std::cout << " " << ti.pvtable[0][ply].to_string();
 			}
 			std::cout << std::endl;
+
+			if (tot_nodes >= softnodes) {
+				// Reached max nodes
+				stop_search = true;
+				break;
+			}
 
 			// only do time management on main thread
 			bool best_iscapt = board.is_capture(best_move);
@@ -723,8 +736,6 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 				break;
 			}
 		}
-
-		ti.maxdepth = d;
 	}
 
 	ti.eval = eval;
