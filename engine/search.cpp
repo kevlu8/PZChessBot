@@ -5,7 +5,6 @@
 #define MOVENUM(x) ((((#x)[1] - '1') << 12) | (((#x)[0] - 'a') << 8) | (((#x)[3] - '1') << 4) | ((#x)[2] - 'a'))
 
 uint64_t mx_nodes = 1e18; // Maximum nodes to search
-bool stop_search = true;
 std::chrono::steady_clock::time_point start;
 uint64_t mxtime = 1e18; // Maximum time to search in milliseconds
 bool minimal = false;
@@ -14,7 +13,6 @@ std::stringstream last_line;
 uint16_t num_threads = 1;
 
 std::atomic<uint64_t> nodecnt[64][64] = {{}};
-std::atomic<uint64_t> nodes[MAX_THREADS] = {};
 
 uint64_t perft(Position &pos, int depth) {
 	if (depth == 0)
@@ -138,6 +136,7 @@ Value tt_to_score(Value score, int ply) {
  * Used for UCI output. This function samples the first 1024 entries of the TTable
  * then counts how many are occupied.
  */
+/*
 double get_ttable_sz() {
 	int cnt = 0;
 	for (int i = 0; i < 1024; i++) {
@@ -148,6 +147,7 @@ double get_ttable_sz() {
 	}
 	return cnt / (3.0 * 1024);
 }
+*/
 
 /**
  * Convert a score to UCI format
@@ -161,7 +161,7 @@ std::string score_to_uci(Value score) {
 	} else if (score <= -VALUE_MATE_MAX_PLY) {
 		return "mate " + std::to_string((-VALUE_MATE - score) / 2);
 	} else {
-		return "cp " + std::to_string(int(score / NNUE_PAWN_VALUE));
+		return "cp " + std::to_string(int(score));
 	}
 }
 
@@ -187,16 +187,13 @@ bool is_valid_score(Value score) {
  * - Late move reduction (instead of reducing depth, we reduce the search window) (not a known technique, maybe worth trying?)
  */
 Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool pv=false) {
-	nodes[ti.id]++;
+	ti.nodes++;
 
-	if (stop_search) return 0;
+	if (ti.stop_search) return 0;
 
-	if (ti.is_main && !(nodes[ti.id] & 4095)) {
-		auto time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-		if (time > mxtime || nodes[ti.id] > mx_nodes) { // currently, the nodes will be broken but time will be accurate
-			stop_search = true;
-			return 0;
-		}
+	if (ti.nodes > mx_nodes) { // currently, the nodes will be broken but time will be accurate
+		ti.stop_search = true;
+		return 0;
 	}
 
 	RepetitionHandler &rp = ti.rp;
@@ -205,7 +202,7 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 		return eval(pos, ti.am) * side; // Just in case
 
 	// Check for TTable cutoff
-	auto tentry = ttable.probe(pos.zobrist);
+	auto tentry = ttable[ti.id].probe(ti.pos.zobrist);
 	Value tteval = -VALUE_INFINITE;
 	if (tentry && is_valid_score(tentry->eval)) tteval = tt_to_score(tentry->eval, ply);
 	if (!pv && tentry && is_valid_score(tteval)) {
@@ -226,10 +223,9 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 	if (!in_check) {
 		stand_pat = tentry ? tentry->s_eval : eval(pos, ti.am) * side;
 		raw_eval = stand_pat;
-		shared_corrhist.apply_correction(pos, &ti.line[ply], ply, stand_pat);
+		shared_corrhist[ti.id].apply_correction(pos, &ti.line[ply], ply, stand_pat);
 		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
-			stand_pat = tteval;
-		if (!tentry) ttable.store(pos.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
+		if (!tentry) ttable[ti.id].store(ti.pos.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
 	}
 
 	// If we are too good, return the score
@@ -284,14 +280,14 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 		ti.line[ply].captured = (PieceType)(pos.mailbox[move.dst()] & 7);
 		ti.line[ply].piece = (PieceType)(pos.mailbox[move.src()] & 7);
 		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
-		ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
+		ti.line[ply].corr_hist = &shared_corrhist[ti.id].corrhist_cont[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
 
 		Position pos_after = pos;
 		pos_after.make_move(move);
 		rp.push_hash(pos_after.zobrist_without_ep());
 		ti.am.make_move(pos, move, pos_after);
 		
-		_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
+		_mm_prefetch(&ttable[ti.id].TT[pos_after.zobrist & (ttable[ti.id].TT_SIZE - 1)], _MM_HINT_T0);
 		Value score = -quiesce(pos_after, ti, -beta, -alpha, -side, ply + 1, pv);
 
 		ti.am.pop_move();
@@ -325,7 +321,7 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 	}
 
 	Move tt_move = best_move != NullMove ? best_move : (tentry ? tentry->best_move : NullMove);
-	ttable.store(pos.zobrist, score_to_tt(best, ply), raw_eval, 0, ttf, pv, tt_move);
+	ttable[ti.id].store(pos.zobrist, score_to_tt(best, ply), raw_eval, 0, ttf, pv, tt_move);
 
 	return best;
 }
@@ -336,21 +332,13 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	if (ply >= MAX_PLY)
 		return eval(pos, ti.am) * side;
 
-	if (pv) {
-		ti.pvlen[ply] = 0;
-		ti.seldepth = std::max(ti.seldepth, ply);
-	}
+	ti.nodes++;
 
-	nodes[ti.id]++;
+	if (ti.stop_search) return 0;
 
-	if (stop_search) return 0;
-
-	if (ti.is_main && !(nodes[ti.id] & 4095)) {
-		auto time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-		if (time > mxtime || nodes[ti.id] > mx_nodes) { // currently, the nodes will be broken but time will be accurate
-			stop_search = true;
-			return 0;
-		}
+	if (ti.nodes > mx_nodes) { // currently, the nodes will be broken but time will be accurate
+		ti.stop_search = true;
+		return 0;
 	}
 
 	/**
@@ -388,7 +376,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	 * Note that we cannot do this in singular search (`ti.line[ply].excl != NullMove`)
 	 * because the singular search excludes a move that may be the best move in the position.
 	 */
-	auto tentry = ttable.probe(pos.zobrist);
+	auto tentry = ttable[ti.id].probe(pos.zobrist);
 	Value tteval = -VALUE_INFINITE;
 	bool ttcapt = false;
 	if (tentry && is_valid_score(tentry->eval)) tteval = tt_to_score(tentry->eval, ply);
@@ -417,11 +405,11 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	if (!in_check) {
 		cur_eval = tentry ? tentry->s_eval : eval(pos, ti.am) * side;
 		raw_eval = cur_eval;
-		if (!excluded) shared_corrhist.apply_correction(pos, &ti.line[ply], ply, cur_eval);
+		if (!excluded) shared_corrhist[ti.id].apply_correction(pos, &ti.line[ply], ply, cur_eval);
 		tt_corr_eval = cur_eval;
 		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
 			tt_corr_eval = tteval;
-		else if (!tentry) ttable.store(pos.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
+		else if (!tentry) ttable[ti.id].store(pos.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
 	}
 
 	ti.line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
@@ -464,7 +452,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		 * are probably Zugzwangs (e.g. endgames).
 		 */
 		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[pos.side][0][0];
-		ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[pos.side][0][0];
+		ti.line[ply].corr_hist = &shared_corrhist[ti.id].corrhist_cont[pos.side][0][0];
 
 		Position pos_after = pos;
 		pos_after.make_move(NullMove);
@@ -537,14 +525,14 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			ti.line[ply].captured = (PieceType)(pos.mailbox[pc_move.dst()] & 7);
 			ti.line[ply].piece = (PieceType)(pos.mailbox[pc_move.src()] & 7);
 			ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[pos.side][pos.mailbox[pc_move.src()] & 7][pc_move.dst()];
-			ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[pos.side][pos.mailbox[pc_move.src()] & 7][pc_move.dst()];
+			ti.line[ply].corr_hist = &shared_corrhist[ti.id].corrhist_cont[pos.side][pos.mailbox[pc_move.src()] & 7][pc_move.dst()];
 
 			Position pos_after = pos;
 			pos_after.make_move(pc_move);
 			rp.push_hash(pos_after.zobrist_without_ep());
 			ti.am.make_move(pos, pc_move, pos_after);
 
-			_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
+			_mm_prefetch(&ttable[ti.id].TT[pos_after.zobrist & (ttable[ti.id].TT_SIZE - 1)], _MM_HINT_T0);
 			Value score = -quiesce(pos_after, ti, -pc_beta, -pc_beta + 1, -side, ply + 1);
 
 			if (score >= pc_beta)
@@ -560,7 +548,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			ti.line[ply].corr_hist = nullptr;
 
 			if (score >= pc_beta) {
-				ttable.store(pos.zobrist, score_to_tt(score, ply), raw_eval, pc_depth + 1, LOWER_BOUND, false, pc_move);
+				ttable[ti.id].store(pos.zobrist, score_to_tt(score, ply), raw_eval, pc_depth + 1, LOWER_BOUND, false, pc_move);
 				return score;
 			}
 		}
@@ -590,7 +578,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	Move move = NullMove;
 	int i = 0;
 
-	uint64_t prev_nodes = nodes[ti.id];
+	uint64_t prev_nodes = ti.nodes;
 
 	ti.line[ply+1].cutoffcnt = 0;
 
@@ -713,14 +701,14 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		ti.line[ply].captured = (PieceType)(pos.mailbox[move.dst()] & 7);
 		ti.line[ply].piece = (PieceType)(pos.mailbox[move.src()] & 7);
 		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
-		ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
+		ti.line[ply].corr_hist = &shared_corrhist[ti.id].corrhist_cont[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
 
 		Position pos_after = pos;
 		pos_after.make_move(move);
 		rp.push_hash(pos_after.zobrist_without_ep());
 		ti.am.make_move(pos, move, pos_after);
 
-		_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
+		_mm_prefetch(&ttable[ti.id].TT[pos_after.zobrist & (ttable[ti.id].TT_SIZE - 1)], _MM_HINT_T0);
 
 		int newdepth = depth - 1 + extension;
 
@@ -803,12 +791,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		ti.line[ply].cont_hist = nullptr;
 		ti.line[ply].corr_hist = nullptr;
 
-		if (root) {
-			nodecnt[move.src()][move.dst()] += nodes[ti.id] - prev_nodes;
-			prev_nodes = nodes[ti.id];
-		}
-
-		if (stop_search)
+		if (ti.stop_search)
 			break;
 
 		if (score <= alpha) {
@@ -871,6 +854,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		// If our engine thinks we are mated but we are not in check, we are stalemated
 		if (excluded) return alpha;
 		else if (in_check) return -VALUE_MATE + ply;
+		else if (root) return VALUE_STALE; // stop game
 		else return 0;
 	}
 
@@ -880,12 +864,12 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		&& !(flag == UPPER_BOUND && best >= cur_eval) && !(flag == LOWER_BOUND && best <= cur_eval)) {
 		// Best move is a quiet move, update CorrHist
 		int bonus = (best - cur_eval) * depth / 8;
-		shared_corrhist.update_corrhist(pos, &ti.line[ply], ply, bonus);
+		shared_corrhist[ti.id].update_corrhist(pos, &ti.line[ply], ply, bonus);
 	}
 
 	if (!excluded) {
 		Move tt_move = best_move != NullMove ? best_move : tentry ? tentry->best_move : NullMove;
-		ttable.store(pos.zobrist, score_to_tt(best, ply), raw_eval, depth, flag, ttpv, tt_move);
+		ttable[ti.id].store(pos.zobrist, score_to_tt(best, ply), raw_eval, depth, flag, ttpv, tt_move);
 	}
 
 	return best;
@@ -949,106 +933,52 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			beta = std::clamp(beta, -VALUE_INFINITE, (int)VALUE_INFINITE);
 			window_sz *= 2;
 			result = negamax(pos, ti, asp_depth, alpha, beta, pos.side ? -1 : 1, 1, false, 0, true);
-			if (stop_search) break;
+			if (ti.stop_search) break;
 		}
-		if (stop_search) break;
+		if (ti.stop_search) break;
 		eval = result;
-		Move mv = ti.pvtable[0][0];
 
-		if (mv == best_move) {
-			consec_move++;
-		} else {
-			consec_move = 1;
-		}
+		best_move = ti.pvtable[0][0];
 
-		best_move = mv;
-		
-		if (ti.is_main) {
-			// We must calculate best move nodes and total nodes at around the same time
-			// so that node counts don't change in between due to race conditions
-			// This is a really crude way of doing it (todo change later)
-			uint64_t bm_nodes = nodecnt[best_move.src()][best_move.dst()];
-			uint64_t tot_nodes = 0;
-			for (int t = 0; t < num_threads; t++) {
-				tot_nodes += nodes[t]; // ig this is dangerous but whatever
-			}
-
-			// UCI output from main thread only
-			auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-			last_line.str("");
-			last_line << "info depth " << d << " seldepth " << ti.seldepth << " score " << score_to_uci(eval) << " time " << time_elapsed << " nodes " << tot_nodes << " nps "
-					  << (time_elapsed ? (tot_nodes * 1000 / time_elapsed) : tot_nodes) << " hashfull " << (int)(get_ttable_sz() * 1000) << " pv";
-			for (int ply = 0; ply < ti.pvlen[0]; ply++) {
-				last_line << " " << ti.pvtable[0][ply].to_string();
-			}
-			if (!minimal) std::cout << last_line.str() << std::endl;
-
-			// only do time management on main thread
-			bool best_iscapt = pos.is_capture(best_move);
-			bool best_ispromo = (best_move.type() == PROMOTION);
-			bool in_check = false;
-			if (pos.side == WHITE) {
-				in_check = pos.control(__tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)]), BLACK) > 0;
-			} else {
-				in_check = pos.control(__tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]), WHITE) > 0;
-			}
-
-			double soft = 0.53;
-			if (depth >= 6) {
-				if (!best_iscapt && !best_ispromo && !in_check) {
-					// adjust soft limit based on complexity
-					Value complexity = abs(eval - static_eval);
-					double factor = std::clamp(complexity / 192.0, 0.0, 1.0);
-					// higher complexity = spend more time, lower complexity = spend less time
-					soft = 0.32 + 0.44 * factor;
-				}
-
-				double bm_stability = bm_base() / 100.0 - bm_mul() / 100.0 * consec_move;
-				bm_stability = std::clamp(bm_stability, 0.8, 1.8);
-				soft *= bm_stability;
-			}
-
-			double node_adjustment = 1.34 - 0.92 * (bm_nodes / (double)tot_nodes);
-			soft *= node_adjustment;
-
-			if (abs(eval) >= VALUE_MATE_MAX_PLY)
-				soft = 0.1; // doesn't matter anymore
-
-			if (time_elapsed > mxtime * soft) {
-				// We probably won't be able to complete the next ID loop
-				stop_search = true;
-				break;
-			}
-		}
+		if (ti.nodes >= DATAGEN_SOFT_NODES) break;
 
 		ti.maxdepth = d;
 	}
 
 	ti.eval = eval;
-
-	if (ti.is_main) {
-		stop_search = true;
-		if (minimal) std::cout << last_line.str() << std::endl;
-		std::cout << "bestmove " << best_move.to_string() << std::endl;
-	}
+	ti.stop_search = true;
 }
 
-void prepare_search(int64_t time, int64_t maxnodes, bool quiet, uint16_t num) {
-	for (int i = 0; i < 64; i++)
-		for (int j = 0; j < 64; j++)
-			nodecnt[i][j] = 0;
+std::pair<Move, Value> search(Position &pos, RepetitionHandler &rp, ThreadInfo *threads) {
+	mxtime = 1e18;
+	mx_nodes = DATAGEN_HARD_NODES;
+	threads->stop_search = false; // technically dangerous but threads size == 1 is guaranteed here
 
-	mxtime = time;
-	mx_nodes = maxnodes;
-	start = std::chrono::steady_clock::now();
-	stop_search = false;
-	minimal = quiet;
-	num_threads = num;
+	Move best_move = NullMove;
+	Value eval = 0;
+
+	std::vector<std::thread> thread_handles;
+
+	ThreadInfo &ti = threads[0];
+	ti.pos = pos;
+	ti.rp = rp;
+	ti.nodes = 0;
+	iterativedeepening(pos, ti, MAX_PLY);
+
+	ThreadInfo &best_thread = threads[0];
+
+	ttable[best_thread.id].inc_gen();
+
+	return {best_thread.pvtable[0][0], best_thread.eval};
 }
 
 void clear_search_vars(ThreadInfo &ti) {
+	ti.pos.reset_startpos();
+	ti.nodes = 0;
+	ti.stop_search = false;
 	memset(&ti.thread_hist, 0, sizeof(History));
 	for (int i = 0; i < MAX_PLY; i++) {
 		ti.line[i] = SSEntry();
 	}
+	ttable[ti.id].clear();
 }

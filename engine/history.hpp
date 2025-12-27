@@ -83,4 +83,4 @@ struct Corrhist {
 	void apply_correction(Position &pos, SSEntry *line, int ply, Value &eval);
 };
 
-extern Corrhist shared_corrhist;
+extern Corrhist shared_corrhist[MAX_THREADS * 2];

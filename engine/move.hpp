@@ -34,6 +34,7 @@ struct Move {
 		return data != m.data;
 	};
 	std::string to_string() const;
+	std::string to_san(const void *) const;
 	static Move from_string(const std::string &, const void *);
 };
 

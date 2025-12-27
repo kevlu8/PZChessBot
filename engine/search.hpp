@@ -61,13 +61,13 @@ struct ThreadInfo {
 	int pvlen[MAX_PLY + 5] = {};
     AccumulatorManager am;
     bool nmp_disable = false;
+    uint64_t nodes = 0;
+    bool stop_search = false;
 
     ThreadInfo() : am(pos) {}
 };
 
-void prepare_search(int64_t time, int64_t maxnodes, bool quiet, uint16_t num_threads);
-
-void iterativedeepening(Position &pos, ThreadInfo &ti, int depth);
+std::pair<Move, Value> search(Position &pos, RepetitionHandler &rp, ThreadInfo *threads);
 
 uint64_t perft(Position &pos, int depth);
 
