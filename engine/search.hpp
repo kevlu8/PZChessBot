@@ -66,6 +66,8 @@ struct ThreadInfo {
 	int pvlen[MAX_PLY] = {};
 	BoardState bs[NINPUTS * 2][NINPUTS * 2];
     bool nmp_disable = false;
+    uint64_t nodes = 0;
+    bool stop_search = false;
 
     void set_bs() {
         for (int i = 0; i < NINPUTS * 2; i++) {

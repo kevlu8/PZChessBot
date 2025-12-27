@@ -60,3 +60,5 @@ test/test
 *.png
 *.py
 *.epd
+!runner.py
+!requirements.txt

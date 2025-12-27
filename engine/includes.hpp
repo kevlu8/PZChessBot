@@ -19,6 +19,19 @@
 #include "pzstl/vector.hpp"
 #include "debug.hpp"
 
+#define DATAGEN_HARD_NODES 1000000
+
+#ifndef DATAGEN_SOFT_NODES
+#define DATAGEN_SOFT_NODES 5000
+#endif
+
+#ifndef DATAGEN_NUM_RAND
+#define DATAGEN_NUM_RAND 12
+#endif
+
+#define DATAGEN_MAX_GAMES 2000
+#define DATAGEN_ADJUDICATION_PERCENT 70
+
 #define VERSION "v6.0"
 
 typedef uint64_t Bitboard;
@@ -27,7 +40,11 @@ constexpr bool WHITE = false;
 constexpr bool BLACK = true;
 
 constexpr int MAX_PLY = 301;
-constexpr int MAX_THREADS = 64;
+// constexpr int MAX_THREADS = 64;
+
+#ifndef MAX_THREADS
+#define MAX_THREADS 16
+#endif
 
 typedef int16_t Value;
 constexpr Value VALUE_ZERO = 0;
@@ -35,6 +52,7 @@ constexpr Value VALUE_INFINITE = 32000;
 constexpr Value VALUE_MATE = 30002; // Add 2 as a consequence of our evaluation function only returning MATE when king is taken
 constexpr Value VALUE_MATE_MAX_PLY = VALUE_MATE - MAX_PLY;
 constexpr Value VALUE_NONE = -31000;
+constexpr Value VALUE_STALE = 29700;
 
 constexpr Value PawnValue = 98;
 constexpr Value KnightValue = 350;
