@@ -55,9 +55,9 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 		}
 		if (in_check || checking_opponent) continue;
 		if (_mm_popcnt_u64(board.piece_boards[KING]) != 2) continue;
-		auto s_eval = eval(board, tiw.bs);
+		auto s_eval = eval(board, (BoardState *)tiw.bs);
 		if (abs(s_eval) >= 800) continue; // ridiculous position
-		auto res = search(tiw.board, tiw).second;
+		auto res = search(tiw.board, &tiw).second;
 		if (abs(res) >= 600) continue; // unbalanced position
 
 		std::string startfen = board.get_fen();
