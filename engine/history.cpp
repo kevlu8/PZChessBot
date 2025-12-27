@@ -85,4 +85,4 @@ void Corrhist::apply_correction(Board &board, SSEntry *line, int ply, Value &eva
 	eval += corr / 2048;
 }
 
-Corrhist shared_corrhist;
+Corrhist shared_corrhist[MAX_THREADS * 2];
