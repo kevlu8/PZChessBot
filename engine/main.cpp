@@ -19,7 +19,7 @@ bool quiet = false, online = false;
 
 ThreadInfo *tis;
 
-std::atomic<uint64_t> g_tot_pos(0), g_tot_games(0), threads_done(0);
+uint64_t g_tot_pos(0), g_tot_games(0), threads_done(0);
 int n_threads = 1;
 
 void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
@@ -30,7 +30,8 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 	std::fstream outfile(filename, std::ios::out);
 	uint64_t games = 0, total_pos = 0;
 	std::mt19937_64 rng(id + std::chrono::system_clock::now().time_since_epoch().count());
-	while (threads_done.load() != n_threads && games < DATAGEN_MAX_GAMES) {
+	std::chrono::high_resolution_clock::time_point start_time = std::chrono::high_resolution_clock::now();
+	while (threads_done != n_threads && games < DATAGEN_MAX_GAMES && g_tot_pos < 500) {
 		bool do_adjudication = (rng() % 100) < DATAGEN_ADJUDICATION_PERCENT;
 		clear_search_vars(tiw);
 		clear_search_vars(tib);
@@ -127,12 +128,15 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 		outfile << "\n\n";
 		outfile.flush();
 
-		if (games % 10 == 0) {
-			g_tot_pos += total_pos;
-			total_pos = 0;
-			g_tot_games += 10;
-		}
+		// if (games % 10 == 0) {
+		g_tot_pos += total_pos;
+		total_pos = 0;
+		g_tot_games += 10;
+		// }
 	}
+
+	std::chrono::high_resolution_clock::time_point end_time = std::chrono::high_resolution_clock::now();
+	std::cerr << 1000000000000LL * g_tot_pos / (end_time - start_time).count() << " pps" << std::endl;
 
 	outfile.close();
 	threads_done++;
@@ -141,15 +145,15 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 void reporter() {
 	auto start_time = std::chrono::high_resolution_clock::now();
 	auto last_report = start_time;
-	while (threads_done.load() != n_threads) {
+	while (threads_done != n_threads && g_tot_pos < 5000) {
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 		auto current_time = std::chrono::high_resolution_clock::now();
 		if (last_report + std::chrono::seconds(30) > current_time) continue;
 		last_report = current_time;
 		auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(current_time - start_time).count();
-		uint64_t positions = g_tot_pos.load();
+		uint64_t positions = g_tot_pos;
 		double pps = positions / (double)elapsed;
-		std::cout << "Positions: " << positions << ", Time: " << elapsed << "s, PPS: " << pps << ", Games: " << g_tot_games.load() << std::endl;
+		std::cout << "Positions: " << positions << ", Time: " << elapsed << "s, PPS: " << pps << ", Games: " << g_tot_games << std::endl;
 	}
 }
 
@@ -176,8 +180,8 @@ int main(int argc, char *argv[]) {
 
 	std::thread rep_thread(reporter);
 
-	while (threads_done.load() != n_threads) {
-		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+	while (threads_done != n_threads) {
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
 	}
 
 	for (auto &t : threads) {
@@ -185,5 +189,5 @@ int main(int argc, char *argv[]) {
 	}
 	rep_thread.join();
 
-	std::cout << "Done. Total positions: " << g_tot_pos.load() << std::endl;
+	std::cout << "Done. Total positions: " << g_tot_pos << std::endl;
 }
