@@ -958,17 +958,10 @@ std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, i
 
 	std::vector<std::thread> thread_handles;
 
-	for (int t = 0; t < num_threads; t++) {
-		ThreadInfo &ti = threads[t];
-		ti.board = board;
-		ti.nodes = 0;
-		// don't clear search vars here; keep history
-		thread_handles.emplace_back(iterativedeepening, std::ref(ti), depth);
-	}
-
-	for (int t = 0; t < num_threads; t++) {
-		thread_handles[t].join();
-	}
+	ThreadInfo &ti = threads[0];
+	ti.board = board;
+	ti.nodes = 0;
+	iterativedeepening(ti, depth);
 
 	ThreadInfo &best_thread = threads[0];
 
