@@ -13,7 +13,12 @@ enum MP_Stage {
 	MP_STAGE_TT,
 	MP_STAGE_GEN,
 	MP_STAGE_MOVES,
-	MP_STAGE_DONE,
+	
+	MP_PC_TT,
+	MP_PC_GEN,
+	MP_PC_MOVES,
+
+	MP_DONE,
 };
 
 class MovePicker {
@@ -30,7 +35,11 @@ private:
 	bool qskip = false;
 
 public:
+	// Standard move picker
 	MovePicker(Board &board, SSEntry *ss, int ply, History *main_hist, TTable::TTEntry *tentry);
+
+	// ProbCut move picker
+	MovePicker(Board &board, History *main_hist, TTable::TTEntry *tentry);
 
 	Move next();
 

@@ -5,8 +5,13 @@ MovePicker::MovePicker(Board &board, SSEntry *ss, int ply, History *main_hist, T
 	ttMove = tentry ? tentry->best_move : NullMove;
 }
 
+MovePicker::MovePicker(Board &board, History *main_hist, TTable::TTEntry *tentry) : board(board), main_hist(main_hist) {
+	stage = MP_PC_TT;
+	ttMove = tentry ? tentry->best_move : NullMove;
+}
+
 Move MovePicker::next() {
-	if (stage == MP_STAGE_DONE)
+	if (stage == MP_DONE)
 		return NullMove;
 
 	if (stage == MP_STAGE_TT) {
@@ -51,7 +56,7 @@ Move MovePicker::next() {
 
 	if (stage == MP_STAGE_MOVES) {
 		if (end == 0) {
-			stage = MP_STAGE_DONE;
+			stage = MP_DONE;
 			return NullMove;
 		}
 		Move best_move = NullMove;
@@ -67,11 +72,60 @@ Move MovePicker::next() {
 		}
 		std::swap(scores[idx], scores[end - 1]);
 		end--;
-		if (end == 0) stage = MP_STAGE_DONE;
+		if (end == 0) stage = MP_DONE;
 		return best_move;
 	}
 
-	if (stage == MP_STAGE_DONE) {
+	if (stage == MP_PC_TT) {
+		stage = MP_PC_GEN;
+		if (ttMove != NullMove && board.is_pseudolegal(ttMove))
+			return ttMove;
+	}
+
+	if (stage == MP_PC_GEN) {
+		stage = MP_PC_MOVES;
+		board.captures(moves);
+
+		for (Move move : moves) {
+			if (move == ttMove)
+				continue;
+			
+			if (board.see_capture(move) < 50)
+				continue; // Skip bad captures
+
+			int score = 0;
+
+			score += PieceValue[board.mailbox[move.dst()] & 7] +
+					 main_hist->capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
+
+			scores.push_back({move, score});
+		}
+
+		end = scores.size();
+	}
+
+	if (stage == MP_PC_MOVES) {
+		if (end == 0) {
+			stage = MP_DONE;
+			return NullMove;
+		}
+		Move best_move = NullMove;
+		int best_score = -2147483647;
+		int idx = 0;
+		for (int i = 0; i < end; i++) {
+			if (scores[i].second > best_score) {
+				best_score = scores[i].second;
+				best_move = scores[i].first;
+				idx = i;
+			}
+		}
+		std::swap(scores[idx], scores[end - 1]);
+		end--;
+		if (end == 0) stage = MP_DONE;
+		return best_move;
+	}
+
+	if (stage == MP_DONE) {
 		return NullMove;
 	}
 

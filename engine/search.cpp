@@ -472,6 +472,53 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			return razor_score;
 	}
 
+	if (!pv && !in_check && depth >= 6 && ti.line[ply].excl == NullMove && beta < VALUE_MATE_MAX_PLY) {
+		/**
+		 * ProbCut
+		 * 
+		 * Before running search, we generate moves that we think are good and
+		 * search them with a reduced depth and a higher beta. If one of them fails
+		 * high, we assume that the node will fail high at full depth as well.
+		 * 
+		 * Because ProbCut is relatively expensive, we only run it on nodes where we
+		 * have evidence that a cut is probable (i.e. high eval or TTable score).
+		 * 
+		 * In the body of the ProbCut loop, we first run a QSearch to figure out whether
+		 * or not the move could cut. If the QSearch doesn't fail high, we skip the move
+		 * in order to save effort.
+		 */
+		Value probcut_beta = beta + 300;
+		int probcut_depth = depth - 4;
+
+		if (tentry && tteval >= probcut_beta) {
+			MovePicker pc_mp(board, &ti.thread_hist, tentry);
+
+			Move pc_move = NullMove;
+			while ((pc_move = pc_mp.next()) != NullMove) {
+				// Set histories
+				ti.line[ply].move = pc_move;
+				ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[board.side][board.mailbox[pc_move.src()] & 7][pc_move.dst()];
+
+				board.make_move(pc_move);
+				_mm_prefetch(&ttable.TT[board.zobrist % ttable.TT_SIZE], _MM_HINT_T0);
+
+				Value probcut_value = -quiesce(ti, -probcut_beta, -probcut_beta + 1, -side, ply + 1, 0);
+				if (probcut_value >= probcut_beta)
+					probcut_value = -negamax(ti, probcut_depth, -probcut_beta, -probcut_beta + 1, -side, 0, !cutnode, ply + 1);
+
+				board.unmake_move();
+
+				ti.line[ply].cont_hist = nullptr;
+				ti.line[ply].move = NullMove;
+
+				if (probcut_value >= probcut_beta) {
+					ttable.store(board.zobrist, probcut_value, raw_eval, probcut_depth, LOWER_BOUND, false, pc_move, ply);
+					return probcut_value;
+				}
+			}
+		}
+	}
+
 	Value best = -VALUE_INFINITE;
 
 	MovePicker mp(board, &ti.line[ply], ply, &ti.thread_hist, tentry);
