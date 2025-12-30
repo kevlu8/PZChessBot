@@ -317,10 +317,15 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	bool ttpv = pv;
 
-	// Check for TTable cutoff
 	TTable::TTEntry *tentry = ttable.probe(board.zobrist);
 	Value tteval = 0;
 	if (tentry) tteval = tt_to_score(tentry->eval, ply);
+
+	if ((pv || cutnode) && depth >= 6 && !(tentry && tentry->best_move != NullMove)) {
+		depth -= 1; // Internal iterative reductions
+	}
+
+	// Check for TTable cutoff
 	if (!pv && tentry && tentry->depth >= depth && ti.line[ply].excl == NullMove) {
 		// Check for cutoffs
 		if (tentry->bound() == EXACT) {
@@ -405,10 +410,6 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	Value best = -VALUE_INFINITE;
 
 	MovePicker mp(board, &ti.line[ply], ply, &ti.thread_hist, tentry);
-
-	if ((pv || cutnode) && depth > 4 && !(tentry && tentry->best_move != NullMove)) {
-		depth -= 2; // Internal iterative reductions
-	}
 
 	Move best_move = NullMove;
 
