@@ -490,7 +490,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		Value probcut_beta = beta + 300;
 		int probcut_depth = depth - 4;
 
-		if (tentry && tteval >= probcut_beta) {
+		if (!tentry || (tteval >= probcut_beta && tentry->bound() != UPPER_BOUND)) {
 			MovePicker pc_mp(board, &ti.thread_hist, tentry);
 
 			Move pc_move = NullMove;
@@ -502,8 +502,10 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				board.make_move(pc_move);
 				_mm_prefetch(&ttable.TT[board.zobrist % ttable.TT_SIZE], _MM_HINT_T0);
 
+				// Preliminary QSearch
 				Value probcut_value = -quiesce(ti, -probcut_beta, -probcut_beta + 1, -side, ply + 1, 0);
 				if (probcut_value >= probcut_beta)
+					// Main search
 					probcut_value = -negamax(ti, probcut_depth, -probcut_beta, -probcut_beta + 1, -side, 0, !cutnode, ply + 1);
 
 				board.unmake_move();
