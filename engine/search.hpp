@@ -55,7 +55,7 @@ extern uint16_t num_threads;
 
 struct ThreadInfo {
 	Board board;
-	int maxdepth = 0;
+	int maxdepth = 0, seldepth = 0;
     Value eval = 0;
     int id = 0;
 	bool is_main = false;

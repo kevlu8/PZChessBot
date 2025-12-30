@@ -252,7 +252,10 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 }
 
 Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 0, bool root = false) {
-	if (pv) ti.pvlen[ply] = 0;
+	if (pv) {
+		ti.pvlen[ply] = 0;
+		ti.seldepth = std::max(ti.seldepth, ply);
+	}
 
 	Board &board = ti.board;
 
@@ -689,7 +692,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 
 			// UCI output from main thread only
 			auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-			std::cout << "info depth " << d << " score " << score_to_uci(eval) << " time " << time_elapsed << " nodes " << tot_nodes << " nps "
+			std::cout << "info depth " << d << " seldepth " << ti.seldepth << " score " << score_to_uci(eval) << " time " << time_elapsed << " nodes " << tot_nodes << " nps "
 					  << (time_elapsed ? (tot_nodes * 1000 / time_elapsed) : tot_nodes) << " hashfull " << (int)(get_ttable_sz() * 1000) << " pv";
 			for (int ply = 0; ply < ti.pvlen[0]; ply++) {
 				std::cout << " " << ti.pvtable[0][ply].to_string();
@@ -751,6 +754,7 @@ std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, i
 	for (int t = 0; t < num_threads; t++) {
 		ThreadInfo &ti = threads[t];
 		ti.board = board;
+		ti.seldepth = 0;
 		nodes[t] = 0;
 		ti.id = t;
 		ti.is_main = (t == 0);
