@@ -252,15 +252,15 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 }
 
 Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 0, bool root = false) {
-	if (pv) {
-		ti.pvlen[ply] = 0;
-		ti.seldepth = std::max(ti.seldepth, ply);
-	}
-
 	Board &board = ti.board;
 
 	if (ply >= MAX_PLY)
 		return eval(board, (BoardState *)ti.bs) * side;
+
+	if (pv) {
+		ti.pvlen[ply] = 0;
+		ti.seldepth = std::max(ti.seldepth, ply);
+	}
 
 	nodes[ti.id]++;
 
@@ -631,6 +631,8 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 			ti.thread_hist.history[1][i][j] /= 2;
 		}
 	}
+
+	depth = std::min(depth, MAX_PLY - 1);
 
 	Board &board = ti.board;
 
