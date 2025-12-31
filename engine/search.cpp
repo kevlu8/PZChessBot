@@ -44,7 +44,7 @@ __attribute__((constructor)) void init_lmr() {
 	for (int i = 0; i < 250; i++) {
 		for (int d = 0; d < MAX_PLY; d++) {
 			if (d <= 1 || i <= 1) reduction[i][d] = 1024;
-			else reduction[i][d] = (0.77 + log2(i) * log2(d) / 2.36) * 1024;
+			else reduction[i][d] = (0.71 + log2(i) * log2(d) / 2.47) * 1024;
 		}
 	}
 }
@@ -214,12 +214,12 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	while ((move = next_move(scores, end)) != NullMove) {
 		if (move.type() != PROMOTION) {
 			Value see = ti.board.see_capture(move);
-			if (see < 0) {
+			if (see < -2) {
 				continue; // Don't search moves that lose material
 			} else {
 				// QS Futility pruning
 				// use see score for added safety
-				if (DELTA_THRESHOLD + 4 * see + stand_pat < alpha) continue;
+				if (DELTA_THRESHOLD + 4754 * see / 1024 + stand_pat < alpha) continue;
 			}
 		}
 
@@ -444,7 +444,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (singular_score < singular_beta) {
 				extension++;
 
-				if (singular_score <= singular_beta - 20)
+				if (singular_score <= singular_beta - 26)
 					extension++;
 			} else if (tteval >= beta) {
 				// Negative extensions
@@ -483,7 +483,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				 * Skip searching moves with bad SEE scores
 				 */
 				Value see = board.see_capture(move);
-				if (see < (-50 - 50 * capt) * depth)
+				if (see < (-67 - 36 * capt) * depth)
 					continue;
 			}
 		}
@@ -514,13 +514,13 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			Value r = reduction[i][depth];
 
 			// Base reduction offset
-			r -= 1024;
+			r -= 1057;
 
-			r -= 1024 * pv;
-			r += 1024 * (!pv && cutnode);
+			r -= 1218 * pv;
+			r += 1142 * (!pv && cutnode);
 			if (move == ti.line[ply].killer)
-				r -= 1024;
-			r -= 1024 * ttpv;
+				r -= 1267;
+			r -= 1082 * ttpv;
 			r -= hist / 16 * !capt;
 
 			Value searched_depth = newdepth - r / 1024;
@@ -577,7 +577,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (ti.line[ply].killer != move) {
 				ti.line[ply].killer = move; // Update killer moves
 			}
-			const Value bonus = std::min(1896, 4 * depth * depth + 120 * depth - 120); // saturate updates at depth 12
+			const Value bonus = std::min(1896, 3 * depth * depth + 109 * depth - 142); // saturate updates at depth 12
 			if (!capt) { // Not a capture
 				ti.thread_hist.update_history(board, move, ply, &ti.line[ply], bonus);
 				for (auto &qmove : quiets) {
@@ -709,16 +709,16 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 				in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE) > 0;
 			}
 
-			double soft = 0.5;
+			double soft = 0.573154;
 			if (depth >= 6 && !best_iscapt && !best_ispromo && !in_check) {
 				// adjust soft limit based on complexity
 				Value complexity = abs(eval - static_eval);
 				double factor = std::clamp(complexity / 200.0, 0.0, 1.0);
 				// higher complexity = spend more time, lower complexity = spend less time
-				soft = 0.3 + 0.4 * factor;
+				soft = 0.33232 + 0.45762 * factor;
 			}
 
-			double node_adjustment = 1.5 - (bm_nodes / (double)tot_nodes);
+			double node_adjustment = 1.414479 - 0.931647 * (bm_nodes / (double)tot_nodes);
 			soft *= node_adjustment;
 			if (time_elapsed > mxtime * soft) {
 				// We probably won't be able to complete the next ID loop
