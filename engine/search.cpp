@@ -480,8 +480,8 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * search them with a reduced depth and a higher beta. If one of them fails
 		 * high, we assume that the node will fail high at full depth as well.
 		 * 
-		 * Because ProbCut is relatively expensive, we only run it on nodes where we
-		 * have evidence that a cut is probable (i.e. high eval or TTable score).
+		 * Note that if we have strong evidence that ProbCut will fail (e.g. from the TT),
+		 * we skip ProbCut to save time.
 		 * 
 		 * In the body of the ProbCut loop, we first run a QSearch to figure out whether
 		 * or not the move could cut. If the QSearch doesn't fail high, we skip the move
@@ -490,7 +490,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		Value probcut_beta = beta + 300;
 		int probcut_depth = depth - 4;
 
-		if (!tentry || (tteval >= probcut_beta && tentry->bound() != UPPER_BOUND)) {
+		// Conditions for skipping ProbCut:
+		// - TT Entry depth is close to current depth and TT score < probcut_beta
+		if (!tentry || tentry->depth < depth - 3 || tteval >= probcut_beta) {
 			MovePicker pc_mp(board, &ti.thread_hist, tentry);
 
 			Move pc_move = NullMove;
