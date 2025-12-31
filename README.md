@@ -18,8 +18,9 @@ A chess engine created by two high school students, started when we were in midd
 | v20250623T22-dev |   ~3160    |     -      |     2800      |
 | v3.0             |    3305    |    3275    |     2850      |
 | v20250729T08-dev |   ~3400    |     -      |     2900      |
-| v4.0             |    3444    |    3374    |     2900      |
-| v5.0             |    3457    |    3396    |     2900      |
+| v4.0             |    3444    |    3374    |     2850      |
+| v5.0             |    3457    |    3396    |     2850      |
+| v6.0             |   ~3600    |     -      |      -        |
 
 ## Logistics & Features
 
@@ -34,15 +35,21 @@ PZChessBot is a basic negamax engine.
 - Late-move pruning
 - Transposition tables
 - Null-move pruning
-- Move ordering using MVV+CaptHist, killer moves, history heuristic, and counter moves
+- Move ordering using MVV+CaptHist, killer moves, butterfly history, and continuation history
 - Aspiration windows and iterative deepening
-- Check extensions
-- Futility and reverse futility pruning
+- Internal iterative reductions
+- Reverse futility pruning
 - Razoring
 - Singular extensions
 - Negative extensions
 - History pruning
-- Static exchange evaluation
+- Static exchange evaluation pruning
+- QS futility pruning
+- Static evaluation correction history (pawn, non-pawn)
+- TT-corrected evaluation
+- Mate-distance pruning
+- Improving heuristic
+- Multithreading with Lazy SMP
 
 ### Moves and board representation
 
