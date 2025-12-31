@@ -18,14 +18,14 @@
 #include "pzstl/vector.hpp"
 #include "debug.hpp"
 
-#define VERSION "v20251203T22"
+#define VERSION "v6.0"
 
 typedef uint64_t Bitboard;
 
 constexpr bool WHITE = false;
 constexpr bool BLACK = true;
 
-constexpr int MAX_PLY = 300;
+constexpr int MAX_PLY = 301;
 constexpr int MAX_THREADS = 64;
 
 typedef int16_t Value;
