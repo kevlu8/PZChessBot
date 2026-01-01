@@ -1,4 +1,5 @@
 #include "history.hpp"
+#include "params.hpp"
 
 int History::get_conthist(Board &board, Move move, int ply, SSEntry *line) {
 	int score = 0;

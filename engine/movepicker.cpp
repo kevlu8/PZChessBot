@@ -1,4 +1,5 @@
 #include "movepicker.hpp"
+#include "params.hpp"
 
 std::pair<Move, int> pick_next(pzstd::vector<std::pair<Move, int>> &scores, int &end) {
 	if (end == 0) return {NullMove, 0}; // Ran out
