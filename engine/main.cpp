@@ -11,6 +11,8 @@
 #include "search.hpp"
 #include "ttable.hpp"
 
+#include "params.hpp"
+
 // Options
 int TT_SIZE = DEFAULT_TT_SIZE;
 bool quiet = false, online = false;
@@ -28,6 +30,7 @@ void run_uci() {
 			std::cout << "option name Hash type spin default 16 min 1 max 1024" << std::endl;
 			std::cout << "option name Threads type spin default 1 min 1 max 64" << std::endl;
 			std::cout << "option name Quiet type check default false" << std::endl;
+			print_uci();
 			std::cout << "uciok" << std::endl;
 		} else if (command == "icu") {
 			return; // exit uci mode
@@ -63,6 +66,8 @@ void run_uci() {
 				tis = new ThreadInfo[num_threads];
 				for (int i = 0; i < num_threads; i++) tis[i].set_bs();
 				std::cout << "info string Using " << num_threads << " threads" << std::endl;
+			} else {
+				handle_set(optionname, optionvalue);
 			}
 		} else if (command == "ucinewgame") {
 			board = Board();
@@ -159,6 +164,7 @@ void run_uci() {
 }
 
 __attribute__((weak)) int main(int argc, char *argv[]) {
+	print_config();
 	tis = new ThreadInfo[1]; // single thread for now
 	tis[0].set_bs();
 	if (argc == 2 && std::string(argv[1]) == "bench") {
@@ -319,6 +325,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			std::cout << "option name Hash type spin default 16 min 1 max 1024" << std::endl;
 			std::cout << "option name Threads type spin default 1 min 1 max 64" << std::endl;
 			std::cout << "option name Quiet type check default false" << std::endl;
+			print_uci();
 			std::cout << "uciok" << std::endl;
 			run_uci();
 		} else if (command == "quit") {

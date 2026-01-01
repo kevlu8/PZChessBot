@@ -1,5 +1,6 @@
 #include "search.hpp"
 #include <utility>
+#include "params.hpp"
 
 #define MOVENUM(x) ((((#x)[1] - '1') << 12) | (((#x)[0] - 'a') << 8) | (((#x)[3] - '1') << 4) | ((#x)[2] - 'a'))
 
