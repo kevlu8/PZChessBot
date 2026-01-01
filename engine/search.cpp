@@ -476,14 +476,15 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 					break;
 			}
 
-			if (depth <= 3 && !promo && best > -VALUE_INFINITE) {
+			if (depth <= 5 && !promo && best > -VALUE_INFINITE) {
 				/**
 				 * PVS SEE Pruning
 				 * 
 				 * Skip searching moves with bad SEE scores
 				 */
 				Value see = board.see_capture(move);
-				if (see < (-67 - 36 * capt) * depth)
+				const Value see_threshold = capt ? -25 * depth * depth : -67 * depth;
+				if (see < see_threshold)
 					continue;
 			}
 		}
