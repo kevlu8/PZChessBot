@@ -1,4 +1,5 @@
 #include "movepicker.hpp"
+#include "params.hpp"
 
 MovePicker::MovePicker(Board &board, SSEntry *ss, int ply, History *main_hist, TTable::TTEntry *tentry) : board(board), ss(ss), ply(ply), main_hist(main_hist) {
 	stage = MP_STAGE_TT;
