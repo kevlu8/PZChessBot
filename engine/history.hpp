@@ -48,12 +48,14 @@ public:
 	 */
 	Value corrhist_ps[2][CORRHIST_SZ]; // [side][pawn hash]
 	Value corrhist_np[2][2][CORRHIST_SZ]; // [side][color][color non-pawn hash]
+	Value corrhist_maj[2][CORRHIST_SZ]; // [side][major piece hash]
 
 	History() {
 		memset(history, 0, sizeof(history));
 		memset(capthist, 0, sizeof(capthist));
 		memset(corrhist_ps, 0, sizeof(corrhist_ps));
 		memset(corrhist_np, 0, sizeof(corrhist_np));
+		memset(corrhist_maj, 0, sizeof(corrhist_maj));
 	}
 
 	int get_conthist(Board &board, Move move, int ply, SSEntry *line);
