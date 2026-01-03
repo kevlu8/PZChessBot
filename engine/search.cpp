@@ -446,6 +446,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 				if (singular_score <= singular_beta - 26)
 					extension++;
+				
+				if (singular_score <= singular_beta - 60)
+					extension++;
 			} else if (tteval >= beta) {
 				// Negative extensions
 				extension -= 3;
