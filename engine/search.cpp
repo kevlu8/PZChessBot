@@ -69,6 +69,16 @@ __attribute__((constructor)) void init_mvvlva() {
 	}
 }
 
+/**
+ * Select the next move from the list of scored moves
+ * 
+ * This function uses a basic partial selection-sort-like algorithm to select the move with
+ * the highest score. It then swaps the move to the back of the list, reducing the effective
+ * time of the list by 1/2.
+ * 
+ * This approach is chosen because a lot of the time, we only need the top few moves from the
+ * list to produce a cutoff.
+ */
 Move next_move(pzstd::vector<std::pair<Move, int>> &scores, int &end) {
 	if (end == 0) return NullMove; // Ran out
 	Move best_move = NullMove;
@@ -85,6 +95,15 @@ Move next_move(pzstd::vector<std::pair<Move, int>> &scores, int &end) {
 	return best_move;
 }
 
+/**
+ * Convert a score to a TTable-storable score
+ * 
+ * Because our search function returns mate scores as an absolute mate-in-ply,
+ * we need to convert them to a relative mate score for storage in the TTable.
+ * 
+ * Note that returning relative mate scores is fundamentally incompatible with the
+ * alpha-beta search algorithm, hence why this conversion is necessary.
+ */
 Value score_to_tt(Value score, int ply) {
 	if (score >= VALUE_MATE_MAX_PLY) {
 		return score + ply;
@@ -95,6 +114,9 @@ Value score_to_tt(Value score, int ply) {
 	}
 }
 
+/**
+ * Convert a TTable-stored score to a search-returnable score
+ */
 Value tt_to_score(Value score, int ply) {
 	if (score >= VALUE_MATE_MAX_PLY) {
 		return score - ply;
@@ -105,6 +127,12 @@ Value tt_to_score(Value score, int ply) {
 	}
 }
 
+/**
+ * Get the usage of the transposition table
+ * 
+ * Used for UCI output. This function samples the first 1024 entries of the TTable
+ * then counts how many are occupied.
+ */
 double get_ttable_sz() {
 	int cnt = 0;
 	for (int i = 0; i < 1024; i++) {
@@ -115,6 +143,12 @@ double get_ttable_sz() {
 	return cnt / 2048.0;
 }
 
+/**
+ * Convert a score to UCI format
+ * 
+ * UCI format requires mate scores to be represented as "mate N" where N is full-moves to
+ * mate. Thus, we need to convert our internal representation to this format.
+ */
 std::string score_to_uci(Value score) {
 	if (score >= VALUE_MATE_MAX_PLY) {
 		return "mate " + std::to_string((VALUE_MATE - score + 1) / 2);
@@ -131,6 +165,10 @@ std::string score_to_uci(Value score) {
  * Quiescence search is a technique to avoid the horizon effect, where the evaluation function
  * incorrectly evaluates a position because it is not stable (e.g. there is a hanging queen).
  * In this function, we search only captures and promotions, and return the best score.
+ * 
+ * We also use stand pat to optimize the search further. If we are satisfied with our position,
+ * we can stop searching captures (which may actually worsen our position) and instead directly
+ * return our evaluation.
  * 
  * TODO:
  * - Search for checks and check evasions (every time I've tried this it has lost tons of elo)
@@ -152,6 +190,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	if (depth >= MAX_PLY)
 		return eval(ti.board, (BoardState *)ti.bs) * side; // Just in case
 
+	// Check for TTable cutoff
 	TTable::TTEntry *tentry = ttable.probe(ti.board.zobrist);
 	Value tteval = 0;
 	if (tentry) tteval = tt_to_score(tentry->eval, depth);
@@ -165,6 +204,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 		}
 	}
 
+	// Do evaluation and corrections
 	Value stand_pat = 0;
 	Value raw_eval = 0;
 	stand_pat = tentry ? tentry->s_eval : eval(ti.board, (BoardState *)ti.bs) * side;
@@ -215,10 +255,22 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 		if (move.type() != PROMOTION) {
 			Value see = ti.board.see_capture(move);
 			if (see < -2) {
-				continue; // Don't search moves that lose material
+				/**
+				 * QSearch SEE pruning
+				 * 
+				 * In the QSearch, we don't care too much about missing tactics. So, we can
+				 * be more aggressive with our pruning. If a capture loses material, we can
+				 * discard it directly.
+				 */
+				continue;
 			} else {
-				// QS Futility pruning
-				// use see score for added safety
+				/**
+				 * QS Futility pruning
+				 * 
+				 * Also known as delta pruning. If adding the value of the capture to our
+				 * static evaluation plus a safety margin is still not enough to raise
+				 * alpha, we can skip the move.
+				 */
 				if (DELTA_THRESHOLD + 4754 * see / 1024 + stand_pat < alpha) continue;
 			}
 		}
@@ -320,7 +372,15 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	bool ttpv = pv;
 
-	// Check for TTable cutoff
+	/**
+	 * TTable Cutoffs
+	 * 
+	 * If we have already searched this position at a sufficient depth and with the right
+	 * bounds, we can use the stored evaluation to directly cut off our search.
+	 * 
+	 * Note that we cannot do this in singular search (`ti.line[ply].excl != NullMove`)
+	 * because the singular search excludes a move that may be the best move in the position.
+	 */
 	TTable::TTEntry *tentry = ttable.probe(board.zobrist);
 	Value tteval = 0;
 	if (tentry) tteval = tt_to_score(tentry->eval, ply);
@@ -337,8 +397,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (tentry) ttpv |= tentry->ttpv();
 
+	// Evaluate and correct evaluation
 	Value cur_eval = 0;
-	Value raw_eval = 0; // For CorrHist
+	Value raw_eval = 0;
 	Value tt_corr_eval = 0;
 	if (!in_check) {
 		cur_eval = tentry ? tentry->s_eval : eval(board, (BoardState *)ti.bs) * side;
@@ -352,6 +413,12 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	ti.line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
 
+	/**
+	 * Improving flag
+	 * 
+	 * If our position has gotten better since the last time it was our turn, we say that we are *improving*.
+	 * We can use this information to modify some of our pruning techniques.
+	 */
 	bool improving = false;
 	if (!in_check && ply >= 2 && ti.line[ply-2].eval != VALUE_NONE && cur_eval > ti.line[ply-2].eval) improving = true;
 
@@ -409,8 +476,14 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	MovePicker mp(board, &ti.line[ply], ply, &ti.thread_hist, tentry);
 
+	// Internal iterative reductions
 	if ((pv || cutnode) && depth > 4 && !(tentry && tentry->best_move != NullMove)) {
-		depth -= 2; // Internal iterative reductions
+		/**
+		 * In positions where we are in a node where we'd expect a TT move (i.e. PV/cutnode) and
+		 * we don't have one, it's likely that the position is not good enough to warrant a TT move.
+		 * Thus, we can reduce the depth of the search slightly.
+		 */
+		depth -= 2;
 	}
 
 	Move best_move = NullMove;
@@ -435,7 +508,17 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		int extension = 0;
 
 		if (ti.line[ply].excl == NullMove && depth >= 8 && i == 0 && tentry && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
-			// Singular extension
+			/**
+			 * Singular extensions
+			 * 
+			 * If we are in a node where one move is significantly better than all other moves, we can
+			 * extend that move (i.e. search it deeper) because it is probably very important.
+			 * 
+			 * We do this by excluding the move we believe is superior, then running a reduced-depth search
+			 * to verify if the position indeed is far worse without that move. If it is, we extend the move.
+			 * 
+			 * We can also extend more if the position without the move is *very* bad.
+			 */
 			ti.line[ply].excl = move;
 			Value singular_beta = tteval - 2 * depth;
 			Value singular_score = negamax(ti, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
@@ -447,9 +530,19 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				if (singular_score <= singular_beta - 26)
 					extension++;
 			} else if (tteval >= beta) {
-				// Negative extensions
+				/**
+				 * Negative extensions
+				 * 
+				 * The TT suggested the evaluation is actually good enough to cause a beta cutoff,
+				 * but even after banning the move the position is still good. We can deprioritize
+				 * the TT move slightly, in favor of hopefully finding a better move.
+				 */
 				extension -= 3;
 			} else if (cutnode) {
+				/**
+				 * The TT suggests a non-cutoff, but we expect a cutoff to occur. We also know that
+				 * the move isn't singular, so we can reduce the depth slightly in favor of other moves.
+				 */
 				extension -= 2;
 			}
 		}
@@ -460,7 +553,8 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				/**
 				 * Late Move Pruning
 				 * 
-				 * Just skip later moves that probably aren't good
+				 * Moves that are ordered far near the back probably aren't very good, so we can
+				 * directly skip them.
 				 */
 				break;
 			}
@@ -512,6 +606,8 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 */
 		Value score;
 		if (depth >= 2 && i >= 1 + 2 * pv) {
+			// Case 1: Late moves in nodes
+
 			Value r = reduction[i][depth];
 
 			// Base reduction offset
@@ -528,12 +624,15 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 			score = -negamax(ti, searched_depth, -alpha - 1, -alpha, -side, 0, true, ply+1);
 			if (score > alpha && searched_depth < newdepth) {
+				// LMR search failed, re-search full depth
 				score = -negamax(ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
 			}
 		} else if (!pv || i > 0) {
+			// Case 2: Early moves in nodes
 			score = -negamax(ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
 		}
 		if (pv && (i == 0 || score > alpha)) {
+			// Case 3: First PV node move or re-search
 			if (tentry && move == tentry->best_move && tentry->depth > 1)
 				newdepth = std::max((int)newdepth, 1); // Make sure we don't enter QS if we have an available TT move
 			score = -negamax(ti, newdepth, -beta, -alpha, -side, 1, false, ply+1);
@@ -576,9 +675,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				best = (score * depth + beta) / (depth + 1); // wtf?????
 			}
 			if (ti.line[ply].killer != move) {
-				ti.line[ply].killer = move; // Update killer moves
+				ti.line[ply].killer = move; // Update killer move
 			}
-			const Value bonus = std::min(1896, 3 * depth * depth + 109 * depth - 142); // saturate updates at depth 12
+			const Value bonus = std::min(1896, 3 * depth * depth + 109 * depth - 142);
 			if (!capt) { // Not a capture
 				ti.thread_hist.update_history(board, move, ply, &ti.line[ply], bonus);
 				for (auto &qmove : quiets) {
