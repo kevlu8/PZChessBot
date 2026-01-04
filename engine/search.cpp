@@ -617,7 +617,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * the search.
 		 */
 		Value score;
-		if (depth >= 2 && i >= 1 + 2 * pv) {
+		if (depth >= 3 && i >= 1 + 2 * pv) {
 			// Case 1: Late moves in nodes
 
 			Value r = reduction[i][depth];
