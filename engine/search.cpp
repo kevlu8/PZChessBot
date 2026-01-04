@@ -262,16 +262,6 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 				 * be more aggressive with our pruning. If a capture loses material, we can
 				 * discard it directly.
 				 */
-				continue;
-			} else {
-				/**
-				 * QS Futility pruning
-				 * 
-				 * Also known as delta pruning. If adding the value of the capture to our
-				 * static evaluation plus a safety margin is still not enough to raise
-				 * alpha, we can skip the move.
-				 */
-				if (DELTA_THRESHOLD + 4754 * see / 1024 + stand_pat < alpha) continue;
 			}
 		}
 
