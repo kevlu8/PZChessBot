@@ -559,6 +559,18 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				break;
 			}
 
+			Value futility = cur_eval + 300 + 100 * depth;
+			if (!in_check && !capt && !promo && depth <= 5 && futility <= alpha) {
+				/**
+				 * Futility pruning
+				 * 
+				 * If we are losing by a lot, and this move is unlikely to improve our position,
+				 * skip searching it along with all quiet moves.
+				 */
+				mp.skip_quiets();
+				continue;
+			}
+
 			if (!in_check && !capt && !promo && depth <= 5) {
 				/**
 				 * History pruning

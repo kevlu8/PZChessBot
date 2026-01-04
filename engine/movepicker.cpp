@@ -58,7 +58,7 @@ Move MovePicker::next() {
 		int best_score = -2147483647;
 		int idx = 0;
 		for (int i = 0; i < end; i++) {
-			if (board.is_capture(scores[i].first) && qskip) continue;
+			if (!board.is_capture(scores[i].first) && qskip) continue;
 			if (scores[i].second > best_score) {
 				best_score = scores[i].second;
 				best_move = scores[i].first;
