@@ -14,22 +14,22 @@ enum TTFlag {
 };
 
 struct TTable {
-	struct TTEntry {
-		uint32_t key;
-		Move best_move;
-		Value eval, s_eval;
-		uint8_t depth;
-		uint8_t flags; // 0: exact, 1: lower bound, 2: upper, 3: empty
-		uint8_t age; // half-move clock when this entry was last updated
+	struct TTEntry { // 2 + 2 + 4 + 1 + 1 + 1 = 10 bytes
+		uint16_t key; // 2 bytes
+		Move best_move; // 2 bytes
+		Value eval, s_eval; // 2 + 2 bytes
+		uint8_t depth; // 1 byte
+		uint8_t flags; // 0: exact, 1: lower bound, 2: upper, 3: empty - 1 byte
 
-		TTEntry() : key(0), best_move(NullMove), eval(0), s_eval(0), depth(0), flags(NONE), age(0) {}
+		TTEntry() : key(0), best_move(NullMove), eval(0), s_eval(0), depth(0), flags(NONE) {}
 		const bool valid() const { return flags != NONE; }
 		const TTFlag bound() const { return TTFlag(flags & 3); }
 		const bool ttpv() const { return flags >> 2; }
 	};
 
-	struct TTBucket {
-		TTEntry entries[2];
+	struct alignas(32) TTBucket {
+		TTEntry entries[3]; // 3 * 10 = 30 bytes
+		uint8_t pad[2]; // 2 bytes of padding to allow for better alignment (good compilers will do this automatically, but just to be sure)
 	};
 
 	TTEntry NO_ENTRY = TTEntry();
@@ -56,7 +56,7 @@ struct TTable {
 		return *this;
 	}
 
-	void store(uint64_t key, Value eval, Value s_eval, uint8_t depth, uint8_t bound, bool ttpv, Move best_move, uint8_t age);
+	void store(uint64_t key, Value eval, Value s_eval, uint8_t depth, uint8_t bound, bool ttpv, Move best_move);
 
 	TTEntry *probe(uint64_t key);
 
