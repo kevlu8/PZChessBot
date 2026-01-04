@@ -529,6 +529,15 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 				if (singular_score <= singular_beta - 26)
 					extension++;
+			} else if (singular_score >= beta) {
+				/**
+				 * Multicut
+				 * 
+				 * Even without the TT move, we failed above our node beta. This suggests that there
+				 * are multiple moves in this node that fail high, and as such we can directly return
+				 * the fail-high score.
+				 */
+				return singular_score;
 			} else if (tteval >= beta) {
 				/**
 				 * Negative extensions
