@@ -507,46 +507,6 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		
 		int extension = 0;
 
-		if (ti.line[ply].excl == NullMove && depth >= 8 && i == 0 && tentry && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
-			/**
-			 * Singular extensions
-			 * 
-			 * If we are in a node where one move is significantly better than all other moves, we can
-			 * extend that move (i.e. search it deeper) because it is probably very important.
-			 * 
-			 * We do this by excluding the move we believe is superior, then running a reduced-depth search
-			 * to verify if the position indeed is far worse without that move. If it is, we extend the move.
-			 * 
-			 * We can also extend more if the position without the move is *very* bad.
-			 */
-			ti.line[ply].excl = move;
-			Value singular_beta = tteval - 2 * depth;
-			Value singular_score = negamax(ti, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
-			ti.line[ply].excl = NullMove; // Reset exclusion move
-
-			if (singular_score < singular_beta) {
-				extension++;
-
-				if (singular_score <= singular_beta - 26)
-					extension++;
-			} else if (tteval >= beta) {
-				/**
-				 * Negative extensions
-				 * 
-				 * The TT suggested the evaluation is actually good enough to cause a beta cutoff,
-				 * but even after banning the move the position is still good. We can deprioritize
-				 * the TT move slightly, in favor of hopefully finding a better move.
-				 */
-				extension -= 3;
-			} else if (cutnode) {
-				/**
-				 * The TT suggests a non-cutoff, but we expect a cutoff to occur. We also know that
-				 * the move isn't singular, so we can reduce the depth slightly in favor of other moves.
-				 */
-				extension -= 2;
-			}
-		}
-
 		Value hist = capt ? ti.thread_hist.get_capthist(board, move) : ti.thread_hist.get_history(board, move, ply, &ti.line[ply]);
 		if (best > -VALUE_MATE_MAX_PLY) {
 			if (i >= (5 + depth * depth) / (2 - improving)) {
@@ -592,6 +552,46 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				const Value see_threshold = capt ? -25 * depth * depth : -67 * depth;
 				if (see < see_threshold)
 					continue;
+			}
+		}
+
+		if (ti.line[ply].excl == NullMove && depth >= 8 && i == 0 && tentry && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
+			/**
+			 * Singular extensions
+			 * 
+			 * If we are in a node where one move is significantly better than all other moves, we can
+			 * extend that move (i.e. search it deeper) because it is probably very important.
+			 * 
+			 * We do this by excluding the move we believe is superior, then running a reduced-depth search
+			 * to verify if the position indeed is far worse without that move. If it is, we extend the move.
+			 * 
+			 * We can also extend more if the position without the move is *very* bad.
+			 */
+			ti.line[ply].excl = move;
+			Value singular_beta = tteval - 2 * depth;
+			Value singular_score = negamax(ti, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
+			ti.line[ply].excl = NullMove; // Reset exclusion move
+
+			if (singular_score < singular_beta) {
+				extension++;
+
+				if (singular_score <= singular_beta - 26 - (!capt * hist / 512))
+					extension++;
+			} else if (tteval >= beta) {
+				/**
+				 * Negative extensions
+				 * 
+				 * The TT suggested the evaluation is actually good enough to cause a beta cutoff,
+				 * but even after banning the move the position is still good. We can deprioritize
+				 * the TT move slightly, in favor of hopefully finding a better move.
+				 */
+				extension -= 3;
+			} else if (cutnode) {
+				/**
+				 * The TT suggests a non-cutoff, but we expect a cutoff to occur. We also know that
+				 * the move isn't singular, so we can reduce the depth slightly in favor of other moves.
+				 */
+				extension -= 2;
 			}
 		}
 
