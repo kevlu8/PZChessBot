@@ -627,6 +627,8 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 			r -= 1218 * pv;
 			r += 1142 * (!pv && cutnode);
+			if (tentry && tentry->best_move != NullMove && board.is_capture(tentry->best_move))
+				r += 1024;
 			if (move == ti.line[ply].killer)
 				r -= 1267;
 			r -= 1082 * ttpv;
