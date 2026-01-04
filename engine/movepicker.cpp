@@ -90,7 +90,7 @@ Move MovePicker::next() {
 			if (move == ttMove)
 				continue;
 			
-			if (board.see_capture(move) < 50)
+			if (board.see_capture(move) < 100)
 				continue; // Skip bad captures
 
 			int score = 0;

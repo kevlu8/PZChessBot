@@ -488,11 +488,11 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * in order to save effort.
 		 */
 		Value probcut_beta = beta + 300;
-		int probcut_depth = depth - 4;
+		int probcut_depth = depth - 5;
 
 		// Conditions for skipping ProbCut:
 		// - TT Entry depth is close to current depth and TT score < probcut_beta
-		if (!tentry || tentry->depth < depth - 3 || tteval >= probcut_beta) {
+		if (cutnode && (!tentry || tentry->depth < depth - 3 || tteval >= probcut_beta)) {
 			MovePicker pc_mp(board, &ti.thread_hist, tentry);
 
 			Move pc_move = NullMove;
@@ -516,7 +516,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				ti.line[ply].move = NullMove;
 
 				if (probcut_value >= probcut_beta) {
-					ttable.store(board.zobrist, probcut_value, raw_eval, probcut_depth, LOWER_BOUND, false, pc_move, ply);
+					ttable.store(board.zobrist, probcut_value, raw_eval, probcut_depth, LOWER_BOUND, false, pc_move);
 					return probcut_value;
 				}
 			}
