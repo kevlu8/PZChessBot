@@ -888,7 +888,7 @@ void thread_loop(ThreadInfo &ti) {
 		iterativedeepening(ti, ti.depth);
 
 		done_barrier->arrive_and_wait();
-		start_search = false;
+		done_barrier->arrive_and_wait();
 	}
 }
 
@@ -924,6 +924,8 @@ std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, i
 	}
 	search_cv.notify_all();
 
+	done_barrier->arrive_and_wait();
+	start_search = false;
 	done_barrier->arrive_and_wait();
 
 	ThreadInfo &best_thread = threads[0];
