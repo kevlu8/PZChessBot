@@ -209,7 +209,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	Value raw_eval = 0;
 	stand_pat = tentry ? tentry->s_eval : eval(ti.board, (BoardState *)ti.bs) * side;
 	raw_eval = stand_pat;
-	ti.thread_hist.apply_correction(ti.board, stand_pat);
+	ti.thread_hist.apply_correction(ti.board, &ti.line[depth], depth, stand_pat);
 	if (tentry && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
 		stand_pat = tteval;
 
@@ -276,6 +276,10 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 		}
 
 		ti.line[depth].move = move;
+		ti.line[depth].captured = (PieceType)(ti.board.mailbox[move.dst()] & 7);
+		ti.line[depth].piece = (PieceType)(ti.board.mailbox[move.src()] & 7);
+		ti.line[depth].cont_hist = &ti.thread_hist.cont_hist[ti.board.side][ti.board.mailbox[move.src()] & 7][move.dst()];
+		ti.line[depth].corr_hist = &ti.thread_hist.corrhist_cont[ti.board.side][ti.board.mailbox[move.src()] & 7][move.dst()];
 
 		ti.board.make_move(move);
 		_mm_prefetch(&ttable.TT[ti.board.zobrist % ttable.TT_SIZE], _MM_HINT_T0);
@@ -283,6 +287,10 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 		ti.board.unmake_move();
 
 		ti.line[depth].move = NullMove;
+		ti.line[depth].captured = NO_PIECETYPE;
+		ti.line[depth].piece = NO_PIECETYPE;
+		ti.line[depth].cont_hist = nullptr;
+		ti.line[depth].corr_hist = nullptr;
 
 		if (score > best) {
 			if (score > alpha) {
@@ -404,7 +412,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (!in_check) {
 		cur_eval = tentry ? tentry->s_eval : eval(board, (BoardState *)ti.bs) * side;
 		raw_eval = cur_eval;
-		ti.thread_hist.apply_correction(board, cur_eval);
+		ti.thread_hist.apply_correction(board, &ti.line[ply], ply, cur_eval);
 		tt_corr_eval = cur_eval;
 		if (tentry && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
 			tt_corr_eval = tteval;
@@ -451,12 +459,14 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * are probably Zugzwangs (e.g. endgames).
 		 */
 		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[board.side][0][0];
+		ti.line[ply].corr_hist = &ti.thread_hist.corrhist_cont[board.side][0][0];
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
 		Value r = NMP_R_VALUE + depth / 4 + std::min(3, (tt_corr_eval - beta) / 400) + improving;
 		Value null_score = -negamax(ti, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
 		board.unmake_move();
 		ti.line[ply].cont_hist = nullptr;
+		ti.line[ply].corr_hist = nullptr;
 		if (null_score >= beta)
 			return null_score >= VALUE_MATE_MAX_PLY ? beta : null_score;
 	}
@@ -596,7 +606,10 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 
 		ti.line[ply].move = move;
+		ti.line[ply].captured = (PieceType)(board.mailbox[move.dst()] & 7);
+		ti.line[ply].piece = (PieceType)(board.mailbox[move.src()] & 7);
 		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[board.side][board.mailbox[move.src()] & 7][move.dst()];
+		ti.line[ply].corr_hist = &ti.thread_hist.corrhist_cont[board.side][board.mailbox[move.src()] & 7][move.dst()];
 
 		board.make_move(move);
 
@@ -653,7 +666,10 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		board.unmake_move();
 
 		ti.line[ply].move = NullMove;
+		ti.line[ply].captured = NO_PIECETYPE;
+		ti.line[ply].piece = NO_PIECETYPE;
 		ti.line[ply].cont_hist = nullptr;
+		ti.line[ply].corr_hist = nullptr;
 
 		if (root) {
 			nodecnt[move.src()][move.dst()] += nodes[ti.id] - prev_nodes;
@@ -725,7 +741,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		&& !(flag == UPPER_BOUND && best >= cur_eval) && !(flag == LOWER_BOUND && best <= cur_eval)) {
 		// Best move is a quiet move, update CorrHist
 		int bonus = (best - cur_eval) * depth / 8;
-		ti.thread_hist.update_corrhist(board, bonus);
+		ti.thread_hist.update_corrhist(board, &ti.line[ply], ply, bonus);
 	}
 
 	if (ti.line[ply].excl == NullMove) {
