@@ -8,7 +8,7 @@
 #define CORRHIST_SZ 16384
 
 struct ContHistEntry {
-	Value hist[2][6][64]; // [side][piecetype][to]
+	Value hist[2][7][64]; // [side][piecetype][to]
 
 	ContHistEntry() {
 		memset(hist, 0, sizeof(hist));
@@ -19,10 +19,11 @@ struct SSEntry {
 	Move move;
 	Value eval;
 	Move excl;
-	ContHistEntry *cont_hist;
+	ContHistEntry *cont_hist, *corr_hist;
 	Move killer = NullMove;
+	PieceType piece = NO_PIECETYPE, captured = NO_PIECETYPE;
 
-	SSEntry() : move(NullMove), eval(VALUE_NONE), excl(NullMove), cont_hist(nullptr) {}
+	SSEntry() : move(NullMove), eval(VALUE_NONE), excl(NullMove), cont_hist(nullptr), corr_hist(nullptr) {}
 };
 
 class History {
@@ -50,14 +51,17 @@ public:
 	Value corrhist_np[2][2][CORRHIST_SZ]; // [side][color][color non-pawn hash]
 	Value corrhist_maj[2][CORRHIST_SZ]; // [side][major piece hash]
 	Value corrhist_min[2][CORRHIST_SZ]; // [side][minor piece hash]
+	ContHistEntry corrhist_cont[2][7][64]; // [side][piece][to]
 
 	History() {
 		memset(history, 0, sizeof(history));
+		memset(cont_hist, 0, sizeof(cont_hist));
 		memset(capthist, 0, sizeof(capthist));
 		memset(corrhist_ps, 0, sizeof(corrhist_ps));
 		memset(corrhist_np, 0, sizeof(corrhist_np));
 		memset(corrhist_maj, 0, sizeof(corrhist_maj));
 		memset(corrhist_min, 0, sizeof(corrhist_min));
+		memset(corrhist_cont, 0, sizeof(corrhist_cont));
 	}
 
 	int get_conthist(Board &board, Move move, int ply, SSEntry *line);
@@ -67,6 +71,6 @@ public:
 	void update_history(Board &board, Move &move, int ply, SSEntry *line, Value bonus);
 	void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonus);
 
-	void update_corrhist(Board &board, int bonus);
-	void apply_correction(Board &board, Value &eval);
+	void update_corrhist(Board &board, SSEntry *line, int ply, int bonus);
+	void apply_correction(Board &board, SSEntry *line, int ply, Value &eval);
 };

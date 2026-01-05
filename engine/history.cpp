@@ -45,7 +45,7 @@ void History::update_capthist(PieceType piece, PieceType captured, Square dst, V
 }
 
 // Moving exponential average for corrhist
-void History::update_corrhist(Board &board, int bonus) {
+void History::update_corrhist(Board &board, SSEntry *line, int ply, int bonus) {
 	auto update_entry = [=](Value &entry) {
 		int update = std::clamp(bonus, -MAX_CORRHIST / 4, MAX_CORRHIST / 4);
 		entry += update - entry * abs(update) / MAX_CORRHIST;
@@ -56,9 +56,11 @@ void History::update_corrhist(Board &board, int bonus) {
 	update_entry(corrhist_np[board.side][BLACK][board.nonpawn_hash(BLACK) % CORRHIST_SZ]);
 	update_entry(corrhist_maj[board.side][board.major_hash() % CORRHIST_SZ]);
 	update_entry(corrhist_min[board.side][board.minor_hash() % CORRHIST_SZ]);
+	if (ply >= 2)
+		update_entry((line - 1)->corr_hist->hist[board.side][(line - 2)->piece][(line - 2)->move.dst()]);
 }
 
-void History::apply_correction(Board &board, Value &eval) {
+void History::apply_correction(Board &board, SSEntry *line, int ply, Value &eval) {
 	if (abs(eval) >= VALUE_MATE_MAX_PLY)
 		return; // Don't apply correction if we are already at a mate score
 	
@@ -68,6 +70,8 @@ void History::apply_correction(Board &board, Value &eval) {
 	corr += 133 * corrhist_np[board.side][BLACK][board.nonpawn_hash(BLACK) % CORRHIST_SZ];
 	corr += 64 * corrhist_maj[board.side][board.major_hash() % CORRHIST_SZ];
 	corr += 64 * corrhist_min[board.side][board.minor_hash() % CORRHIST_SZ];
-	
+	if (ply >= 2)
+		corr += 128 * (line - 1)->corr_hist->hist[board.side][(line - 2)->piece][(line - 2)->move.dst()];
+
 	eval += corr / 2048;
 }
