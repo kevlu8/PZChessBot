@@ -1,10 +1,13 @@
 #include "search.hpp"
+
+#include <condition_variable>
 #include <utility>
 
 #define MOVENUM(x) ((((#x)[1] - '1') << 12) | (((#x)[0] - 'a') << 8) | (((#x)[3] - '1') << 4) | ((#x)[2] - 'a'))
 
 uint64_t mx_nodes = 1e18; // Maximum nodes to search
 bool stop_search = true;
+bool quit = false;
 std::chrono::steady_clock::time_point start;
 uint64_t mxtime = 1e18; // Maximum time to search in milliseconds
 
@@ -861,11 +864,40 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 	}
 
 	ti.eval = eval;
-	stop_search = true;
 
 	if (ti.is_main) {
+		stop_search = true;
 		std::cout << "bestmove " << best_move.to_string() << std::endl;
 	}
+}
+
+std::condition_variable search_cv;
+std::mutex search_mtx;
+bool start_search = false;
+std::vector<std::thread> threads;
+std::barrier<> *done_barrier = nullptr;
+
+void thread_loop(ThreadInfo &ti) {
+	while (true) {
+		std::unique_lock<std::mutex> lk(search_mtx);
+		search_cv.wait(lk, [] { return start_search || quit; });
+		lk.unlock();
+		if (quit)
+			break;
+
+		iterativedeepening(ti, ti.depth);
+
+		done_barrier->arrive_and_wait();
+		start_search = false;
+	}
+}
+
+void stop_threads() {
+	quit = true;
+	search_cv.notify_all();
+	for (auto &t : threads)
+		t.join();
+	quit = false;
 }
 
 std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, int depth, int64_t maxnodes, int quiet) {
@@ -879,22 +911,20 @@ std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, i
 	Move best_move = NullMove;
 	Value eval = 0;
 
-	std::vector<std::thread> thread_handles;
-
-	for (int t = 0; t < num_threads; t++) {
-		ThreadInfo &ti = threads[t];
-		ti.board = board;
-		ti.seldepth = 0;
-		nodes[t] = 0;
-		ti.id = t;
-		ti.is_main = (t == 0);
-		// don't clear search vars here; keep history
-		thread_handles.emplace_back(iterativedeepening, std::ref(ti), depth);
+	{
+		std::lock_guard<std::mutex> lk(search_mtx);
+		for (int t = 0; t < num_threads; t++) {
+			ThreadInfo &ti = threads[t];
+			ti.board = board;
+			ti.seldepth = 0;
+			ti.depth = depth;
+			nodes[t] = 0;
+		}
+		start_search = true;
 	}
+	search_cv.notify_all();
 
-	for (int t = 0; t < num_threads; t++) {
-		thread_handles[t].join();
-	}
+	done_barrier->arrive_and_wait();
 
 	ThreadInfo &best_thread = threads[0];
 
