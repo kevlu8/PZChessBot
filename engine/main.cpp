@@ -17,6 +17,23 @@ bool quiet = false, online = false;
 
 ThreadInfo *tis;
 
+void regenerate_threads() {
+	stop_threads();
+	threads.clear();
+	delete[] tis;
+	tis = new ThreadInfo[num_threads];
+	threads.reserve(num_threads);
+	for (int i = 0; i < num_threads; i++) {
+		tis[i].is_main = (i == 0);
+		tis[i].id = i;
+		tis[i].set_bs();
+		threads.emplace_back(thread_loop, std::ref(tis[i]));
+	}
+	if (done_barrier)
+		delete done_barrier;
+	done_barrier = new std::barrier<>(num_threads + 1);
+}
+
 void run_uci() {
 	std::thread searchthread;
 	std::string command;
@@ -60,23 +77,16 @@ void run_uci() {
 					std::cerr << "Invalid number of threads: " << num_threads << std::endl;
 					num_threads = 1;
 				}
-				stop_threads();
-				threads.clear();
-				delete[] tis;
-				tis = new ThreadInfo[num_threads];
-				threads.reserve(num_threads);
-				for (int i = 0; i < num_threads; i++) {
-					tis[i].is_main = (i == 0);
-					tis[i].id = i;
-					tis[i].set_bs();
-					threads.emplace_back(thread_loop, std::ref(tis[i]));
-				}
-				if (done_barrier)
-					delete done_barrier;
-				done_barrier = new std::barrier<>(num_threads + 1);
+				regenerate_threads();
 				std::cout << "info string Using " << num_threads << " threads" << std::endl;
 			}
 		} else if (command == "ucinewgame") {
+			stop_search = true;
+			for (int i = 0; i < num_threads; i++)
+				done_barrier->arrive_and_drop();
+			regenerate_threads();
+			if (searchthread.joinable())
+				searchthread.join();
 			board = Board();
 			ttable.resize(TT_SIZE);
 			for (int i = 0; i < num_threads; i++) {
