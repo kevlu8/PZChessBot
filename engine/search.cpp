@@ -873,21 +873,25 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 
 std::condition_variable search_cv;
 std::mutex search_mtx;
-bool start_search = false;
+std::atomic<uint64_t> search_generation(0);
 std::vector<std::thread> threads;
 std::barrier<> *done_barrier = nullptr;
 
 void thread_loop(ThreadInfo &ti) {
+	uint64_t local_generation = 0;
 	while (true) {
 		std::unique_lock<std::mutex> lk(search_mtx);
-		search_cv.wait(lk, [] { return start_search || quit; });
-		lk.unlock();
-		if (quit)
+		search_cv.wait(lk, [&] { return search_generation.load(std::memory_order_relaxed) != local_generation || quit; });
+		if (quit) {
+			lk.unlock();
+			done_barrier->arrive_and_drop();
 			break;
+		}
+		local_generation = search_generation.load(std::memory_order_relaxed);
+		lk.unlock();
 
 		iterativedeepening(ti, ti.depth);
 
-		done_barrier->arrive_and_wait();
 		done_barrier->arrive_and_wait();
 	}
 }
@@ -920,12 +924,10 @@ std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, i
 			ti.depth = depth;
 			nodes[t] = 0;
 		}
-		start_search = true;
+		search_generation.fetch_add(1, std::memory_order_relaxed);
 	}
 	search_cv.notify_all();
 
-	done_barrier->arrive_and_wait();
-	start_search = false;
 	done_barrier->arrive_and_wait();
 
 	ThreadInfo &best_thread = threads[0];
