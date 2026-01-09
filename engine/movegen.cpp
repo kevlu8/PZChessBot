@@ -705,6 +705,10 @@ Value Board::see_capture(Move move) {
 	int gain[32], d = 0;
 
 	gain[d] = victim == NO_PIECETYPE ? 0 : PieceValue[victim]; // Initial gain from capturing the victim
+	if (move.type() == PROMOTION)
+		gain[d] += PieceValue[move.promotion() - KNIGHT] - PieceValue[PAWN];
+	if (move.type() == EN_PASSANT)
+		gain[d] += PieceValue[PAWN];
 
 	int side = (mailbox[src] & 8) >> 3; // 0 for white, 1 for black
 

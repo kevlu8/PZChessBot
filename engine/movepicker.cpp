@@ -16,7 +16,7 @@ Move MovePicker::next() {
 	}
 
 	if (stage == MP_STAGE_GEN) {
-		stage = MP_STAGE_MOVES;
+		stage = MP_STAGE_GOODNOISY;
 		board.legal_moves(moves);
 
 		const int CAPTURE_PROMO_BASE = 1000000;
@@ -38,18 +38,66 @@ Move MovePicker::next() {
 							 main_hist->capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
 				if (promo)
 					score += PieceValue[move.promotion() + KNIGHT] - PawnValue;
+				
+				if (board.see_capture(move) >= 0) {
+					scores_goodnoisy.push_back({move, score});
+				} else {
+					scores_badnoisy.push_back({move, score});
+				}
 			} else {
 				if (qskip) continue;
 				score = QUIET_BASE + main_hist->get_history(board, move, ply, ss);
 				if (move == ss->killer) score += 1457;
+				scores_quiet.push_back({move, score});
 			}
-			scores.push_back({move, score});
 		}
 
-		end = scores.size();
+		end = scores_goodnoisy.size();
 	}
 
-	if (stage == MP_STAGE_MOVES) {
+	if (stage == MP_STAGE_GOODNOISY) {
+		if (end == 0) {
+			stage = MP_STAGE_QUIET;
+			end = scores_quiet.size();
+		} else {
+			Move best_move = NullMove;
+			int best_score = -2147483647;
+			int idx = 0;
+			for (int i = 0; i < end; i++) {
+				if (scores_goodnoisy[i].second > best_score) {
+					best_score = scores_goodnoisy[i].second;
+					best_move = scores_goodnoisy[i].first;
+					idx = i;
+				}
+			}
+			std::swap(scores_goodnoisy[idx], scores_goodnoisy[end - 1]);
+			end--;
+			return best_move;
+		}
+	}
+
+	if (stage == MP_STAGE_QUIET) {
+		if (end == 0 || qskip) {
+			stage = MP_STAGE_BADNOISY;
+			end = scores_badnoisy.size();
+		} else {
+			Move best_move = NullMove;
+			int best_score = -2147483647;
+			int idx = 0;
+			for (int i = 0; i < end; i++) {
+				if (scores_quiet[i].second > best_score) {
+					best_score = scores_quiet[i].second;
+					best_move = scores_quiet[i].first;
+					idx = i;
+				}
+			}
+			std::swap(scores_quiet[idx], scores_quiet[end - 1]);
+			end--;
+			return best_move;
+		}
+	}
+
+	if (stage == MP_STAGE_BADNOISY) {
 		if (end == 0) {
 			stage = MP_STAGE_DONE;
 			return NullMove;
@@ -58,14 +106,13 @@ Move MovePicker::next() {
 		int best_score = -2147483647;
 		int idx = 0;
 		for (int i = 0; i < end; i++) {
-			if (!board.is_capture(scores[i].first) && qskip) continue;
-			if (scores[i].second > best_score) {
-				best_score = scores[i].second;
-				best_move = scores[i].first;
+			if (scores_badnoisy[i].second > best_score) {
+				best_score = scores_badnoisy[i].second;
+				best_move = scores_badnoisy[i].first;
 				idx = i;
 			}
 		}
-		std::swap(scores[idx], scores[end - 1]);
+		std::swap(scores_badnoisy[idx], scores_badnoisy[end - 1]);
 		end--;
 		if (end == 0) stage = MP_STAGE_DONE;
 		return best_move;
