@@ -1,5 +1,21 @@
 #include "movepicker.hpp"
 
+std::pair<Move, int> next_score(pzstd::vector<std::pair<Move, int>> &scores, int &end) {
+	if (end == 0) return { NullMove, 0 }; // Ran out
+	Move best_move = NullMove;
+	int best_score = -2147483647;
+	int idx = 0;
+	for (int i = 0; i < end; i++) {
+		if (scores[i].second > best_score) {
+			best_score = scores[i].second;
+			best_move = scores[i].first;
+			idx = i;
+		}
+	}
+	swap(scores[idx], scores[--end]);
+	return { best_move, best_score };
+}
+
 MovePicker::MovePicker(Board &board, SSEntry *ss, int ply, History *main_hist, TTable::TTEntry *tentry) : board(board), ss(ss), ply(ply), main_hist(main_hist) {
 	stage = MP_STAGE_TT;
 	ttMove = tentry ? tentry->best_move : NullMove;
@@ -39,11 +55,7 @@ Move MovePicker::next() {
 				if (promo)
 					score += PieceValue[move.promotion() + KNIGHT] - PawnValue;
 				
-				if (board.see_capture(move) >= -100) {
-					scores_goodnoisy.push_back({move, score});
-				} else {
-					scores_badnoisy.push_back({move, score});
-				}
+				scores_noisy.push_back({move, score});
 			} else {
 				if (qskip) continue;
 				score = QUIET_BASE + main_hist->get_history(board, move, ply, ss);
@@ -52,7 +64,7 @@ Move MovePicker::next() {
 			}
 		}
 
-		end = scores_goodnoisy.size();
+		end = scores_noisy.size();
 	}
 
 	if (stage == MP_STAGE_GOODNOISY) {
@@ -60,19 +72,19 @@ Move MovePicker::next() {
 			stage = MP_STAGE_QUIET;
 			end = scores_quiet.size();
 		} else {
-			Move best_move = NullMove;
-			int best_score = -2147483647;
-			int idx = 0;
-			for (int i = 0; i < end; i++) {
-				if (scores_goodnoisy[i].second > best_score) {
-					best_score = scores_goodnoisy[i].second;
-					best_move = scores_goodnoisy[i].first;
-					idx = i;
+			while (true) {
+				auto [move, score] = next_score(scores_noisy, end);
+				if (move == NullMove) break;
+
+				Value see = board.see_capture(move);
+				if (see < -100) {
+					scores_badnoisy.push_back({move, score});
+				} else {
+					return move;
 				}
 			}
-			std::swap(scores_goodnoisy[idx], scores_goodnoisy[end - 1]);
-			end--;
-			return best_move;
+			stage = MP_STAGE_QUIET;
+			end = scores_quiet.size();
 		}
 	}
 
@@ -81,19 +93,13 @@ Move MovePicker::next() {
 			stage = MP_STAGE_BADNOISY;
 			end = scores_badnoisy.size();
 		} else {
-			Move best_move = NullMove;
-			int best_score = -2147483647;
-			int idx = 0;
-			for (int i = 0; i < end; i++) {
-				if (scores_quiet[i].second > best_score) {
-					best_score = scores_quiet[i].second;
-					best_move = scores_quiet[i].first;
-					idx = i;
-				}
+			auto [move, score] = next_score(scores_quiet, end);
+			if (move == NullMove) {
+				stage = MP_STAGE_BADNOISY;
+				end = scores_badnoisy.size();
+			} else {
+				return move;
 			}
-			std::swap(scores_quiet[idx], scores_quiet[end - 1]);
-			end--;
-			return best_move;
 		}
 	}
 
@@ -102,20 +108,13 @@ Move MovePicker::next() {
 			stage = MP_STAGE_DONE;
 			return NullMove;
 		}
-		Move best_move = NullMove;
-		int best_score = -2147483647;
-		int idx = 0;
-		for (int i = 0; i < end; i++) {
-			if (scores_badnoisy[i].second > best_score) {
-				best_score = scores_badnoisy[i].second;
-				best_move = scores_badnoisy[i].first;
-				idx = i;
-			}
+		auto [move, score] = next_score(scores_badnoisy, end);
+		if (move == NullMove) {
+			stage = MP_STAGE_DONE;
+			return NullMove;
+		} else {
+			return move;
 		}
-		std::swap(scores_badnoisy[idx], scores_badnoisy[end - 1]);
-		end--;
-		if (end == 0) stage = MP_STAGE_DONE;
-		return best_move;
 	}
 
 	if (stage == MP_STAGE_DONE) {

@@ -22,7 +22,7 @@ class MovePicker {
 private:
 	Board &board;
 	pzstd::vector<Move> moves;
-	pzstd::vector<std::pair<Move, int>> scores_quiet, scores_goodnoisy, scores_badnoisy;
+	pzstd::vector<std::pair<Move, int>> scores_quiet, scores_noisy, scores_badnoisy;
 	Move ttMove;
 	SSEntry *ss;
 	History *main_hist;
