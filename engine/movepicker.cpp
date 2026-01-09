@@ -39,7 +39,7 @@ Move MovePicker::next() {
 				if (promo)
 					score += PieceValue[move.promotion() + KNIGHT] - PawnValue;
 				
-				if (board.see_capture(move) >= 0) {
+				if (board.see_capture(move) >= -100) {
 					scores_goodnoisy.push_back({move, score});
 				} else {
 					scores_badnoisy.push_back({move, score});
