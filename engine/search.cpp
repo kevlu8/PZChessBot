@@ -252,27 +252,25 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	int end = scores.size();
 
 	while ((move = next_move(scores, end)) != NullMove) {
-		if (move.type() != PROMOTION) {
-			Value see = ti.board.see_capture(move);
-			if (see < -2) {
-				/**
-				 * QSearch SEE pruning
-				 * 
-				 * In the QSearch, we don't care too much about missing tactics. So, we can
-				 * be more aggressive with our pruning. If a capture loses material, we can
-				 * discard it directly.
-				 */
-				continue;
-			} else {
-				/**
-				 * QS Futility pruning
-				 * 
-				 * Also known as delta pruning. If adding the value of the capture to our
-				 * static evaluation plus a safety margin is still not enough to raise
-				 * alpha, we can skip the move.
-				 */
-				if (DELTA_THRESHOLD + 4754 * see / 1024 + stand_pat < alpha) continue;
-			}
+		Value see = ti.board.see_capture(move);
+		if (see < -2) {
+			/**
+			 * QSearch SEE pruning
+			 * 
+			 * In the QSearch, we don't care too much about missing tactics. So, we can
+			 * be more aggressive with our pruning. If a capture loses material, we can
+			 * discard it directly.
+			 */
+			continue;
+		} else {
+			/**
+			 * QS Futility pruning
+			 * 
+			 * Also known as delta pruning. If adding the value of the capture to our
+			 * static evaluation plus a safety margin is still not enough to raise
+			 * alpha, we can skip the move.
+			 */
+			if (DELTA_THRESHOLD + 4754 * see / 1024 + stand_pat < alpha) continue;
 		}
 
 		ti.line[depth].move = move;
@@ -592,7 +590,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 					break;
 			}
 
-			if (depth <= 5 && !promo && best > -VALUE_INFINITE) {
+			if (depth <= 5 && best > -VALUE_INFINITE) {
 				/**
 				 * PVS SEE Pruning
 				 * 
