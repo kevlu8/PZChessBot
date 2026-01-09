@@ -706,7 +706,7 @@ Value Board::see_capture(Move move) {
 
 	gain[d] = victim == NO_PIECETYPE ? 0 : PieceValue[victim]; // Initial gain from capturing the victim
 	if (move.type() == PROMOTION)
-		gain[d] += PieceValue[move.promotion() - KNIGHT] - PieceValue[PAWN];
+		gain[d] += PieceValue[move.promotion() + KNIGHT] - PieceValue[PAWN];
 	if (move.type() == EN_PASSANT)
 		gain[d] += PieceValue[PAWN];
 
