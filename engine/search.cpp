@@ -809,6 +809,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		// If our engine thinks we are mated but we are not in check, we are stalemated
 		if (ti.line[ply].excl != NullMove) return alpha;
 		else if (in_check) return -VALUE_MATE + ply;
+		else if (root) return VALUE_STALE; // stop game
 		else return 0;
 	}
 
