@@ -861,9 +861,9 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 	}
 
 	ti.eval = eval;
-	stop_search = true;
 
 	if (ti.is_main) {
+		stop_search = true;
 		std::cout << "bestmove " << best_move.to_string() << std::endl;
 	}
 }
