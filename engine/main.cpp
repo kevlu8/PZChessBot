@@ -17,6 +17,22 @@ bool quiet = false, online = false;
 
 ThreadInfo *tis;
 
+void regenerate_threads() {
+	stop_threads();
+	// for (auto &t : threads)
+	// 	t.join();
+	threads.clear();
+	delete[] tis;
+	tis = new ThreadInfo[num_threads];
+	threads.reserve(num_threads);
+	for (int i = 0; i < num_threads; i++) {
+		tis[i].is_main = (i == 0);
+		tis[i].id = i;
+		tis[i].set_bs();
+		threads.emplace_back(thread_loop, std::ref(tis[i]));
+	}
+}
+
 void run_uci() {
 	std::thread searchthread;
 	std::string command;
@@ -30,6 +46,7 @@ void run_uci() {
 			std::cout << "option name Quiet type check default false" << std::endl;
 			std::cout << "uciok" << std::endl;
 		} else if (command == "icu") {
+			stop_threads();
 			return; // exit uci mode
 		} else if (command == "isready") {
 			std::cout << "readyok" << std::endl;
@@ -59,12 +76,13 @@ void run_uci() {
 					std::cerr << "Invalid number of threads: " << num_threads << std::endl;
 					num_threads = 1;
 				}
-				delete[] tis;
-				tis = new ThreadInfo[num_threads];
-				for (int i = 0; i < num_threads; i++) tis[i].set_bs();
+				regenerate_threads();
 				std::cout << "info string Using " << num_threads << " threads" << std::endl;
 			}
 		} else if (command == "ucinewgame") {
+			regenerate_threads();
+			if (searchthread.joinable())
+				searchthread.join();
 			board = Board();
 			ttable.resize(TT_SIZE);
 			for (int i = 0; i < num_threads; i++) {
@@ -90,6 +108,7 @@ void run_uci() {
 				}
 			}
 		} else if (command == "quit") {
+			stop_threads();
 			if (searchthread.joinable()) searchthread.join();
 			exit(0);
 		} else if (command == "stop") {
@@ -160,7 +179,10 @@ void run_uci() {
 
 __attribute__((weak)) int main(int argc, char *argv[]) {
 	tis = new ThreadInfo[1]; // single thread for now
+	tis[0].is_main = true;
+	tis[0].id = 0;
 	tis[0].set_bs();
+	threads.emplace_back(thread_loop, std::ref(tis[0]));
 	if (argc == 2 && std::string(argv[1]) == "bench") {
 		const std::string bench_positions[] = {
 			"r3k2r/2pb1ppp/2pp1q2/p7/1nP1B3/1P2P3/P2N1PPP/R2QK2R w KQkq - 0 14",
@@ -225,6 +247,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		}
 		uint64_t end = clock();
 		std::cout << tot_nodes << " nodes " << int(tot_nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
+		stop_threads();
 		return 0;
 	}
 	if (argc == 3 && std::string(argv[2]) == "quit") {
