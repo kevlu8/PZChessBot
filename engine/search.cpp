@@ -785,12 +785,14 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 		}
 
 		auto result = negamax(ti, d, alpha, beta, board.side ? -1 : 1, 1, false, 0, true);
+		int asp_depth = d;
 
 		// Gradually expand the window if we fail high or low
 		while ((result >= beta || result <= alpha)) {
 			if (result >= beta) {
 				// Fail high - expand upper bound
 				beta = eval + window_sz * 2;
+				asp_depth = std::max(asp_depth - 1, d - 3);
 			}
 			if (result <= alpha) {
 				// Fail low - expand lower bound  
@@ -803,7 +805,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 			alpha = std::clamp(alpha, -VALUE_INFINITE, (int)VALUE_INFINITE);
 			beta = std::clamp(beta, -VALUE_INFINITE, (int)VALUE_INFINITE);
 			window_sz *= 2;
-			result = negamax(ti, d, alpha, beta, board.side ? -1 : 1, 1, false, 0, true);
+			result = negamax(ti, asp_depth, alpha, beta, board.side ? -1 : 1, 1, false, 0, true);
 			if (stop_search) break;
 		}
 		if (stop_search) break;
