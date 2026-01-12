@@ -41,7 +41,6 @@ Move MovePicker::next() {
 			} else {
 				if (qskip) continue;
 				score = QUIET_BASE + main_hist->get_history(board, move, ply, ss);
-				if (move == ss->killer) score += 1457;
 			}
 			scores.push_back({move, score});
 		}
