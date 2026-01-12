@@ -482,6 +482,45 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			return razor_score;
 	}
 
+	// Probcut
+	if (!pv && !in_check && depth >= 7 && abs(beta) < VALUE_MATE_MAX_PLY && !(tentry && tentry->eval < beta + 300)) {
+		/**
+		 * In positions where we think we can cause a cutoff, we can do a search with
+		 * only likely good moves (i.e. TTMove, captures) to see if we can cause a cutoff.
+		 */
+		MovePicker pcpicker(board, &ti.thread_hist, tentry);
+		Move pc_move = NullMove;
+		int pc_depth = depth - 5;
+		Value pc_beta = beta + 300;
+		while ((pc_move = pcpicker.next()) != NullMove) {
+			ti.line[ply].move = pc_move;
+			ti.line[ply].captured = (PieceType)(board.mailbox[pc_move.dst()] & 7);
+			ti.line[ply].piece = (PieceType)(board.mailbox[pc_move.src()] & 7);
+			ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[board.side][board.mailbox[pc_move.src()] & 7][pc_move.dst()];
+			ti.line[ply].corr_hist = &ti.thread_hist.corrhist_cont[board.side][board.mailbox[pc_move.src()] & 7][pc_move.dst()];
+
+			board.make_move(pc_move);
+			_mm_prefetch(&ttable.TT[board.zobrist % ttable.TT_SIZE], _MM_HINT_T0);
+			Value score = -quiesce(ti, -pc_beta, -pc_beta + 1, -side, ply + 1);
+
+			if (score >= pc_beta)
+				score = -negamax(ti, pc_depth, -pc_beta, -pc_beta + 1, -side, 0, !cutnode, ply + 1);
+
+			board.unmake_move();
+
+			ti.line[ply].move = NullMove;
+			ti.line[ply].captured = NO_PIECETYPE;
+			ti.line[ply].piece = NO_PIECETYPE;
+			ti.line[ply].cont_hist = nullptr;
+			ti.line[ply].corr_hist = nullptr;
+
+			if (score >= pc_beta) {
+				ttable.store(board.zobrist, score_to_tt(score, ply), raw_eval, pc_depth, LOWER_BOUND, false, pc_move);
+				return score;
+			}
+		}
+	}
+
 	Value best = -VALUE_INFINITE;
 
 	MovePicker mp(board, &ti.line[ply], ply, &ti.thread_hist, tentry);
