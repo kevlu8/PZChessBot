@@ -89,7 +89,7 @@ Move MovePicker::next() {
 			if (move == ttMove)
 				continue;
 
-			if (board.see_capture(move) < PawnValue)
+			if (board.see_capture(move) <= 105)
 				continue; // Skip bad captures
 
 			int score = 0;
