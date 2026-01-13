@@ -482,6 +482,55 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			return razor_score;
 	}
 
+	// Probcut
+	if (!pv && !in_check && depth >= 7 && abs(beta) < VALUE_MATE_MAX_PLY && !(tentry && tentry->eval < beta + 300)) {
+		/**
+		 * ProbCut
+		 * 
+		 * Before running search, we generate moves that we think are good and
+		 * search them with a reduced depth and a higher beta. If one of them fails
+		 * high, we assume that the node will fail high at full depth as well.
+		 * 
+		 * Note that if we have strong evidence that ProbCut will fail (e.g. from the TT),
+		 * we skip ProbCut to save time.
+		 * 
+		 * In the body of the ProbCut loop, we first run a QSearch to figure out whether
+		 * or not the move could cut. If the QSearch doesn't fail high, we skip the move
+		 * in order to save effort.
+		 */
+		MovePicker pcpicker(board, &ti.thread_hist, tentry);
+		Move pc_move = NullMove;
+		int pc_depth = depth - 5;
+		Value pc_beta = beta + 300;
+		while ((pc_move = pcpicker.next()) != NullMove) {
+			ti.line[ply].move = pc_move;
+			ti.line[ply].captured = (PieceType)(board.mailbox[pc_move.dst()] & 7);
+			ti.line[ply].piece = (PieceType)(board.mailbox[pc_move.src()] & 7);
+			ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[board.side][board.mailbox[pc_move.src()] & 7][pc_move.dst()];
+			ti.line[ply].corr_hist = &ti.thread_hist.corrhist_cont[board.side][board.mailbox[pc_move.src()] & 7][pc_move.dst()];
+
+			board.make_move(pc_move);
+			_mm_prefetch(&ttable.TT[board.zobrist % ttable.TT_SIZE], _MM_HINT_T0);
+			Value score = -quiesce(ti, -pc_beta, -pc_beta + 1, -side, ply + 1);
+
+			if (score >= pc_beta)
+				score = -negamax(ti, pc_depth, -pc_beta, -pc_beta + 1, -side, 0, !cutnode, ply + 1);
+
+			board.unmake_move();
+
+			ti.line[ply].move = NullMove;
+			ti.line[ply].captured = NO_PIECETYPE;
+			ti.line[ply].piece = NO_PIECETYPE;
+			ti.line[ply].cont_hist = nullptr;
+			ti.line[ply].corr_hist = nullptr;
+
+			if (score >= pc_beta) {
+				ttable.store(board.zobrist, score_to_tt(score, ply), raw_eval, pc_depth, LOWER_BOUND, false, pc_move);
+				return score;
+			}
+		}
+	}
+
 	Value best = -VALUE_INFINITE;
 
 	MovePicker mp(board, &ti.line[ply], ply, &ti.thread_hist, tentry);
