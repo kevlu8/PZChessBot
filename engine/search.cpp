@@ -503,6 +503,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		int pc_depth = depth - 5;
 		Value pc_beta = beta + 300;
 		while ((pc_move = pcpicker.next()) != NullMove) {
+			if (pc_move == ti.line[ply].excl)
+				continue;
+
 			ti.line[ply].move = pc_move;
 			ti.line[ply].captured = (PieceType)(board.mailbox[pc_move.dst()] & 7);
 			ti.line[ply].piece = (PieceType)(board.mailbox[pc_move.src()] & 7);
