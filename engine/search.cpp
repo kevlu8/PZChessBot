@@ -685,17 +685,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (depth >= 2 && i >= 1 + 2 * pv) {
 			// Case 1: Late moves in nodes
 
-			Value r = reduction[i][depth];
-
-			// Base reduction offset
-			r -= 1057;
-
-			r -= 1218 * pv;
-			r += 1142 * (!pv && cutnode);
-			if (move == ti.line[ply].killer)
-				r -= 1267;
-			r -= 1082 * ttpv;
-			r -= hist / 16 * !capt;
+			Value r = 0;
 
 			Value searched_depth = newdepth - r / 1024;
 
