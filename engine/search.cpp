@@ -685,7 +685,10 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (depth >= 2 && i >= 1 + 2 * pv) {
 			// Case 1: Late moves in nodes
 
-			Value r = 0;
+			Value r = 1024;
+
+			if (capt || promo)
+				r = 0; // Do not reduce captures or promotions
 
 			Value searched_depth = newdepth - r / 1024;
 
