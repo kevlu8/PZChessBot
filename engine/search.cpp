@@ -667,7 +667,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		_mm_prefetch(&ttable.TT[board.zobrist % ttable.TT_SIZE], _MM_HINT_T0);
 
-		Value newdepth = depth - 1 + extension;
+		int newdepth = depth - 1 + extension;
 
 		/**
 		 * PV Search (principal variation)
@@ -687,10 +687,12 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 			Value r = reduction[i][depth];
 
+			r -= 1024 * pv; // Reduce less in PV nodes
+
 			if (capt || promo)
 				r = 0; // Do not reduce captures or promotions
 
-			Value searched_depth = newdepth - r / 1024;
+			int searched_depth = std::clamp(newdepth - r / 1024, 1, newdepth);
 
 			score = -negamax(ti, searched_depth, -alpha - 1, -alpha, -side, 0, true, ply+1);
 			if (score > alpha && searched_depth < newdepth) {
