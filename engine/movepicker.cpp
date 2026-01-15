@@ -81,7 +81,7 @@ Move MovePicker::next() {
 				break;
 			}
 			Value see = board.see_capture(move);
-			if (move.type() == PROMOTION || see >= 0) {
+			if (move.type() == PROMOTION || see >= -100) {
 				return move;
 			} else {
 				bad_noisy.push_back(move);
