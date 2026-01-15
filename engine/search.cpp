@@ -688,6 +688,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			Value r = reduction[i][depth];
 
 			r -= 1024 * pv; // Reduce less in PV nodes
+			r += 1024 * cutnode; // Reduce more in cutnodes
 
 			if (capt || promo)
 				r = 0; // Do not reduce captures or promotions
