@@ -560,6 +560,8 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	uint64_t prev_nodes = nodes[ti.id];
 
+	ti.line[ply+1].cutoffcnt = 0;
+
 	while ((move = mp.next()) != NullMove) {
 		if (move == ti.line[ply].excl)
 			continue;
@@ -689,6 +691,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 			r -= 1024 * pv; // Reduce less in PV nodes
 			r += 1024 * cutnode; // Reduce more in cutnodes
+			r += 1024 * (ti.line[ply+1].cutoffcnt > 3);
 
 			if (move == ti.line[ply].killer) {
 				r -= 1024;
@@ -752,6 +755,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 
 		if (score >= beta) {
+			ti.line[ply].cutoffcnt++;
 			flag = LOWER_BOUND;
 			if (abs(score) < VALUE_MATE_MAX_PLY && abs(alpha) < VALUE_MATE_MAX_PLY) {
 				// note that best and score are functionally equivalent here; best is just what's returned + stored to TT

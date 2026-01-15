@@ -22,8 +22,9 @@ struct SSEntry {
 	ContHistEntry *cont_hist, *corr_hist;
 	Move killer = NullMove;
 	PieceType piece = NO_PIECETYPE, captured = NO_PIECETYPE;
+	int cutoffcnt = 0;
 
-	SSEntry() : move(NullMove), eval(VALUE_NONE), excl(NullMove), cont_hist(nullptr), corr_hist(nullptr) {}
+	SSEntry() : move(NullMove), eval(VALUE_NONE), excl(NullMove), cont_hist(nullptr), corr_hist(nullptr), cutoffcnt(0) {}
 };
 
 class History {
