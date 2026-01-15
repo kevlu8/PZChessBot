@@ -39,10 +39,10 @@ Move MovePicker::next() {
 			if (capt || promo) {
 				score = CAPTURE_PROMO_BASE;
 				if (capt)
-					score += PieceValue[board.mailbox[move.dst()] & 7] +
+					score += MVV[board.mailbox[move.dst()] & 7] +
 							 main_hist->capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
 				if (promo)
-					score += PieceValue[move.promotion() + KNIGHT] - PawnValue;
+					score += MVV[move.promotion() + KNIGHT] - PawnValue;
 			} else {
 				if (qskip) continue;
 				score = QUIET_BASE + main_hist->get_history(board, move, ply, ss);
@@ -93,7 +93,7 @@ Move MovePicker::next() {
 				continue; // Skip bad captures
 
 			int score = 0;
-			score = PieceValue[board.mailbox[move.dst()] & 7] +
+			score = MVV[board.mailbox[move.dst()] & 7] +
 					main_hist->capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
 			scores.push_back({move, score});
 		}
