@@ -44,7 +44,7 @@ __attribute__((constructor)) void init_lmr() {
 	for (int i = 0; i < 250; i++) {
 		for (int d = 0; d < MAX_PLY; d++) {
 			if (d <= 1 || i <= 1) reduction[i][d] = 1024;
-			else reduction[i][d] = (0.71 + log2(i) * log2(d) / 2.47) * 1024;
+			else reduction[i][d] = (0.77 + log(i) * log(d) / 2.36) * 1024;
 		}
 	}
 }
@@ -685,7 +685,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (depth >= 2 && i >= 1 + 2 * pv) {
 			// Case 1: Late moves in nodes
 
-			Value r = 1024;
+			Value r = reduction[i][depth];
 
 			if (capt || promo)
 				r = 0; // Do not reduce captures or promotions
