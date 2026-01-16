@@ -44,7 +44,7 @@ __attribute__((constructor)) void init_lmr() {
 	for (int i = 0; i < 250; i++) {
 		for (int d = 0; d < MAX_PLY; d++) {
 			if (d <= 1 || i <= 1) reduction[i][d] = 1024;
-			else reduction[i][d] = (0.71 + log2(i) * log2(d) / 2.47) * 1024;
+			else reduction[i][d] = (0.77 + log(i) * log(d) / 2.36) * 1024;
 		}
 	}
 }
@@ -560,6 +560,8 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	uint64_t prev_nodes = nodes[ti.id];
 
+	ti.line[ply+1].cutoffcnt = 0;
+
 	while ((move = mp.next()) != NullMove) {
 		if (move == ti.line[ply].excl)
 			continue;
@@ -667,7 +669,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		_mm_prefetch(&ttable.TT[board.zobrist % ttable.TT_SIZE], _MM_HINT_T0);
 
-		Value newdepth = depth - 1 + extension;
+		int newdepth = depth - 1 + extension;
 
 		/**
 		 * PV Search (principal variation)
@@ -687,17 +689,21 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 			Value r = reduction[i][depth];
 
-			// Base reduction offset
-			r -= 1057;
+			r -= 1024 * pv; // Reduce less in PV nodes
+			r += 1024 * cutnode; // Reduce more in cutnodes
+			r += 1024 * (ti.line[ply+1].cutoffcnt > 3);
 
-			r -= 1218 * pv;
-			r += 1142 * (!pv && cutnode);
-			if (move == ti.line[ply].killer)
-				r -= 1267;
-			r -= 1082 * ttpv;
-			r -= hist / 16 * !capt;
+			if (move == ti.line[ply].killer) {
+				r -= 1024;
+			}
 
-			Value searched_depth = newdepth - r / 1024;
+			if (!capt && !promo)
+				r -= hist / 8;
+
+			if (capt || promo)
+				r = 0; // Do not reduce captures or promotions
+
+			int searched_depth = std::clamp(newdepth - r / 1024, 1, newdepth);
 
 			score = -negamax(ti, searched_depth, -alpha - 1, -alpha, -side, 0, true, ply+1);
 			if (score > alpha && searched_depth < newdepth) {
@@ -749,6 +755,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 
 		if (score >= beta) {
+			ti.line[ply].cutoffcnt++;
 			flag = LOWER_BOUND;
 			if (abs(score) < VALUE_MATE_MAX_PLY && abs(alpha) < VALUE_MATE_MAX_PLY) {
 				// note that best and score are functionally equivalent here; best is just what's returned + stored to TT

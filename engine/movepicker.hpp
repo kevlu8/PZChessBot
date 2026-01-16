@@ -12,7 +12,9 @@
 enum MP_Stage {
 	MP_STAGE_TT,
 	MP_STAGE_GEN,
+	MP_STAGE_GOODNOISY,
 	MP_STAGE_MOVES,
+	MP_STAGE_BADNOISY,
 
 	MP_PC_TT,
 	MP_PC_GEN,
@@ -24,8 +26,8 @@ enum MP_Stage {
 class MovePicker {
 private:
 	Board &board;
-	pzstd::vector<Move> moves;
-	pzstd::vector<std::pair<Move, int>> scores;
+	pzstd::vector<Move> moves, bad_noisy;
+	pzstd::vector<std::pair<Move, int>> quiet_scores, noisy_scores;
 	Move ttMove;
 	SSEntry *ss;
 	History *main_hist;
