@@ -690,6 +690,10 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			r -= 1024 * pv; // Reduce less in PV nodes
 			r += 1024 * cutnode; // Reduce more in cutnodes
 
+			if (move == ti.line[ply].killer) {
+				r -= 1024;
+			}
+
 			if (!capt && !promo)
 				r -= hist / 8;
 
