@@ -446,7 +446,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	// Null-move pruning
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 	int npawns_and_kings = _mm_popcnt_u64(board.piece_boards[PAWN] | board.piece_boards[KING]);
-	if (!pv && !in_check && npieces != npawns_and_kings && tt_corr_eval >= beta && depth >= 2 && ti.line[ply].excl == NullMove) { // Avoid NMP in pawn endgames
+	if (!pv && !in_check && !ti.nmp_disable && npieces != npawns_and_kings && tt_corr_eval >= beta && depth >= 2 && ti.line[ply].excl == NullMove) { // Avoid NMP in pawn endgames
 		/**
 		 * This works off the *null-move observation*.
 		 * 
@@ -467,8 +467,24 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		board.unmake_move();
 		ti.line[ply].cont_hist = nullptr;
 		ti.line[ply].corr_hist = nullptr;
-		if (null_score >= beta)
-			return null_score >= VALUE_MATE_MAX_PLY ? beta : null_score;
+		if (null_score >= beta) {
+			/**
+			 * Although many implementations cutoff directly here, we instead do a verification search
+			 * in order to prevent NMP causing us to miss tactics. Basically, we do a normal search with
+			 * reduced depth and NMP disabled. If that search also fails high, we can be more certain that the position
+			 * is actually winning.
+			 */
+			if (abs(null_score) >= VALUE_MATE_MAX_PLY) null_score = beta; // Prevent false mates
+
+			if (depth <= 12)
+				return null_score; // Direct cutoff for low depths
+
+			ti.nmp_disable = true;
+			Value score = negamax(ti, depth - r, beta - 1, beta, side, 0, false, ply);
+			ti.nmp_disable = false;
+			if (score >= beta)
+				return null_score;
+		}
 	}
 
 	// Razoring

@@ -64,6 +64,7 @@ struct ThreadInfo {
 	Move pvtable[MAX_PLY][MAX_PLY];
 	int pvlen[MAX_PLY] = {};
 	BoardState bs[NINPUTS * 2][NINPUTS * 2];
+    bool nmp_disable = false;
 
     void set_bs() {
         for (int i = 0; i < NINPUTS * 2; i++) {
