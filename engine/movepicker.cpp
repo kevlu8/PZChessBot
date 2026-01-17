@@ -16,12 +16,12 @@ std::pair<Move, int> pick_next(pzstd::vector<std::pair<Move, int>> &scores, int 
 	return {best_move, best_score};
 }
 
-MovePicker::MovePicker(Board &board, SSEntry *ss, int ply, History *main_hist, TTable::TTEntry *tentry) : board(board), ss(ss), ply(ply), main_hist(main_hist) {
+MovePicker::MovePicker(Board &board, SSEntry *ss, int ply, History *main_hist, std::optional<TTable::TTEntry> &tentry) : board(board), ss(ss), ply(ply), main_hist(main_hist) {
 	stage = MP_STAGE_TT;
 	ttMove = tentry ? tentry->best_move : NullMove;
 }
 
-MovePicker::MovePicker(Board &board, History *main_hist, TTable::TTEntry *tentry) : board(board), ss(nullptr), ply(0), main_hist(main_hist) {
+MovePicker::MovePicker(Board &board, History *main_hist, std::optional<TTable::TTEntry> &tentry) : board(board), ss(nullptr), ply(0), main_hist(main_hist) {
 	stage = MP_PC_TT;
 	ttMove = tentry ? tentry->best_move : NullMove;
 }

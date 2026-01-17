@@ -37,8 +37,8 @@ private:
 	bool qskip = false;
 
 public:
-	MovePicker(Board &board, SSEntry *ss, int ply, History *main_hist, TTable::TTEntry *tentry);
-	MovePicker(Board &board, History *main_hist, TTable::TTEntry *tentry); // Probcut constructor
+	MovePicker(Board &board, SSEntry *ss, int ply, History *main_hist, std::optional<TTable::TTEntry> &tentry);
+	MovePicker(Board &board, History *main_hist, std::optional<TTable::TTEntry> &tentry); // Probcut constructor
 
 	Move next();
 

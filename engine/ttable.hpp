@@ -58,7 +58,7 @@ struct TTable {
 
 	void store(uint64_t key, Value eval, Value s_eval, uint8_t depth, uint8_t bound, bool ttpv, Move best_move);
 
-	TTEntry *probe(uint64_t key);
+	std::optional<TTEntry> probe(uint64_t key);
 
 	void resize(int size) {
 		delete[] TT;
