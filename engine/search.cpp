@@ -766,6 +766,10 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 						ti.pvtable[ply][j+1] = ti.pvtable[ply+1][j];
 					}
 				}
+			} else {
+				// If a move doesn't raise alpha, include it in the list of moves to be penalized
+				if (!capt && !promo) quiets.push_back(move);
+				else if (capt) captures.push_back(move);
 			}
 			best = score;
 		}
@@ -795,8 +799,6 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			break;
 		}
 
-		if (!capt && !promo) quiets.push_back(move);
-		else if (capt) captures.push_back(move);
 		i++;
 	}
 
