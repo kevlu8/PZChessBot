@@ -708,6 +708,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			r -= 1024 * pv; // Reduce less in PV nodes
 			r += 1024 * cutnode; // Reduce more in cutnodes
 			r += 1024 * (ti.line[ply+1].cutoffcnt > 3);
+			r -= 1024 * ttpv;
 
 			if (move == ti.line[ply].killer) {
 				r -= 1024;
