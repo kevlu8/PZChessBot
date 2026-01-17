@@ -11,7 +11,7 @@ uint64_t mxtime = 1e18; // Maximum time to search in milliseconds
 uint16_t num_threads = 1;
 
 std::atomic<uint64_t> nodecnt[64][64] = {{}};
-uint64_t nodes[MAX_THREADS] = {};
+std::atomic<uint64_t> nodes[MAX_THREADS] = {};
 
 uint64_t perft(Board &board, int depth) {
 	// If white's turn is beginning and black is in check

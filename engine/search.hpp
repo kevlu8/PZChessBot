@@ -50,7 +50,7 @@
 
 extern bool stop_search;
 
-extern uint64_t nodes[MAX_THREADS];
+extern std::atomic<uint64_t> nodes[MAX_THREADS];
 extern uint16_t num_threads;
 
 struct ThreadInfo {
