@@ -753,6 +753,13 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (stop_search)
 			break;
 
+		if (score <= alpha) {
+			if (capt || promo)
+				captures.push_back(move);
+			else
+				quiets.push_back(move);
+		}
+
 		if (score > best) {
 			if (score > alpha) {
 				best_move = move;
@@ -795,8 +802,6 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			break;
 		}
 
-		if (!capt && !promo) quiets.push_back(move);
-		else if (capt) captures.push_back(move);
 		i++;
 	}
 
