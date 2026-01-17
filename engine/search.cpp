@@ -191,7 +191,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 		return eval(ti.board, (BoardState *)ti.bs) * side; // Just in case
 
 	// Check for TTable cutoff
-	TTable::TTEntry *tentry = ttable.probe(ti.board.zobrist);
+	auto tentry = ttable.probe(ti.board.zobrist);
 	Value tteval = 0;
 	if (tentry) tteval = tt_to_score(tentry->eval, depth);
 	if (!pv && tentry) {
@@ -389,7 +389,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	 * Note that we cannot do this in singular search (`ti.line[ply].excl != NullMove`)
 	 * because the singular search excludes a move that may be the best move in the position.
 	 */
-	TTable::TTEntry *tentry = ttable.probe(board.zobrist);
+	auto tentry = ttable.probe(board.zobrist);
 	Value tteval = 0;
 	if (tentry) tteval = tt_to_score(tentry->eval, ply);
 	if (!pv && tentry && tentry->depth >= depth && ti.line[ply].excl == NullMove) {

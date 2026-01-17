@@ -10,6 +10,7 @@
 #include <immintrin.h>
 #include <iomanip>
 #include <iostream>
+#include <optional>
 #include <stack>
 #include <string>
 #include <thread>

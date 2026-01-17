@@ -47,14 +47,14 @@ void TTable::store(uint64_t key, Value eval, Value s_eval, uint8_t depth, uint8_
 	}
 }
 
-TTable::TTEntry *TTable::probe(uint64_t key) {
+std::optional<TTable::TTEntry> TTable::probe(uint64_t key) {
 	TTBucket *bucket = TT + (key % TT_SIZE);
 	key >>= 48;
 	for (int i = 0; i < 3; i++) {
 		TTEntry *entry = &bucket->entries[i];
 		if (entry->key != key)
 			continue;
-		return entry;
+		return *entry;
 	}
-	return nullptr;
+	return {};
 }
