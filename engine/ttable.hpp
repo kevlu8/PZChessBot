@@ -21,7 +21,7 @@ struct TTable {
 		uint8_t depth; // 1 byte
 		uint8_t flags; // 0: exact, 1: lower bound, 2: upper, 3: empty - 1 byte
 
-		TTEntry() : key(0), best_move(NullMove), eval(0), s_eval(0), depth(0), flags(NONE) {}
+		TTEntry() : key(0), best_move(NullMove), eval(-VALUE_INFINITE), s_eval(0), depth(0), flags(NONE) {}
 		const bool valid() const { return flags != NONE; }
 		const TTFlag bound() const { return TTFlag(flags & 3); }
 		const bool ttpv() const { return flags >> 2; }

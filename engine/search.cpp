@@ -160,6 +160,13 @@ std::string score_to_uci(Value score) {
 }
 
 /**
+ * Checks if a score is valid
+ */
+bool is_valid_score(Value score) {
+	return score > -VALUE_INFINITE && score < VALUE_INFINITE;
+}
+
+/**
  * Perform the quiescence search
  * 
  * Quiescence search is a technique to avoid the horizon effect, where the evaluation function
@@ -192,9 +199,9 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 
 	// Check for TTable cutoff
 	auto tentry = ttable.probe(ti.board.zobrist);
-	Value tteval = 0;
-	if (tentry) tteval = tt_to_score(tentry->eval, depth);
-	if (!pv && tentry) {
+	Value tteval = -VALUE_INFINITE;
+	if (tentry && is_valid_score(tentry->eval)) tteval = tt_to_score(tentry->eval, depth);
+	if (!pv && tentry && is_valid_score(tteval)) {
 		if (tentry->bound() == EXACT) return tteval;
 		if (tentry->bound() == LOWER_BOUND) {
 			if (tteval >= beta) return tteval;
@@ -210,7 +217,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	stand_pat = tentry ? tentry->s_eval : eval(ti.board, (BoardState *)ti.bs) * side;
 	raw_eval = stand_pat;
 	ti.thread_hist.apply_correction(ti.board, &ti.line[depth], depth, stand_pat);
-	if (tentry && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
+	if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
 		stand_pat = tteval;
 
 	if (!tentry) ttable.store(ti.board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
@@ -390,9 +397,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	 * because the singular search excludes a move that may be the best move in the position.
 	 */
 	auto tentry = ttable.probe(board.zobrist);
-	Value tteval = 0;
-	if (tentry) tteval = tt_to_score(tentry->eval, ply);
-	if (!pv && tentry && tentry->depth >= depth && ti.line[ply].excl == NullMove) {
+	Value tteval = -VALUE_INFINITE;
+	if (tentry && is_valid_score(tentry->eval)) tteval = tt_to_score(tentry->eval, ply);
+	if (!pv && tentry && is_valid_score(tteval) && tentry->depth >= depth && ti.line[ply].excl == NullMove) {
 		// Check for cutoffs
 		if (tentry->bound() == EXACT) {
 			return tteval;
@@ -414,7 +421,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		raw_eval = cur_eval;
 		ti.thread_hist.apply_correction(board, &ti.line[ply], ply, cur_eval);
 		tt_corr_eval = cur_eval;
-		if (tentry && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
+		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
 			tt_corr_eval = tteval;
 		else if (!tentry) ttable.store(board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
 	}
@@ -499,7 +506,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Probcut
-	if (!pv && !in_check && depth >= 7 && abs(beta) < VALUE_MATE_MAX_PLY && !(tentry && tentry->eval < beta + 300)) {
+	if (!pv && !in_check && depth >= 7 && abs(beta) < VALUE_MATE_MAX_PLY && !(tentry && is_valid_score(tteval) && tteval < beta + 300)) {
 		/**
 		 * ProbCut
 		 * 
@@ -587,7 +594,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		
 		int extension = 0;
 
-		if (ti.line[ply].excl == NullMove && depth >= 8 && i == 0 && tentry && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
+		if (ti.line[ply].excl == NullMove && depth >= 8 && tentry && is_valid_score(tteval) && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
 			/**
 			 * Singular extensions
 			 * 
