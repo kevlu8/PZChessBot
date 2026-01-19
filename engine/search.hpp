@@ -19,6 +19,7 @@
 #define RFP_THRESHOLD 62
 #define RFP_QUADRATIC 5
 #define RFP_IMPROVING 36
+#define RFP_CUTNODE 15
 
 // Aspiration window size(s)
 // The aspiration window is the range of values we search

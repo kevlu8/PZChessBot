@@ -445,7 +445,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * 
 		 * We need to make sure that we aren't in check (since we might get mated)
 		 */
-		int margin = (RFP_THRESHOLD - improving * RFP_IMPROVING) * depth + RFP_QUADRATIC * depth * depth;
+		int margin = (RFP_THRESHOLD - improving * RFP_IMPROVING) * depth + RFP_QUADRATIC * depth * depth - RFP_CUTNODE * cutnode;
 		if (tt_corr_eval >= beta + margin)
 			return (tt_corr_eval + beta) / 2;
 	}
