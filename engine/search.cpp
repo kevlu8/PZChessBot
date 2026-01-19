@@ -879,6 +879,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 		while ((result >= beta || result <= alpha)) {
 			if (result >= beta) {
 				// Fail high - expand upper bound
+				alpha = (alpha + beta) / 2;
 				beta = eval + window_sz * 2;
 				asp_depth = std::max(asp_depth - 1, d - 3);
 			}
