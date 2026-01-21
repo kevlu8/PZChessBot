@@ -860,7 +860,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 		int alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
 		int window_sz = ASPIRATION_WINDOW;
 
-		if (eval != -VALUE_INFINITE) {
+		if (eval != -VALUE_INFINITE && d >= 4) {
 			/**
 			 * Aspiration windows work by searching a small window around the expected value
 			 * of the position. By having a smaller window, our search runs faster. 
