@@ -6,8 +6,7 @@
 #define MOVENUM(x) ((((#x)[1] - '1') << 12) | (((#x)[0] - 'a') << 8) | (((#x)[3] - '1') << 4) | ((#x)[2] - 'a'))
 
 uint64_t mx_nodes = 1e18; // Maximum nodes to search
-bool stop_search = true;
-bool quit = false;
+std::atomic<bool> stop_search = true, quit = false;
 std::chrono::steady_clock::time_point start;
 uint64_t mxtime = 1e18; // Maximum time to search in milliseconds
 
@@ -140,10 +139,11 @@ double get_ttable_sz() {
 	int cnt = 0;
 	for (int i = 0; i < 1024; i++) {
 		if (i >= ttable.TT_SIZE) break;
-		if (ttable.TT[i].entries[0].valid()) cnt++;
-		if (ttable.TT[i].entries[1].valid()) cnt++;
+		TTable::TTBucket bucket = ttable.TT[i].load();
+		for (int j = 0; j < 3; j++)
+			if (bucket.entries[j].valid()) cnt++;
 	}
-	return cnt / 2048.0;
+	return cnt / 3072.0;
 }
 
 /**
