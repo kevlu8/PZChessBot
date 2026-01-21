@@ -447,7 +447,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 */
 		int margin = (RFP_THRESHOLD - improving * RFP_IMPROVING) * depth + RFP_QUADRATIC * depth * depth - RFP_CUTNODE * cutnode;
 		if (tt_corr_eval >= beta + margin)
-			return (tt_corr_eval + beta) / 2;
+			return ((int)tt_corr_eval + beta) / 2;
 	}
 
 	// Null-move pruning
