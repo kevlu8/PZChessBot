@@ -765,7 +765,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			break;
 
 		if (score <= alpha) {
-			if (capt || promo)
+			if (capt)
 				captures.push_back(move);
 			else
 				quiets.push_back(move);

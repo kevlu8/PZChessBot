@@ -127,8 +127,11 @@ Move MovePicker::next() {
 				continue; // Skip bad captures
 
 			int score = 0;
-			score = MVV[board.mailbox[move.dst()] & 7] +
-					main_hist->capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
+			if (board.is_capture(move))
+				score = MVV[board.mailbox[move.dst()] & 7] +
+						main_hist->capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
+			else
+				score = MVV[move.promotion() + KNIGHT] - PawnValue;
 			noisy_scores.push_back({move, score});
 		}
 
