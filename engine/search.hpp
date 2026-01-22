@@ -49,7 +49,7 @@
 // This is the margin for history pruning (in centipawns)
 #define HISTORY_MARGIN 2633
 
-extern std::atomic<bool> stop_search;
+extern bool stop_search;
 
 extern std::atomic<uint64_t> nodes[MAX_THREADS];
 extern uint16_t num_threads;
