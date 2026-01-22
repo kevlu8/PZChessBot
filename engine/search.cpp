@@ -1,13 +1,10 @@
 #include "search.hpp"
-
-#include <condition_variable>
 #include <utility>
 
 #define MOVENUM(x) ((((#x)[1] - '1') << 12) | (((#x)[0] - 'a') << 8) | (((#x)[3] - '1') << 4) | ((#x)[2] - 'a'))
 
 uint64_t mx_nodes = 1e18; // Maximum nodes to search
 bool stop_search = true;
-bool quit = false;
 std::chrono::steady_clock::time_point start;
 uint64_t mxtime = 1e18; // Maximum time to search in milliseconds
 
@@ -962,44 +959,6 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 	}
 }
 
-std::condition_variable search_cv;
-pzstd::vector<bool> jobs;
-std::mutex search_mtx;
-std::vector<std::thread> threads;
-std::atomic<int> running{0};
-
-void thread_loop(ThreadInfo &ti) {
-	uint64_t local_generation = 0;
-	while (true) {
-		std::unique_lock<std::mutex> lk(search_mtx);
-		search_cv.wait(lk, [ti] { return (jobs.size() && jobs[ti.id]) || quit; });
-		if (quit) {
-			lk.unlock();
-			running = 0;
-			break;
-		}
-		jobs[ti.id] = false;
-		lk.unlock();
-
-		iterativedeepening(ti, ti.depth);
-
-		if (--running == 0) {
-			std::lock_guard<std::mutex> lk2(search_mtx);
-			search_cv.notify_all();
-		}
-	}
-}
-
-void stop_threads() {
-	stop_search = true;
-	quit = true;
-	search_cv.notify_all();
-	for (auto &t : threads)
-		t.join();
-	jobs.clear();
-	quit = false;
-}
-
 std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, int depth, int64_t maxnodes, int quiet) {
 	for (int i = 0; i < 64; i++) for (int j = 0; j < 64; j++) nodecnt[i][j] = 0;
 
@@ -1011,23 +970,21 @@ std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, i
 	Move best_move = NullMove;
 	Value eval = 0;
 
+	std::vector<std::thread> thread_handles;
+
 	for (int t = 0; t < num_threads; t++) {
 		ThreadInfo &ti = threads[t];
 		ti.board = board;
 		ti.seldepth = 0;
-		ti.depth = depth;
 		nodes[t] = 0;
-		if (jobs.size() < num_threads)
-			jobs.push_back(true);
-		else
-			jobs[t] = true;
+		ti.id = t;
+		ti.is_main = (t == 0);
+		// don't clear search vars here; keep history
+		thread_handles.emplace_back(iterativedeepening, std::ref(ti), depth);
 	}
-	running = num_threads;
-	search_cv.notify_all();
 
-	{
-		std::unique_lock<std::mutex> lk(search_mtx);
-		search_cv.wait(lk, [] { return running == 0; });
+	for (int t = 0; t < num_threads; t++) {
+		thread_handles[t].join();
 	}
 
 	ThreadInfo &best_thread = threads[0];
