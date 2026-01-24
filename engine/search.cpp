@@ -262,7 +262,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	while ((move = next_move(scores, end)) != NullMove) {
 		if (move.type() != PROMOTION) {
 			Value see = ti.board.see_capture(move);
-			if (see < -2) {
+			if (see < qs_see()) {
 				/**
 				 * QSearch SEE pruning
 				 * 
@@ -279,7 +279,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 				 * static evaluation plus a safety margin is still not enough to raise
 				 * alpha, we can skip the move.
 				 */
-				if (DELTA_THRESHOLD + 4754 * see / 1024 + stand_pat < alpha) continue;
+				if (delta() + qsfp_see() * see / 1024 + stand_pat < alpha) continue;
 			}
 		}
 
@@ -446,7 +446,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * 
 		 * We need to make sure that we aren't in check (since we might get mated)
 		 */
-		int margin = (RFP_THRESHOLD - improving * RFP_IMPROVING) * depth + RFP_QUADRATIC * depth * depth - RFP_CUTNODE * cutnode;
+		int margin = (rfp() - improving * rfp_improving()) * depth + rfp_quad() * depth * depth - rfp_cutnode() * cutnode;
 		if (tt_corr_eval >= beta + margin)
 			return ((int)tt_corr_eval + beta) / 2;
 	}
@@ -496,7 +496,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Razoring
-	if (!pv && !in_check && depth <= 8 && tt_corr_eval + RAZOR_MARGIN * depth < alpha) {
+	if (!pv && !in_check && depth <= 8 && tt_corr_eval + razor() * depth < alpha) {
 		/**
 		 * If we are losing by a lot, check w/ qsearch to see if we could possibly improve.
 		 * If not, we can prune the search.
@@ -507,7 +507,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Probcut
-	if (!pv && !in_check && depth >= 7 && abs(beta) < VALUE_MATE_MAX_PLY && !(tentry && is_valid_score(tteval) && tteval < beta + 300)) {
+	if (!pv && !in_check && depth >= 7 && abs(beta) < VALUE_MATE_MAX_PLY && !(tentry && is_valid_score(tteval) && tteval < beta + probcut())) {
 		/**
 		 * ProbCut
 		 * 
@@ -525,7 +525,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		MovePicker pcpicker(board, &ti.thread_hist, tentry);
 		Move pc_move = NullMove;
 		int pc_depth = depth - 5;
-		Value pc_beta = beta + 300;
+		Value pc_beta = beta + probcut();
 		while ((pc_move = pcpicker.next()) != NullMove) {
 			if (pc_move == ti.line[ply].excl)
 				continue;
@@ -615,7 +615,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (singular_score < singular_beta) {
 				extension++;
 
-				if (singular_score <= singular_beta - 26)
+				if (singular_score <= singular_beta - dext())
 					extension++;
 			} else if (tteval >= beta) {
 				/**
@@ -647,7 +647,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				break;
 			}
 
-			Value futility = cur_eval + 300 + 100 * depth;
+			Value futility = cur_eval + fut() + fut_depth() * depth;
 			if (!in_check && !capt && !promo && depth <= 5 && futility <= alpha) {
 				/**
 				 * Futility pruning
@@ -666,7 +666,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				 * Skip moves with very bad history scores
 				 * Depth condition is necessary to avoid overflow
 				 */
-				if (hist < -HISTORY_MARGIN * depth)
+				if (hist < -hist_marg() * depth)
 					break;
 			}
 
@@ -677,7 +677,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				 * Skip searching moves with bad SEE scores
 				 */
 				Value see = board.see_capture(move);
-				const Value see_threshold = capt ? -25 * depth * depth : -67 * depth;
+				const Value see_threshold = capt ? -see_quad() * depth * depth : -see_lin() * depth;
 				if (see < see_threshold)
 					continue;
 			}
@@ -711,19 +711,24 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (depth >= 2 && i >= 1 + 2 * pv) {
 			// Case 1: Late moves in nodes
 
-			Value r = reduction[i][depth];
+			// Value r = reduction[i][depth];
+			int r;
+			if (i > 1) r = (lmr_a() / 100.0 + log(depth) * log(i) / (lmr_b() / 100.0)) * 1024;
+			else r = 1024;
 
-			r -= 1024 * pv; // Reduce less in PV nodes
-			r += 1024 * cutnode; // Reduce more in cutnodes
-			r += 1024 * (ti.line[ply+1].cutoffcnt > 3);
-			r -= 1024 * ttpv;
+			r += lmr_base();
+
+			r -= lmr_pv() * pv; // Reduce less in PV nodes
+			r += lmr_cutnode() * cutnode; // Reduce more in cutnodes
+			r += lmr_cutoff() * (ti.line[ply+1].cutoffcnt > 3);
+			r -= lmr_ttpv() * ttpv;
 
 			if (move == ti.line[ply].killer) {
-				r -= 1024;
+				r -= lmr_killer();
 			}
 
 			if (!capt && !promo)
-				r -= hist / 8;
+				r -= hist / lmr_hist();
 
 			if (capt || promo)
 				r = 0; // Do not reduce captures or promotions
@@ -859,7 +864,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 	Value eval = -VALUE_INFINITE;
 	for (int d = 1; d <= depth; d++) {
 		int alpha = -VALUE_INFINITE, beta = VALUE_INFINITE;
-		int window_sz = ASPIRATION_WINDOW;
+		int window_sz = asp();
 
 		if (eval != -VALUE_INFINITE && d >= 4) {
 			/**
