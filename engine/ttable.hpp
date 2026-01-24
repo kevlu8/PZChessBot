@@ -32,12 +32,41 @@ struct TTable {
 		uint8_t pad[2]; // 2 bytes of padding to allow for better alignment (good compilers will do this automatically, but just to be sure)
 	};
 
+	struct internal_TTMEMORY {
+		alignas(32) std::atomic<uint64_t> data[4] = {};
+
+		internal_TTMEMORY() {
+			TTBucket empty = TTBucket();
+			std::memcpy(data, &empty, sizeof(TTBucket));
+		}
+
+		TTBucket load() {
+			TTBucket bucket;
+			uint64_t d[4];
+			d[0] = data[0].load(std::memory_order_relaxed);
+			d[1] = data[1].load(std::memory_order_relaxed);
+			d[2] = data[2].load(std::memory_order_relaxed);
+			d[3] = data[3].load(std::memory_order_relaxed);
+			std::memcpy(&bucket, d, sizeof(TTBucket));
+			return bucket;
+		}
+
+		void store(TTBucket &bucket) {
+			uint64_t d[4];
+			std::memcpy(d, &bucket, sizeof(TTBucket));
+			data[0].store(d[0], std::memory_order_relaxed);
+			data[1].store(d[1], std::memory_order_relaxed);
+			data[2].store(d[2], std::memory_order_relaxed);
+			data[3].store(d[3], std::memory_order_relaxed);
+		}
+	};
+
 	TTEntry NO_ENTRY = TTEntry();
 
-	TTBucket *TT;
+	internal_TTMEMORY *TT;
 	int TT_SIZE;
 
-	TTable(int size) : TT_SIZE(size) { TT = new TTBucket[size]; }
+	TTable(int size) : TT_SIZE(size) { TT = new internal_TTMEMORY[size]; }
 
 	~TTable() { delete[] TT; }
 
@@ -51,7 +80,7 @@ struct TTable {
 		if (this != &o) {
 			delete[] TT;
 			TT_SIZE = o.TT_SIZE;
-			TT = new TTBucket[TT_SIZE];
+			TT = new internal_TTMEMORY[TT_SIZE];
 		}
 		return *this;
 	}
@@ -63,10 +92,10 @@ struct TTable {
 	void resize(int size) {
 		delete[] TT;
 		TT_SIZE = size;
-		TT = new TTBucket[size];
+		TT = new internal_TTMEMORY[size];
 	}
 
-	constexpr uint64_t mxsize() const { return TT_SIZE * 2; }
+	constexpr uint64_t mxsize() const { return TT_SIZE * 3; }
 };
 
 extern TTable ttable;
