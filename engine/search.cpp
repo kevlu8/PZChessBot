@@ -634,7 +634,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			}
 		}
 
-		Value hist = capt ? ti.thread_hist.get_capthist(board, move) : ti.thread_hist.get_history(board, move, ply, &ti.line[ply]);
+		int hist = capt ? ti.thread_hist.get_capthist(board, move) : ti.thread_hist.get_history(board, move, ply, &ti.line[ply]);
 		if (best > -VALUE_MATE_MAX_PLY) {
 			if (i >= (5 + depth * depth) / (2 - improving)) {
 				/**
@@ -710,7 +710,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (depth >= 2 && i >= 1 + 2 * pv) {
 			// Case 1: Late moves in nodes
 
-			Value r = reduction[i][depth];
+			int r = reduction[i][depth];
 
 			r -= 1024 * pv; // Reduce less in PV nodes
 			r += 1024 * cutnode; // Reduce more in cutnodes
