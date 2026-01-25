@@ -3,7 +3,7 @@
 
 #define MOVENUM(x) ((((#x)[1] - '1') << 12) | (((#x)[0] - 'a') << 8) | (((#x)[3] - '1') << 4) | ((#x)[2] - 'a'))
 
-uint64_t mx_nodes = 1e18; // Maximum nodes to search
+uint64_t mx_nodes = 1e18, softnodes = 1e18; // Maximum nodes to search
 bool stop_search = true;
 std::chrono::steady_clock::time_point start;
 uint64_t mxtime = 1e18; // Maximum time to search in milliseconds
@@ -943,7 +943,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 
 			double node_adjustment = 1.414479 - 0.931647 * (bm_nodes / (double)tot_nodes);
 			soft *= node_adjustment;
-			if (time_elapsed > mxtime * soft) {
+			if (time_elapsed > mxtime * soft || tot_nodes >= softnodes) {
 				// We probably won't be able to complete the next ID loop
 				stop_search = true;
 				break;
@@ -965,7 +965,7 @@ std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, i
 	for (int i = 0; i < 64; i++) for (int j = 0; j < 64; j++) nodecnt[i][j] = 0;
 
 	mxtime = time;
-	mx_nodes = maxnodes;
+	softnodes = maxnodes;
 	start = std::chrono::steady_clock::now();
 	stop_search = false;
 
