@@ -551,7 +551,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			ti.line[ply].corr_hist = nullptr;
 
 			if (score >= pc_beta) {
-				ttable.store(board.zobrist, score_to_tt(score, ply), raw_eval, pc_depth, LOWER_BOUND, false, pc_move);
+				ttable.store(board.zobrist, score_to_tt(score, ply), raw_eval, pc_depth + 1, LOWER_BOUND, false, pc_move);
 				return score;
 			}
 		}
