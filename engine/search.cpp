@@ -44,7 +44,7 @@ __attribute__((constructor)) void init_lmr() {
 	for (int i = 0; i < 250; i++) {
 		for (int d = 0; d < MAX_PLY; d++) {
 			if (d <= 1 || i <= 1) reduction[i][d] = 1024;
-			else reduction[i][d] = (0.77 + log(i) * log(d) / 2.36) * 1024;
+			else reduction[i][d] = (0.76 + log(i) * log(d) / 2.32) * 1024;
 		}
 	}
 }
@@ -261,7 +261,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	while ((move = next_move(scores, end)) != NullMove) {
 		if (move.type() != PROMOTION) {
 			Value see = ti.board.see_capture(move);
-			if (see < -2) {
+			if (see < -4) {
 				/**
 				 * QSearch SEE pruning
 				 * 
@@ -278,7 +278,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 				 * static evaluation plus a safety margin is still not enough to raise
 				 * alpha, we can skip the move.
 				 */
-				if (DELTA_THRESHOLD + 4754 * see / 1024 + stand_pat < alpha) continue;
+				if (DELTA_THRESHOLD + 4746 * see / 1024 + stand_pat < alpha) continue;
 			}
 		}
 
@@ -506,7 +506,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Probcut
-	if (!pv && !in_check && depth >= 7 && abs(beta) < VALUE_MATE_MAX_PLY && !(tentry && is_valid_score(tteval) && tteval < beta + 300)) {
+	if (!pv && !in_check && depth >= 7 && abs(beta) < VALUE_MATE_MAX_PLY && !(tentry && is_valid_score(tteval) && tteval < beta + PROBCUT_MARGIN)) {
 		/**
 		 * ProbCut
 		 * 
@@ -524,7 +524,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		MovePicker pcpicker(board, &ti.thread_hist, tentry);
 		Move pc_move = NullMove;
 		int pc_depth = depth - 5;
-		Value pc_beta = beta + 300;
+		Value pc_beta = beta + PROBCUT_MARGIN;
 		while ((pc_move = pcpicker.next()) != NullMove) {
 			if (pc_move == ti.line[ply].excl)
 				continue;
@@ -614,7 +614,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (singular_score < singular_beta) {
 				extension++;
 
-				if (singular_score <= singular_beta - 26)
+				if (singular_score <= singular_beta - 23)
 					extension++;
 			} else if (tteval >= beta) {
 				/**
@@ -646,7 +646,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				break;
 			}
 
-			Value futility = cur_eval + 300 + 100 * depth;
+			Value futility = cur_eval + 316 + 96 * depth;
 			if (!in_check && !capt && !promo && depth <= 5 && futility <= alpha) {
 				/**
 				 * Futility pruning
@@ -676,7 +676,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				 * Skip searching moves with bad SEE scores
 				 */
 				Value see = board.see_capture(move);
-				const Value see_threshold = capt ? -25 * depth * depth : -67 * depth;
+				const Value see_threshold = capt ? -27 * depth * depth : -59 * depth;
 				if (see < see_threshold)
 					continue;
 			}
@@ -712,13 +712,16 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 			int r = reduction[i][depth];
 
-			r -= 1024 * pv; // Reduce less in PV nodes
-			r += 1024 * cutnode; // Reduce more in cutnodes
-			r += 1024 * (ti.line[ply+1].cutoffcnt > 3);
-			r -= 1024 * ttpv;
+			// Base reduction
+			r -= 372;
+
+			r -= 1062 * pv; // Reduce less in PV nodes
+			r += 1303 * cutnode; // Reduce more in cutnodes
+			r += 918 * (ti.line[ply+1].cutoffcnt > 3);
+			r -= 975 * ttpv;
 
 			if (move == ti.line[ply].killer) {
-				r -= 1024;
+				r -= 932;
 			}
 
 			if (!capt && !promo)
