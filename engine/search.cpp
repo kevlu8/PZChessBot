@@ -725,7 +725,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				r -= hist / 8;
 
 			if (capt || promo)
-				r = 0; // Do not reduce captures or promotions
+				r = std::min(r, 1024); // Do not reduce captures or promotions
 
 			int searched_depth = std::clamp(newdepth - r / 1024, 1, newdepth + 1);
 
