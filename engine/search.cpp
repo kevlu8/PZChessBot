@@ -732,6 +732,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			score = -negamax(ti, searched_depth, -alpha - 1, -alpha, -side, 0, true, ply+1);
 			if (score > alpha && searched_depth < newdepth) {
 				// LMR search failed, re-search full depth
+				bool do_deeper = score > beta + 100;
+				newdepth += do_deeper;
+
 				score = -negamax(ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
 			}
 		} else if (!pv || i > 0) {
