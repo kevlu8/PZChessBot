@@ -91,10 +91,10 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 			if (abs(score) <= 20 && plies >= 80) consec_draw++;
 			else consec_draw = 0;
 
-			if (w_score >= 600) consec_w_win++;
+			if (w_score >= 2000) consec_w_win++;
 			else consec_w_win = 0;
 
-			if (w_score <= -600) consec_b_win++;
+			if (w_score <= -2000) consec_b_win++;
 			else consec_b_win = 0;
 
 			if ((consec_draw >= 16 && do_adjudication) || tiw.board.threefold(0) || tiw.board.insufficient_material() || tiw.board.halfmove >= 100) {
