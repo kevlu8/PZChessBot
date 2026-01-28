@@ -89,8 +89,6 @@ struct TTable {
 	void clear() {
 		memset(TT, 0, sizeof(TTBucket) * TT_SIZE);
 	}
-
-	constexpr uint64_t mxsize() const { return TT_SIZE * 2; }
 };
 
 extern TTable ttable[MAX_THREADS * 2];

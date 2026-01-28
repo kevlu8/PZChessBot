@@ -31,7 +31,7 @@
 #define DATAGEN_NUM_RAND 12
 #endif
 
-#define DATAGEN_MAX_GAMES 2000
+#define DATAGEN_MAX_GAMES 1000
 #define DATAGEN_ADJUDICATION_PERCENT 70
 
 typedef uint64_t Bitboard;
