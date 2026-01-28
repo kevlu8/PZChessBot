@@ -1,6 +1,7 @@
 #pragma once
 
 #include "includes.hpp"
+#include "mem.hpp"
 #include "move.hpp"
 
 #define DEFAULT_TT_SIZE (16 * 1024 * 1024 / sizeof(TTable::TTBucket)) // 16 MB
@@ -35,11 +36,35 @@ struct TTable {
 	TTEntry NO_ENTRY = TTEntry();
 
 	TTBucket *TT;
-	int TT_SIZE;
+	size_t TT_SIZE;
 
-	TTable(int size) : TT_SIZE(size) { TT = new TTBucket[size]; }
+	void init_ttable() {
+		// Multithreaded initialization (capped by thread count)
+		const size_t MIN_CHUNK_SIZE = 4294967296 / sizeof(TTBucket);
+		size_t num_threads = std::min((size_t)std::thread::hardware_concurrency(), MIN_CHUNK_SIZE / TT_SIZE);
+		std::vector<std::thread> threads;
+		size_t chunk_size = TT_SIZE / num_threads;
+		for (int t = 0; t < num_threads; t++) {
+			threads.emplace_back([this, t, chunk_size, num_threads]() {
+				size_t start = t * chunk_size;
+				size_t end = (t == num_threads - 1) ? TT_SIZE : start + chunk_size;
+				for (size_t i = start; i < end; i++) {
+					for (int j = 0; j < 3; j++) {
+						TT[i].entries[j] = TTEntry();
+					}
+				}
+			});
+		}
+		for (auto &th : threads)
+			th.join();
+	}
 
-	~TTable() { delete[] TT; }
+	TTable(size_t size) : TT_SIZE(size) {
+		TT = (TTBucket *)large_alloc(TT_SIZE * sizeof(TTBucket));
+		init_ttable();
+	}
+
+	~TTable() { large_free(TT, TT_SIZE * sizeof(TTBucket)); }
 
 	// TTable(const TTable &o) {
 	// 	TT = new TTEntry[TT_SIZE];
@@ -49,9 +74,10 @@ struct TTable {
 
 	TTable &operator=(const TTable &o) {
 		if (this != &o) {
-			delete[] TT;
+			large_free(TT, TT_SIZE * sizeof(TTBucket));
 			TT_SIZE = o.TT_SIZE;
-			TT = new TTBucket[TT_SIZE];
+			TT = (TTBucket *)large_alloc(TT_SIZE * sizeof(TTBucket));
+			init_ttable();
 		}
 		return *this;
 	}
@@ -60,10 +86,11 @@ struct TTable {
 
 	std::optional<TTEntry> probe(uint64_t key);
 
-	void resize(int size) {
-		delete[] TT;
+	void resize(size_t size) {
+		large_free(TT, TT_SIZE * sizeof(TTBucket));
 		TT_SIZE = size;
-		TT = new TTBucket[size];
+		TT = (TTBucket *)large_alloc(TT_SIZE * sizeof(TTBucket));
+		init_ttable();
 	}
 
 	constexpr uint64_t mxsize() const { return TT_SIZE * 3; }

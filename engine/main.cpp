@@ -11,10 +11,10 @@
 #include "search.hpp"
 #include "ttable.hpp"
 
-#define MAX_TT (1024)
+#define MAX_TT (262144)
 
 // Options
-int TT_SIZE = DEFAULT_TT_SIZE;
+size_t TT_SIZE = DEFAULT_TT_SIZE;
 bool quiet = false, online = false;
 
 ThreadInfo *tis;
@@ -47,7 +47,7 @@ void run_uci() {
 				}
 			}
 			if (optionname == "Hash") {
-				int optionint = std::stoi(optionvalue);
+				long long optionint = std::stoll(optionvalue);
 				if (optionint < 1 || optionint > MAX_TT) {
 					std::cerr << "Invalid hash size: " << optionint << std::endl;
 					continue;
