@@ -14,5 +14,5 @@ static void *large_alloc(size_t size) {
 }
 
 static void large_free(void *ptr, size_t size) {
-	munmap(ptr, 0); // size is not needed for munmap
+	munmap(ptr, size);
 }
