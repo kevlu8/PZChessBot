@@ -646,7 +646,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				break;
 			}
 
-			Value futility = cur_eval + 300 + 100 * depth;
+			Value futility = cur_eval + 300 + 100 * depth + hist / 32;
 			if (!in_check && !capt && !promo && depth <= 5 && futility <= alpha) {
 				/**
 				 * Futility pruning
