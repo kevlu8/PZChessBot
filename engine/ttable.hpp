@@ -66,7 +66,7 @@ struct TTable {
 		TT = new TTBucket[size];
 	}
 
-	constexpr uint64_t mxsize() const { return TT_SIZE * 2; }
+	constexpr uint64_t mxsize() const { return TT_SIZE * 3; }
 };
 
 extern TTable ttable;

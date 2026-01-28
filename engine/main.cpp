@@ -11,6 +11,8 @@
 #include "search.hpp"
 #include "ttable.hpp"
 
+#define MAX_TT (1024)
+
 // Options
 int TT_SIZE = DEFAULT_TT_SIZE;
 bool quiet = false, online = false;
@@ -25,7 +27,7 @@ void run_uci() {
 		if (command == "uci") {
 			std::cout << "id name PZChessBot " << VERSION << std::endl;
 			std::cout << "id author kevlu8 and wdotmathree" << std::endl;
-			std::cout << "option name Hash type spin default 16 min 1 max 1024" << std::endl;
+			std::cout << "option name Hash type spin default 16 min 1 max " << MAX_TT << std::endl;
 			std::cout << "option name Threads type spin default 1 min 1 max 64" << std::endl;
 			std::cout << "option name Quiet type check default false" << std::endl;
 			std::cout << "uciok" << std::endl;
@@ -46,11 +48,13 @@ void run_uci() {
 			}
 			if (optionname == "Hash") {
 				int optionint = std::stoi(optionvalue);
-				if (optionint < 1 || optionint > 1024) {
+				if (optionint < 1 || optionint > MAX_TT) {
 					std::cerr << "Invalid hash size: " << optionint << std::endl;
 					continue;
 				}
-				TT_SIZE = optionint * 1024 * 1024 / sizeof(TTable::TTEntry);
+				TT_SIZE = MAX_TT;
+				while (TT_SIZE > optionint) TT_SIZE /= 2;
+				TT_SIZE *= 1024 * 1024 / sizeof(TTable::TTBucket);
 			} else if (optionname == "Quiet") {
 				quiet = optionvalue == "true";
 			} else if (optionname == "Threads") {
