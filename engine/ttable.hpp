@@ -81,7 +81,7 @@ struct TTable {
 			TT_SIZE = size;
 			TT = (TTBucket *)large_alloc(TT_SIZE * sizeof(TTBucket));
 		}
-		init_ttable();
+		TTable();
 	}
 
 	constexpr uint64_t mxsize() const { return TT_SIZE * 3; }
