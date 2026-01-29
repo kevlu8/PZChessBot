@@ -139,8 +139,9 @@ double get_ttable_sz() {
 		if (i >= ttable.TT_SIZE) break;
 		if (ttable.TT[i].entries[0].valid()) cnt++;
 		if (ttable.TT[i].entries[1].valid()) cnt++;
+		if (ttable.TT[i].entries[2].valid()) cnt++;
 	}
-	return cnt / 2048.0;
+	return cnt / (3.0 * 1024);
 }
 
 /**
@@ -289,7 +290,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 		ti.line[depth].corr_hist = &ti.thread_hist.corrhist_cont[ti.board.side][ti.board.mailbox[move.src()] & 7][move.dst()];
 
 		ti.board.make_move(move);
-		_mm_prefetch(&ttable.TT[ti.board.zobrist % ttable.TT_SIZE], _MM_HINT_T0);
+		_mm_prefetch(&ttable.TT[ti.board.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
 		Value score = -quiesce(ti, -beta, -alpha, -side, depth + 1, pv);
 		ti.board.unmake_move();
 
@@ -536,7 +537,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			ti.line[ply].corr_hist = &ti.thread_hist.corrhist_cont[board.side][board.mailbox[pc_move.src()] & 7][pc_move.dst()];
 
 			board.make_move(pc_move);
-			_mm_prefetch(&ttable.TT[board.zobrist % ttable.TT_SIZE], _MM_HINT_T0);
+			_mm_prefetch(&ttable.TT[board.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
 			Value score = -quiesce(ti, -pc_beta, -pc_beta + 1, -side, ply + 1);
 
 			if (score >= pc_beta)
@@ -690,7 +691,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		board.make_move(move);
 
-		_mm_prefetch(&ttable.TT[board.zobrist % ttable.TT_SIZE], _MM_HINT_T0);
+		_mm_prefetch(&ttable.TT[board.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
 
 		int newdepth = depth - 1 + extension;
 
