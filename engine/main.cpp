@@ -69,6 +69,8 @@ void run_uci() {
 				std::cout << "info string Using " << num_threads << " threads" << std::endl;
 			}
 		} else if (command == "ucinewgame") {
+			stop_search = true;
+			if (searchthread.joinable()) searchthread.join();
 			board = Board();
 			ttable.resize(TT_SIZE);
 			for (int i = 0; i < num_threads; i++) {

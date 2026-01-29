@@ -87,9 +87,11 @@ struct TTable {
 	std::optional<TTEntry> probe(uint64_t key);
 
 	void resize(size_t size) {
-		large_free(TT, TT_SIZE * sizeof(TTBucket));
-		TT_SIZE = size;
-		TT = (TTBucket *)large_alloc(TT_SIZE * sizeof(TTBucket));
+		if (size != TT_SIZE) {
+			large_free(TT, TT_SIZE * sizeof(TTBucket));
+			TT_SIZE = size;
+			TT = (TTBucket *)large_alloc(TT_SIZE * sizeof(TTBucket));
+		}
 		init_ttable();
 	}
 
