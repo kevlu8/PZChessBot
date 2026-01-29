@@ -30,7 +30,7 @@
 // Null-move pruning reduction value
 // This is the amount of depth we reduce the search by
 // when we do a null-move search
-#define NMP_R_VALUE 4
+#define NMP_R_VALUE 6
 
 // Delta pruning threshold
 // This is the threshold for delta pruning (in centipawns)
