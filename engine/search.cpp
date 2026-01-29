@@ -7,6 +7,8 @@ uint64_t mx_nodes = 1e18; // Maximum nodes to search
 bool stop_search = true;
 std::chrono::steady_clock::time_point start;
 uint64_t mxtime = 1e18; // Maximum time to search in milliseconds
+bool minimal = false;
+std::stringstream last_line;
 
 uint16_t num_threads = 1;
 
@@ -917,12 +919,13 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 
 			// UCI output from main thread only
 			auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-			std::cout << "info depth " << d << " seldepth " << ti.seldepth << " score " << score_to_uci(eval) << " time " << time_elapsed << " nodes " << tot_nodes << " nps "
+			last_line.str("");
+			last_line << "info depth " << d << " seldepth " << ti.seldepth << " score " << score_to_uci(eval) << " time " << time_elapsed << " nodes " << tot_nodes << " nps "
 					  << (time_elapsed ? (tot_nodes * 1000 / time_elapsed) : tot_nodes) << " hashfull " << (int)(get_ttable_sz() * 1000) << " pv";
 			for (int ply = 0; ply < ti.pvlen[0]; ply++) {
-				std::cout << " " << ti.pvtable[0][ply].to_string();
+				last_line << " " << ti.pvtable[0][ply].to_string();
 			}
-			std::cout << std::endl;
+			if (!minimal) std::cout << last_line.str() << std::endl;
 
 			// only do time management on main thread
 			bool best_iscapt = board.is_capture(best_move);
@@ -959,6 +962,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 
 	if (ti.is_main) {
 		stop_search = true;
+		std::cout << last_line.str() << std::endl;
 		std::cout << "bestmove " << best_move.to_string() << std::endl;
 	}
 }
@@ -970,6 +974,7 @@ std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, i
 	mx_nodes = maxnodes;
 	start = std::chrono::steady_clock::now();
 	stop_search = false;
+	minimal = quiet;
 
 	Move best_move = NullMove;
 	Value eval = 0;
