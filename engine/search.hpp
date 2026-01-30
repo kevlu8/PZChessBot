@@ -16,16 +16,19 @@
 // we can afford to lose RFP_THRESHOLD eval units per ply
 // and still be in a better position. The lower the value,
 // the more aggressive RFP is.
-#define RFP_THRESHOLD 62
+#define RFP_THRESHOLD 58
 #define RFP_QUADRATIC 5
-#define RFP_IMPROVING 36
-#define RFP_CUTNODE 15
+#define RFP_IMPROVING 35
+#define RFP_CUTNODE 18
+
+// ProbCut margin
+#define PROBCUT_MARGIN 344
 
 // Aspiration window size(s)
 // The aspiration window is the range of values we search
 // for the best move. If we fail to find the best move in
 // this range, we expand the window.
-#define ASPIRATION_WINDOW 24
+#define ASPIRATION_WINDOW 18
 
 // Null-move pruning reduction value
 // This is the amount of depth we reduce the search by
@@ -33,21 +36,13 @@
 #define NMP_R_VALUE 6
 
 // Delta pruning threshold
-// This is the threshold for delta pruning (in centipawns)
-#define DELTA_THRESHOLD 348
-
-// Futility pruning threshold
-// This is the threshold for futility pruning (in centipawns)
-#define FUTILITY_THRESHOLD 304
-#define FUTILITY_THRESHOLD2 692
+#define DELTA_THRESHOLD 355
 
 // Razoring margin
-// This is the margin for razoring (in centipawns)
-#define RAZOR_MARGIN 267
+#define RAZOR_MARGIN 272
 
 // History pruning margin
-// This is the margin for history pruning (in centipawns)
-#define HISTORY_MARGIN 2633
+#define HISTORY_MARGIN 2711
 
 extern bool stop_search;
 

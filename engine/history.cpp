@@ -70,12 +70,12 @@ void History::apply_correction(Board &board, SSEntry *line, int ply, Value &eval
 	
 	int corr = 0;
 	corr += 117 * corrhist_ps[board.side][board.pawn_hash() % CORRHIST_SZ];
-	corr += 130 * corrhist_np[board.side][WHITE][board.nonpawn_hash(WHITE) % CORRHIST_SZ];
-	corr += 133 * corrhist_np[board.side][BLACK][board.nonpawn_hash(BLACK) % CORRHIST_SZ];
-	corr += 64 * corrhist_maj[board.side][board.major_hash() % CORRHIST_SZ];
-	corr += 64 * corrhist_min[board.side][board.minor_hash() % CORRHIST_SZ];
+	corr += 134 * corrhist_np[board.side][WHITE][board.nonpawn_hash(WHITE) % CORRHIST_SZ];
+	corr += 134 * corrhist_np[board.side][BLACK][board.nonpawn_hash(BLACK) % CORRHIST_SZ];
+	corr += 61 * corrhist_maj[board.side][board.major_hash() % CORRHIST_SZ];
+	corr += 67 * corrhist_min[board.side][board.minor_hash() % CORRHIST_SZ];
 	if (ply >= 2)
-		corr += 128 * (line - 1)->corr_hist->hist[board.side][(line - 2)->piece][(line - 2)->move.dst()];
+		corr += 140 * (line - 1)->corr_hist->hist[board.side][(line - 2)->piece][(line - 2)->move.dst()];
 
 	eval += corr / 2048;
 }
