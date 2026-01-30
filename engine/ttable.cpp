@@ -19,7 +19,7 @@ void TTable::store(uint64_t key, Value eval, Value s_eval, uint8_t depth, uint8_
 				break;
 			}
 
-			if (nentry.depth < entry.depth) {
+			if (nentry.depth - ((TT_GEN_SZ + age - nentry.age()) % TT_GEN_SZ) * 4 < entry.depth - ((TT_GEN_SZ + age - entry.age()) % TT_GEN_SZ) * 4) {
 				entry = nentry;
 				idx = i;
 			}
