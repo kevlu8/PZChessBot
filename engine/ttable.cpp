@@ -34,8 +34,8 @@ void TTable::store(uint64_t key, Value eval, Value s_eval, uint8_t depth, uint8_
 
 	uint16_t age_diff = (TT_GEN_SZ + age - entry.age()) % TT_GEN_SZ;
 
-	uint16_t existing_prio = entry.depth + existing_flag_bonus + age_diff * age_diff / 4;
-	uint16_t new_prio = depth + new_flag_bonus;
+	uint16_t existing_prio = entry.depth + existing_flag_bonus;
+	uint16_t new_prio = depth + new_flag_bonus + age_diff * age_diff / 4;
 
 	if (entry.key != key || (bound == EXACT && entry.bound() != EXACT) || new_prio * 3 >= existing_prio * 2) {
 		entry.key = key;
