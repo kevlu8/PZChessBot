@@ -116,9 +116,6 @@ void run_uci() {
 		} else if (command.substr(0, 2) == "go") {
 			if (!stop_search) continue; // ignore
 			if (searchthread.joinable()) searchthread.join();
-#ifndef HCE
-			std::cout << "info string Using " << NNUE_PATH << " for evaluation" << std::endl;
-#endif
 			// `go wtime ... btime ... winc ... binc ...`
 			// only care about wtime and btime
 			std::stringstream ss(command);
@@ -152,12 +149,12 @@ void run_uci() {
 			int inc = board.side ? binc : winc;
 			searchthread = std::thread(
 				[=, &board]() {
-					std::cout << "info string Starting search..." << std::endl;
-					if (inf) search(board, tis, 1e18, MAX_PLY, 1e18, 0);
-					else if (depth != -1) search(board, tis, 1e18, depth, 1e18, 0);
-					else if (nodes != -1) search(board, tis, 1e18, MAX_PLY, nodes, 0);
-					else if (movetime != -1) search(board, tis, movetime, MAX_PLY, 1e18, 0);
-					else search(board, tis, timemgmt(timeleft, inc, online), MAX_PLY, 1e18, 0);
+					if (!quiet) std::cout << "info string Starting search..." << std::endl;
+					if (inf) search(board, tis, 1e18, MAX_PLY, 1e18, quiet);
+					else if (depth != -1) search(board, tis, 1e18, depth, 1e18, quiet);
+					else if (nodes != -1) search(board, tis, 1e18, MAX_PLY, nodes, quiet);
+					else if (movetime != -1) search(board, tis, movetime, MAX_PLY, 1e18, quiet);
+					else search(board, tis, timemgmt(timeleft, inc, online), MAX_PLY, 1e18, quiet);
 				}
 			);
 		}
