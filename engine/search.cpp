@@ -139,9 +139,9 @@ double get_ttable_sz() {
 	int cnt = 0;
 	for (int i = 0; i < 1024; i++) {
 		if (i >= ttable.TT_SIZE) break;
-		if (ttable.TT[i].entries[0].valid()) cnt++;
-		if (ttable.TT[i].entries[1].valid()) cnt++;
-		if (ttable.TT[i].entries[2].valid()) cnt++;
+		if (ttable.TT[i].entries[0].valid() && ttable.TT[i].entries[0].age() == ttable.age) cnt++;
+		if (ttable.TT[i].entries[1].valid() && ttable.TT[i].entries[1].age() == ttable.age) cnt++;
+		if (ttable.TT[i].entries[2].valid() && ttable.TT[i].entries[2].age() == ttable.age) cnt++;
 	}
 	return cnt / (3.0 * 1024);
 }
@@ -1000,6 +1000,8 @@ std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, i
 	}
 
 	ThreadInfo &best_thread = threads[0];
+
+	ttable.inc_gen();
 
 	return {best_thread.pvtable[0][0], best_thread.eval};
 }

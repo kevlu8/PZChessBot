@@ -5,6 +5,7 @@
 #include "move.hpp"
 
 #define DEFAULT_TT_SIZE (16 * 1024 * 1024 / sizeof(TTable::TTBucket)) // 16 MB
+#define TT_GEN_SZ 32
 
 enum TTFlag {
 	EXACT = 0,
@@ -25,7 +26,8 @@ struct TTable {
 		TTEntry() : key(0), best_move(NullMove), eval(-VALUE_INFINITE), s_eval(0), depth(0), flags(NONE) {}
 		const bool valid() const { return flags != NONE; }
 		const TTFlag bound() const { return TTFlag(flags & 3); }
-		const bool ttpv() const { return flags >> 2; }
+		const bool ttpv() const { return (flags >> 2) & 1; }
+		const uint8_t age() const { return flags >> 3; }
 	};
 
 	struct alignas(32) TTBucket {
@@ -37,6 +39,7 @@ struct TTable {
 
 	TTBucket *TT;
 	size_t TT_SIZE;
+	uint8_t age = 0;
 
 	void init_ttable() {
 		// Multithreaded initialization (capped by thread count)
@@ -57,7 +60,10 @@ struct TTable {
 		}
 		for (auto &th : threads)
 			th.join();
+		age = 0;
 	}
+
+	void inc_gen() { age = (age + 1) % TT_GEN_SZ; }
 
 	TTable(size_t size) : TT_SIZE(size) {
 		TT = (TTBucket *)large_alloc(TT_SIZE * sizeof(TTBucket));
