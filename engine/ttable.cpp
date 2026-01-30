@@ -32,7 +32,9 @@ void TTable::store(uint64_t key, Value eval, Value s_eval, uint8_t depth, uint8_
 	uint8_t existing_flag_bonus = 3 - (uint8_t)entry.bound(); // 0 = exact, 1 = lower, 2 = upper, 3 = none
 	uint8_t new_flag_bonus = 3 - bound;
 
-	uint16_t existing_prio = entry.depth + existing_flag_bonus;
+	uint16_t age_diff = (TT_GEN_SZ + age - entry.age()) % TT_GEN_SZ;
+
+	uint16_t existing_prio = entry.depth + existing_flag_bonus + age_diff * age_diff / 4;
 	uint16_t new_prio = depth + new_flag_bonus;
 
 	if (entry.key != key || (bound == EXACT && entry.bound() != EXACT) || new_prio * 3 >= existing_prio * 2) {
@@ -40,7 +42,7 @@ void TTable::store(uint64_t key, Value eval, Value s_eval, uint8_t depth, uint8_
 		entry.eval = eval;
 		entry.s_eval = s_eval;
 		entry.depth = depth;
-		entry.flags = bound | (ttpv ? TTPV : 0);
+		entry.flags = bound | (ttpv ? TTPV : 0) | (age << 3);
 		entry.best_move = best_move;
 		
 		bucket->entries[idx] = entry;
