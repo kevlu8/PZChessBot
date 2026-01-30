@@ -139,8 +139,9 @@ double get_ttable_sz() {
 		if (i >= ttable.TT_SIZE) break;
 		if (ttable.TT[i].entries[0].valid()) cnt++;
 		if (ttable.TT[i].entries[1].valid()) cnt++;
+		if (ttable.TT[i].entries[2].valid()) cnt++;
 	}
-	return cnt / 2048.0;
+	return cnt / (3.0 * 1024);
 }
 
 /**
@@ -289,7 +290,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 		ti.line[depth].corr_hist = &ti.thread_hist.corrhist_cont[ti.board.side][ti.board.mailbox[move.src()] & 7][move.dst()];
 
 		ti.board.make_move(move);
-		_mm_prefetch(&ttable.TT[ti.board.zobrist % ttable.TT_SIZE], _MM_HINT_T0);
+		_mm_prefetch(&ttable.TT[ti.board.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
 		Value score = -quiesce(ti, -beta, -alpha, -side, depth + 1, pv);
 		ti.board.unmake_move();
 
@@ -469,7 +470,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		ti.line[ply].corr_hist = &ti.thread_hist.corrhist_cont[board.side][0][0];
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
-		Value r = NMP_R_VALUE + depth / 4 + std::min(3, (tt_corr_eval - beta) / 400) + improving;
+		Value r = NMP_R_VALUE + depth / 4 + std::min(3, (tt_corr_eval - beta) / 400);
 		Value null_score = -negamax(ti, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
 		board.unmake_move();
 		ti.line[ply].cont_hist = nullptr;
@@ -536,7 +537,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			ti.line[ply].corr_hist = &ti.thread_hist.corrhist_cont[board.side][board.mailbox[pc_move.src()] & 7][pc_move.dst()];
 
 			board.make_move(pc_move);
-			_mm_prefetch(&ttable.TT[board.zobrist % ttable.TT_SIZE], _MM_HINT_T0);
+			_mm_prefetch(&ttable.TT[board.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
 			Value score = -quiesce(ti, -pc_beta, -pc_beta + 1, -side, ply + 1);
 
 			if (score >= pc_beta)
@@ -646,7 +647,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				break;
 			}
 
-			Value futility = cur_eval + 316 + 96 * depth;
+			Value futility = cur_eval + 300 + 100 * depth + hist / 32;
 			if (!in_check && !capt && !promo && depth <= 5 && futility <= alpha) {
 				/**
 				 * Futility pruning
@@ -690,7 +691,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		board.make_move(move);
 
-		_mm_prefetch(&ttable.TT[board.zobrist % ttable.TT_SIZE], _MM_HINT_T0);
+		_mm_prefetch(&ttable.TT[board.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
 
 		int newdepth = depth - 1 + extension;
 
@@ -735,6 +736,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			score = -negamax(ti, searched_depth, -alpha - 1, -alpha, -side, 0, true, ply+1);
 			if (score > alpha && searched_depth < newdepth) {
 				// LMR search failed, re-search full depth
+				bool do_deeper = score > beta + 100;
+				newdepth += do_deeper;
+
 				score = -negamax(ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
 			}
 		} else if (!pv || i > 0) {
