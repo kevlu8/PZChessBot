@@ -619,9 +619,20 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 				if (singular_score <= singular_beta - 23)
 					extension++;
-			} else if (tteval >= beta) {
+			} else if (singular_score >= beta)
+				/**
+				 * Multicut
+				 * 
+				 * If the search even without the expected best move still fails
+				 * high, we can almost certainly conclude that there are multiple
+				 * moves that are very good and that it will cut off.
+				 */
+				return singular_score;
+			else if (tteval >= beta) {
 				/**
 				 * Negative extensions
+				 * 
+				 * singular_beta <= singular_score < beta && tteval >= beta
 				 * 
 				 * The TT suggested the evaluation is actually good enough to cause a beta cutoff,
 				 * but even after banning the move the position is still good. We can deprioritize
@@ -630,6 +641,8 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				extension -= 3;
 			} else if (cutnode) {
 				/**
+				 * singular_beta <= singular_score < beta && tteval < beta && cutnode
+				 * 
 				 * The TT suggests a non-cutoff, but we expect a cutoff to occur. We also know that
 				 * the move isn't singular, so we can reduce the depth slightly in favor of other moves.
 				 */
