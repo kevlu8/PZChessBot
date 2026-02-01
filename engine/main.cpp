@@ -28,7 +28,7 @@ void run_uci() {
 			std::cout << "id name PZChessBot " << VERSION << std::endl;
 			std::cout << "id author kevlu8 and wdotmathree" << std::endl;
 			std::cout << "option name Hash type spin default 16 min 1 max " << MAX_TT << std::endl;
-			std::cout << "option name Threads type spin default 1 min 1 max 64" << std::endl;
+			std::cout << "option name Threads type spin default 1 min 1 max " << MAX_THREADS << std::endl;
 			std::cout << "option name Quiet type check default false" << std::endl;
 			std::cout << "uciok" << std::endl;
 		} else if (command == "icu") {
@@ -59,7 +59,7 @@ void run_uci() {
 				quiet = optionvalue == "true";
 			} else if (optionname == "Threads") {
 				num_threads = std::stoi(optionvalue);
-				if (num_threads < 1 || num_threads > 64) {
+				if (num_threads < 1 || num_threads > MAX_THREADS) {
 					std::cerr << "Invalid number of threads: " << num_threads << std::endl;
 					num_threads = 1;
 				}

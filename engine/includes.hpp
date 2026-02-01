@@ -29,7 +29,7 @@ constexpr bool WHITE = false;
 constexpr bool BLACK = true;
 
 constexpr int MAX_PLY = 301;
-constexpr int MAX_THREADS = 64;
+constexpr int MAX_THREADS = 512;
 
 typedef int16_t Value;
 constexpr Value VALUE_ZERO = 0;
