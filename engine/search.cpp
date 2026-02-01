@@ -158,7 +158,7 @@ std::string score_to_uci(Value score) {
 	} else if (score <= -VALUE_MATE_MAX_PLY) {
 		return "mate " + std::to_string((-VALUE_MATE - score) / 2);
 	} else {
-		return "cp " + std::to_string(score);
+		return "cp " + std::to_string(int(score / NNUE_PAWN_VALUE));
 	}
 }
 
@@ -978,7 +978,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 
 	if (ti.is_main) {
 		stop_search = true;
-		std::cout << last_line.str() << std::endl;
+		if (minimal) std::cout << last_line.str() << std::endl;
 		std::cout << "bestmove " << best_move.to_string() << std::endl;
 	}
 }

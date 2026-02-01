@@ -21,6 +21,8 @@
 
 #define VERSION "v6.1"
 
+#define NNUE_PAWN_VALUE 2.75
+
 typedef uint64_t Bitboard;
 
 constexpr bool WHITE = false;

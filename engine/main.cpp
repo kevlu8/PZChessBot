@@ -310,6 +310,23 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		}
 		return 0;
 	}
+	if (argc == 2 && std::string(argv[1]) == "pawnvalue") {
+		// calculate pawn value
+		Board board = Board();
+		int tot = 0;
+		Value startpos_score = eval(board, &tis[0].bs[0][0]);
+		for (int i = 0; i < 8; i++) {
+			board.reset_startpos();
+			board.mailbox[SQ_A2 + i] = NO_PIECE;
+			Value score = eval(board, &tis[0].bs[0][0]);
+			int diff = startpos_score - score;
+			tot += diff;
+		}
+		tot /= 8;
+		tot = tot * 3 / 4; // scale down a little because startpos pawns are generally more valuable
+		std::cout << "info string Pawn value: " << tot << std::endl;
+		return 0;
+	}
 	online = argc >= 2 && std::string(argv[1]) == "--online=1";
 	std::cout << "PZChessBot " << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
 	run_uci();
