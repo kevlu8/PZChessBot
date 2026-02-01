@@ -44,13 +44,48 @@ void accumulator_sub(const Network &net, Accumulator &acc, uint16_t index) {
 }
 
 int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket) {
+#ifdef __AVX512BW__
+	__m512i sum = _mm512_setzero_si512();
+	const __m512i zero = _mm512_setzero_si512();
+	const __m512i qa_vec = _mm512_set1_epi16(QA);
+
+	for (int i = 0; i < HL_SIZE; i += 32) {
+		__m512i stm_vals = _mm512_loadu_si512((__m512i *)&stm.val[i]);
+		__m512i ntm_vals = _mm512_loadu_si512((__m512i *)&ntm.val[i]);
+
+		stm_vals = _mm512_max_epi16(stm_vals, zero);
+		stm_vals = _mm512_min_epi16(stm_vals, qa_vec);
+
+		ntm_vals = _mm512_max_epi16(ntm_vals, zero);
+		ntm_vals = _mm512_min_epi16(ntm_vals, qa_vec);
+
+		__m512i stm_weights = _mm512_loadu_si512((__m512i *)&net.output_weights[nbucket][i]);
+		__m512i ntm_weights = _mm512_loadu_si512((__m512i *)&net.output_weights[nbucket][HL_SIZE + i]);
+
+		__m512i stm_prod = _mm512_mullo_epi16(stm_vals, stm_weights);
+		__m512i ntm_prod = _mm512_mullo_epi16(ntm_vals, ntm_weights);
+
+#ifdef __AVX512VNNI__
+		sum = _mm512_dpwssd_epi32(sum, stm_prod, stm_vals);
+		sum = _mm512_dpwssd_epi32(sum, ntm_prod, ntm_vals);
+#else
+		__m512i stm_res = _mm512_madd_epi16(stm_prod, stm_vals);
+		__m512i ntm_res = _mm512_madd_epi16(ntm_prod, ntm_vals);
+
+		sum = _mm512_add_epi32(sum, stm_res);
+		sum = _mm512_add_epi32(sum, ntm_res);
+#endif
+	}
+
+	int32_t score = _mm512_reduce_add_epi32(sum);
+#else
 	__m256i sum = _mm256_setzero_si256();
 	const __m256i zero = _mm256_setzero_si256();
 	const __m256i qa_vec = _mm256_set1_epi16(QA);
 
 	for (int i = 0; i < HL_SIZE; i += 16) {
-		__m256i stm_vals = _mm256_loadu_si256((__m256i*)&stm.val[i]);
-		__m256i ntm_vals = _mm256_loadu_si256((__m256i*)&ntm.val[i]);
+		__m256i stm_vals = _mm256_loadu_si256((__m256i *)&stm.val[i]);
+		__m256i ntm_vals = _mm256_loadu_si256((__m256i *)&ntm.val[i]);
 
 		stm_vals = _mm256_max_epi16(stm_vals, zero);
 		stm_vals = _mm256_min_epi16(stm_vals, qa_vec);
@@ -58,8 +93,8 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		ntm_vals = _mm256_max_epi16(ntm_vals, zero);
 		ntm_vals = _mm256_min_epi16(ntm_vals, qa_vec);
 
-		__m256i stm_weights = _mm256_loadu_si256((__m256i*)&net.output_weights[nbucket][i]);
-		__m256i ntm_weights = _mm256_loadu_si256((__m256i*)&net.output_weights[nbucket][HL_SIZE + i]);
+		__m256i stm_weights = _mm256_loadu_si256((__m256i *)&net.output_weights[nbucket][i]);
+		__m256i ntm_weights = _mm256_loadu_si256((__m256i *)&net.output_weights[nbucket][HL_SIZE + i]);
 
 		__m256i stm_prod = _mm256_mullo_epi16(stm_vals, stm_weights);
 		__m256i ntm_prod = _mm256_mullo_epi16(ntm_vals, ntm_weights);
@@ -75,6 +110,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 	sum_128 = _mm_add_epi32(sum_128, _mm_shuffle_epi32(sum_128, _MM_SHUFFLE(2, 3, 0, 1)));
 	sum_128 = _mm_add_epi32(sum_128, _mm_shuffle_epi32(sum_128, _MM_SHUFFLE(1, 0, 3, 2)));
 	int32_t score = _mm_cvtsi128_si32(sum_128);
+#endif
 
 	score /= QA;
 	score += net.output_bias[nbucket];
