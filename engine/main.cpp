@@ -327,6 +327,28 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		std::cout << "info string Pawn value: " << tot << std::endl;
 		return 0;
 	}
+	if (argc == 2 && std::string(argv[1]) == "avgeval") {
+		// assume book is at ./lichess-big3-resolved.txt
+		Board board = Board();
+		std::ifstream bookfile("./lichess-big3-resolved.txt");
+		std::string line;
+		int64_t tot_eval = 0;
+		int npositions = 0;
+		if (!bookfile.is_open()) {
+			std::cerr << "Could not open book file" << std::endl;
+			return 1;
+		}
+		while (getline(bookfile, line)) {
+			std::string fen = line.substr(0, line.find(' '));
+			board.reset(fen);
+			Value score = abs(eval(board, &tis[0].bs[0][0]));
+			tot_eval += score;
+			npositions++;
+		}
+		bookfile.close();
+		std::cout << "info string Average eval over " << npositions << " positions: " << (tot_eval / npositions) << std::endl;
+		return 0;
+	}
 	online = argc >= 2 && std::string(argv[1]) == "--online=1";
 	std::cout << "PZChessBot " << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
 	run_uci();
