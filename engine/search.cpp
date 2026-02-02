@@ -472,7 +472,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		ti.line[ply].corr_hist = &ti.thread_hist.corrhist_cont[board.side][0][0];
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
-		Value r = NMP_R_VALUE + depth / 4 + std::min(3, (tt_corr_eval - beta) / 400);
+		Value r = NMP_R_VALUE + depth / 3;
 		Value null_score = -negamax(ti, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
 		board.unmake_move();
 		ti.line[ply].cont_hist = nullptr;
