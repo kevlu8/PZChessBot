@@ -67,7 +67,7 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 		std::string game_res = "";
 
 		int consec_draw = 0, consec_w_win = 0, consec_b_win = 0;
-		int plies = DATAGEN_NUM_RAND;
+		int plies = 0;
 		while (true) {
 			tiw.nodes = tib.nodes = 0;
 			ThreadInfo &ti = (board.side == WHITE) ? tiw : tib;
