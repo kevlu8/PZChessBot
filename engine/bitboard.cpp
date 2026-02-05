@@ -647,21 +647,25 @@ void Board::make_move(Move move) {
 				tmp_ep_square = SQ_NONE;
 		}
 	}
-	// Update EP square
-	if (ep_square != SQ_NONE)
-		zobrist ^= zobrist_ep[ep_square & 0b111];
-	if (tmp_ep_square != SQ_NONE)
-		zobrist ^= zobrist_ep[tmp_ep_square & 0b111];
-	ep_square = tmp_ep_square;
+
 	// Switch sides
 	side = !side;
 	zobrist ^= zobrist_side;
 	// Update castling rights
 	zobrist ^= zobrist_castling[castling] ^ zobrist_castling[move_hist.top().prev_castling()];
 
-	halfmove++;
+	// Remove EP square
+	if (ep_square != SQ_NONE)
+		zobrist ^= zobrist_ep[ep_square & 0b111];
 
 	hash_hist.push_back(zobrist);
+
+	// Set new EP square
+	if (tmp_ep_square != SQ_NONE)
+		zobrist ^= zobrist_ep[tmp_ep_square & 0b111];
+	ep_square = tmp_ep_square;
+
+	halfmove++;
 
 #ifdef HASHCHECK
 	old_hash = zobrist;
