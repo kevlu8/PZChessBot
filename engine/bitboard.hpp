@@ -68,7 +68,7 @@ struct Board {
 	Square ep_square = SQ_NONE;
 	uint64_t zobrist = 0;
 	uint64_t piece_hashes[15] = {};
-	pzstd::largevector<uint64_t> hash_hist;
+	pzstd::vector<uint64_t, 1024> hash_hist;
 
 	// Mailbox representation of the board for faster queries of certain data
 	Piece mailbox[8 * 8];
