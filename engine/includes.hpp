@@ -38,11 +38,11 @@ constexpr Value VALUE_MATE = 30002; // Add 2 as a consequence of our evaluation 
 constexpr Value VALUE_MATE_MAX_PLY = VALUE_MATE - MAX_PLY;
 constexpr Value VALUE_NONE = -31000;
 
-constexpr Value PawnValue = 98;
+constexpr Value PawnValue = 100;
 constexpr Value KnightValue = 350;
-constexpr Value BishopValue = 348;
-constexpr Value RookValue = 526;
-constexpr Value QueenValue = 1002;
+constexpr Value BishopValue = 350;
+constexpr Value RookValue = 525;
+constexpr Value QueenValue = 1000;
 constexpr Value VALUE_MAX = QueenValue * 9 + (KnightValue + BishopValue + RookValue) * 2;
 
 constexpr Value MAX_HISTORY = 16384;
