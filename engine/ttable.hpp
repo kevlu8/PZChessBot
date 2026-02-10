@@ -44,7 +44,7 @@ struct TTable {
 	void init_ttable() {
 		// Multithreaded initialization (capped by thread count)
 		const size_t MIN_CHUNK_SIZE = 4294967296 / sizeof(TTBucket);
-		size_t num_threads = std::min((size_t)std::thread::hardware_concurrency(), MIN_CHUNK_SIZE / TT_SIZE);
+		size_t num_threads = std::clamp(TT_SIZE / MIN_CHUNK_SIZE, 1UL, (size_t)std::thread::hardware_concurrency());
 		std::vector<std::thread> threads;
 		size_t chunk_size = TT_SIZE / num_threads;
 		for (int t = 0; t < num_threads; t++) {
