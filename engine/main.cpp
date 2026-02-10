@@ -159,6 +159,8 @@ void run_uci() {
 			);
 		}
 	}
+	if (searchthread.joinable())
+		searchthread.join();
 }
 
 __attribute__((weak)) int main(int argc, char *argv[]) {
