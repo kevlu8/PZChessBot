@@ -404,6 +404,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	 */
 	auto tentry = ttable.probe(board.zobrist);
 	Value tteval = -VALUE_INFINITE;
+	bool ttcapt = false;
 	if (tentry && is_valid_score(tentry->eval)) tteval = tt_to_score(tentry->eval, ply);
 	if (!pv && tentry && is_valid_score(tteval) && tentry->depth >= depth && ti.line[ply].excl == NullMove) {
 		// Check for cutoffs
@@ -416,7 +417,10 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 	}
 
-	if (tentry) ttpv |= tentry->ttpv();
+	if (tentry) {
+		ttpv |= tentry->ttpv();
+		ttcapt = board.is_capture(tentry->best_move);
+	}
 
 	// Evaluate and correct evaluation
 	Value cur_eval = 0;
@@ -738,6 +742,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			r += 1303 * cutnode; // Reduce more in cutnodes
 			r += 918 * (ti.line[ply+1].cutoffcnt > 3);
 			r -= 975 * ttpv;
+			r += 1024 * ttcapt;
 
 			if (move == ti.line[ply].killer) {
 				r -= 932;
