@@ -214,6 +214,9 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 		}
 	}
 
+	bool opp_in_check = ti.board.control(__tzcnt_u64(ti.board.piece_boards[KING] & ti.board.piece_boards[OPPOCC(ti.board.side)]), ti.board.side);
+	if (opp_in_check) return VALUE_MATE;
+
 	// Do evaluation and corrections
 	Value stand_pat = 0;
 	Value raw_eval = 0;

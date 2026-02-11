@@ -17,15 +17,6 @@ Value simple_eval(Board &board) {
 }
 
 Value eval(Board &board, BoardState *bs) {
-	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
-		// If black has no king, this is mate for white
-		return VALUE_MATE;
-	}
-	if (!(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])) {
-		// Likewise, if white has no king, this is mate for black
-		return -VALUE_MATE;
-	}
-
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 	int32_t score = 0;
 	// Query the NNUE network
