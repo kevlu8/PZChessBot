@@ -600,6 +600,8 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		
 		int extension = 0;
 
+		int hist = capt ? ti.thread_hist.get_capthist(board, move) : ti.thread_hist.get_history(board, move, ply, &ti.line[ply]);
+
 		if (ti.line[ply].excl == NullMove && depth >= 8 && tentry && is_valid_score(tteval) && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
 			/**
 			 * Singular extensions
@@ -620,7 +622,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (singular_score < singular_beta) {
 				extension++;
 
-				if (singular_score <= singular_beta - 23)
+				if (singular_score <= singular_beta - 23 - (!capt && !promo) * hist / 512)
 					extension++;
 			} else if (singular_score >= beta)
 				/**
@@ -653,7 +655,6 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			}
 		}
 
-		int hist = capt ? ti.thread_hist.get_capthist(board, move) : ti.thread_hist.get_history(board, move, ply, &ti.line[ply]);
 		if (best > -VALUE_MATE_MAX_PLY) {
 			if (i >= (5 + depth * depth) / (2 - improving)) {
 				/**
