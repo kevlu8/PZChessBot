@@ -879,6 +879,8 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 
 	Value static_eval = eval(board, (BoardState *)ti.bs) * (board.side ? -1 : 1);
 
+	std::deque<Value> eval_history;
+
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
 	for (int d = 1; d <= depth; d++) {
@@ -936,6 +938,9 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 				tot_nodes += nodes[t]; // ig this is dangerous but whatever
 			}
 
+			eval_history.push_back(eval);
+			while (eval_history.size() > 6) eval_history.pop_back();
+
 			// UCI output from main thread only
 			auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
 			last_line.str("");
@@ -963,6 +968,18 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 				double factor = std::clamp(complexity / 200.0, 0.0, 1.0);
 				// higher complexity = spend more time, lower complexity = spend less time
 				soft = 0.33232 + 0.45762 * factor;
+			}
+
+			if (depth >= 6) {
+				int sum = 0;
+				for (auto &x : eval_history) sum += x;
+				double mean = sum / (double)eval_history.size();
+				sum = 0;
+				for (auto &x : eval_history) sum += (x - mean) * (x - mean);
+				double stdev = sqrt(sum / (double)(eval_history.size() - 1));
+				stdev = std::clamp(stdev / 50, 0.0, 1.0); // normalize to range [0, 1]
+
+				soft *= 0.5 + stdev;
 			}
 
 			double node_adjustment = 1.414479 - 0.931647 * (bm_nodes / (double)tot_nodes);
