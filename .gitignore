@@ -40,6 +40,7 @@ in*
 !in*.*
 
 book.db
+cutechess
 fastchess/
 *old
 new
@@ -60,3 +61,4 @@ test/test
 *.png
 *.py
 *.epd
+tmp/

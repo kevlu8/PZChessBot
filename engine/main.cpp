@@ -30,6 +30,7 @@ void run_uci() {
 			std::cout << "option name Hash type spin default 16 min 1 max " << MAX_TT << std::endl;
 			std::cout << "option name Threads type spin default 1 min 1 max " << MAX_THREADS << std::endl;
 			std::cout << "option name Quiet type check default false" << std::endl;
+			std::cout << "option name UCI_Variant type combo default antichess var antichess" << std::endl;
 			std::cout << "uciok" << std::endl;
 		} else if (command == "icu") {
 			return; // exit uci mode
@@ -235,7 +236,8 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 	if (argc == 3 && std::string(argv[2]) == "quit") {
 		// assume genfens
 		// ./pzchessbot "genfens N seed S book None" "quit"
-		bool filter_weird = true;
+		std::ofstream outfile("antichess.epd");
+		bool filter_weird = false;
 		int nmoves = 12;
 		std::string genfens = argv[1];
 		std::stringstream ss(genfens);
@@ -308,8 +310,10 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				n++;
 				continue;
 			}
-			std::cout << "info string genfens " << board.get_fen() << std::endl;
+			// std::cout << "info string genfens " << board.get_fen() << std::endl;
+			outfile << board.get_fen() << std::endl;
 		}
+		outfile.close();
 		return 0;
 	}
 	if (argc == 2 && std::string(argv[1]) == "pawnvalue") {

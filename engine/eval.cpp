@@ -17,6 +17,10 @@ Value simple_eval(Board &board) {
 }
 
 Value eval(Board &board, BoardState *bs) {
+	// antichess
+	return -simple_eval(board);
+
+
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 	int32_t score = 0;
 	// Query the NNUE network

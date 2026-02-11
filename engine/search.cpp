@@ -354,44 +354,32 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	 * such that N <= ply, we can stop searching this branch since it's longer than our
 	 * current best mate.
 	 */
-	alpha = std::max((int)alpha, -VALUE_MATE + ply);
-	beta = std::min((int)beta, VALUE_MATE - ply + 1);
-	if (alpha >= beta) {
-		return alpha;
-	}
+	// alpha = std::max((int)alpha, -VALUE_MATE + ply);
+	// beta = std::min((int)beta, VALUE_MATE - ply + 1);
+	// if (alpha >= beta) {
+	// 	return alpha;
+	// }
 
-	// Control on white king and black king respectively
-	bool wcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK);
-	bool bcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE);
-
-	if (board.side == WHITE) {
-		// If it is white to move and white controls black's king, it's mate
-		if (bcontrol > 0)
-			return VALUE_MATE;
-	} else {
-		// Likewise, the contrary also applies.
-		if (wcontrol > 0)
-			return VALUE_MATE;
-	}
+	if (board.piece_boards[OCC(board.side)] == 0)
+		// Variant ending: antichess
+		return VALUE_MATE;
 
 	// Threefold or 50 move rule
-	if (!root && (board.threefold(ply) || board.halfmove >= 100 || board.insufficient_material())) {
+	if (!root && (board.threefold(ply) || board.halfmove >= 100)) {
 		return 0;
-	}
-
-	bool in_check = false;
-	if (board.side == WHITE) {
-		in_check = wcontrol > 0;
-	} else {
-		in_check = bcontrol > 0;
 	}
 
 	if (depth <= 0) {
 		// Reached the maximum depth, perform quiescence search
-		return quiesce(ti, alpha, beta, side, ply, pv);
+		// return quiesce(ti, alpha, beta, side, ply, pv);
+		return eval(board, (BoardState *)ti.bs) * side;
 	}
 
 	bool ttpv = pv;
+	bool forced_capture = false;
+	pzstd::vector<Move> tmp_moves;
+	board.captures(tmp_moves);
+	forced_capture = !tmp_moves.empty();
 
 	/**
 	 * TTable Cutoffs
@@ -422,7 +410,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	Value cur_eval = 0;
 	Value raw_eval = 0;
 	Value tt_corr_eval = 0;
-	if (!in_check) {
+	if (!forced_capture) {
 		cur_eval = tentry ? tentry->s_eval : eval(board, (BoardState *)ti.bs) * side;
 		raw_eval = cur_eval;
 		ti.thread_hist.apply_correction(board, &ti.line[ply], ply, cur_eval);
@@ -432,7 +420,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		else if (!tentry) ttable.store(board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
 	}
 
-	ti.line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
+	ti.line[ply].eval = forced_capture ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
 
 	/**
 	 * Improving flag
@@ -441,127 +429,83 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	 * We can use this information to modify some of our pruning techniques.
 	 */
 	bool improving = false;
-	if (!in_check && ply >= 2 && ti.line[ply-2].eval != VALUE_NONE && cur_eval > ti.line[ply-2].eval) improving = true;
+	if (!forced_capture && ply >= 2 && ti.line[ply-2].eval != VALUE_NONE && cur_eval > ti.line[ply-2].eval) improving = true;
 
-	// Reverse futility pruning
-	if (!in_check && !ttpv && depth <= 8) {
-		/**
-		 * The idea is that if we are winning by such a large margin that we can afford to lose
-		 * RFP_THRESHOLD * depth eval units per ply, we can return the current eval.
-		 * 
-		 * We need to make sure that we aren't in check (since we might get mated)
-		 */
-		int margin = (RFP_THRESHOLD - improving * RFP_IMPROVING) * depth + RFP_QUADRATIC * depth * depth - RFP_CUTNODE * cutnode;
-		if (tt_corr_eval >= beta + margin)
-			return ((int)tt_corr_eval + beta) / 2;
-	}
+	// // Reverse futility pruning
+	// if (!forced_capture && !ttpv && depth <= 8) {
+	// 	/**
+	// 	 * The idea is that if we are winning by such a large margin that we can afford to lose
+	// 	 * RFP_THRESHOLD * depth eval units per ply, we can return the current eval.
+	// 	 * 
+	// 	 * We need to make sure that we aren't in check (since we might get mated)
+	// 	 */
+	// 	int margin = (RFP_THRESHOLD - improving * RFP_IMPROVING) * depth + RFP_QUADRATIC * depth * depth - RFP_CUTNODE * cutnode;
+	// 	if (tt_corr_eval >= beta + margin)
+	// 		return ((int)tt_corr_eval + beta) / 2;
+	// }
 
-	// Null-move pruning
-	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
-	int npawns_and_kings = _mm_popcnt_u64(board.piece_boards[PAWN] | board.piece_boards[KING]);
-	if (!pv && !in_check && !ti.nmp_disable && npieces != npawns_and_kings && tt_corr_eval >= beta && depth >= 2 && ti.line[ply].excl == NullMove) { // Avoid NMP in pawn endgames
-		/**
-		 * This works off the *null-move observation*.
-		 * 
-		 * The general idea is that a null move will almost always be worse than the best move
-		 * in a given position. So, if we can play a suboptimal move (in this case the null move)
-		 * and still be winning, we were probably winning in the first place.
-		 * 
-		 * The only issue with this approach is that it will fail in Zugzwang positions. There's
-		 * really no good way of preventing this except for disabling NMP in positions where there
-		 * are probably Zugzwangs (e.g. endgames).
-		 */
-		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[board.side][0][0];
-		ti.line[ply].corr_hist = &ti.thread_hist.corrhist_cont[board.side][0][0];
-		board.make_move(NullMove);
-		// Perform a reduced-depth search
-		Value r = NMP_R_VALUE + depth / 3;
-		Value null_score = -negamax(ti, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
-		board.unmake_move();
-		ti.line[ply].cont_hist = nullptr;
-		ti.line[ply].corr_hist = nullptr;
-		if (null_score >= beta) {
-			/**
-			 * Although many implementations cutoff directly here, we instead do a verification search
-			 * in order to prevent NMP causing us to miss tactics. Basically, we do a normal search with
-			 * reduced depth and NMP disabled. If that search also fails high, we can be more certain that the position
-			 * is actually winning.
-			 */
-			if (abs(null_score) >= VALUE_MATE_MAX_PLY) null_score = beta; // Prevent false mates
+	// // Razoring
+	// if (!pv && !forced_capture && depth <= 8 && tt_corr_eval + RAZOR_MARGIN * depth < alpha) {
+	// 	/**
+	// 	 * If we are losing by a lot, check w/ qsearch to see if we could possibly improve.
+	// 	 * If not, we can prune the search.
+	// 	 */
+	// 	Value razor_score = quiesce(ti, alpha, beta, side, ply, 0);
+	// 	if (razor_score <= alpha)
+	// 		return razor_score;
+	// }
 
-			if (depth <= 12)
-				return null_score; // Direct cutoff for low depths
+	// // Probcut
+	// if (!pv && !forced_capture && depth >= 7 && abs(beta) < VALUE_MATE_MAX_PLY && !(tentry && is_valid_score(tteval) && tteval < beta + PROBCUT_MARGIN)) {
+	// 	/**
+	// 	 * ProbCut
+	// 	 * 
+	// 	 * Before running search, we generate moves that we think are good and
+	// 	 * search them with a reduced depth and a higher beta. If one of them fails
+	// 	 * high, we assume that the node will fail high at full depth as well.
+	// 	 * 
+	// 	 * Note that if we have strong evidence that ProbCut will fail (e.g. from the TT),
+	// 	 * we skip ProbCut to save time.
+	// 	 * 
+	// 	 * In the body of the ProbCut loop, we first run a QSearch to figure out whether
+	// 	 * or not the move could cut. If the QSearch doesn't fail high, we skip the move
+	// 	 * in order to save effort.
+	// 	 */
+	// 	MovePicker pcpicker(board, &ti.thread_hist, tentry);
+	// 	Move pc_move = NullMove;
+	// 	int pc_depth = depth - 5;
+	// 	Value pc_beta = beta + PROBCUT_MARGIN;
+	// 	while ((pc_move = pcpicker.next()) != NullMove) {
+	// 		if (pc_move == ti.line[ply].excl)
+	// 			continue;
 
-			ti.nmp_disable = true;
-			Value score = negamax(ti, depth - r, beta - 1, beta, side, 0, false, ply);
-			ti.nmp_disable = false;
-			if (score >= beta)
-				return null_score;
-		}
-	}
+	// 		ti.line[ply].move = pc_move;
+	// 		ti.line[ply].captured = (PieceType)(board.mailbox[pc_move.dst()] & 7);
+	// 		ti.line[ply].piece = (PieceType)(board.mailbox[pc_move.src()] & 7);
+	// 		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[board.side][board.mailbox[pc_move.src()] & 7][pc_move.dst()];
+	// 		ti.line[ply].corr_hist = &ti.thread_hist.corrhist_cont[board.side][board.mailbox[pc_move.src()] & 7][pc_move.dst()];
 
-	// Razoring
-	if (!pv && !in_check && depth <= 8 && tt_corr_eval + RAZOR_MARGIN * depth < alpha) {
-		/**
-		 * If we are losing by a lot, check w/ qsearch to see if we could possibly improve.
-		 * If not, we can prune the search.
-		 */
-		Value razor_score = quiesce(ti, alpha, beta, side, ply, 0);
-		if (razor_score <= alpha)
-			return razor_score;
-	}
+	// 		board.make_move(pc_move);
+	// 		_mm_prefetch(&ttable.TT[board.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
+	// 		Value score = -quiesce(ti, -pc_beta, -pc_beta + 1, -side, ply + 1);
 
-	// Probcut
-	if (!pv && !in_check && depth >= 7 && abs(beta) < VALUE_MATE_MAX_PLY && !(tentry && is_valid_score(tteval) && tteval < beta + PROBCUT_MARGIN)) {
-		/**
-		 * ProbCut
-		 * 
-		 * Before running search, we generate moves that we think are good and
-		 * search them with a reduced depth and a higher beta. If one of them fails
-		 * high, we assume that the node will fail high at full depth as well.
-		 * 
-		 * Note that if we have strong evidence that ProbCut will fail (e.g. from the TT),
-		 * we skip ProbCut to save time.
-		 * 
-		 * In the body of the ProbCut loop, we first run a QSearch to figure out whether
-		 * or not the move could cut. If the QSearch doesn't fail high, we skip the move
-		 * in order to save effort.
-		 */
-		MovePicker pcpicker(board, &ti.thread_hist, tentry);
-		Move pc_move = NullMove;
-		int pc_depth = depth - 5;
-		Value pc_beta = beta + PROBCUT_MARGIN;
-		while ((pc_move = pcpicker.next()) != NullMove) {
-			if (pc_move == ti.line[ply].excl)
-				continue;
+	// 		if (score >= pc_beta)
+	// 			score = -negamax(ti, pc_depth, -pc_beta, -pc_beta + 1, -side, 0, !cutnode, ply + 1);
 
-			ti.line[ply].move = pc_move;
-			ti.line[ply].captured = (PieceType)(board.mailbox[pc_move.dst()] & 7);
-			ti.line[ply].piece = (PieceType)(board.mailbox[pc_move.src()] & 7);
-			ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[board.side][board.mailbox[pc_move.src()] & 7][pc_move.dst()];
-			ti.line[ply].corr_hist = &ti.thread_hist.corrhist_cont[board.side][board.mailbox[pc_move.src()] & 7][pc_move.dst()];
+	// 		board.unmake_move();
 
-			board.make_move(pc_move);
-			_mm_prefetch(&ttable.TT[board.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
-			Value score = -quiesce(ti, -pc_beta, -pc_beta + 1, -side, ply + 1);
+	// 		ti.line[ply].move = NullMove;
+	// 		ti.line[ply].captured = NO_PIECETYPE;
+	// 		ti.line[ply].piece = NO_PIECETYPE;
+	// 		ti.line[ply].cont_hist = nullptr;
+	// 		ti.line[ply].corr_hist = nullptr;
 
-			if (score >= pc_beta)
-				score = -negamax(ti, pc_depth, -pc_beta, -pc_beta + 1, -side, 0, !cutnode, ply + 1);
-
-			board.unmake_move();
-
-			ti.line[ply].move = NullMove;
-			ti.line[ply].captured = NO_PIECETYPE;
-			ti.line[ply].piece = NO_PIECETYPE;
-			ti.line[ply].cont_hist = nullptr;
-			ti.line[ply].corr_hist = nullptr;
-
-			if (score >= pc_beta) {
-				ttable.store(board.zobrist, score_to_tt(score, ply), raw_eval, pc_depth + 1, LOWER_BOUND, false, pc_move);
-				return score;
-			}
-		}
-	}
+	// 		if (score >= pc_beta) {
+	// 			ttable.store(board.zobrist, score_to_tt(score, ply), raw_eval, pc_depth + 1, LOWER_BOUND, false, pc_move);
+	// 			return score;
+	// 		}
+	// 	}
+	// }
 
 	Value best = -VALUE_INFINITE;
 
@@ -597,6 +541,8 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
 		bool promo = (move.type() == PROMOTION);
+
+		if (forced_capture && !capt) continue;
 		
 		int extension = 0;
 
@@ -655,7 +601,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		int hist = capt ? ti.thread_hist.get_capthist(board, move) : ti.thread_hist.get_history(board, move, ply, &ti.line[ply]);
 		if (best > -VALUE_MATE_MAX_PLY) {
-			if (i >= (5 + depth * depth) / (2 - improving)) {
+			if (!root && i >= (5 + depth * depth) / (2 - improving)) {
 				/**
 				 * Late Move Pruning
 				 * 
@@ -666,7 +612,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			}
 
 			Value futility = cur_eval + 300 + 100 * depth + hist / 32;
-			if (!in_check && !capt && !promo && depth <= 5 && futility <= alpha) {
+			if (!forced_capture && !capt && !promo && depth <= 5 && futility <= alpha) {
 				/**
 				 * Futility pruning
 				 * 
@@ -677,7 +623,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				continue;
 			}
 
-			if (!in_check && !capt && !promo && depth <= 5) {
+			if (!forced_capture && !capt && !promo && depth <= 5) {
 				/**
 				 * History pruning
 				 * 
@@ -686,18 +632,6 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				 */
 				if (hist < -HISTORY_MARGIN * depth)
 					break;
-			}
-
-			if (depth <= 5 && !promo && best > -VALUE_INFINITE) {
-				/**
-				 * PVS SEE Pruning
-				 * 
-				 * Skip searching moves with bad SEE scores
-				 */
-				Value see = board.see_capture(move);
-				const Value see_threshold = capt ? -27 * depth * depth : -59 * depth;
-				if (see < see_threshold)
-					continue;
 			}
 		}
 
@@ -841,16 +775,15 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	// Stalemate detection
 	// Second condition necessary for positions where one side is boxed in and can't move, but we can't mate
 	// e.g. 8/8/8/8/ppp1p3/krp1p2K/nbp1p3/nqrbN3 b - - 1 6
-	if (best == -VALUE_MATE || best == -VALUE_INFINITE) {
+	if (best <= -VALUE_MATE) {
 		// If our engine thinks we are mated but we are not in check, we are stalemated
 		if (ti.line[ply].excl != NullMove) return alpha;
-		else if (in_check) return -VALUE_MATE + ply;
-		else return 0;
+		else return -VALUE_MATE + ply;
 	}
 
 	bool best_iscapture = (board.piece_boards[OPPOCC(board.side)] & square_bits(best_move.dst()));
 	bool best_ispromo = (best_move.type() == PROMOTION);
-	if (ti.line[ply].excl == NullMove && !in_check && !(best_move != NullMove && (best_iscapture || best_ispromo))
+	if (ti.line[ply].excl == NullMove && !forced_capture && !(best_move != NullMove && (best_iscapture || best_ispromo))
 		&& !(flag == UPPER_BOUND && best >= cur_eval) && !(flag == LOWER_BOUND && best <= cur_eval)) {
 		// Best move is a quiet move, update CorrHist
 		int bonus = (best - cur_eval) * depth / 8;

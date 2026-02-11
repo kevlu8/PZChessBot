@@ -435,7 +435,7 @@ void pawn_captures(const Board &board, pzstd::vector<Move> &moves) {
 		Bitboard dsts = ((pieces & Rank7Bits) << 8) & ~(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 		while (dsts) {
 			int sq = _tzcnt_u64(dsts);
-			moves.push_back(Move::make<PROMOTION>(sq - 8, sq, QUEEN));
+			// moves.push_back(Move::make<PROMOTION>(sq - 8, sq, QUEEN));
 			dsts = _blsr_u64(dsts);
 		}
 		// Captures
@@ -471,7 +471,7 @@ void pawn_captures(const Board &board, pzstd::vector<Move> &moves) {
 		Bitboard dsts = ((pieces & Rank2Bits) >> 8) & ~(board.piece_boards[OCC(BLACK)] | board.piece_boards[OCC(WHITE)]);
 		while (dsts) {
 			int sq = _tzcnt_u64(dsts);
-			moves.push_back(Move::make<PROMOTION>(sq + 8, sq, QUEEN));
+			// moves.push_back(Move::make<PROMOTION>(sq + 8, sq, QUEEN));
 			dsts = _blsr_u64(dsts);
 		}
 		// Captures

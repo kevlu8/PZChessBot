@@ -5,7 +5,7 @@
 // A move needs 16 bits to be stored
 // bits 0-5: Destination square (from 0 to 63)
 // bits 6-11: Origin (from 0 to 63)
-// bits 12-13: promotion piece type - 1 (from KNIGHT-1 to QUEEN-1)
+// bits 12-14: promotion piece type - 1 (from KNIGHT-1 to QUEEN-1)
 // bits 14-15: special move flag: promotion (1), en passant (2), castling (3)
 struct Move {
 	uint16_t data;

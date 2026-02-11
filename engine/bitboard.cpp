@@ -238,18 +238,18 @@ std::string Board::get_fen() const {
 		}
 	}
 	res += side ? " b " : " w ";
-	if (castling == NO_CASTLE) {
+	// if (castling == NO_CASTLE) {
 		res += '-';
-	} else {
-		if (castling & WHITE_OO)
-			res += 'K';
-		if (castling & WHITE_OOO)
-			res += 'Q';
-		if (castling & BLACK_OO)
-			res += 'k';
-		if (castling & BLACK_OOO)
-			res += 'q';
-	}
+	// } else {
+	// 	if (castling & WHITE_OO)
+	// 		res += 'K';
+	// 	if (castling & WHITE_OOO)
+	// 		res += 'Q';
+	// 	if (castling & BLACK_OO)
+	// 		res += 'k';
+	// 	if (castling & BLACK_OOO)
+	// 		res += 'q';
+	// }
 	
 	// En passant square
 	if (ep_square >= SQ_NONE) {
