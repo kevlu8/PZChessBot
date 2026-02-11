@@ -17,17 +17,15 @@ Value simple_eval(Board &board) {
 }
 
 Value eval(Board &board, BoardState *bs) {
-	// antichess
-	return -simple_eval(board);
-
-
+	// return -simple_eval(board);
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 	int32_t score = 0;
 	// Query the NNUE network
-	Square wkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]);
-	Square bkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]);
-	int winbucket = IBUCKET_LAYOUT[wkingsq];
-	int binbucket = IBUCKET_LAYOUT[bkingsq ^ 56];
+	// Square wkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]);
+	// Square bkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]);
+	// int winbucket = IBUCKET_LAYOUT[wkingsq];
+	// int binbucket = IBUCKET_LAYOUT[bkingsq ^ 56];
+	int winbucket = 0, binbucket = 0;
 
 	// Convert bs to usable format
 	BoardState &state = *(bs + winbucket * NINPUTS * 2 + binbucket);
@@ -60,21 +58,15 @@ Value eval(Board &board, BoardState *bs) {
 
 	memcpy(state.mailbox, board.mailbox, sizeof(state.mailbox));
 
-	int nbucket = (npieces - 2) / 4;
+	int nbucket = 0;
 
 	if (board.side == WHITE) {
 		score = nnue_eval(nnue_network, state.w_acc, state.b_acc, nbucket);
 	} else {
 		score = -nnue_eval(nnue_network, state.b_acc, state.w_acc, nbucket);
 	}
-	
-	const int mat_phase = PawnValue * _mm_popcnt_u64(board.piece_boards[PAWN])
-						+ KnightValue * _mm_popcnt_u64(board.piece_boards[KNIGHT])
-						+ BishopValue * _mm_popcnt_u64(board.piece_boards[BISHOP])
-						+ RookValue * _mm_popcnt_u64(board.piece_boards[ROOK])
-						+ QueenValue * _mm_popcnt_u64(board.piece_boards[QUEEN]);
-	
-	return score * (26500 + mat_phase) / 32768;
+
+	return score;
 }
 
 std::array<Value, 8> debug_eval(Board &board) {

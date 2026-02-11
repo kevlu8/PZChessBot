@@ -883,11 +883,6 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 			bool best_iscapt = board.is_capture(best_move);
 			bool best_ispromo = (best_move.type() == PROMOTION);
 			bool in_check = false;
-			if (board.side == WHITE) {
-				in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK) > 0;
-			} else {
-				in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE) > 0;
-			}
 
 			double soft = 0.573154;
 			if (depth >= 6 && !best_iscapt && !best_ispromo && !in_check) {
