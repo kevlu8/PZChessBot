@@ -136,23 +136,57 @@ void Board::load_fen(std::string fen) {
 	inputIdx += 3;
 
 	// Load castling rights
+	Bitboard rooks = piece_boards[ROOK];
 	if (fen[inputIdx] != '-') {
+		char king_file = (_tzcnt_u64(piece_boards[KING] & piece_boards[OCC(WHITE)])) + 'A';
 		if (fen[inputIdx] == 'K') {
 			castling |= WHITE_OO;
 			inputIdx++;
+			Square king_square = make_square(File(king_file - 'A'), RANK_1);
+			Bitboard mask = ~(square_bits(king_square) - 1);
+			rook_pos[0] = Square(_tzcnt_u64(rooks & mask & piece_boards[OCC(WHITE)]));
+		} else if (fen[inputIdx] <= 'H' && fen[inputIdx] > king_file) {
+			castling |= WHITE_OO;
+			inputIdx++;
+			rook_pos[0] = make_square(File(fen[inputIdx - 1] - 'A'), RANK_1);
 		}
+
 		if (fen[inputIdx] == 'Q') {
 			castling |= WHITE_OOO;
 			inputIdx++;
+			Square king_square = make_square(File(king_file - 'A'), RANK_1);
+			Bitboard mask = (square_bits(king_square) - 1);
+			rook_pos[1] = Square(_tzcnt_u64(rooks & mask & piece_boards[OCC(WHITE)]));
+		} else if (fen[inputIdx] >= 'A' && fen[inputIdx] < king_file) {
+			castling |= WHITE_OOO;
+			inputIdx++;
+			rook_pos[1] = make_square(File(fen[inputIdx - 1] - 'A'), RANK_1);
 		}
+
 		if (fen[inputIdx] == 'k') {
 			castling |= BLACK_OO;
 			inputIdx++;
+			Square king_square = make_square(File(king_file - 'A'), RANK_8);
+			Bitboard mask = ~(square_bits(king_square) - 1);
+			rook_pos[2] = Square(_tzcnt_u64(rooks & mask & piece_boards[OCC(BLACK)]));
+		} else if (fen[inputIdx] <= 'h' && fen[inputIdx] > king_file + 32) {
+			castling |= BLACK_OO;
+			inputIdx++;
+			rook_pos[2] = make_square(File(fen[inputIdx - 1] - 'a'), RANK_8);
 		}
+
 		if (fen[inputIdx] == 'q') {
 			castling |= BLACK_OOO;
 			inputIdx++;
+			Square king_square = make_square(File(king_file - 'A'), RANK_8);
+			Bitboard mask = (square_bits(king_square) - 1);
+			rook_pos[3] = Square(63 - _lzcnt_u64(rooks & mask & piece_boards[OCC(BLACK)]));
+		} else if (fen[inputIdx] >= 'a' && fen[inputIdx] < king_file + 32) {
+			castling |= BLACK_OOO;
+			inputIdx++;
+			rook_pos[3] = make_square(File(fen[inputIdx - 1] - 'a'), RANK_8);
 		}
+
 		inputIdx++;
 	} else {
 		inputIdx += 2;
