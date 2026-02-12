@@ -205,10 +205,6 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	// 	return alpha;
 	// }
 
-	if (board.piece_boards[OCC(board.side)] == 0)
-		// Variant ending: antichess
-		return VALUE_MATE;
-
 	// Threefold or 50 move rule
 	if (!root && (board.threefold(ply) || board.halfmove >= 100)) {
 		return 0;
@@ -224,6 +220,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			break;
 		}
 	}
+
+	if (tmp_moves.size() == 0) // We win
+		return VALUE_MATE;
 
 	if (depth <= 0 && !forced_capture) {
 		// Reached the maximum depth, perform quiescence search

@@ -37,11 +37,17 @@ public:
 	void move(std::string_view move, std::string_view comment) {
 		if (move == "") return;
 		std::string move_str(move);
+		Move m = uci::parseSan(pos, move_str);
 		std::string fen = pos.getFen();
 		std::string result = res == "1-0" ? "1" : res == "0-1" ? "0" : "0.5";
+
+		bool store = true;
+		if (pos.at(m.to()) != Piece::NONE) {
+			store = false; // do not store captures
+		}
+
 		outfile << fen << " | 0 | " << result << '\n';
 
-		Move m = uci::parseSan(pos, move_str);
 		pos.makeMove(m);
 	}
 
