@@ -247,7 +247,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	// Sort captures and promotions
 	pzstd::vector<std::pair<Move, int>> scores;
 	for (Move &move : moves) {
-		if (ti.board.piece_boards[OPPOCC(ti.board.side)] & square_bits(move.dst())) {
+		if (ti.board.is_capture(move)) {
 			int score = 0;
 			score = MVV_LVA[ti.board.mailbox[move.dst()] & 7][ti.board.mailbox[move.src()] & 7];
 			scores.push_back({move, score});
@@ -594,8 +594,8 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	while ((move = mp.next()) != NullMove) {
 		if (move == ti.line[ply].excl)
 			continue;
-		
-		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
+
+		bool capt = board.is_capture(move);
 		bool promo = (move.type() == PROMOTION);
 		
 		int extension = 0;
@@ -848,7 +848,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		else return 0;
 	}
 
-	bool best_iscapture = (board.piece_boards[OPPOCC(board.side)] & square_bits(best_move.dst()));
+	bool best_iscapture = board.is_capture(best_move);
 	bool best_ispromo = (best_move.type() == PROMOTION);
 	if (ti.line[ply].excl == NullMove && !in_check && !(best_move != NullMove && (best_iscapture || best_ispromo))
 		&& !(flag == UPPER_BOUND && best >= cur_eval) && !(flag == LOWER_BOUND && best <= cur_eval)) {

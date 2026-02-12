@@ -125,6 +125,7 @@ void run_uci() {
 			int nodes = -1;
 			bool inf = false;
 			int movetime = -1;
+			int perft_depth = -1;
 			ss >> token;
 			while (ss >> token) {
 				if (token == "wtime") {
@@ -143,7 +144,16 @@ void run_uci() {
 					ss >> nodes;
 				} else if (token == "movetime") {
 					ss >> movetime;
+				} else if (token == "perft") {
+					ss >> perft_depth;
 				}
+			}
+			if (perft_depth != -1) {
+				for (int d = 1; d <= perft_depth; d++) {
+					uint64_t nodes = perft(board, d);
+					std::cout << "info string perft " << d << ": " << nodes << std::endl;
+				}
+				continue;
 			}
 			int timeleft = board.side ? btime : wtime;
 			int inc = board.side ? binc : winc;

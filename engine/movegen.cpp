@@ -392,23 +392,23 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 		if (board.castling & WHITE_OO) {
 			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_F1) | square_bits(SQ_G1))) &&
 				!board.control(SQ_F1, BLACK))
-				moves.push_back(Move::make<CASTLING>(SQ_E1, SQ_G1));
+				moves.push_back(Move::make<CASTLING>(SQ_E1, board.rook_pos[0]));
 		}
 		if (board.castling & WHITE_OOO) {
 			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_D1) | square_bits(SQ_C1) | square_bits(SQ_B1))) &&
 				!board.control(SQ_D1, BLACK))
-				moves.push_back(Move::make<CASTLING>(SQ_E1, SQ_C1));
+				moves.push_back(Move::make<CASTLING>(SQ_E1, board.rook_pos[1]));
 		}
 	} else if (board.side == BLACK && !board.control(SQ_E8, WHITE)) {
 		if (board.castling & BLACK_OO) {
 			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_F8) | square_bits(SQ_G8))) &&
 				!board.control(SQ_F8, WHITE))
-				moves.push_back(Move::make<CASTLING>(SQ_E8, SQ_G8));
+				moves.push_back(Move::make<CASTLING>(SQ_E8, board.rook_pos[2]));
 		}
 		if (board.castling & BLACK_OOO) {
 			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_D8) | square_bits(SQ_C8) | square_bits(SQ_B8))) &&
 				!board.control(SQ_D8, WHITE))
-				moves.push_back(Move::make<CASTLING>(SQ_E8, SQ_C8));
+				moves.push_back(Move::make<CASTLING>(SQ_E8, board.rook_pos[3]));
 		}
 	}
 	// Normal moves
