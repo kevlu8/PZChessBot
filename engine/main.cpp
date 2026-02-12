@@ -159,6 +159,7 @@ void run_uci() {
 			);
 		}
 	}
+	stop_search = true;
 	if (searchthread.joinable())
 		searchthread.join();
 }
