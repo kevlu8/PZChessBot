@@ -290,7 +290,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 					auto s_eval = eval(board, &tis[0].bs[0][0]);
 					if (abs(s_eval) >= 1000) restart = true; // do a fast static eval to quickly filter out crazy positions
 					else {
-						auto res = search(board, tis, 1e9, MAX_PLY, 10000, 1);
+						auto res = search(board, tis, 1e9, MAX_PLY, 1000, 2);
 						if (abs(res.second) >= 600) restart = true;
 					}
 				}

@@ -7,7 +7,7 @@ uint64_t mx_nodes = 1e18; // Maximum nodes to search
 bool stop_search = true;
 std::chrono::steady_clock::time_point start;
 uint64_t mxtime = 1e18; // Maximum time to search in milliseconds
-bool minimal = false;
+int minimal = 0;
 std::stringstream last_line;
 
 uint16_t num_threads = 1;
@@ -760,8 +760,8 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 
 	if (ti.is_main) {
 		stop_search = true;
-		if (minimal) std::cout << last_line.str() << std::endl;
-		std::cout << "bestmove " << best_move.to_string() << std::endl;
+		if (minimal == 1) std::cout << last_line.str() << std::endl;
+		if (minimal != 2) std::cout << "bestmove " << best_move.to_string() << std::endl;
 	}
 }
 
