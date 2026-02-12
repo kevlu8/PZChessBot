@@ -240,6 +240,10 @@ void Board::reset_board() {
 	halfmove = 0;
 	castling = 0xf;  // 1111
 	ep_square = SQ_NONE;
+	rook_pos[0] = SQ_H1;
+	rook_pos[1] = SQ_A1;
+	rook_pos[2] = SQ_H8;
+	rook_pos[3] = SQ_A8;
 
 	while (!move_hist.empty()) move_hist.pop();
 	while (!halfmove_hist.empty()) halfmove_hist.pop();
