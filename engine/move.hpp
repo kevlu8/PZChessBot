@@ -6,7 +6,7 @@
 // bits 0-5: Destination square (from 0 to 63)
 // bits 6-11: Origin (from 0 to 63)
 // bits 12-14: promotion piece type - 1 (from KNIGHT-1 to QUEEN-1)
-// bits 14-15: special move flag: promotion (1), en passant (2), castling (3)
+// bits 14-15: special move flag: promotion (1), en passant (2), king promo (3)
 struct Move {
 	uint16_t data;
 	constexpr Move() : data(0) {}

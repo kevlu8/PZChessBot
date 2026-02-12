@@ -169,161 +169,6 @@ bool is_valid_score(Value score) {
 	return score > -VALUE_INFINITE && score < VALUE_INFINITE;
 }
 
-/**
- * Perform the quiescence search
- * 
- * Quiescence search is a technique to avoid the horizon effect, where the evaluation function
- * incorrectly evaluates a position because it is not stable (e.g. there is a hanging queen).
- * In this function, we search only captures and promotions, and return the best score.
- * 
- * We also use stand pat to optimize the search further. If we are satisfied with our position,
- * we can stop searching captures (which may actually worsen our position) and instead directly
- * return our evaluation.
- * 
- * TODO:
- * - Search for checks and check evasions (every time I've tried this it has lost tons of elo)
- * - Late move reduction (instead of reducing depth, we reduce the search window) (not a known technique, maybe worth trying?)
- */
-Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool pv=false) {
-	nodes[ti.id]++;
-
-	if (stop_search) return 0;
-
-	if (ti.is_main && !(nodes[ti.id] & 4095)) {
-		auto time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-		if (time > mxtime || nodes[ti.id] > mx_nodes) { // currently, the nodes will be broken but time will be accurate
-			stop_search = true;
-			return 0;
-		}
-	}
-
-	if (depth >= MAX_PLY)
-		return eval(ti.board, (BoardState *)ti.bs) * side; // Just in case
-
-	// Check for TTable cutoff
-	auto tentry = ttable.probe(ti.board.zobrist);
-	Value tteval = -VALUE_INFINITE;
-	if (tentry && is_valid_score(tentry->eval)) tteval = tt_to_score(tentry->eval, depth);
-	if (!pv && tentry && is_valid_score(tteval)) {
-		if (tentry->bound() == EXACT) return tteval;
-		if (tentry->bound() == LOWER_BOUND) {
-			if (tteval >= beta) return tteval;
-		}
-		if (tentry->bound() == UPPER_BOUND) {
-			if (tteval <= alpha) return tteval;
-		}
-	}
-
-	bool opp_in_check = ti.board.control(__tzcnt_u64(ti.board.piece_boards[KING] & ti.board.piece_boards[OPPOCC(ti.board.side)]), ti.board.side);
-	if (opp_in_check) return VALUE_MATE;
-
-	// Do evaluation and corrections
-	Value stand_pat = 0;
-	Value raw_eval = 0;
-	stand_pat = tentry ? tentry->s_eval : eval(ti.board, (BoardState *)ti.bs) * side;
-	raw_eval = stand_pat;
-	ti.thread_hist.apply_correction(ti.board, &ti.line[depth], depth, stand_pat);
-	if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
-		stand_pat = tteval;
-
-	if (!tentry) ttable.store(ti.board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
-
-	// If it's a mate, stop here since there's no point in searching further
-	// Theoretically shouldn't ever happen because of stand pat
-	if (stand_pat == VALUE_MATE || stand_pat == -VALUE_MATE)
-		return stand_pat;
-
-	// If we are too good, return the score
-	if (stand_pat >= beta)
-		return stand_pat;
-	if (stand_pat > alpha)
-		alpha = stand_pat;
-
-	pzstd::vector<Move> moves;
-	ti.board.captures(moves);
-	if (moves.empty())
-		return stand_pat;
-
-	// Sort captures and promotions
-	pzstd::vector<std::pair<Move, int>> scores;
-	for (Move &move : moves) {
-		if (ti.board.piece_boards[OPPOCC(ti.board.side)] & square_bits(move.dst())) {
-			int score = 0;
-			score = MVV_LVA[ti.board.mailbox[move.dst()] & 7][ti.board.mailbox[move.src()] & 7];
-			scores.push_back({move, score});
-		} else if (move.type() == PROMOTION) {
-			scores.push_back({move, PieceValue[move.promotion() + KNIGHT] - PawnValue});
-		}
-	}
-
-	Value best = stand_pat;
-	Move best_move = NullMove;
-
-	int alpha_raise = 0;
-
-	Move move = NullMove;
-	int end = scores.size();
-
-	while ((move = next_move(scores, end)) != NullMove) {
-		if (move.type() != PROMOTION) {
-			Value see = ti.board.see_capture(move);
-			if (see < -4) {
-				/**
-				 * QSearch SEE pruning
-				 * 
-				 * In the QSearch, we don't care too much about missing tactics. So, we can
-				 * be more aggressive with our pruning. If a capture loses material, we can
-				 * discard it directly.
-				 */
-				continue;
-			} else {
-				/**
-				 * QS Futility pruning
-				 * 
-				 * Also known as delta pruning. If adding the value of the capture to our
-				 * static evaluation plus a safety margin is still not enough to raise
-				 * alpha, we can skip the move.
-				 */
-				if (DELTA_THRESHOLD + 4746 * see / 1024 + stand_pat < alpha) continue;
-			}
-		}
-
-		ti.line[depth].move = move;
-		ti.line[depth].captured = (PieceType)(ti.board.mailbox[move.dst()] & 7);
-		ti.line[depth].piece = (PieceType)(ti.board.mailbox[move.src()] & 7);
-		ti.line[depth].cont_hist = &ti.thread_hist.cont_hist[ti.board.side][ti.board.mailbox[move.src()] & 7][move.dst()];
-		ti.line[depth].corr_hist = &ti.thread_hist.corrhist_cont[ti.board.side][ti.board.mailbox[move.src()] & 7][move.dst()];
-
-		ti.board.make_move(move);
-		_mm_prefetch(&ttable.TT[ti.board.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
-		Value score = -quiesce(ti, -beta, -alpha, -side, depth + 1, pv);
-		ti.board.unmake_move();
-
-		ti.line[depth].move = NullMove;
-		ti.line[depth].captured = NO_PIECETYPE;
-		ti.line[depth].piece = NO_PIECETYPE;
-		ti.line[depth].cont_hist = nullptr;
-		ti.line[depth].corr_hist = nullptr;
-
-		if (score > best) {
-			if (score > alpha) {
-				alpha = score;
-				alpha_raise++;
-			}
-			best = score;
-			best_move = move;
-		}
-		if (score >= beta) {
-			ttable.store(ti.board.zobrist, score_to_tt(score, depth), raw_eval, 0, LOWER_BOUND, pv, move);
-			return best;
-		}
-	}
-
-	ttable.store(ti.board.zobrist, score_to_tt(best, depth), raw_eval, 0, alpha_raise ? EXACT : UPPER_BOUND, pv, best_move);
-
-	return best;
-}
-
 Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 0, bool root = false) {
 	Board &board = ti.board;
 
@@ -369,17 +214,22 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		return 0;
 	}
 
-	if (depth <= 0) {
-		// Reached the maximum depth, perform quiescence search
-		// return quiesce(ti, alpha, beta, side, ply, pv);
-		return eval(board, (BoardState *)ti.bs) * side;
-	}
-
 	bool ttpv = pv;
 	bool forced_capture = false;
 	pzstd::vector<Move> tmp_moves;
-	board.captures(tmp_moves);
-	forced_capture = !tmp_moves.empty();
+	board.legal_moves(tmp_moves);
+	for (auto &m : tmp_moves) {
+		if (board.is_capture(m)) {
+			forced_capture = true;
+			break;
+		}
+	}
+
+	if (depth <= 0 && !forced_capture) {
+		// Reached the maximum depth, perform quiescence search
+		// return quiesce(ti, alpha, beta, side, ply, pv);
+		return eval(board, (BoardState *)ti.bs) * side;
+	} else if (depth <= 0) depth = 1; // do not drop to eval if captures still exist
 
 	/**
 	 * TTable Cutoffs

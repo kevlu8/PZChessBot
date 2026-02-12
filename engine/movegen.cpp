@@ -212,6 +212,7 @@ void white_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
 		moves.push_back(Move::make<PROMOTION>(sq - 8, sq, ROOK));
 		moves.push_back(Move::make<PROMOTION>(sq - 8, sq, KNIGHT));
 		moves.push_back(Move::make<PROMOTION>(sq - 8, sq, BISHOP));
+		moves.push_back(Move::make<KING_PROMO>(sq - 8, sq, KING));
 		dsts = _blsr_u64(dsts);
 	}
 	// Captures
@@ -284,6 +285,7 @@ void black_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
 		moves.push_back(Move::make<PROMOTION>(sq + 8, sq, ROOK));
 		moves.push_back(Move::make<PROMOTION>(sq + 8, sq, KNIGHT));
 		moves.push_back(Move::make<PROMOTION>(sq + 8, sq, BISHOP));
+		moves.push_back(Move::make<KING_PROMO>(sq + 8, sq, KING));
 		dsts = _blsr_u64(dsts);
 	}
 	// Captures
@@ -387,30 +389,6 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 	if (__builtin_expect(piece == 0, false))
 		return;
 	int sq = _tzcnt_u64(piece);
-	// Castling
-	if (board.side == WHITE && !board.control(SQ_E1, BLACK)) {
-		if (board.castling & WHITE_OO) {
-			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_F1) | square_bits(SQ_G1))) &&
-				!board.control(SQ_F1, BLACK))
-				moves.push_back(Move::make<CASTLING>(SQ_E1, SQ_G1));
-		}
-		if (board.castling & WHITE_OOO) {
-			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_D1) | square_bits(SQ_C1) | square_bits(SQ_B1))) &&
-				!board.control(SQ_D1, BLACK))
-				moves.push_back(Move::make<CASTLING>(SQ_E1, SQ_C1));
-		}
-	} else if (board.side == BLACK && !board.control(SQ_E8, WHITE)) {
-		if (board.castling & BLACK_OO) {
-			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_F8) | square_bits(SQ_G8))) &&
-				!board.control(SQ_F8, WHITE))
-				moves.push_back(Move::make<CASTLING>(SQ_E8, SQ_G8));
-		}
-		if (board.castling & BLACK_OOO) {
-			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_D8) | square_bits(SQ_C8) | square_bits(SQ_B8))) &&
-				!board.control(SQ_D8, WHITE))
-				moves.push_back(Move::make<CASTLING>(SQ_E8, SQ_C8));
-		}
-	}
 	// Normal moves
 	Bitboard dsts = king_movetable[sq] & ~board.piece_boards[OCC(board.side)];
 	while (dsts) {
@@ -745,10 +723,7 @@ bool Board::is_pseudolegal(Move move) const {
 	if (mailbox[move.dst()] != NO_PIECE && (mailbox[move.dst()] >> 3) == side)
 		return false;
 
-	if ((move.type() == PROMOTION || move.type() == EN_PASSANT) && (mailbox[move.src()] & 7) != PAWN)
-		return false;
-
-	if (move.type() == CASTLING && (mailbox[move.src()] & 7) != KING)
+	if ((move.type() == PROMOTION || move.type() == KING_PROMO || move.type() == EN_PASSANT) && (mailbox[move.src()] & 7) != PAWN)
 		return false;
 
 	switch (mailbox[move.src()] & 7) {
@@ -799,7 +774,7 @@ bool Board::is_pseudolegal(Move move) const {
 		}
 		break;
 	case KING:
-		if (move.type() == CASTLING) [[unlikely]] {
+		if (false) [[unlikely]] {
 			int rights_idx = ((move.dst() & 0b001100) ^ 0b000100) >> 2;
 			if ((castling & (1 << rights_idx)) == 0)
 				return false;

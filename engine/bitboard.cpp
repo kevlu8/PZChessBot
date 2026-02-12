@@ -47,8 +47,10 @@ std::string Move::to_string() const {
 	str += (char)('1' + (src() >> 3));
 	str += (char)('a' + (dst() & 0b111));
 	str += (char)('1' + (dst() >> 3));
-	if ((data & 0xc000) == PROMOTION) {
+	if (type() == PROMOTION) {
 		str += piecetype_letter[((data >> 12) & 0b11) + KNIGHT];
+	} else if (type() == KING_PROMO) {
+		str += 'k';
 	}
 	return str;
 }
@@ -88,9 +90,6 @@ Move Move::from_string(const std::string &str, const void *b) {
 	} else {
 		if ((((const Board *)b)->mailbox[src] & 7) == KING) {
 			// Check for castling
-			if (str == "e1g1" || str == "e8g8" || str == "e1c1" || str == "e8c8") {
-				return Move::make<CASTLING>(src, dst);
-			}
 		} else if ((((const Board *)b)->mailbox[src] & 7) == PAWN && dst == ((const Board *)b)->ep_square) {
 			// En passant
 			return Move::make<EN_PASSANT>(src, dst);
@@ -554,68 +553,16 @@ void Board::make_move(Move move) {
 		piece_boards[PAWN] ^= square_bits(move.src()) | square_bits(move.dst()) | square_bits(Rank(move.src() >> 3), File(move.dst() & 0b111));
 		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
 		piece_boards[OPPOCC(side)] ^= square_bits(Rank(move.src() >> 3), File(move.dst() & 0b111));
-	} else if (move.type() == CASTLING) {
-		// Calculate where the rook is
-		Bitboard rook_mask;
-		if (move.data == 0b1100000100000110) {
-			// White O-O
-			mailbox[SQ_E1] = NO_PIECE;
-			mailbox[SQ_G1] = Piece(WHITE_KING);
-			mailbox[SQ_H1] = NO_PIECE;
-			mailbox[SQ_F1] = Piece(WHITE_ROOK);
-			piece_boards[OCC(WHITE)] ^= square_bits(SQ_E1) | square_bits(SQ_G1) | square_bits(SQ_H1) | square_bits(SQ_F1);
-			piece_boards[KING] ^= square_bits(SQ_E1) | square_bits(SQ_G1);
-			piece_boards[ROOK] ^= square_bits(SQ_H1) | square_bits(SQ_F1);
-			zobrist ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
-			zobrist ^= zobrist_square[SQ_H1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F1][Piece(WHITE_ROOK)];
-			piece_hashes[WHITE_KING] ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
-			piece_hashes[WHITE_ROOK] ^= zobrist_square[SQ_H1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F1][Piece(WHITE_ROOK)];
-		} else if (move.data == 0b1100000100000010) {
-			// White O-O-O
-			mailbox[SQ_E1] = NO_PIECE;
-			mailbox[SQ_C1] = Piece(WHITE_KING);
-			mailbox[SQ_A1] = NO_PIECE;
-			mailbox[SQ_D1] = Piece(WHITE_ROOK);
-			piece_boards[OCC(WHITE)] ^= square_bits(SQ_E1) | square_bits(SQ_C1) | square_bits(SQ_A1) | square_bits(SQ_D1);
-			piece_boards[KING] ^= square_bits(SQ_E1) | square_bits(SQ_C1);
-			piece_boards[ROOK] ^= square_bits(SQ_A1) | square_bits(SQ_D1);
-			zobrist ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
-			zobrist ^= zobrist_square[SQ_A1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D1][Piece(WHITE_ROOK)];
-			piece_hashes[WHITE_KING] ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
-			piece_hashes[WHITE_ROOK] ^= zobrist_square[SQ_A1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D1][Piece(WHITE_ROOK)];
-		} else if (move.data == 0b1100111100111110) {
-			// Black O-O
-			mailbox[SQ_E8] = NO_PIECE;
-			mailbox[SQ_G8] = Piece(BLACK_KING);
-			mailbox[SQ_H8] = NO_PIECE;
-			mailbox[SQ_F8] = Piece(BLACK_ROOK);
-			piece_boards[OCC(BLACK)] ^= square_bits(SQ_E8) | square_bits(SQ_G8) | square_bits(SQ_H8) | square_bits(SQ_F8);
-			piece_boards[KING] ^= square_bits(SQ_E8) | square_bits(SQ_G8);
-			piece_boards[ROOK] ^= square_bits(SQ_H8) | square_bits(SQ_F8);
-			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
-			zobrist ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
-			piece_hashes[BLACK_KING] ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
-			piece_hashes[BLACK_ROOK] ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
-		} else if (move.data == 0b1100111100111010) {
-			// Black O-O-O
-			mailbox[SQ_E8] = NO_PIECE;
-			mailbox[SQ_C8] = Piece(BLACK_KING);
-			mailbox[SQ_A8] = NO_PIECE;
-			mailbox[SQ_D8] = Piece(BLACK_ROOK);
-			piece_boards[OCC(BLACK)] ^= square_bits(SQ_E8) | square_bits(SQ_C8) | square_bits(SQ_A8) | square_bits(SQ_D8);
-			piece_boards[KING] ^= square_bits(SQ_E8) | square_bits(SQ_C8);
-			piece_boards[ROOK] ^= square_bits(SQ_A8) | square_bits(SQ_D8);
-			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
-			zobrist ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
-			piece_hashes[BLACK_KING] ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
-			piece_hashes[BLACK_ROOK] ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
-		} else {
-			std::cerr << "Il faut que tu meures" << std::endl;
-			volatile int *p = 0;
-			*p = move.type();
-		}
-		// Remove castling rights
-		castling &= ~((WHITE_OO | WHITE_OOO) << (side + side));
+	} else if (move.type() == KING_PROMO) {
+		zobrist ^= zobrist_square[move.src()][mailbox[move.src()]];
+		piece_hashes[mailbox[move.src()]] ^= zobrist_square[move.src()][mailbox[move.src()]];
+		mailbox[move.src()] = NO_PIECE;
+		mailbox[move.dst()] = Piece(KING + ((!!side) << 3));
+		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]];
+		piece_hashes[mailbox[move.dst()]] ^= zobrist_square[move.dst()][mailbox[move.dst()]];
+		piece_boards[PAWN] ^= square_bits(move.src());
+		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
+		piece_boards[KING] ^= square_bits(move.dst());
 	} else {
 		// Get piece that is moving
 		uint8_t piece = mailbox[move.src()] & 0b111;
@@ -757,63 +704,24 @@ void Board::unmake_move() {
 		piece_boards[PAWN] ^= square_bits(move.src()) | square_bits(move.dst()) | square_bits(Rank(move.src() >> 3), File(move.dst() & 0b111));
 		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
 		piece_boards[OPPOCC(side)] ^= square_bits(Rank(move.src() >> 3), File(move.dst() & 0b111));
-	} else if (move.type() == CASTLING) {
-		if (move.data == 0b1100000100000110) {
-			// White O-O
-			mailbox[SQ_G1] = NO_PIECE;
-			mailbox[SQ_E1] = Piece(WHITE_KING);
-			mailbox[SQ_F1] = NO_PIECE;
-			mailbox[SQ_H1] = Piece(WHITE_ROOK);
-			piece_boards[OCC(WHITE)] ^= square_bits(SQ_E1) | square_bits(SQ_G1) | square_bits(SQ_H1) | square_bits(SQ_F1);
-			piece_boards[KING] ^= square_bits(SQ_E1) | square_bits(SQ_G1);
-			piece_boards[ROOK] ^= square_bits(SQ_H1) | square_bits(SQ_F1);
-			zobrist ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
-			zobrist ^= zobrist_square[SQ_H1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F1][Piece(WHITE_ROOK)];
-			piece_hashes[WHITE_KING] ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
-			piece_hashes[WHITE_ROOK] ^= zobrist_square[SQ_H1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F1][Piece(WHITE_ROOK)];
-		} else if (move.data == 0b1100000100000010) {
-			// White O-O-O
-			mailbox[SQ_C1] = NO_PIECE;
-			mailbox[SQ_E1] = Piece(WHITE_KING);
-			mailbox[SQ_D1] = NO_PIECE;
-			mailbox[SQ_A1] = Piece(WHITE_ROOK);
-			piece_boards[OCC(WHITE)] ^= square_bits(SQ_E1) | square_bits(SQ_C1) | square_bits(SQ_A1) | square_bits(SQ_D1);
-			piece_boards[KING] ^= square_bits(SQ_E1) | square_bits(SQ_C1);
-			piece_boards[ROOK] ^= square_bits(SQ_A1) | square_bits(SQ_D1);
-			zobrist ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
-			zobrist ^= zobrist_square[SQ_A1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D1][Piece(WHITE_ROOK)];
-			piece_hashes[WHITE_KING] ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
-			piece_hashes[WHITE_ROOK] ^= zobrist_square[SQ_A1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D1][Piece(WHITE_ROOK)];
-		} else if (move.data == 0b1100111100111110) {
-			// Black O-O
-			mailbox[SQ_G8] = NO_PIECE;
-			mailbox[SQ_E8] = Piece(BLACK_KING);
-			mailbox[SQ_F8] = NO_PIECE;
-			mailbox[SQ_H8] = Piece(BLACK_ROOK);
-			piece_boards[OCC(BLACK)] ^= square_bits(SQ_E8) | square_bits(SQ_G8) | square_bits(SQ_H8) | square_bits(SQ_F8);
-			piece_boards[KING] ^= square_bits(SQ_E8) | square_bits(SQ_G8);
-			piece_boards[ROOK] ^= square_bits(SQ_H8) | square_bits(SQ_F8);
-			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
-			zobrist ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
-			piece_hashes[BLACK_KING] ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
-			piece_hashes[BLACK_ROOK] ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
-		} else if (move.data == 0b1100111100111010) {
-			// Black O-O-O
-			mailbox[SQ_C8] = NO_PIECE;
-			mailbox[SQ_E8] = Piece(BLACK_KING);
-			mailbox[SQ_D8] = NO_PIECE;
-			mailbox[SQ_A8] = Piece(BLACK_ROOK);
-			piece_boards[OCC(BLACK)] ^= square_bits(SQ_E8) | square_bits(SQ_C8) | square_bits(SQ_A8) | square_bits(SQ_D8);
-			piece_boards[KING] ^= square_bits(SQ_E8) | square_bits(SQ_C8);
-			piece_boards[ROOK] ^= square_bits(SQ_A8) | square_bits(SQ_D8);
-			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
-			zobrist ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
-			piece_hashes[BLACK_KING] ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
-			piece_hashes[BLACK_ROOK] ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
-		} else {
-			std::cerr << "Il faut que tu meures" << std::endl;
-			volatile int *p = 0;
-			*p = move.type();
+	} else if (move.type() == KING_PROMO) {
+		// Remove the piece on the dst and add the pawn on the src
+		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]] ^ zobrist_square[move.dst()][prev.prev_piece()];
+		piece_hashes[mailbox[move.dst()]] ^= zobrist_square[move.dst()][mailbox[move.dst()]];
+		piece_hashes[prev.prev_piece()] ^= zobrist_square[move.dst()][prev.prev_piece()];
+		mailbox[move.src()] = Piece(PAWN + ((!!side) << 3));
+		mailbox[move.dst()] = prev.prev_piece();
+		zobrist ^= zobrist_square[move.src()][mailbox[move.src()]];
+		piece_hashes[mailbox[move.src()]] ^= zobrist_square[move.src()][mailbox[move.src()]];
+		piece_boards[PAWN] ^= square_bits(move.src());
+		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
+		piece_boards[KING] ^= square_bits(move.dst());
+		// Handle captures
+		if (prev.prev_piece() != NO_PIECE) { // If there was a capture
+			// Add whatever piece it was
+			uint8_t piece = prev.prev_piece() & 0b111;
+			piece_boards[piece] ^= square_bits(move.dst());
+			piece_boards[OPPOCC(side)] ^= square_bits(move.dst());
 		}
 	} else {
 		// Get piece that is moving

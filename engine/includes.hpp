@@ -142,7 +142,7 @@ enum MoveType {
 	NORMAL,
 	PROMOTION = 1 << 14,
 	EN_PASSANT = 2 << 14,
-	CASTLING = 3 << 14,
+	KING_PROMO = 3 << 14,
 };
 
 #define RESET "\033[0m"
