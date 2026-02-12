@@ -1286,7 +1286,7 @@ class Move {
     static constexpr std::uint16_t NORMAL    = 0;
     static constexpr std::uint16_t PROMOTION = 1 << 14;
     static constexpr std::uint16_t ENPASSANT = 2 << 14;
-    static constexpr std::uint16_t CASTLING  = 3 << 14;
+    static constexpr std::uint16_t KING_PROMO  = 3 << 14;
 
    private:
     std::uint16_t move_;
@@ -1982,7 +1982,7 @@ class Board {
      */
     template <bool EXACT = false>
     void makeMove(const Move move) {
-        const auto capture  = at(move.to()) != Piece::NONE && move.typeOf() != Move::CASTLING;
+        const auto capture  = at(move.to()) != Piece::NONE;
         const auto captured = at(move.to());
         const auto pt       = at<PieceType>(move.from());
 
@@ -2054,28 +2054,14 @@ class Board {
             }
         }
 
-        if (move.typeOf() == Move::CASTLING) {
-            assert(at<PieceType>(move.from()) == PieceType::KING);
-            assert(at<PieceType>(move.to()) == PieceType::ROOK);
+        if (move.typeOf() == Move::KING_PROMO) {
+            const auto piece_pawn = Piece(PieceType::PAWN, stm_);
+            const auto piece_prom = Piece(PieceType::KING, stm_);
 
-            const bool king_side = move.to() > move.from();
-            const auto rookTo    = Square::castling_rook_square(king_side, stm_);
-            const auto kingTo    = Square::castling_king_square(king_side, stm_);
+            removePiece(piece_pawn, move.from());
+            placePiece(piece_prom, move.to());
 
-            const auto king = at(move.from());
-            const auto rook = at(move.to());
-
-            removePiece(king, move.from());
-            removePiece(rook, move.to());
-
-            assert(king == Piece(PieceType::KING, stm_));
-            assert(rook == Piece(PieceType::ROOK, stm_));
-
-            placePiece(king, kingTo);
-            placePiece(rook, rookTo);
-
-            key_ ^= Zobrist::piece(king, move.from()) ^ Zobrist::piece(king, kingTo);
-            key_ ^= Zobrist::piece(rook, move.to()) ^ Zobrist::piece(rook, rookTo);
+            key_ ^= Zobrist::piece(piece_pawn, move.from()) ^ Zobrist::piece(piece_prom, move.to());
         } else if (move.typeOf() == Move::PROMOTION) {
             const auto piece_pawn = Piece(PieceType::PAWN, stm_);
             const auto piece_prom = Piece(move.promotionType(), stm_);
@@ -2119,25 +2105,21 @@ class Board {
         stm_   = ~stm_;
         plies_--;
 
-        if (move.typeOf() == Move::CASTLING) {
-            const bool king_side    = move.to() > move.from();
-            const auto rook_from_sq = Square(king_side ? File::FILE_F : File::FILE_D, move.from().rank());
-            const auto king_to_sq   = Square(king_side ? File::FILE_G : File::FILE_C, move.from().rank());
+        if (move.typeOf() == Move::KING_PROMO) {
+            const auto pawn  = Piece(PieceType::PAWN, stm_);
+            const auto piece = at(move.to());
 
-            assert(at<PieceType>(rook_from_sq) == PieceType::ROOK);
-            assert(at<PieceType>(king_to_sq) == PieceType::KING);
+            assert(piece.type() == PieceType::KING);
+            assert(piece.type() != PieceType::PAWN);
+            assert(piece.type() != PieceType::NONE);
 
-            const auto rook = at(rook_from_sq);
-            const auto king = at(king_to_sq);
+            removePiece(piece, move.to());
+            placePiece(pawn, move.from());
 
-            removePiece(rook, rook_from_sq);
-            removePiece(king, king_to_sq);
-
-            assert(king == Piece(PieceType::KING, stm_));
-            assert(rook == Piece(PieceType::ROOK, stm_));
-
-            placePiece(king, move.from());
-            placePiece(rook, move.to());
+            if (prev.captured_piece != Piece::NONE) {
+                assert(at(move.to()) == Piece::NONE);
+                placePiece(prev.captured_piece, move.to());
+            }
 
         } else if (move.typeOf() == Move::PROMOTION) {
             const auto pawn  = Piece(PieceType::PAWN, stm_);
@@ -2302,7 +2284,7 @@ class Board {
      * @return
      */
     bool isCapture(const Move move) const noexcept {
-        return (at(move.to()) != Piece::NONE && move.typeOf() != Move::CASTLING) || move.typeOf() == Move::ENPASSANT;
+        return (at(move.to()) != Piece::NONE) || move.typeOf() == Move::ENPASSANT;
     }
 
     /**
@@ -3293,88 +3275,6 @@ inline std::ostream& operator<<(std::ostream& os, const Board& b) {
 
 inline CheckType Board::givesCheck(const Move& m) const noexcept {
     return CheckType::NO_CHECK;
-    const static auto getSniper = [](const Board* board, Square ksq, Bitboard oc) {
-        const auto us_occ = board->us(board->sideToMove());
-        const auto bishop = attacks::bishop(ksq, oc) & board->pieces(PieceType::BISHOP, PieceType::QUEEN) & us_occ;
-        const auto rook   = attacks::rook(ksq, oc) & board->pieces(PieceType::ROOK, PieceType::QUEEN) & us_occ;
-        return (bishop | rook);
-    };
-
-    assert(at(m.from()).color() == stm_);
-
-    const Square from   = m.from();
-    const Square to     = m.to();
-    const Square ksq    = kingSq(~stm_);
-    const Bitboard toBB = Bitboard::fromSquare(to);
-    const PieceType pt  = at(from).type();
-
-    Bitboard fromKing = 0ull;
-
-    if (pt == PieceType::PAWN) {
-        fromKing = attacks::pawn(~stm_, ksq);
-    } else if (pt == PieceType::KNIGHT) {
-        fromKing = attacks::knight(ksq);
-    } else if (pt == PieceType::BISHOP) {
-        fromKing = attacks::bishop(ksq, occ());
-    } else if (pt == PieceType::ROOK) {
-        fromKing = attacks::rook(ksq, occ());
-    } else if (pt == PieceType::QUEEN) {
-        fromKing = attacks::queen(ksq, occ());
-    }
-
-    if (fromKing & toBB) return CheckType::DIRECT_CHECK;
-
-    // Discovery check
-    const Bitboard fromBB = Bitboard::fromSquare(from);
-    const Bitboard oc     = occ() ^ fromBB;
-
-    Bitboard sniper = getSniper(this, ksq, oc);
-
-    while (sniper) {
-        Square sq = sniper.pop();
-        return (!(movegen::between(ksq, sq) & toBB) || m.typeOf() == Move::CASTLING) ? CheckType::DISCOVERY_CHECK
-                                                                                     : CheckType::NO_CHECK;
-    }
-
-    switch (m.typeOf()) {
-        case Move::NORMAL:
-            return CheckType::NO_CHECK;
-
-        case Move::PROMOTION: {
-            Bitboard attacks = 0ull;
-
-            switch (m.promotionType()) {
-                case static_cast<int>(PieceType::KNIGHT):
-                    attacks = attacks::knight(to);
-                    break;
-                case static_cast<int>(PieceType::BISHOP):
-                    attacks = attacks::bishop(to, oc);
-                    break;
-                case static_cast<int>(PieceType::ROOK):
-                    attacks = attacks::rook(to, oc);
-                    break;
-                case static_cast<int>(PieceType::QUEEN):
-                    attacks = attacks::queen(to, oc);
-            }
-
-            return (attacks & pieces(PieceType::KING, ~stm_)) ? CheckType::DIRECT_CHECK : CheckType::NO_CHECK;
-        }
-
-        case Move::ENPASSANT: {
-            Square capSq(to.file(), from.rank());
-            return (getSniper(this, ksq, (oc ^ Bitboard::fromSquare(capSq)) | toBB)) ? CheckType::DISCOVERY_CHECK
-                                                                                     : CheckType::NO_CHECK;
-        }
-
-        case Move::CASTLING: {
-            Square rookTo = Square::castling_rook_square(to > from, stm_);
-            return (attacks::rook(ksq, occ()) & Bitboard::fromSquare(rookTo)) ? CheckType::DISCOVERY_CHECK
-                                                                              : CheckType::NO_CHECK;
-        }
-    }
-
-    assert(false);
-    return CheckType::NO_CHECK;  // Prevent a compiler warning
 }
 
 }  // namespace  chess
@@ -3738,6 +3638,7 @@ inline void movegen::generatePawnMoves(const Board &board, Movelist &moves, Bitb
             moves.add(Move::make<Move::PROMOTION>(index + DOWN, index, PieceType::ROOK));
             moves.add(Move::make<Move::PROMOTION>(index + DOWN, index, PieceType::BISHOP));
             moves.add(Move::make<Move::PROMOTION>(index + DOWN, index, PieceType::KNIGHT));
+            moves.add(Move::make<Move::KING_PROMO>(index + DOWN, index));
         }
     }
 
@@ -4792,12 +4693,6 @@ class uci {
         Square from_sq = move.from();
         Square to_sq   = move.to();
 
-        // If the move is not a chess960 castling move and is a king moving more than one square,
-        // update the to square to be the correct square for a regular castling move
-        if (!chess960 && move.typeOf() == Move::CASTLING) {
-            to_sq = Square(to_sq > from_sq ? File::FILE_G : File::FILE_C, from_sq.rank());
-        }
-
         // Add the from and to squares to the string stream
         std::string result = static_cast<std::string>(from_sq);
         result += static_cast<std::string>(to_sq);
@@ -4805,6 +4700,8 @@ class uci {
         // If the move is a promotion, add the promoted piece to the string stream
         if (move.typeOf() == Move::PROMOTION) {
             result += static_cast<std::string>(move.promotionType());
+        } else if (move.typeOf() == Move::KING_PROMO) {
+            result += "k";
         }
 
         return result;
@@ -4830,19 +4727,6 @@ class uci {
 
         auto pt = board.at(source).type();
 
-        // castling in chess960
-        if (board.chess960() && pt == PieceType::KING && board.at(target).type() == PieceType::ROOK &&
-            board.at(target).color() == board.sideToMove()) {
-            return Move::make<Move::CASTLING>(source, target);
-        }
-
-        // convert to king captures rook
-        // in chess960 the move should be sent as king captures rook already!
-        if (!board.chess960() && pt == PieceType::KING && Square::distance(target, source) == 2) {
-            target = Square(target > source ? File::FILE_H : File::FILE_A, source.rank());
-            return Move::make<Move::CASTLING>(source, target);
-        }
-
         // en passant
         if (pt == PieceType::PAWN && target == board.enpassantSq()) {
             return Move::make<Move::ENPASSANT>(source, target);
@@ -4852,8 +4736,10 @@ class uci {
         if (pt == PieceType::PAWN && uci.length() == 5 && Square::back_rank(target, ~board.sideToMove())) {
             auto promotion = PieceType(uci.substr(4, 1));
 
-            if (promotion == PieceType::NONE || promotion == PieceType::KING || promotion == PieceType::PAWN) {
+            if (promotion == PieceType::NONE || promotion == PieceType::PAWN) {
                 return Move::NO_MOVE;
+            } else if (promotion == PieceType::KING) {
+                return Move::make<Move::KING_PROMO>(source, target);
             }
 
             return Move::make<Move::PROMOTION>(source, target, PieceType(uci.substr(4, 1)));
@@ -4949,35 +4835,26 @@ class uci {
             movegen::legalmoves<movegen::MoveGenType::QUIET>(moves, board, pt_to_pgt(info.piece));
         }
 
-        if (info.castling_short || info.castling_long) {
-            for (const auto &move : moves) {
-                if (move.typeOf() == Move::CASTLING) {
-                    if ((info.castling_short && move.to() > move.from()) ||
-                        (info.castling_long && move.to() < move.from())) {
-                        return move;
-                    }
-                }
-            }
-
-#ifndef CHESS_NO_EXCEPTIONS
-            throw SanParseError("Failed to parse san. At step 2: " + std::string(san) + " " + board.getFen());
-#endif
-        }
-
         Move matchingMove = Move::NO_MOVE;
         bool foundMatch   = false;
 
         for (const auto &move : moves) {
             // Skip all moves that are not to the correct square
             // or are castling moves
-            if (move.to() != info.to || move.typeOf() == Move::CASTLING) {
+            if (move.to() != info.to) {
                 continue;
             }
 
             // Handle promotion moves
-            if (info.promotion != PieceType::NONE) {
+            if (info.promotion != PieceType::NONE && info.promotion != PieceType::KING) {
                 if (move.typeOf() != Move::PROMOTION || info.promotion != move.promotionType() ||
                     move.from().file() != info.from_file) {
+                    continue;
+                }
+            }
+            // Handle king promotion moves
+            else if (info.promotion == PieceType::KING) {
+                if (move.typeOf() != Move::KING_PROMO || move.from().file() != info.from_file) {
                     continue;
                 }
             }
@@ -5147,9 +5024,11 @@ class uci {
         if (index < san.size() && san[index] == '=') {
             index++;
             info.promotion = PieceType(sw(san[index]));
-            if (info.promotion == PieceType::KING || info.promotion == PieceType::PAWN ||
+            if (info.promotion == PieceType::PAWN ||
                 info.promotion == PieceType::NONE) {
                 throw_error = true;
+            } else if (info.promotion == PieceType::KING) {
+                info.promotion = PieceType::KING;
             }
             index++;
         }
@@ -5229,9 +5108,6 @@ class uci {
     }
 
     static bool handleCastling(const Move &move, std::string &str) {
-        if (move.typeOf() != Move::CASTLING) return false;
-
-        str = (move.to().file() > move.from().file()) ? "O-O" : "O-O-O";
         return true;
     }
 

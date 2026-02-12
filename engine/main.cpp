@@ -237,7 +237,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		// assume genfens
 		// ./pzchessbot "genfens N seed S book None" "quit"
 		std::ofstream outfile("antichess.epd");
-		bool filter_weird = false;
+		bool filter_weird = true;
 		int nmoves = 12;
 		std::string genfens = argv[1];
 		std::stringstream ss(genfens);
@@ -284,17 +284,14 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				}
 				board.make_move(moves[rng() % moves.size()]);
 			}
-			bool in_check = false, checking_opponent = false;
 			// make sure position is legal and somewhat balanced
 			if (!restart) {
-				if (_mm_popcnt_u64(board.piece_boards[KING]) != 2) restart = true;
-				else if (filter_weird) {
-					int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
-					auto s_eval = debug_eval(board)[(npieces - 2) / 4] * (board.side == WHITE ? 1 : -1);
-					if (abs(s_eval) >= 600) restart = true; // do a fast static eval to quickly filter out crazy positions
+				if (filter_weird) {
+					auto s_eval = eval(board, &tis[0].bs[0][0]);
+					if (abs(s_eval) >= 1000) restart = true; // do a fast static eval to quickly filter out crazy positions
 					else {
 						auto res = search(board, tis, 1e9, MAX_PLY, 10000, 1);
-						if (abs(res.second) >= 400) restart = true;
+						if (abs(res.second) >= 600) restart = true;
 					}
 				}
 			}

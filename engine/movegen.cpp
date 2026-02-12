@@ -385,16 +385,17 @@ void rook_moves(const Board &board, pzstd::vector<Move> &moves) {
 }
 
 void king_moves(const Board &board, pzstd::vector<Move> &moves) {
-	Bitboard piece = board.piece_boards[KING] & board.piece_boards[OCC(board.side)];
-	if (__builtin_expect(piece == 0, false))
-		return;
-	int sq = _tzcnt_u64(piece);
-	// Normal moves
-	Bitboard dsts = king_movetable[sq] & ~board.piece_boards[OCC(board.side)];
-	while (dsts) {
-		int dst = _tzcnt_u64(dsts);
-		moves.push_back(Move(sq, dst));
-		dsts = _blsr_u64(dsts);
+	Bitboard pieces = board.piece_boards[KING] & board.piece_boards[OCC(board.side)];
+	while (pieces) {
+		int sq = _tzcnt_u64(pieces);
+		// Normal moves
+		Bitboard dsts = king_movetable[sq] & ~board.piece_boards[OCC(board.side)];
+		while (dsts) {
+			int dst = _tzcnt_u64(dsts);
+			moves.push_back(Move(sq, dst));
+			dsts = _blsr_u64(dsts);
+		}
+		pieces = _blsr_u64(pieces);
 	}
 }
 
@@ -527,15 +528,16 @@ void rook_captures(const Board &board, pzstd::vector<Move> &moves) {
 }
 
 void king_captures(const Board &board, pzstd::vector<Move> &moves) {
-	Bitboard piece = board.piece_boards[KING] & board.piece_boards[OCC(board.side)];
-	if (__builtin_expect(piece == 0, false))
-		return;
-	int sq = _tzcnt_u64(piece);
-	Bitboard dsts = king_movetable[sq] & board.piece_boards[OPPOCC(board.side)];
-	while (dsts) {
-		int dst = _tzcnt_u64(dsts);
-		moves.push_back(Move(sq, dst));
-		dsts = _blsr_u64(dsts);
+	Bitboard pieces = board.piece_boards[KING] & board.piece_boards[OCC(board.side)];
+	while (pieces) {
+		int sq = _tzcnt_u64(pieces);
+		Bitboard dsts = king_movetable[sq] & board.piece_boards[OPPOCC(board.side)];
+		while (dsts) {
+			int dst = _tzcnt_u64(dsts);
+			moves.push_back(Move(sq, dst));
+			dsts = _blsr_u64(dsts);
+		}
+		pieces = _blsr_u64(pieces);
 	}
 }
 
