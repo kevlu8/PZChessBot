@@ -2,6 +2,8 @@
 #include <cctype>
 #include <random>
 
+extern bool isdfrc;
+
 uint64_t zobrist_square[64][15];
 uint64_t zobrist_castling[16];
 uint64_t zobrist_ep[9];
@@ -45,8 +47,15 @@ std::string Move::to_string() const {
 	std::string str = "";
 	str += (char)('a' + (src() & 0b111));
 	str += (char)('1' + (src() >> 3));
-	str += (char)('a' + (dst() & 0b111));
-	str += (char)('1' + (dst() >> 3));
+	if (!isdfrc && type() == CASTLING) {
+		if (dst() > src())
+			return str + 'g' + (char)('1' + (dst() >> 3));
+		else
+			return str + 'c' + (char)('1' + (dst() >> 3));
+	} else {
+		str += (char)('a' + (dst() & 0b111));
+		str += (char)('1' + (dst() >> 3));
+	}
 	if ((data & 0xc000) == PROMOTION) {
 		str += piecetype_letter[((data >> 12) & 0b11) + KNIGHT];
 	}
@@ -54,6 +63,8 @@ std::string Move::to_string() const {
 }
 
 Move Move::from_string(const std::string &str, const void *b) {
+	const Board *board = (const Board *)b;
+
 	if (str == "0000")
 		return NullMove;
 	int src_file = str[0] - 'a';
@@ -88,10 +99,22 @@ Move Move::from_string(const std::string &str, const void *b) {
 	} else {
 		if ((((const Board *)b)->mailbox[src] & 7) == KING) {
 			// Check for castling
-			if (str == "e1g1" || str == "e8g8" || str == "e1c1" || str == "e8c8") {
-				return Move::make<CASTLING>(src, dst);
+			if (isdfrc) {
+				if ((board->mailbox[src] & 7) == KING && (board->mailbox[dst] & 7) == ROOK)
+					return Move::make<CASTLING>(src, dst);
+				else
+					return Move(src, dst);
+			} else {
+				if (str == "e1g1")
+					return Move::make<CASTLING>(src, SQ_H1);
+				if (str == "e1c1")
+					return Move::make<CASTLING>(src, SQ_A1);
+				if (str == "e8g8")
+					return Move::make<CASTLING>(src, SQ_H8);
+				if (str == "e8c8")
+					return Move::make<CASTLING>(src, SQ_A8);
 			}
-		} else if ((((const Board *)b)->mailbox[src] & 7) == PAWN && dst == ((const Board *)b)->ep_square) {
+		} else if ((board->mailbox[src] & 7) == PAWN && dst == ((const Board *)b)->ep_square) {
 			// En passant
 			return Move::make<EN_PASSANT>(src, dst);
 		}

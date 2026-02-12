@@ -15,7 +15,7 @@
 
 // Options
 size_t TT_SIZE = DEFAULT_TT_SIZE;
-bool quiet = false, online = false;
+bool quiet = false, online = false, isdfrc = false;
 
 ThreadInfo *tis;
 
@@ -30,6 +30,7 @@ void run_uci() {
 			std::cout << "option name Hash type spin default 16 min 1 max " << MAX_TT << std::endl;
 			std::cout << "option name Threads type spin default 1 min 1 max " << MAX_THREADS << std::endl;
 			std::cout << "option name Quiet type check default false" << std::endl;
+			std::cout << "option name UCI_Chess960 type check default false" << std::endl;
 			std::cout << "uciok" << std::endl;
 		} else if (command == "icu") {
 			return; // exit uci mode
@@ -67,6 +68,8 @@ void run_uci() {
 				tis = new ThreadInfo[num_threads];
 				for (int i = 0; i < num_threads; i++) tis[i].set_bs();
 				std::cout << "info string Using " << num_threads << " threads" << std::endl;
+			} else if (optionname == "UCI_Chess960") {
+				isdfrc = (optionvalue == "true");
 			}
 		} else if (command == "ucinewgame") {
 			stop_search = true;
