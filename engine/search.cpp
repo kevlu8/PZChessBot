@@ -431,18 +431,18 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	bool improving = false;
 	if (!forced_capture && ply >= 2 && ti.line[ply-2].eval != VALUE_NONE && cur_eval > ti.line[ply-2].eval) improving = true;
 
-	// // Reverse futility pruning
-	// if (!forced_capture && !ttpv && depth <= 8) {
-	// 	/**
-	// 	 * The idea is that if we are winning by such a large margin that we can afford to lose
-	// 	 * RFP_THRESHOLD * depth eval units per ply, we can return the current eval.
-	// 	 * 
-	// 	 * We need to make sure that we aren't in check (since we might get mated)
-	// 	 */
-	// 	int margin = (RFP_THRESHOLD - improving * RFP_IMPROVING) * depth + RFP_QUADRATIC * depth * depth - RFP_CUTNODE * cutnode;
-	// 	if (tt_corr_eval >= beta + margin)
-	// 		return ((int)tt_corr_eval + beta) / 2;
-	// }
+	// Reverse futility pruning
+	if (!forced_capture && !ttpv && depth <= 8) {
+		/**
+		 * The idea is that if we are winning by such a large margin that we can afford to lose
+		 * RFP_THRESHOLD * depth eval units per ply, we can return the current eval.
+		 * 
+		 * We need to make sure that we aren't in check (since we might get mated)
+		 */
+		int margin = (80 - improving * 20) * depth;
+		if (tt_corr_eval >= beta + margin)
+			return ((int)tt_corr_eval + beta) / 2;
+	}
 
 	// // Razoring
 	// if (!pv && !forced_capture && depth <= 8 && tt_corr_eval + RAZOR_MARGIN * depth < alpha) {

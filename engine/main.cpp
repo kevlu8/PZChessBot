@@ -285,14 +285,6 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				board.make_move(moves[rng() % moves.size()]);
 			}
 			bool in_check = false, checking_opponent = false;
-			if (board.side == WHITE) {
-				in_check = board.control(_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK);
-				checking_opponent = board.control(_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE);
-			} else {
-				in_check = board.control(_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE);
-				checking_opponent = board.control(_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK);
-			}
-			if (in_check || checking_opponent) restart = true;
 			// make sure position is legal and somewhat balanced
 			if (!restart) {
 				if (_mm_popcnt_u64(board.piece_boards[KING]) != 2) restart = true;

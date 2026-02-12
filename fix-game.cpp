@@ -51,29 +51,21 @@ public:
 };
 
 int main() {
-	const std::string path = ".";
-
 	int cnt = 0;
 
-	// list all pgn files in the data directory
-	for (const auto &entry : std::filesystem::directory_iterator(path)) {
-		if (entry.path().extension() == ".pgn") {
-			std::string file_path = entry.path().string();
-			std::ifstream file(file_path);
-			if (!file.is_open()) {
-				std::cerr << "Could not open file: " << file_path << std::endl;
-				continue;
-			}
-			visitor v;
-
-			pgn::StreamParser parser(file);
-			auto err = parser.readGames(v);
-			if (err != pgn::StreamParserError::None) {
-				std::cerr << "Error parsing file: " << file_path << " Error code: " << err.message() << std::endl;
-				continue;
-			}
-
-			file.close();
-		}
+	std::ifstream file("game.pgn");
+	if (!file.is_open()) {
+		std::cerr << "Could not open file: game.pgn" << std::endl;
+		return 1;
 	}
+	visitor v;
+
+	pgn::StreamParser parser(file);
+	auto err = parser.readGames(v);
+	if (err != pgn::StreamParserError::None) {
+		std::cerr << "Error parsing file: game.pgn Error code: " << err.message() << std::endl;
+		return 1;
+	}
+
+	file.close();
 }
