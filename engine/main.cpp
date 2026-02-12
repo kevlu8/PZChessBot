@@ -149,10 +149,18 @@ void run_uci() {
 				}
 			}
 			if (perft_depth != -1) {
-				for (int d = 1; d <= perft_depth; d++) {
-					uint64_t nodes = perft(board, d);
-					std::cout << "info string perft " << d << ": " << nodes << std::endl;
+				pzstd::vector<Move> moves;
+				board.legal_moves(moves);
+				uint64_t tot_nodes = 0;
+				for (Move &move : moves) {
+					board.make_move(move);
+					uint64_t cnt = perft(board, perft_depth - 1);
+					board.unmake_move();
+					if (cnt)
+						std::cout << move.to_string() << ": " << cnt << std::endl;
+					tot_nodes += cnt;
 				}
+				std::cout << "Total nodes: " << tot_nodes << std::endl;
 				continue;
 			}
 			int timeleft = board.side ? btime : wtime;

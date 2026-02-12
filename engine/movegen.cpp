@@ -388,28 +388,53 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 		return;
 	int sq = _tzcnt_u64(piece);
 	// Castling
-	if (board.side == WHITE && !board.control(SQ_E1, BLACK)) {
+	Bitboard occs = board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)];
+	if (board.side == WHITE && !board.control(sq, BLACK)) {
 		if (board.castling & WHITE_OO) {
-			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_F1) | square_bits(SQ_G1))) &&
-				!board.control(SQ_F1, BLACK))
-				moves.push_back(Move::make<CASTLING>(SQ_E1, board.rook_pos[0]));
+			Bitboard mask = rook_blockers[sq][board.rook_pos[0]] | square_bits(SQ_F1);
+			if (mask & occs)
+				goto skip_white_oo;
+			for (Square s = Square(sq + 1); s <= SQ_G1; s++) {
+				if (board.control(s, BLACK))
+					goto skip_white_oo;
+			}
+			moves.push_back(Move::make<CASTLING>(sq, board.rook_pos[0]));
 		}
+	skip_white_oo:
 		if (board.castling & WHITE_OOO) {
-			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_D1) | square_bits(SQ_C1) | square_bits(SQ_B1))) &&
-				!board.control(SQ_D1, BLACK))
-				moves.push_back(Move::make<CASTLING>(SQ_E1, board.rook_pos[1]));
+			Bitboard mask = rook_blockers[sq][board.rook_pos[1]] | square_bits(SQ_D1);
+			if (mask & occs)
+				goto skip_white_ooo;
+			for (Square s = SQ_C1; s < sq; s++) {
+				if (board.control(s, BLACK))
+					goto skip_white_ooo;
+			}
+			moves.push_back(Move::make<CASTLING>(sq, board.rook_pos[1]));
 		}
-	} else if (board.side == BLACK && !board.control(SQ_E8, WHITE)) {
+	skip_white_ooo:;
+	} else if (board.side == BLACK && !board.control(sq, WHITE)) {
 		if (board.castling & BLACK_OO) {
-			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_F8) | square_bits(SQ_G8))) &&
-				!board.control(SQ_F8, WHITE))
-				moves.push_back(Move::make<CASTLING>(SQ_E8, board.rook_pos[2]));
+			Bitboard mask = rook_blockers[sq][board.rook_pos[2]] | square_bits(SQ_F8);
+			if (mask & occs)
+				goto skip_black_oo;
+			for (Square s = Square(sq + 1); s <= SQ_G8; s++) {
+				if (board.control(s, WHITE))
+					goto skip_black_oo;
+			}
+			moves.push_back(Move::make<CASTLING>(sq, board.rook_pos[2]));
 		}
+	skip_black_oo:
 		if (board.castling & BLACK_OOO) {
-			if (!((board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) & (square_bits(SQ_D8) | square_bits(SQ_C8) | square_bits(SQ_B8))) &&
-				!board.control(SQ_D8, WHITE))
-				moves.push_back(Move::make<CASTLING>(SQ_E8, board.rook_pos[3]));
+			Bitboard mask = rook_blockers[sq][board.rook_pos[3]] | square_bits(SQ_D8);
+			if (mask & occs)
+				goto skip_black_ooo;
+			for (Square s = SQ_C8; s < sq; s++) {
+				if (board.control(s, WHITE))
+					goto skip_black_ooo;
+			}
+			moves.push_back(Move::make<CASTLING>(sq, board.rook_pos[3]));
 		}
+	skip_black_ooo:;
 	}
 	// Normal moves
 	Bitboard dsts = king_movetable[sq] & ~board.piece_boards[OCC(board.side)];
@@ -742,7 +767,7 @@ bool Board::is_pseudolegal(Move move) const {
 		return false;
 
 	// Cannot take our own piece
-	if (mailbox[move.dst()] != NO_PIECE && (mailbox[move.dst()] >> 3) == side)
+	if (move.type() != CASTLING && piece_boards[OCC(side)] & square_bits(move.dst()))
 		return false;
 
 	if ((move.type() == PROMOTION || move.type() == EN_PASSANT) && (mailbox[move.src()] & 7) != PAWN)
@@ -811,21 +836,29 @@ bool Board::is_pseudolegal(Move move) const {
 
 			Bitboard mask = 0;
 			if (rights_idx == 0b00) {
-				if (control(SQ_F1, BLACK))
-					return false;
-				mask = rook_blockers[SQ_E1][SQ_H1];
+				for (Square s = Square(move.src() + 1); s <= SQ_G1; s++) {
+					if (control(s, BLACK))
+						return false;
+				}
+				mask = rook_blockers[move.src()][move.dst()] | square_bits(SQ_F1);
 			} else if (rights_idx == 0b01) {
-				if (control(SQ_D1, BLACK))
-					return false;
-				mask = rook_blockers[SQ_E1][SQ_A1];
+				for (Square s = SQ_C1; s < move.src(); s++) {
+					if (control(s, BLACK))
+						return false;
+				}
+				mask = rook_blockers[move.src()][move.dst()] | square_bits(SQ_D1);
 			} else if (rights_idx == 0b10) {
-				if (control(SQ_F8, WHITE))
-					return false;
-				mask = rook_blockers[SQ_E8][SQ_H8];
+				for (Square s = Square(move.src() + 1); s <= SQ_G8; s++) {
+					if (control(s, WHITE))
+						return false;
+				}
+				mask = rook_blockers[move.src()][move.dst()] | square_bits(SQ_F8);
 			} else if (rights_idx == 0b11) {
-				if (control(SQ_D8, WHITE))
-					return false;
-				mask = rook_blockers[SQ_E8][SQ_A8];
+				for (Square s = SQ_C8; s < move.src(); s++) {
+					if (control(s, WHITE))
+						return false;
+				}
+				mask = rook_blockers[move.src()][move.dst()] | square_bits(SQ_D8);
 			}
 			return (mask & (piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)])) == 0;
 		} else [[likely]] {

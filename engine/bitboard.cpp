@@ -321,18 +321,18 @@ bool Board::sanity_check(char *print) {
 			printIdx++;
 			if (mailbox[rank * 8 + file] != NO_PIECE && !(occ & square_bits((Rank)rank, (File)file))) { // Occupancy and mailbox differ
 				print[printIdx] = '$';
-				std::cerr << "Occupancy and mailbox differ on square " << rank << file << '\n';
+				std::cerr << "Occupancy and mailbox differ on square " << char(file + 'a') << char(rank + '1') << '\n';
 				error = 1;
 				continue;
 			}
 			if (sanity & bits) { // Occupancy and collective piece boards differ
 				if (occ & bits) { // Occupied but no piece specified
 					print[printIdx] = '?';
-					std::cerr << "Occupied but no piece specified on square " << rank << file << '\n';
+					std::cerr << "Occupied but no piece specified on square " << char(file + 'a') << char(rank + '1') << '\n';
 					error = 1;
 				} else { // Piece specified but no occupancy
 					print[printIdx] = '!';
-					std::cerr << "Piece specified but no occupancy on square " << rank << file << '\n';
+					std::cerr << "Piece specified but no occupancy on square " << char(file + 'a') << char(rank + '1') << '\n';
 					error = 1;
 				}
 				continue;
@@ -349,18 +349,18 @@ bool Board::sanity_check(char *print) {
 					continue;
 				if (put) { // More than two pieces on one square
 					print[printIdx] = '&';
-					std::cerr << "More than two pieces on square " << rank << file << '\n';
+					std::cerr << "More than two pieces on square " << char(file + 'a') << char(rank + '1') << '\n';
 					error = 1;
 					break;
 				}
 				put = true;
 				if (mailbox[rank * 8 + file] != type + (!!(piece_boards[OCC(BLACK)] & bits) << 3)) { // Bitboard and mailbox representations differ
 					print[printIdx] = '$';
-					std::cerr << "Bitboard and mailbox representations differ on square " << rank << file << '\n';
+					std::cerr << "Bitboard and mailbox representations differ on square " << char(file + 'a') << char(rank + '1') << '\n';
 					error = 1;
 					break;
 				}
-				print[printIdx] = piecetype_letter[type] + (!!(piece_boards[OCC(BLACK)] & bits) << 5);
+				print[printIdx] = piecetype_letter[type & 7] - (!(piece_boards[OCC(BLACK)] & bits) << 5);
 			}
 		}
 	}
@@ -617,10 +617,10 @@ void Board::make_move(Move move) {
 		zobrist ^= zobrist_square[rook_from][rook_piece] ^ zobrist_square[rook_to][rook_piece];
 		piece_hashes[king_piece] ^= zobrist_square[king_from][king_piece] ^ zobrist_square[king_to][king_piece];
 		piece_hashes[rook_piece] ^= zobrist_square[rook_from][rook_piece] ^ zobrist_square[rook_to][rook_piece];
-		mailbox[king_to] = king_piece;
 		mailbox[king_from] = NO_PIECE;
-		mailbox[rook_to] = rook_piece;
+		mailbox[king_to] = king_piece;
 		mailbox[rook_from] = NO_PIECE;
+		mailbox[rook_to] = rook_piece;
 		piece_boards[KING] ^= square_bits(king_from) ^ square_bits(king_to);
 		piece_boards[ROOK] ^= square_bits(rook_from) ^ square_bits(rook_to);
 		piece_boards[OCC(side)] ^= (square_bits(king_from) ^ square_bits(king_to)) ^ (square_bits(rook_from) ^ square_bits(rook_to));
@@ -705,7 +705,7 @@ void Board::make_move(Move move) {
 			else
 				std::cout << ' ';
 		}
-		std::cout << (!side ? "black " : "white ") << move.to_string() << std::endl;
+		std::cout << "Sanity check failed after make " << move.to_string() << std::endl;
 		for (int i = 0; i < 64; i++) {
 			std::cout << after[i];
 			if (i % 8 == 7)
@@ -719,8 +719,10 @@ void Board::make_move(Move move) {
 }
 
 void Board::unmake_move() {
-	// char before[64];
-	// sanity_check(before);
+#ifdef SANCHECK
+	char before[64];
+	sanity_check(before);
+#endif
 
 #ifdef HASHCHECK
 	uint64_t old_hash = zobrist;
@@ -796,13 +798,13 @@ void Board::unmake_move() {
 		zobrist ^= zobrist_square[rook_from][rook_piece] ^ zobrist_square[rook_to][rook_piece];
 		piece_hashes[king_piece] ^= zobrist_square[king_from][king_piece] ^ zobrist_square[king_to][king_piece];
 		piece_hashes[rook_piece] ^= zobrist_square[rook_from][rook_piece] ^ zobrist_square[rook_to][rook_piece];
-		mailbox[king_from] = king_piece;
 		mailbox[king_to] = NO_PIECE;
-		mailbox[rook_from] = rook_piece;
+		mailbox[king_from] = king_piece;
 		mailbox[rook_to] = NO_PIECE;
-		piece_boards[KING] ^= square_bits(king_from) | square_bits(king_to);
-		piece_boards[ROOK] ^= square_bits(rook_from) | square_bits(rook_to);
-		piece_boards[OCC(side)] ^= square_bits(king_from) | square_bits(king_to) | square_bits(rook_from) | square_bits(rook_to);
+		mailbox[rook_from] = rook_piece;
+		piece_boards[KING] ^= square_bits(king_from) ^ square_bits(king_to);
+		piece_boards[ROOK] ^= square_bits(rook_from) ^ square_bits(rook_to);
+		piece_boards[OCC(side)] ^= (square_bits(king_from) ^ square_bits(king_to)) ^ (square_bits(rook_from) ^ square_bits(rook_to));
 	} else {
 		// Get piece that is moving
 		uint8_t piece = mailbox[move.dst()] & 0b111;
@@ -859,25 +861,27 @@ void Board::unmake_move() {
 	}
 #endif
 
-	// char after[64];
-	// if (sanity_check(after)) {
-	// 	for (int i = 0; i < 64; i++) {
-	// 		std::cout << before[i];
-	// 		if (i % 8 == 7)
-	// 			std::cout << '\n';
-	// 		else
-	// 			std::cout << ' ';
-	// 	}
-	// 	std::cout << "Unmaking: " << move.to_string() << std::endl;
-	// 	for (int i = 0; i < 64; i++) {
-	// 		std::cout << after[i];
-	// 		if (i % 8 == 7)
-	// 			std::cout << '\n';
-	// 		else
-	// 			std::cout << ' ';
-	// 	}
-	// 	abort();
-	// }
+#ifdef SANCHECK
+	char after[64];
+	if (sanity_check(after)) {
+		for (int i = 0; i < 64; i++) {
+			std::cout << before[i];
+			if (i % 8 == 7)
+				std::cout << '\n';
+			else
+				std::cout << ' ';
+		}
+		std::cout << "Sanity check failed after unmake " << move.to_string() << " from " << (!side ? "black " : "white ") << std::endl;
+		for (int i = 0; i < 64; i++) {
+			std::cout << after[i];
+			if (i % 8 == 7)
+				std::cout << '\n';
+			else
+				std::cout << ' ';
+		}
+		abort();
+	}
+#endif
 }
 
 void Board::recompute_hash() {
