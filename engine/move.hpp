@@ -13,7 +13,8 @@ struct Move {
 	constexpr explicit Move(uint16_t d) : data(d) {}
 	constexpr Move(int from, int to) : data((from << 6) | to) {}
 	template <MoveType T> static constexpr Move make(int from, int to, PieceType pt = KNIGHT) {
-		return Move(T | ((pt - KNIGHT) << 12) | (from << 6) | to);
+		if (pt != KING) return Move(T | ((pt - KNIGHT) << 12) | (from << 6) | to);
+		else return Move(T | (from << 6) | to | (3 << 14));
 	}
 	constexpr Square src() const {
 		return (Square)(data >> 6 & 0x3f);

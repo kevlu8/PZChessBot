@@ -82,11 +82,15 @@ Move Move::from_string(const std::string &str, const void *b) {
 		case 'q':
 			pt = QUEEN;
 			break;
+		case 'k':
+			pt = KING;
+			break;
 		default:
 			pt = QUEEN;
 			break; // default to queen
 		}
-		return Move::make<PROMOTION>(src, dst, pt);
+		if (pt != KING) return Move::make<PROMOTION>(src, dst, pt);
+		else return Move::make<KING_PROMO>(src, dst, pt);
 	} else {
 		if ((((const Board *)b)->mailbox[src] & 7) == KING) {
 			// Check for castling

@@ -186,7 +186,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (ti.is_main && !(nodes[ti.id] & 4095)) {
 		auto time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-		if (time > mxtime || nodes[ti.id] > mx_nodes) { // currently, the nodes will be broken but time will be accurate
+		if (time > mxtime) { // currently, the nodes will be broken but time will be accurate
 			stop_search = true;
 			return 0;
 		}
@@ -388,11 +388,11 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		if (move == ti.line[ply].excl)
 			continue;
 		
-		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
+		bool capt = board.is_capture(move);
 		bool promo = (move.type() == PROMOTION);
 
 		if (forced_capture && !capt) continue;
-		
+
 		int extension = 0;
 
 		if (ti.line[ply].excl == NullMove && depth >= 8 && tentry && is_valid_score(tteval) && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
@@ -624,11 +624,13 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	// Stalemate detection
 	// Second condition necessary for positions where one side is boxed in and can't move, but we can't mate
 	// e.g. 8/8/8/8/ppp1p3/krp1p2K/nbp1p3/nqrbN3 b - - 1 6
-	if (best <= -VALUE_MATE) {
+	if (best == -VALUE_MATE) {
 		// If our engine thinks we are mated but we are not in check, we are stalemated
 		if (ti.line[ply].excl != NullMove) return alpha;
 		else return -VALUE_MATE + ply;
 	}
+	if (best == -VALUE_INFINITE)
+		return VALUE_MATE; // no legal moves
 
 	bool best_iscapture = (board.piece_boards[OPPOCC(board.side)] & square_bits(best_move.dst()));
 	bool best_ispromo = (best_move.type() == PROMOTION);
@@ -744,7 +746,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 
 			double node_adjustment = 1.414479 - 0.931647 * (bm_nodes / (double)tot_nodes);
 			soft *= node_adjustment;
-			if (time_elapsed > mxtime * soft) {
+			if (time_elapsed > mxtime * soft || nodes[ti.id] > mx_nodes) {
 				// We probably won't be able to complete the next ID loop
 				stop_search = true;
 				break;

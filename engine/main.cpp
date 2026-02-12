@@ -103,17 +103,17 @@ void run_uci() {
 			stop_search = true;
 			if (searchthread.joinable()) searchthread.join();
 		} else if (command == "eval") {
-			std::array<Value, 8> score = debug_eval(board);
+			// std::array<Value, 8> score = debug_eval(board);
 			board.print_board();
 			std::cout << "info string fen " << board.get_fen() << std::endl;
-			int nbucket = (_mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) - 2) / 4;
-			for (int i = 0; i < 8; i++) {
-				std::cout << "info string eval " << i << ": " << score[i];
-				if (i == nbucket) {
-					std::cout << " (current)";
-				}
-				std::cout << std::endl;
-			}
+			// int nbucket = (_mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) - 2) / 4;
+			// for (int i = 0; i < 8; i++) {
+			// 	std::cout << "info string eval " << i << ": " << score[i];
+			// 	if (i == nbucket) {
+			// 		std::cout << " (current)";
+			// 	}
+			// 	std::cout << std::endl;
+			// }
 		} else if (command.substr(0, 2) == "go") {
 			if (!stop_search) continue; // ignore
 			if (searchthread.joinable()) searchthread.join();
