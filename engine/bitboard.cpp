@@ -525,10 +525,18 @@ void Board::make_move(Move move) {
 
 #ifdef HASHCHECK
 	uint64_t old_hash = zobrist;
+	uint64_t old_piece_hashes[15];
+	memcpy(old_piece_hashes, piece_hashes, sizeof(piece_hashes));
 	recompute_hash();
 	if (old_hash != zobrist) {
 		std::cerr << "Hash mismatch before move: expected " << zobrist << " got " << old_hash << '\n';
 		abort();
+	}
+	for (int i = 0; i < 15; i++) {
+		if (old_piece_hashes[i] != piece_hashes[i]) {
+			std::cerr << "Piece hash mismatch before move for piece " << i << ": expected " << piece_hashes[i] << " got " << old_piece_hashes[i] << '\n';
+			abort();
+		}
 	}
 #endif
 
@@ -538,7 +546,7 @@ void Board::make_move(Move move) {
 	Square tmp_ep_square = SQ_NONE;
 
 	// Handle captures
-	if (move.data != 0 && (piece_boards[OPPOCC(side)] & square_bits(move.dst()))) { // If opposite occupancy bit set on destination (capture)
+	if (move.data != 0 && is_capture(move)) {
 		// Remove whatever piece it was
 		uint8_t piece = mailbox[move.dst()] & 0b111;
 		piece_boards[piece] ^= square_bits(move.dst());
@@ -589,67 +597,29 @@ void Board::make_move(Move move) {
 		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
 		piece_boards[OPPOCC(side)] ^= square_bits(Rank(move.src() >> 3), File(move.dst() & 0b111));
 	} else if (move.type() == CASTLING) {
-		// Calculate where the rook is
-		Bitboard rook_mask;
-		if (move.data == 0b1100000100000110) {
-			// White O-O
-			mailbox[SQ_E1] = NO_PIECE;
-			mailbox[SQ_G1] = Piece(WHITE_KING);
-			mailbox[SQ_H1] = NO_PIECE;
-			mailbox[SQ_F1] = Piece(WHITE_ROOK);
-			piece_boards[OCC(WHITE)] ^= square_bits(SQ_E1) | square_bits(SQ_G1) | square_bits(SQ_H1) | square_bits(SQ_F1);
-			piece_boards[KING] ^= square_bits(SQ_E1) | square_bits(SQ_G1);
-			piece_boards[ROOK] ^= square_bits(SQ_H1) | square_bits(SQ_F1);
-			zobrist ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
-			zobrist ^= zobrist_square[SQ_H1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F1][Piece(WHITE_ROOK)];
-			piece_hashes[WHITE_KING] ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
-			piece_hashes[WHITE_ROOK] ^= zobrist_square[SQ_H1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F1][Piece(WHITE_ROOK)];
-		} else if (move.data == 0b1100000100000010) {
-			// White O-O-O
-			mailbox[SQ_E1] = NO_PIECE;
-			mailbox[SQ_C1] = Piece(WHITE_KING);
-			mailbox[SQ_A1] = NO_PIECE;
-			mailbox[SQ_D1] = Piece(WHITE_ROOK);
-			piece_boards[OCC(WHITE)] ^= square_bits(SQ_E1) | square_bits(SQ_C1) | square_bits(SQ_A1) | square_bits(SQ_D1);
-			piece_boards[KING] ^= square_bits(SQ_E1) | square_bits(SQ_C1);
-			piece_boards[ROOK] ^= square_bits(SQ_A1) | square_bits(SQ_D1);
-			zobrist ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
-			zobrist ^= zobrist_square[SQ_A1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D1][Piece(WHITE_ROOK)];
-			piece_hashes[WHITE_KING] ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
-			piece_hashes[WHITE_ROOK] ^= zobrist_square[SQ_A1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D1][Piece(WHITE_ROOK)];
-		} else if (move.data == 0b1100111100111110) {
-			// Black O-O
-			mailbox[SQ_E8] = NO_PIECE;
-			mailbox[SQ_G8] = Piece(BLACK_KING);
-			mailbox[SQ_H8] = NO_PIECE;
-			mailbox[SQ_F8] = Piece(BLACK_ROOK);
-			piece_boards[OCC(BLACK)] ^= square_bits(SQ_E8) | square_bits(SQ_G8) | square_bits(SQ_H8) | square_bits(SQ_F8);
-			piece_boards[KING] ^= square_bits(SQ_E8) | square_bits(SQ_G8);
-			piece_boards[ROOK] ^= square_bits(SQ_H8) | square_bits(SQ_F8);
-			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
-			zobrist ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
-			piece_hashes[BLACK_KING] ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
-			piece_hashes[BLACK_ROOK] ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
-		} else if (move.data == 0b1100111100111010) {
-			// Black O-O-O
-			mailbox[SQ_E8] = NO_PIECE;
-			mailbox[SQ_C8] = Piece(BLACK_KING);
-			mailbox[SQ_A8] = NO_PIECE;
-			mailbox[SQ_D8] = Piece(BLACK_ROOK);
-			piece_boards[OCC(BLACK)] ^= square_bits(SQ_E8) | square_bits(SQ_C8) | square_bits(SQ_A8) | square_bits(SQ_D8);
-			piece_boards[KING] ^= square_bits(SQ_E8) | square_bits(SQ_C8);
-			piece_boards[ROOK] ^= square_bits(SQ_A8) | square_bits(SQ_D8);
-			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
-			zobrist ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
-			piece_hashes[BLACK_KING] ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
-			piece_hashes[BLACK_ROOK] ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
-		} else {
-			std::cerr << "Il faut que tu meures" << std::endl;
-			volatile int *p = 0;
-			*p = move.type();
-		}
 		// Remove castling rights
 		castling &= ~((WHITE_OO | WHITE_OOO) << (side + side));
+
+		Square king_from = move.src();
+		Square king_to = move.dst() > move.src() ? make_square(FILE_G, Rank(king_from >> 3)) : make_square(FILE_C, Rank(king_from >> 3));
+
+		Square rook_from = move.dst();
+		Square rook_to = move.dst() > move.src() ? make_square(FILE_F, Rank(rook_from >> 3)) : make_square(FILE_D, Rank(rook_from >> 3));
+
+		Piece king_piece = Piece(KING + (side << 3));
+		Piece rook_piece = Piece(ROOK + (side << 3));
+
+		zobrist ^= zobrist_square[king_from][king_piece] ^ zobrist_square[king_to][king_piece];
+		zobrist ^= zobrist_square[rook_from][rook_piece] ^ zobrist_square[rook_to][rook_piece];
+		piece_hashes[king_piece] ^= zobrist_square[king_from][king_piece] ^ zobrist_square[king_to][king_piece];
+		piece_hashes[rook_piece] ^= zobrist_square[rook_from][rook_piece] ^ zobrist_square[rook_to][rook_piece];
+		mailbox[king_to] = king_piece;
+		mailbox[king_from] = NO_PIECE;
+		mailbox[rook_to] = rook_piece;
+		mailbox[rook_from] = NO_PIECE;
+		piece_boards[KING] ^= square_bits(king_from) ^ square_bits(king_to);
+		piece_boards[ROOK] ^= square_bits(rook_from) ^ square_bits(rook_to);
+		piece_boards[OCC(side)] ^= (square_bits(king_from) ^ square_bits(king_to)) ^ (square_bits(rook_from) ^ square_bits(rook_to));
 	} else {
 		// Get piece that is moving
 		uint8_t piece = mailbox[move.src()] & 0b111;
@@ -703,12 +673,21 @@ void Board::make_move(Move move) {
 
 #ifdef HASHCHECK
 	old_hash = zobrist;
+	memcpy(old_piece_hashes, piece_hashes, sizeof(piece_hashes));
 	recompute_hash();
 	if (zobrist != old_hash) {
 		print_board();
 		std::cerr << "Hash mismatch after make: expected " << old_hash << " got " << zobrist << std::endl;
 		std::cerr << "Move: " << move.to_string() << std::endl;
 		abort();
+	}
+	for (int i = 0; i < 15; i++) {
+		if (old_piece_hashes[i] != piece_hashes[i]) {
+			print_board();
+			std::cerr << "Piece hash mismatch after make for piece " << i << ": expected " << old_piece_hashes[i] << " got " << piece_hashes[i] << std::endl;
+			std::cerr << "Move: " << move.to_string() << std::endl;
+			abort();
+		}
 	}
 #endif
 
@@ -741,10 +720,18 @@ void Board::unmake_move() {
 
 #ifdef HASHCHECK
 	uint64_t old_hash = zobrist;
+	uint64_t old_piece_hashes[15];
+	memcpy(old_piece_hashes, piece_hashes, sizeof(piece_hashes));
 	recompute_hash();
 	if (old_hash != zobrist) {
 		std::cerr << "Hash mismatch before unmake: expected " << zobrist << " got " << old_hash << '\n';
 		abort();
+	}
+	for (int i = 0; i < 15; i++) {
+		if (old_piece_hashes[i] != piece_hashes[i]) {
+			std::cerr << "Piece hash mismatch before unmake for piece " << i << ": expected " << piece_hashes[i] << " got " << old_piece_hashes[i] << '\n';
+			abort();
+		}
 	}
 #endif
 
@@ -792,63 +779,26 @@ void Board::unmake_move() {
 		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
 		piece_boards[OPPOCC(side)] ^= square_bits(Rank(move.src() >> 3), File(move.dst() & 0b111));
 	} else if (move.type() == CASTLING) {
-		if (move.data == 0b1100000100000110) {
-			// White O-O
-			mailbox[SQ_G1] = NO_PIECE;
-			mailbox[SQ_E1] = Piece(WHITE_KING);
-			mailbox[SQ_F1] = NO_PIECE;
-			mailbox[SQ_H1] = Piece(WHITE_ROOK);
-			piece_boards[OCC(WHITE)] ^= square_bits(SQ_E1) | square_bits(SQ_G1) | square_bits(SQ_H1) | square_bits(SQ_F1);
-			piece_boards[KING] ^= square_bits(SQ_E1) | square_bits(SQ_G1);
-			piece_boards[ROOK] ^= square_bits(SQ_H1) | square_bits(SQ_F1);
-			zobrist ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
-			zobrist ^= zobrist_square[SQ_H1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F1][Piece(WHITE_ROOK)];
-			piece_hashes[WHITE_KING] ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_G1][Piece(WHITE_KING)];
-			piece_hashes[WHITE_ROOK] ^= zobrist_square[SQ_H1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_F1][Piece(WHITE_ROOK)];
-		} else if (move.data == 0b1100000100000010) {
-			// White O-O-O
-			mailbox[SQ_C1] = NO_PIECE;
-			mailbox[SQ_E1] = Piece(WHITE_KING);
-			mailbox[SQ_D1] = NO_PIECE;
-			mailbox[SQ_A1] = Piece(WHITE_ROOK);
-			piece_boards[OCC(WHITE)] ^= square_bits(SQ_E1) | square_bits(SQ_C1) | square_bits(SQ_A1) | square_bits(SQ_D1);
-			piece_boards[KING] ^= square_bits(SQ_E1) | square_bits(SQ_C1);
-			piece_boards[ROOK] ^= square_bits(SQ_A1) | square_bits(SQ_D1);
-			zobrist ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
-			zobrist ^= zobrist_square[SQ_A1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D1][Piece(WHITE_ROOK)];
-			piece_hashes[WHITE_KING] ^= zobrist_square[SQ_E1][Piece(WHITE_KING)] ^ zobrist_square[SQ_C1][Piece(WHITE_KING)];
-			piece_hashes[WHITE_ROOK] ^= zobrist_square[SQ_A1][Piece(WHITE_ROOK)] ^ zobrist_square[SQ_D1][Piece(WHITE_ROOK)];
-		} else if (move.data == 0b1100111100111110) {
-			// Black O-O
-			mailbox[SQ_G8] = NO_PIECE;
-			mailbox[SQ_E8] = Piece(BLACK_KING);
-			mailbox[SQ_F8] = NO_PIECE;
-			mailbox[SQ_H8] = Piece(BLACK_ROOK);
-			piece_boards[OCC(BLACK)] ^= square_bits(SQ_E8) | square_bits(SQ_G8) | square_bits(SQ_H8) | square_bits(SQ_F8);
-			piece_boards[KING] ^= square_bits(SQ_E8) | square_bits(SQ_G8);
-			piece_boards[ROOK] ^= square_bits(SQ_H8) | square_bits(SQ_F8);
-			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
-			zobrist ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
-			piece_hashes[BLACK_KING] ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_G8][Piece(BLACK_KING)];
-			piece_hashes[BLACK_ROOK] ^= zobrist_square[SQ_H8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_F8][Piece(BLACK_ROOK)];
-		} else if (move.data == 0b1100111100111010) {
-			// Black O-O-O
-			mailbox[SQ_C8] = NO_PIECE;
-			mailbox[SQ_E8] = Piece(BLACK_KING);
-			mailbox[SQ_D8] = NO_PIECE;
-			mailbox[SQ_A8] = Piece(BLACK_ROOK);
-			piece_boards[OCC(BLACK)] ^= square_bits(SQ_E8) | square_bits(SQ_C8) | square_bits(SQ_A8) | square_bits(SQ_D8);
-			piece_boards[KING] ^= square_bits(SQ_E8) | square_bits(SQ_C8);
-			piece_boards[ROOK] ^= square_bits(SQ_A8) | square_bits(SQ_D8);
-			zobrist ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
-			zobrist ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
-			piece_hashes[BLACK_KING] ^= zobrist_square[SQ_E8][Piece(BLACK_KING)] ^ zobrist_square[SQ_C8][Piece(BLACK_KING)];
-			piece_hashes[BLACK_ROOK] ^= zobrist_square[SQ_A8][Piece(BLACK_ROOK)] ^ zobrist_square[SQ_D8][Piece(BLACK_ROOK)];
-		} else {
-			std::cerr << "Il faut que tu meures" << std::endl;
-			volatile int *p = 0;
-			*p = move.type();
-		}
+		Square king_from = move.src();
+		Square king_to = move.dst() > move.src() ? make_square(FILE_G, Rank(king_from >> 3)) : make_square(FILE_C, Rank(king_from >> 3));
+
+		Square rook_from = move.dst();
+		Square rook_to = move.dst() > move.src() ? make_square(FILE_F, Rank(rook_from >> 3)) : make_square(FILE_D, Rank(rook_from >> 3));
+
+		Piece king_piece = Piece(KING + (side << 3));
+		Piece rook_piece = Piece(ROOK + (side << 3));
+
+		zobrist ^= zobrist_square[king_from][king_piece] ^ zobrist_square[king_to][king_piece];
+		zobrist ^= zobrist_square[rook_from][rook_piece] ^ zobrist_square[rook_to][rook_piece];
+		piece_hashes[king_piece] ^= zobrist_square[king_from][king_piece] ^ zobrist_square[king_to][king_piece];
+		piece_hashes[rook_piece] ^= zobrist_square[rook_from][rook_piece] ^ zobrist_square[rook_to][rook_piece];
+		mailbox[king_from] = king_piece;
+		mailbox[king_to] = NO_PIECE;
+		mailbox[rook_from] = rook_piece;
+		mailbox[rook_to] = NO_PIECE;
+		piece_boards[KING] ^= square_bits(king_from) | square_bits(king_to);
+		piece_boards[ROOK] ^= square_bits(rook_from) | square_bits(rook_to);
+		piece_boards[OCC(side)] ^= square_bits(king_from) | square_bits(king_to) | square_bits(rook_from) | square_bits(rook_to);
 	} else {
 		// Get piece that is moving
 		uint8_t piece = mailbox[move.dst()] & 0b111;
@@ -887,12 +837,21 @@ void Board::unmake_move() {
 
 #ifdef HASHCHECK
 	old_hash = zobrist;
+	memcpy(old_piece_hashes, piece_hashes, sizeof(piece_hashes));
 	recompute_hash();
 	if (zobrist != old_hash) {
 		print_board();
 		std::cerr << "Hash mismatch after unmake: expected " << old_hash << " got " << zobrist << std::endl;
 		std::cerr << "Move: " << move.to_string() << std::endl;
 		abort();
+	}
+	for (int i = 0; i < 15; i++) {
+		if (old_piece_hashes[i] != piece_hashes[i]) {
+			print_board();
+			std::cerr << "Piece hash mismatch after unmake for piece " << i << ": expected " << old_piece_hashes[i] << " got " << piece_hashes[i] << std::endl;
+			std::cerr << "Move: " << move.to_string() << std::endl;
+			abort();
+		}
 	}
 #endif
 
