@@ -66,6 +66,7 @@ struct Board {
 	uint8_t halfmove = 0;
 	uint8_t castling = 0xf; // 1111
 	Square ep_square = SQ_NONE;
+	Square rook_pos[4];
 	uint64_t zobrist = 0;
 	uint64_t piece_hashes[15] = {};
 	pzstd::vector<uint64_t, 1024> hash_hist;
