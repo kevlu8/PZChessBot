@@ -459,7 +459,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	// Null-move pruning
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 	int npawns_and_kings = _mm_popcnt_u64(board.piece_boards[PAWN] | board.piece_boards[KING]);
-	if (!pv && !in_check && !ti.nmp_disable && npieces != npawns_and_kings && tt_corr_eval >= beta && depth >= 2 && ti.line[ply].excl == NullMove) { // Avoid NMP in pawn endgames
+	if (!pv && !in_check && !ti.nmp_disable && npieces != npawns_and_kings && cur_eval >= beta + 10 && depth >= 2 && ti.line[ply].excl == NullMove) { // Avoid NMP in pawn endgames
 		/**
 		 * This works off the *null-move observation*.
 		 * 
