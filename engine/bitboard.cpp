@@ -2,7 +2,7 @@
 #include <cctype>
 #include <random>
 
-extern bool isdfrc;
+extern bool dfrc_uci;
 
 uint64_t zobrist_square[64][15];
 uint64_t zobrist_castling[16];
@@ -47,7 +47,7 @@ std::string Move::to_string() const {
 	std::string str = "";
 	str += (char)('a' + (src() & 0b111));
 	str += (char)('1' + (src() >> 3));
-	if (!isdfrc && type() == CASTLING) {
+	if (!dfrc_uci && type() == CASTLING) {
 		if (dst() > src())
 			return str + 'g' + (char)('1' + (dst() >> 3));
 		else
@@ -99,20 +99,20 @@ Move Move::from_string(const std::string &str, const void *b) {
 	} else {
 		if ((((const Board *)b)->mailbox[src] & 7) == KING) {
 			// Check for castling
-			if (isdfrc) {
+			if (dfrc_uci) {
 				if ((board->mailbox[src] & 7) == KING && (board->mailbox[dst] & 7) == ROOK)
 					return Move::make<CASTLING>(src, dst);
 				else
 					return Move(src, dst);
 			} else {
 				if (str == "e1g1")
-					return Move::make<CASTLING>(src, SQ_H1);
+					return Move::make<CASTLING>(src, board->rook_pos[1]);
 				if (str == "e1c1")
-					return Move::make<CASTLING>(src, SQ_A1);
+					return Move::make<CASTLING>(src, board->rook_pos[0]);
 				if (str == "e8g8")
-					return Move::make<CASTLING>(src, SQ_H8);
+					return Move::make<CASTLING>(src, board->rook_pos[3]);
 				if (str == "e8c8")
-					return Move::make<CASTLING>(src, SQ_A8);
+					return Move::make<CASTLING>(src, board->rook_pos[2]);
 			}
 		} else if ((board->mailbox[src] & 7) == PAWN && dst == ((const Board *)b)->ep_square) {
 			// En passant
@@ -169,6 +169,7 @@ void Board::load_fen(std::string fen) {
 			Bitboard mask = ~(square_bits(king_square) - 1);
 			rook_pos[0] = Square(_tzcnt_u64(rooks & mask & piece_boards[OCC(WHITE)]));
 		} else if (fen[inputIdx] <= 'H' && fen[inputIdx] > king_file) {
+			dfrc_uci = true;
 			castling |= WHITE_OO;
 			inputIdx++;
 			rook_pos[0] = make_square(File(fen[inputIdx - 1] - 'A'), RANK_1);
@@ -181,18 +182,21 @@ void Board::load_fen(std::string fen) {
 			Bitboard mask = (square_bits(king_square) - 1);
 			rook_pos[1] = Square(_tzcnt_u64(rooks & mask & piece_boards[OCC(WHITE)]));
 		} else if (fen[inputIdx] >= 'A' && fen[inputIdx] < king_file) {
+			dfrc_uci = true;
 			castling |= WHITE_OOO;
 			inputIdx++;
 			rook_pos[1] = make_square(File(fen[inputIdx - 1] - 'A'), RANK_1);
 		}
 
+		king_file = (_tzcnt_u64(piece_boards[KING] & piece_boards[OCC(BLACK)]) & 7) + 'a';
 		if (fen[inputIdx] == 'k') {
 			castling |= BLACK_OO;
 			inputIdx++;
-			Square king_square = make_square(File(king_file - 'A'), RANK_8);
+			Square king_square = make_square(File(king_file - 'a'), RANK_8);
 			Bitboard mask = ~(square_bits(king_square) - 1);
 			rook_pos[2] = Square(_tzcnt_u64(rooks & mask & piece_boards[OCC(BLACK)]));
-		} else if (fen[inputIdx] <= 'h' && fen[inputIdx] > king_file + 32) {
+		} else if (fen[inputIdx] <= 'h' && fen[inputIdx] > king_file) {
+			dfrc_uci = true;
 			castling |= BLACK_OO;
 			inputIdx++;
 			rook_pos[2] = make_square(File(fen[inputIdx - 1] - 'a'), RANK_8);
@@ -201,10 +205,11 @@ void Board::load_fen(std::string fen) {
 		if (fen[inputIdx] == 'q') {
 			castling |= BLACK_OOO;
 			inputIdx++;
-			Square king_square = make_square(File(king_file - 'A'), RANK_8);
+			Square king_square = make_square(File(king_file - 'a'), RANK_8);
 			Bitboard mask = (square_bits(king_square) - 1);
 			rook_pos[3] = Square(63 - _lzcnt_u64(rooks & mask & piece_boards[OCC(BLACK)]));
-		} else if (fen[inputIdx] >= 'a' && fen[inputIdx] < king_file + 32) {
+		} else if (fen[inputIdx] >= 'a' && fen[inputIdx] < king_file) {
+			dfrc_uci = true;
 			castling |= BLACK_OOO;
 			inputIdx++;
 			rook_pos[3] = make_square(File(fen[inputIdx - 1] - 'a'), RANK_8);
@@ -303,13 +308,13 @@ std::string Board::get_fen() const {
 		res += '-';
 	} else {
 		if (castling & WHITE_OO)
-			res += 'K';
+			res += dfrc_uci ? (rook_pos[0] + 'A') : 'K';
 		if (castling & WHITE_OOO)
-			res += 'Q';
+			res += dfrc_uci ? (rook_pos[1] + 'A') : 'Q';
 		if (castling & BLACK_OO)
-			res += 'k';
+			res += dfrc_uci ? (rook_pos[2] & 7) + 'a' : 'k';
 		if (castling & BLACK_OOO)
-			res += 'q';
+			res += dfrc_uci ? (rook_pos[3] & 7) + 'a' : 'q';
 	}
 	
 	// En passant square
@@ -582,13 +587,13 @@ void Board::make_move(Move move) {
 		piece_hashes[mailbox[move.dst()]] ^= zobrist_square[move.dst()][mailbox[move.dst()]];
 
 		if (piece == ROOK) {
-			if (move.dst() == SQ_A1)
+			if (move.dst() == rook_pos[1])
 				castling &= ~WHITE_OOO;
-			else if (move.dst() == SQ_H1)
+			else if (move.dst() == rook_pos[0])
 				castling &= ~WHITE_OO;
-			else if (move.dst() == SQ_A8)
+			else if (move.dst() == rook_pos[3])
 				castling &= ~BLACK_OOO;
-			else if (move.dst() == SQ_H8)
+			else if (move.dst() == rook_pos[2])
 				castling &= ~BLACK_OO;
 		}
 
@@ -641,8 +646,8 @@ void Board::make_move(Move move) {
 		piece_hashes[king_piece] ^= zobrist_square[king_from][king_piece] ^ zobrist_square[king_to][king_piece];
 		piece_hashes[rook_piece] ^= zobrist_square[rook_from][rook_piece] ^ zobrist_square[rook_to][rook_piece];
 		mailbox[king_from] = NO_PIECE;
-		mailbox[king_to] = king_piece;
 		mailbox[rook_from] = NO_PIECE;
+		mailbox[king_to] = king_piece;
 		mailbox[rook_to] = rook_piece;
 		piece_boards[KING] ^= square_bits(king_from) ^ square_bits(king_to);
 		piece_boards[ROOK] ^= square_bits(rook_from) ^ square_bits(rook_to);
@@ -662,13 +667,13 @@ void Board::make_move(Move move) {
 		if (piece == KING) {
 			castling &= ~((WHITE_OO | WHITE_OOO) << (side << 1));
 		} else if (piece == ROOK) {
-			if (move.src() == SQ_A1)
+			if (move.src() == rook_pos[1])
 				castling &= ~WHITE_OOO;
-			else if (move.src() == SQ_H1)
+			else if (move.src() == rook_pos[0])
 				castling &= ~WHITE_OO;
-			else if (move.src() == SQ_A8)
+			else if (move.src() == rook_pos[3])
 				castling &= ~BLACK_OOO;
-			else if (move.src() == SQ_H8)
+			else if (move.src() == rook_pos[2])
 				castling &= ~BLACK_OO;
 		} else {
 			// Set EP square if applicable
@@ -822,8 +827,8 @@ void Board::unmake_move() {
 		piece_hashes[king_piece] ^= zobrist_square[king_from][king_piece] ^ zobrist_square[king_to][king_piece];
 		piece_hashes[rook_piece] ^= zobrist_square[rook_from][rook_piece] ^ zobrist_square[rook_to][rook_piece];
 		mailbox[king_to] = NO_PIECE;
-		mailbox[king_from] = king_piece;
 		mailbox[rook_to] = NO_PIECE;
+		mailbox[king_from] = king_piece;
 		mailbox[rook_from] = rook_piece;
 		piece_boards[KING] ^= square_bits(king_from) ^ square_bits(king_to);
 		piece_boards[ROOK] ^= square_bits(rook_from) ^ square_bits(rook_to);

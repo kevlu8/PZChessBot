@@ -12,6 +12,7 @@ Bitboard bishop_movetable[5248];
 
 Bitboard rook_blockers[64][64];
 Bitboard bishop_blockers[64][64];
+Bitboard castle_blockers[64][64];
 
 MagicEntry rook_magics[64];
 MagicEntry bishop_magics[64];
@@ -64,6 +65,7 @@ void gen_rook_moves(int sq, Bitboard piece) {
 			rook_blockers[dst][sq] = rook_blockers[sq][dst];
 		}
 	}
+	rook_blockers[sq][sq] = 0;
 }
 
 void gen_bishop_moves(int sq, Bitboard piece) {
@@ -123,6 +125,7 @@ void gen_bishop_moves(int sq, Bitboard piece) {
 			bishop_blockers[dst][sq] = bishop_blockers[sq][dst];
 		}
 	}
+	bishop_blockers[sq][sq] = 0;
 }
 
 // This function is called before main()
@@ -183,6 +186,24 @@ __attribute__((constructor)) void init_movetables() {
 			mask &= ~Rank8Bits;
 		bishop_magics[i].mask = mask;
 		gen_bishop_moves(i, piece);
+	}
+
+	// Generate castling blocker masks
+	for (Square king = SQ_A1; king <= SQ_H1; king++) {
+		for (Square rook = SQ_A1; rook <= SQ_H1; rook++) {
+			if (king == rook)
+				continue;
+			if (king < rook) {
+				// Kingside castling
+				castle_blockers[king][rook] = rook_blockers[king][SQ_G1] | rook_blockers[rook][SQ_F1] | square_bits(SQ_F1) | square_bits(SQ_G1);
+				castle_blockers[king][rook] &= ~(square_bits(rook) | square_bits(king));
+				castle_blockers[king + SQ_A8][rook + SQ_A8] = castle_blockers[king][rook] << 56;
+			} else {
+				castle_blockers[king][rook] = rook_blockers[king][SQ_C1] | rook_blockers[rook][SQ_D1] | square_bits(SQ_C1) | square_bits(SQ_D1);
+				castle_blockers[king][rook] &= ~(square_bits(rook) | square_bits(king));
+				castle_blockers[king + SQ_A8][rook + SQ_A8] = castle_blockers[king][rook] << 56;
+			}
+		}
 	}
 }
 
@@ -391,8 +412,7 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 	Bitboard occs = board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)];
 	if (board.side == WHITE && !board.control(sq, BLACK)) {
 		if (board.castling & WHITE_OO) {
-			Bitboard mask = rook_blockers[sq][board.rook_pos[0]] | square_bits(SQ_F1);
-			if (mask & occs)
+			if (castle_blockers[sq][board.rook_pos[0]] & occs)
 				goto skip_white_oo;
 			for (Square s = Square(sq + 1); s <= SQ_G1; s++) {
 				if (board.control(s, BLACK))
@@ -402,8 +422,7 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 		}
 	skip_white_oo:
 		if (board.castling & WHITE_OOO) {
-			Bitboard mask = rook_blockers[sq][board.rook_pos[1]] | square_bits(SQ_D1);
-			if (mask & occs)
+			if (castle_blockers[sq][board.rook_pos[1]] & occs)
 				goto skip_white_ooo;
 			for (Square s = SQ_C1; s < sq; s++) {
 				if (board.control(s, BLACK))
@@ -414,8 +433,7 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 	skip_white_ooo:;
 	} else if (board.side == BLACK && !board.control(sq, WHITE)) {
 		if (board.castling & BLACK_OO) {
-			Bitboard mask = rook_blockers[sq][board.rook_pos[2]] | square_bits(SQ_F8);
-			if (mask & occs)
+			if (castle_blockers[sq][board.rook_pos[2]] & occs)
 				goto skip_black_oo;
 			for (Square s = Square(sq + 1); s <= SQ_G8; s++) {
 				if (board.control(s, WHITE))
@@ -425,8 +443,7 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 		}
 	skip_black_oo:
 		if (board.castling & BLACK_OOO) {
-			Bitboard mask = rook_blockers[sq][board.rook_pos[3]] | square_bits(SQ_D8);
-			if (mask & occs)
+			if (castle_blockers[sq][board.rook_pos[3]] & occs)
 				goto skip_black_ooo;
 			for (Square s = SQ_C8; s < sq; s++) {
 				if (board.control(s, WHITE))

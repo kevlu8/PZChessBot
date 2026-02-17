@@ -15,7 +15,7 @@
 
 // Options
 size_t TT_SIZE = DEFAULT_TT_SIZE;
-bool quiet = false, online = false, isdfrc = false;
+bool quiet = false, online = false, dfrc_uci = false;
 
 ThreadInfo *tis;
 
@@ -69,7 +69,7 @@ void run_uci() {
 				for (int i = 0; i < num_threads; i++) tis[i].set_bs();
 				std::cout << "info string Using " << num_threads << " threads" << std::endl;
 			} else if (optionname == "UCI_Chess960") {
-				isdfrc = (optionvalue == "true");
+				dfrc_uci = (optionvalue == "true");
 			}
 		} else if (command == "ucinewgame") {
 			stop_search = true;
