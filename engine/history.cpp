@@ -17,6 +17,7 @@ int History::get_conthist(Board &board, Move move, int ply, SSEntry *line) {
 
 int History::get_history(Board &board, Move move, int ply, SSEntry *line) {
 	int score = history[board.side][move.src()][move.dst()];
+	score += pawn_hist[board.side][board.pawn_hash() % PAWNHIST_SZ][board.mailbox[move.src()] & 7][move.dst()];
 	score += get_conthist(board, move, ply, line);
 	return score;
 }
@@ -30,6 +31,7 @@ int History::get_capthist(Board &board, Move move) {
 void History::update_history(Board &board, Move &move, int ply, SSEntry *line, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
 	history[board.side][move.src()][move.dst()] += cbonus - history[board.side][move.src()][move.dst()] * abs(bonus) / MAX_HISTORY;
+	pawn_hist[board.side][board.pawn_hash() % PAWNHIST_SZ][board.mailbox[move.src()] & 7][move.dst()] += cbonus - pawn_hist[board.side][board.pawn_hash() % PAWNHIST_SZ][board.mailbox[move.src()] & 7][move.dst()] * abs(bonus) / MAX_HISTORY;
 	int conthist = get_conthist(board, move, ply, line);
 	if (ply >= 1 && (line - 1)->cont_hist)
 		(line - 1)->cont_hist->hist[board.side][board.mailbox[move.src()] & 7][move.dst()] += cbonus - conthist * abs(bonus) / MAX_HISTORY;

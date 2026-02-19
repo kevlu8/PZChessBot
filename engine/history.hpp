@@ -6,6 +6,7 @@
 
 // Correction history table size
 #define CORRHIST_SZ 16384
+#define PAWNHIST_SZ 65536
 
 struct ContHistEntry {
 	Value hist[2][7][64]; // [side][piecetype][to]
@@ -35,6 +36,7 @@ public:
 	 * We store a history table for each side indexed by [src][dst].
 	 */
 	Value history[2][64][64];
+	Value pawn_hist[2][PAWNHIST_SZ][7][64];
 	ContHistEntry cont_hist[2][7][64]; // [side][piece][to]
 
 	/**
@@ -56,6 +58,7 @@ public:
 
 	History() {
 		memset(history, 0, sizeof(history));
+		memset(pawn_hist, 0, sizeof(pawn_hist));
 		memset(cont_hist, 0, sizeof(cont_hist));
 		memset(capthist, 0, sizeof(capthist));
 		memset(corrhist_ps, 0, sizeof(corrhist_ps));
