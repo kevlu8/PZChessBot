@@ -392,6 +392,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	bool ttpv = pv;
+	bool excluded = ti.line[ply].excl != NullMove;
 
 	/**
 	 * TTable Cutoffs
@@ -402,10 +403,10 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	 * Note that we cannot do this in singular search (`ti.line[ply].excl != NullMove`)
 	 * because the singular search excludes a move that may be the best move in the position.
 	 */
-	auto tentry = ttable.probe(board.zobrist);
+	auto tentry = excluded ? std::nullopt : ttable.probe(board.zobrist);
 	Value tteval = -VALUE_INFINITE;
 	if (tentry && is_valid_score(tentry->eval)) tteval = tt_to_score(tentry->eval, ply);
-	if (!pv && tentry && is_valid_score(tteval) && tentry->depth >= depth && ti.line[ply].excl == NullMove) {
+	if (!pv && tentry && is_valid_score(tteval) && tentry->depth >= depth) {
 		// Check for cutoffs
 		if (tentry->bound() == EXACT) {
 			return tteval;
