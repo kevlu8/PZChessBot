@@ -239,22 +239,8 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	if (stand_pat > alpha)
 		alpha = stand_pat;
 
-	pzstd::vector<Move> moves;
-	ti.board.captures(moves);
-	if (moves.empty())
-		return stand_pat;
-
-	// Sort captures and promotions
-	pzstd::vector<std::pair<Move, int>> scores;
-	for (Move &move : moves) {
-		if (ti.board.piece_boards[OPPOCC(ti.board.side)] & square_bits(move.dst())) {
-			int score = 0;
-			score = MVV_LVA[ti.board.mailbox[move.dst()] & 7][ti.board.mailbox[move.src()] & 7];
-			scores.push_back({move, score});
-		} else if (move.type() == PROMOTION) {
-			scores.push_back({move, PieceValue[move.promotion() + KNIGHT] - PawnValue});
-		}
-	}
+	MovePicker mp(ti.board, &ti.thread_hist, tentry);
+	mp.skip_quiets();
 
 	Value best = stand_pat;
 	Move best_move = NullMove;
@@ -262,9 +248,8 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	int alpha_raise = 0;
 
 	Move move = NullMove;
-	int end = scores.size();
 
-	while ((move = next_move(scores, end)) != NullMove) {
+	while ((move = mp.next()) != NullMove) {
 		if (move.type() != PROMOTION) {
 			Value see = ti.board.see_capture(move);
 			if (see < -4) {
