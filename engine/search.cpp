@@ -392,6 +392,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	bool ttpv = pv;
+	bool excluded = ti.line[ply].excl != NullMove;
 
 	/**
 	 * TTable Cutoffs
@@ -425,7 +426,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (!in_check) {
 		cur_eval = tentry ? tentry->s_eval : eval(board, (BoardState *)ti.bs) * side;
 		raw_eval = cur_eval;
-		ti.thread_hist.apply_correction(board, &ti.line[ply], ply, cur_eval);
+		if (!excluded) ti.thread_hist.apply_correction(board, &ti.line[ply], ply, cur_eval);
 		tt_corr_eval = cur_eval;
 		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
 			tt_corr_eval = tteval;
@@ -444,7 +445,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (!in_check && ply >= 2 && ti.line[ply-2].eval != VALUE_NONE && cur_eval > ti.line[ply-2].eval) improving = true;
 
 	// Reverse futility pruning
-	if (!in_check && !ttpv && depth <= 8) {
+	if (!in_check && !ttpv && depth <= 8 && !excluded) {
 		/**
 		 * The idea is that if we are winning by such a large margin that we can afford to lose
 		 * RFP_THRESHOLD * depth eval units per ply, we can return the current eval.
@@ -459,7 +460,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	// Null-move pruning
 	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
 	int npawns_and_kings = _mm_popcnt_u64(board.piece_boards[PAWN] | board.piece_boards[KING]);
-	if (!pv && !in_check && !ti.nmp_disable && npieces != npawns_and_kings && tt_corr_eval >= beta && depth >= 2 && ti.line[ply].excl == NullMove) { // Avoid NMP in pawn endgames
+	if (!pv && !in_check && !ti.nmp_disable && npieces != npawns_and_kings && tt_corr_eval >= beta && depth >= 2 && !excluded) { // Avoid NMP in pawn endgames
 		/**
 		 * This works off the *null-move observation*.
 		 * 
@@ -501,7 +502,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Razoring
-	if (!pv && !in_check && depth <= 8 && tt_corr_eval + RAZOR_MARGIN * depth < alpha) {
+	if (!pv && !in_check && depth <= 8 && tt_corr_eval + RAZOR_MARGIN * depth < alpha && !excluded) {
 		/**
 		 * If we are losing by a lot, check w/ qsearch to see if we could possibly improve.
 		 * If not, we can prune the search.
@@ -512,7 +513,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Probcut
-	if (!pv && !in_check && depth >= 7 && abs(beta) < VALUE_MATE_MAX_PLY && !(tentry && is_valid_score(tteval) && tteval < beta + PROBCUT_MARGIN)) {
+	if (!pv && !in_check && depth >= 7 && !excluded && abs(beta) < VALUE_MATE_MAX_PLY && !(tentry && is_valid_score(tteval) && tteval < beta + PROBCUT_MARGIN)) {
 		/**
 		 * ProbCut
 		 * 
@@ -600,7 +601,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		
 		int extension = 0;
 
-		if (ti.line[ply].excl == NullMove && depth >= 8 && tentry && is_valid_score(tteval) && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
+		if (!excluded && depth >= 8 && tentry && is_valid_score(tteval) && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
 			/**
 			 * Singular extensions
 			 * 
@@ -843,21 +844,21 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	// e.g. 8/8/8/8/ppp1p3/krp1p2K/nbp1p3/nqrbN3 b - - 1 6
 	if (best == -VALUE_MATE || best == -VALUE_INFINITE) {
 		// If our engine thinks we are mated but we are not in check, we are stalemated
-		if (ti.line[ply].excl != NullMove) return alpha;
+		if (excluded) return alpha;
 		else if (in_check) return -VALUE_MATE + ply;
 		else return 0;
 	}
 
 	bool best_iscapture = (board.piece_boards[OPPOCC(board.side)] & square_bits(best_move.dst()));
 	bool best_ispromo = (best_move.type() == PROMOTION);
-	if (ti.line[ply].excl == NullMove && !in_check && !(best_move != NullMove && (best_iscapture || best_ispromo))
+	if (!excluded && !in_check && !(best_move != NullMove && (best_iscapture || best_ispromo))
 		&& !(flag == UPPER_BOUND && best >= cur_eval) && !(flag == LOWER_BOUND && best <= cur_eval)) {
 		// Best move is a quiet move, update CorrHist
 		int bonus = (best - cur_eval) * depth / 8;
 		ti.thread_hist.update_corrhist(board, &ti.line[ply], ply, bonus);
 	}
 
-	if (ti.line[ply].excl == NullMove) {
+	if (!excluded) {
 		Move tt_move = best_move != NullMove ? best_move : tentry ? tentry->best_move : NullMove;
 		ttable.store(board.zobrist, score_to_tt(best, ply), raw_eval, depth, flag, ttpv, tt_move);
 	}
