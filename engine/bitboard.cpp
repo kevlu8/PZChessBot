@@ -100,7 +100,7 @@ Move Move::from_string(const std::string &str, const void *b) {
 		if ((((const Board *)b)->mailbox[src] & 7) == KING) {
 			// Check for castling
 			if (dfrc_uci) {
-				if ((board->mailbox[src] & 7) == KING && (board->mailbox[dst] & 7) == ROOK)
+				if ((board->mailbox[src] & 7) == KING && board->mailbox[dst] == (ROOK | (board->mailbox[src] & 8)))
 					return Move::make<CASTLING>(src, dst);
 				else
 					return Move(src, dst);
