@@ -26,6 +26,11 @@ MovePicker::MovePicker(Board &board, History *main_hist, std::optional<TTable::T
 	ttMove = tentry ? tentry->best_move : NullMove;
 }
 
+MovePicker::MovePicker(Board &board, History *main_hist, bool skip_quiets) : board(board), ss(nullptr), ply(0), main_hist(main_hist), qskip(skip_quiets) {
+	stage = MP_STAGE_GEN;
+	ttMove = NullMove;
+}
+
 Move MovePicker::next() {
 	if (stage == MP_STAGE_DONE)
 		return NullMove;

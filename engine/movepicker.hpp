@@ -39,6 +39,7 @@ private:
 public:
 	MovePicker(Board &board, SSEntry *ss, int ply, History *main_hist, std::optional<TTable::TTEntry> &tentry);
 	MovePicker(Board &board, History *main_hist, std::optional<TTable::TTEntry> &tentry); // Probcut constructor
+	MovePicker(Board &board, History *main_hist, bool skip_quiets); // QSearch constructor
 
 	Move next();
 

@@ -239,8 +239,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	if (stand_pat > alpha)
 		alpha = stand_pat;
 
-	MovePicker mp(ti.board, &ti.thread_hist, tentry);
-	mp.skip_quiets();
+	MovePicker mp(ti.board, &ti.thread_hist, true);
 
 	Value best = stand_pat;
 	Move best_move = NullMove;
