@@ -569,7 +569,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	MovePicker mp(board, &ti.line[ply], ply, &ti.thread_hist, tentry);
 
 	// Internal iterative reductions
-	if ((pv || cutnode) && depth > 4 && !(tentry && tentry->best_move != NullMove)) {
+	if ((pv || cutnode) && depth > 4 && !excluded && !(tentry && tentry->best_move != NullMove)) {
 		/**
 		 * In positions where we are in a node where we'd expect a TT move (i.e. PV/cutnode) and
 		 * we don't have one, it's likely that the position is not good enough to warrant a TT move.
