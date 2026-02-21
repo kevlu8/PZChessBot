@@ -36,6 +36,7 @@ public:
 	 */
 	Value history[2][64][64];
 	ContHistEntry cont_hist[2][7][64]; // [side][piece][to]
+	Value singular_hist[2][7][64]; // [side][piece][to]
 
 	/**
 	 * Capture history is a heuristic similar to the history heuristic, but it's used for
@@ -68,9 +69,11 @@ public:
 	int get_conthist(Board &board, Move move, int ply, SSEntry *line);
 	int get_history(Board &board, Move move, int ply, SSEntry *line);
 	int get_capthist(Board &board, Move move);
+	int get_singhist(Board &board, Move move);
 
 	void update_history(Board &board, Move &move, int ply, SSEntry *line, Value bonus);
 	void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonus);
+	void update_singhist(Board &board, Move &move, Value bonus);
 
 	void update_corrhist(Board &board, SSEntry *line, int ply, int bonus);
 	void apply_correction(Board &board, SSEntry *line, int ply, Value &eval);

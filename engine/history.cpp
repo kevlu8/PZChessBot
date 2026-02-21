@@ -26,6 +26,11 @@ int History::get_capthist(Board &board, Move move) {
 	return score;
 }
 
+int History::get_singhist(Board &board, Move move) {
+	int score = singular_hist[board.side][board.mailbox[move.src()] & 7][move.dst()];
+	return score;
+}
+
 // History gravity formula
 void History::update_history(Board &board, Move &move, int ply, SSEntry *line, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
@@ -46,6 +51,11 @@ void History::update_history(Board &board, Move &move, int ply, SSEntry *line, V
 void History::update_capthist(PieceType piece, PieceType captured, Square dst, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
 	capthist[piece][captured][dst] += cbonus - capthist[piece][captured][dst] * abs(bonus) / MAX_HISTORY;
+}
+
+void History::update_singhist(Board &board, Move &move, Value bonus) {
+	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
+	singular_hist[board.side][board.mailbox[move.src()] & 7][move.dst()] += cbonus - singular_hist[board.side][board.mailbox[move.src()] & 7][move.dst()] * abs(bonus) / MAX_HISTORY;
 }
 
 // Moving exponential average for corrhist

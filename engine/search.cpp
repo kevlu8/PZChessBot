@@ -621,7 +621,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (singular_score < singular_beta) {
 				extension++;
 
-				if (singular_score <= singular_beta - 23)
+				if (singular_score <= singular_beta - 23 - ti.thread_hist.get_singhist(board, move) / 512)
 					extension++;
 			} else if (singular_score >= beta)
 				/**
@@ -652,6 +652,8 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				 */
 				extension -= 2;
 			}
+
+			ti.thread_hist.update_singhist(board, move, extension * depth * depth);
 		}
 
 		int hist = capt ? ti.thread_hist.get_capthist(board, move) : ti.thread_hist.get_history(board, move, ply, &ti.line[ply]);
