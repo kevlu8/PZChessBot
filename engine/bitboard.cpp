@@ -178,6 +178,7 @@ void Board::load_fen(std::string fen) {
 
 	// Recompute hash
 	recompute_hash();
+	update_control();
 }
 
 void Board::reset_board() {
@@ -213,6 +214,7 @@ void Board::reset_board() {
 	hash_hist.clear();
 
 	recompute_hash();
+	update_control();
 }
 
 std::string Board::get_fen() const {
@@ -283,18 +285,18 @@ bool Board::sanity_check(char *print) {
 			printIdx++;
 			if (mailbox[rank * 8 + file] != NO_PIECE && !(occ & square_bits((Rank)rank, (File)file))) { // Occupancy and mailbox differ
 				print[printIdx] = '$';
-				std::cerr << "Occupancy and mailbox differ on square " << rank << file << '\n';
+				std::cerr << "Occupancy and mailbox differ on square " << char(file + 'a') << char(rank + '1') << '\n';
 				error = 1;
 				continue;
 			}
 			if (sanity & bits) { // Occupancy and collective piece boards differ
 				if (occ & bits) { // Occupied but no piece specified
 					print[printIdx] = '?';
-					std::cerr << "Occupied but no piece specified on square " << rank << file << '\n';
+					std::cerr << "Occupied but no piece specified on square " << char(file + 'a') << char(rank + '1') << '\n';
 					error = 1;
 				} else { // Piece specified but no occupancy
 					print[printIdx] = '!';
-					std::cerr << "Piece specified but no occupancy on square " << rank << file << '\n';
+					std::cerr << "Piece specified but no occupancy on square " << char(file + 'a') << char(rank + '1') << '\n';
 					error = 1;
 				}
 				continue;
@@ -311,20 +313,58 @@ bool Board::sanity_check(char *print) {
 					continue;
 				if (put) { // More than two pieces on one square
 					print[printIdx] = '&';
-					std::cerr << "More than two pieces on square " << rank << file << '\n';
+					std::cerr << "More than two pieces on square " << char(file + 'a') << char(rank + '1') << '\n';
 					error = 1;
 					break;
 				}
 				put = true;
 				if (mailbox[rank * 8 + file] != type + (!!(piece_boards[OCC(BLACK)] & bits) << 3)) { // Bitboard and mailbox representations differ
 					print[printIdx] = '$';
-					std::cerr << "Bitboard and mailbox representations differ on square " << rank << file << '\n';
+					std::cerr << "Bitboard and mailbox representations differ on square " << char(file + 'a') << char(rank + '1') << '\n';
 					error = 1;
 					break;
 				}
-				print[printIdx] = piecetype_letter[type] + (!!(piece_boards[OCC(BLACK)] & bits) << 5);
+				print[printIdx] = piecetype_letter[type & 7] - (!(piece_boards[OCC(BLACK)] & bits) << 5);
 			}
 		}
+	}
+
+	bool ctrlerror = 0;
+	for (int i = 0; i < 64; i++) {
+		if (control((Square)i, WHITE) != !!(controlled_squares[OCC(WHITE)] & square_bits((Square)i))) {
+			std::cerr << "Control bitboard for white on square " << char((i & 7) + 'a') << char((i >> 3) + '1') << " is incorrect\n";
+			ctrlerror = 1;
+		}
+		if (control((Square)i, BLACK) != !!(controlled_squares[OCC(BLACK)] & square_bits((Square)i))) {
+			std::cerr << "Control bitboard for black on square " << char((i & 7) + 'a') << char((i >> 3) + '1') << " is incorrect\n";
+			ctrlerror = 1;
+		}
+	}
+	if (ctrlerror) {
+		std::cerr << "White control bitboard: " << std::hex << controlled_squares[OCC(WHITE)] << std::dec << '\n';
+		print_bitboard(controlled_squares[OCC(WHITE)]);
+		Bitboard ctrl = 0;
+		for (int i = 0; i < 64; i++) {
+			if (control((Square)i, WHITE)) {
+				ctrl |= square_bits((Square)i);
+			}
+		}
+		std::cerr << "Computed white control bitboard: " << std::hex << ctrl << std::dec << '\n';
+		print_bitboard(ctrl);
+
+		std::cerr << "Black control bitboard: " << std::hex << controlled_squares[OCC(BLACK)] << std::dec << '\n';
+		print_bitboard(controlled_squares[OCC(BLACK)]);
+		ctrl = 0;
+		for (int i = 0; i < 64; i++) {
+			if (control((Square)i, BLACK)) {
+				ctrl |= square_bits((Square)i);
+			}
+		}
+		std::cerr << "Computed black control bitboard: " << std::hex << ctrl << std::dec << '\n';
+		print_bitboard(ctrl);
+		std::cerr << std::endl;
+
+		error = 1;
 	}
 
 	return error;
@@ -667,6 +707,8 @@ void Board::make_move(Move move) {
 
 	halfmove++;
 
+	update_control();
+
 #ifdef HASHCHECK
 	old_hash = zobrist;
 	recompute_hash();
@@ -850,6 +892,8 @@ void Board::unmake_move() {
 
 	halfmove = halfmove_hist.top();
 	halfmove_hist.pop();
+
+	update_control();
 
 #ifdef HASHCHECK
 	old_hash = zobrist;
