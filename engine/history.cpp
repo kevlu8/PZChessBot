@@ -16,7 +16,7 @@ int History::get_conthist(Board &board, Move move, int ply, SSEntry *line) {
 }
 
 int History::get_history(Board &board, Move move, int ply, SSEntry *line) {
-	int score = history[board.side][move.src()][move.dst()];
+	int score = history[board.side][move.src()][move.dst()][board.control(move.src(), !board.side)][board.control(move.dst(), !board.side)];
 	score += get_conthist(board, move, ply, line);
 	return score;
 }
@@ -29,7 +29,7 @@ int History::get_capthist(Board &board, Move move) {
 // History gravity formula
 void History::update_history(Board &board, Move &move, int ply, SSEntry *line, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
-	history[board.side][move.src()][move.dst()] += cbonus - history[board.side][move.src()][move.dst()] * abs(bonus) / MAX_HISTORY;
+	history[board.side][move.src()][move.dst()][board.control(move.src(), !board.side)][board.control(move.dst(), !board.side)] += cbonus - history[board.side][move.src()][move.dst()][board.control(move.src(), !board.side)][board.control(move.dst(), !board.side)] * abs(bonus) / MAX_HISTORY;
 	int conthist = get_conthist(board, move, ply, line);
 	if (ply >= 1 && (line - 1)->cont_hist)
 		(line - 1)->cont_hist->hist[board.side][board.mailbox[move.src()] & 7][move.dst()] += cbonus - conthist * abs(bonus) / MAX_HISTORY;

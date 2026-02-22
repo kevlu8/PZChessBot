@@ -869,8 +869,12 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 void iterativedeepening(ThreadInfo &ti, int depth) {
 	for (int i = 0; i < 64; i++) {
 		for (int j = 0; j < 64; j++) {
-			ti.thread_hist.history[0][i][j] /= 2;
-			ti.thread_hist.history[1][i][j] /= 2;
+			for (int k = 0; k < 2; k++) {
+				for (int l = 0; l < 2; l++) {
+					ti.thread_hist.history[0][i][j][k][l] /= 2;
+					ti.thread_hist.history[1][i][j][k][l] /= 2;
+				}
+			}
 		}
 	}
 
