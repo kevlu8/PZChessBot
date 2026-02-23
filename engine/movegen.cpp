@@ -764,16 +764,32 @@ Bitboard Board::lva_(Square sq, int side, PieceType &p, Bitboard occ) const {
 	return 0;
 }
 
-Value Board::see_capture(Move move) {
+int gain_(Board &board, Move &move) {
+	if (move.type() == CASTLING) return 0;
+	if (move.type() == EN_PASSANT) return PawnValue;
+	
+	int value = PieceValue[board.mailbox[move.dst()] & 7];
+	if (move.type() == PROMOTION) value += PieceValue[move.promotion() + KNIGHT] - PawnValue;
+	return value;
+}
+
+bool Board::see(Move move, int threshold) {
 	Square src = move.src();
 	Square dst = move.dst();
 	PieceType atkr = PieceType(mailbox[src] & 7);
 	PieceType victim = PieceType(mailbox[dst] & 7);
+
+	int score = gain_(*this, move) - threshold;
+	if (score < 0) return false; // If immediately evaluating the capture is not good enough
+	PieceType next = move.type() == PROMOTION ? PieceType(move.promotion() + KNIGHT) : PieceType(mailbox[move.src()] & 7);
+	score -= PieceValue[next];
+	if (score >= 0) return true; // If even losing our piece would still be good
+
 	int gain[32], d = 0;
 
-	gain[d] = victim == NO_PIECETYPE ? 0 : PieceValue[victim]; // Initial gain from capturing the victim
+	gain[d] = gain_(*this, move); // Initial gain from capturing the victim
 
-	int side = (mailbox[src] & 8) >> 3; // 0 for white, 1 for black
+	int side = mailbox[src] >> 3; // 0 for white, 1 for black
 
 	Bitboard occ = piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)];
 	occ ^= square_bits(src);
@@ -800,7 +816,7 @@ Value Board::see_capture(Move move) {
 		gain[d - 1] = -std::max(-gain[d - 1], gain[d]);
 	}
 
-	return gain[0];
+	return gain[0] >= threshold;
 }
 
 bool Board::is_pseudolegal(Move move) const {
