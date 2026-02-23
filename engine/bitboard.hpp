@@ -62,6 +62,7 @@ struct HistoryEntry {
 
 struct Board {
 	Bitboard piece_boards[8] = {0};
+	Bitboard controlled_squares[8] = {0};
 	bool side = WHITE;
 	uint8_t halfmove = 0;
 	uint8_t castling = 0xf; // 1111
@@ -100,6 +101,7 @@ struct Board {
 
 	void make_move(Move);
 	void unmake_move();
+	void update_control();
 
 	void legal_moves(pzstd::vector<Move> &) const;
 	void captures(pzstd::vector<Move> &) const;

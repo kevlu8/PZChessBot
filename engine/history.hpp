@@ -34,7 +34,7 @@ public:
 	 * It works by storing its effectiveness in the past through beta cutoffs.
 	 * We store a history table for each side indexed by [src][dst].
 	 */
-	Value history[2][64][64];
+	Value history[2][64][64][2][2]; // [side][src][dst][src_threatened][dst_threatened]
 	ContHistEntry cont_hist[2][7][64]; // [side][piece][to]
 
 	/**

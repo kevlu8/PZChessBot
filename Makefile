@@ -9,7 +9,7 @@ WINCXX   := x86_64-w64-mingw32-g++
 # Flags
 BASEFLAGS   := -std=c++17 -DNNUE_PATH=\"$(EVALFILE)\" -m64
 OPTFLAGS    := -O3 -flto=auto
-DEBUGFLAGS  := -g -fsanitize=address,undefined -march=native
+DEBUGFLAGS  := -g -march=x86-64-v3 -fsanitize=address,undefined
 
 # Sources & objects
 SRCS  := $(wildcard engine/*.cpp engine/nnue/*.cpp)

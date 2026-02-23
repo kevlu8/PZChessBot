@@ -569,33 +569,6 @@ void Board::captures(pzstd::vector<Move> &moves) const {
 	king_captures(*this, moves);
 }
 
-bool Board::control(int sq, bool side) const {
-	// Go in order of decreasing probability
-
-	uint32_t idx = rook_magics[sq].offset + _pext_u64(piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)], rook_magics[sq].mask);
-	if (rook_movetable[idx] & (piece_boards[ROOK] | piece_boards[QUEEN]) & piece_boards[OCC(side)])
-		return true;
-
-	idx = bishop_magics[sq].offset + _pext_u64(piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)], bishop_magics[sq].mask);
-	if (bishop_movetable[idx] & (piece_boards[BISHOP] | piece_boards[QUEEN]) & piece_boards[OCC(side)])
-		return true;
-
-	if (knight_movetable[sq] & piece_boards[KNIGHT] & piece_boards[OCC(side)])
-		return true;
-
-	if (((square_bits(Square(sq - 9)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq - 7)) & 0xfefefefefefefefe)) & piece_boards[PAWN] &
-		piece_boards[OCC(WHITE)] & piece_boards[OCC(side)])
-		return true;
-	if (((square_bits(Square(sq + 9)) & 0xfefefefefefefefe) | (square_bits(Square(sq + 7)) & 0x7f7f7f7f7f7f7f7f)) & piece_boards[PAWN] &
-		piece_boards[OCC(BLACK)] & piece_boards[OCC(side)])
-		return true;
-
-	if (king_movetable[sq] & piece_boards[KING] & piece_boards[OCC(side)])
-		return true;
-
-	return false;
-}
-
 Bitboard rook_attacks(Square sq, Bitboard occ) {
 	uint32_t idx = rook_magics[sq].offset + _pext_u64(occ, rook_magics[sq].mask);
 	return rook_movetable[idx];
@@ -627,6 +600,100 @@ Bitboard pawn_attacks(Square sq, bool color) {
 		return ((square_bits(Square(sq + 7)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq + 9)) & 0xfefefefefefefefe));
 	else
 		return ((square_bits(Square(sq - 7)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq - 9)) & 0xfefefefefefefefe));
+}
+
+void Board::update_control() {
+	memset(controlled_squares, 0, sizeof(controlled_squares));
+	Bitboard occ = piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)];
+
+	// Rooks
+	Bitboard pieces = piece_boards[ROOK] | piece_boards[QUEEN];
+	Bitboard white = pieces & piece_boards[OCC(WHITE)];
+	Bitboard black = pieces & piece_boards[OCC(BLACK)];
+	while (white) {
+		Square sq = (Square)_tzcnt_u64(white);
+		Bitboard control = rook_attacks(sq, occ);
+		controlled_squares[ROOK] |= control;
+		controlled_squares[OCC(WHITE)] |= control;
+		white = _blsr_u64(white);
+	}
+	while (black) {
+		Square sq = (Square)_tzcnt_u64(black);
+		Bitboard control = rook_attacks(sq, occ);
+		controlled_squares[ROOK] |= control;
+		controlled_squares[OCC(BLACK)] |= control;
+		black = _blsr_u64(black);
+	}
+
+	pieces = piece_boards[BISHOP] | piece_boards[QUEEN];
+	white = pieces & piece_boards[OCC(WHITE)];
+	black = pieces & piece_boards[OCC(BLACK)];
+	while (white) {
+		Square sq = (Square)_tzcnt_u64(white);
+		Bitboard control = bishop_attacks(sq, occ);
+		controlled_squares[BISHOP] |= control;
+		controlled_squares[OCC(WHITE)] |= control;
+		white = _blsr_u64(white);
+	}
+	while (black) {
+		Square sq = (Square)_tzcnt_u64(black);
+		Bitboard control = bishop_attacks(sq, occ);
+		controlled_squares[BISHOP] |= control;
+		controlled_squares[OCC(BLACK)] |= control;
+		black = _blsr_u64(black);
+	}
+
+	pieces = piece_boards[KNIGHT];
+	white = pieces & piece_boards[OCC(WHITE)];
+	black = pieces & piece_boards[OCC(BLACK)];
+	{
+		Bitboard hor1 = ((white & ~FileHBits) << 1) | ((white & ~FileABits) >> 1);
+		Bitboard hor2 = ((white & ~FileHBits & ~FileGBits) << 2) | ((white & ~FileABits & ~FileBBits) >> 2);
+		Bitboard control = (hor1 << 16) | (hor1 >> 16) | (hor2 << 8) | (hor2 >> 8);
+		controlled_squares[KNIGHT] |= control;
+		controlled_squares[OCC(WHITE)] |= control;
+	}
+	{
+		Bitboard hor1 = ((black & ~FileHBits) << 1) | ((black & ~FileABits) >> 1);
+		Bitboard hor2 = ((black & ~FileHBits & ~FileGBits) << 2) | ((black & ~FileABits & ~FileBBits) >> 2);
+		Bitboard control = (hor1 << 16) | (hor1 >> 16) | (hor2 << 8) | (hor2 >> 8);
+		controlled_squares[KNIGHT] |= control;
+		controlled_squares[OCC(BLACK)] |= control;
+	}
+
+	pieces = piece_boards[PAWN];
+	white = pieces & piece_boards[OCC(WHITE)];
+	black = pieces & piece_boards[OCC(BLACK)];
+	{
+		Bitboard control = ((white & ~FileABits) << 7) | ((white & ~FileHBits) << 9);
+		controlled_squares[PAWN] |= control;
+		controlled_squares[OCC(WHITE)] |= control;
+	}
+	{
+		Bitboard control = ((black & ~FileHBits) >> 7) | ((black & ~FileABits) >> 9);
+		controlled_squares[PAWN] |= control;
+		controlled_squares[OCC(BLACK)] |= control;
+	}
+
+	pieces = piece_boards[KING];
+	white = pieces & piece_boards[OCC(WHITE)];
+	black = pieces & piece_boards[OCC(BLACK)];
+	{
+		Bitboard control = white | ((white & ~FileHBits) << 1) | ((white & ~FileABits) >> 1);
+		control |= (control << 8) | (control >> 8);
+		controlled_squares[KING] |= control;
+		controlled_squares[OCC(WHITE)] |= control;
+	}
+	{
+		Bitboard control = black | ((black & ~FileHBits) << 1) | ((black & ~FileABits) >> 1);
+		control |= (control << 8) | (control >> 8);
+		controlled_squares[KING] |= control;
+		controlled_squares[OCC(BLACK)] |= control;
+	}
+}
+
+bool Board::control(int sq, bool side) const {
+	return controlled_squares[OCC(side)] & square_bits((Square)sq);
 }
 
 Bitboard Board::lva_(Square sq, int side, PieceType &p, Bitboard occ) const {
