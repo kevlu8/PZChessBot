@@ -781,7 +781,7 @@ bool Board::see(Move move, int threshold) {
 
 	int score = gain_(*this, move) - threshold;
 	if (score < 0) return false; // If immediately evaluating the capture is not good enough
-	PieceType next = move.type() == PROMOTION ? PieceType(move.promotion() + KNIGHT) : PieceType(mailbox[move.src()] & 7);
+	PieceType next = move.type() == PROMOTION ? PieceType(move.promotion() + KNIGHT) : atkr;
 	score -= PieceValue[next];
 	if (score >= 0) return true; // If even losing our piece would still be good
 
@@ -789,11 +789,16 @@ bool Board::see(Move move, int threshold) {
 
 	Bitboard occ = piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)];
 	occ ^= square_bits(src);
+	if (move.type() == EN_PASSANT) {
+		// remove the pawn that was captured (next to the capturing pawn)
+		occ ^= square_bits(Square(side == WHITE ? dst - 8 : dst + 8));
+	}
+	side ^= 1;
 
 	PieceType next_attacker = atkr;
 
 	while (Bitboard attackers = lva_(dst, side, next_attacker, occ)) {
-		occ ^= square_bits(Square(_tzcnt_u64(attackers)));
+		occ ^= attackers & -attackers; // remove attacker from the board (x & -x gives lsb)
 
 		score = -score - 1 - PieceValue[next_attacker]; // negate, add the gain from the capture, and subtract 1 to prefer faster material gain
 		side ^= 1;
