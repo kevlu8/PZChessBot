@@ -764,43 +764,55 @@ Bitboard Board::lva_(Square sq, int side, PieceType &p, Bitboard occ) const {
 	return 0;
 }
 
-Value Board::see_capture(Move move) {
+int gain_(Board &board, Move &move) {
+	if (move.type() == CASTLING) return 0;
+	if (move.type() == EN_PASSANT) return PawnValue;
+	
+	int value = PieceValue[board.mailbox[move.dst()] & 7];
+	if (move.type() == PROMOTION) value += PieceValue[move.promotion() + KNIGHT] - PawnValue;
+	return value;
+}
+
+bool Board::see(Move move, int threshold) {
 	Square src = move.src();
 	Square dst = move.dst();
 	PieceType atkr = PieceType(mailbox[src] & 7);
 	PieceType victim = PieceType(mailbox[dst] & 7);
-	int gain[32], d = 0;
 
-	gain[d] = victim == NO_PIECETYPE ? 0 : PieceValue[victim]; // Initial gain from capturing the victim
+	int score = gain_(*this, move) - threshold;
+	if (score < 0) return false; // If immediately evaluating the capture is not good enough
+	PieceType next = move.type() == PROMOTION ? PieceType(move.promotion() + KNIGHT) : atkr;
+	score -= PieceValue[next];
+	if (score >= 0) return true; // If even losing our piece would still be good
 
-	int side = (mailbox[src] & 8) >> 3; // 0 for white, 1 for black
+	int side = mailbox[src] >> 3; // 0 for white, 1 for black
 
 	Bitboard occ = piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)];
 	occ ^= square_bits(src);
+	if (move.type() == EN_PASSANT) {
+		// remove the pawn that was captured (next to the capturing pawn)
+		occ ^= square_bits(Square(side == WHITE ? dst - 8 : dst + 8));
+	}
+	side ^= 1;
 
 	PieceType next_attacker = atkr;
 
-	do {
-		d++;
-		gain[d] = PieceValue[next_attacker] - gain[d - 1]; // Speculative gain
+	while (Bitboard attackers = lva_(dst, side, next_attacker, occ)) {
+		occ ^= attackers & -attackers; // remove attacker from the board (x & -x gives lsb)
 
+		score = -score - 1 - PieceValue[next_attacker]; // negate, add the gain from the capture, and subtract 1 to prefer faster material gain
 		side ^= 1;
 
-		Bitboard attackers = lva_(dst, side, next_attacker, occ);
-		if (!attackers)
-			break;
-
-		Square attacker_sq = Square(_tzcnt_u64(attackers));
-		occ ^= square_bits(attacker_sq);
-
-	} while (true);
-
-	// backtrack
-	while (--d) {
-		gain[d - 1] = -std::max(-gain[d - 1], gain[d]);
+		if (score >= 0) {
+			if (next_attacker == KING && lva_(dst, side, next_attacker, occ) != 0) {
+				// we recapture with king, but then the opponent will take our king (bad)
+				side ^= 1; // since the king is the last generated, we assume we have no other resources so the opponent wins the SEE
+			}
+			break; // positive gain
+		}
 	}
 
-	return gain[0];
+	return side != this->side; // if it's the opponent's turn, we ended on our capture (good). otherwise they won the SEE
 }
 
 bool Board::is_pseudolegal(Move move) const {

@@ -74,7 +74,7 @@ enum Piece : uint8_t {
 	NO_PIECE
 };
 
-constexpr Value PieceValue[] = {PawnValue, KnightValue, BishopValue, RookValue, QueenValue, VALUE_INFINITE - VALUE_MAX};
+constexpr Value PieceValue[] = {PawnValue, KnightValue, BishopValue, RookValue, QueenValue, VALUE_INFINITE - VALUE_MAX, 0};
 constexpr Value MVV[] = { 800, 2400, 2400, 4800, 7200, 16000 };
 
 enum CastlingRights : uint8_t { NO_CASTLE, WHITE_OO, WHITE_OOO = WHITE_OO << 1, BLACK_OO = WHITE_OO << 2, BLACK_OOO = WHITE_OO << 3 };

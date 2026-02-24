@@ -80,8 +80,8 @@ Move MovePicker::next() {
 				end = quiet_scores.size();
 				break;
 			}
-			Value see = board.see_capture(move);
-			if (move.type() == PROMOTION || see >= -score / 50) {
+			bool see = board.see(move, -score / 50);
+			if (see) {
 				return move;
 			} else {
 				bad_noisy.push_back(move);
@@ -123,7 +123,7 @@ Move MovePicker::next() {
 			if (move == ttMove)
 				continue;
 
-			if (move.type() != PROMOTION && board.see_capture(move) <= 105)
+			if (!board.see(move, 105))
 				continue; // Skip bad captures
 
 			int score = 0;
