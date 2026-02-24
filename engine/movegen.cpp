@@ -785,10 +785,6 @@ bool Board::see(Move move, int threshold) {
 	score -= PieceValue[next];
 	if (score >= 0) return true; // If even losing our piece would still be good
 
-	int gain[32], d = 0;
-
-	gain[d] = gain_(*this, move); // Initial gain from capturing the victim
-
 	int side = mailbox[src] >> 3; // 0 for white, 1 for black
 
 	Bitboard occ = piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)];
@@ -796,27 +792,22 @@ bool Board::see(Move move, int threshold) {
 
 	PieceType next_attacker = atkr;
 
-	do {
-		d++;
-		gain[d] = PieceValue[next_attacker] - gain[d - 1]; // Speculative gain
+	while (Bitboard attackers = lva_(dst, side, next_attacker, occ)) {
+		occ ^= square_bits(Square(_tzcnt_u64(attackers)));
 
+		score = -score - 1 - PieceValue[next_attacker]; // negate, add the gain from the capture, and subtract 1 to prefer faster material gain
 		side ^= 1;
 
-		Bitboard attackers = lva_(dst, side, next_attacker, occ);
-		if (!attackers)
-			break;
-
-		Square attacker_sq = Square(_tzcnt_u64(attackers));
-		occ ^= square_bits(attacker_sq);
-
-	} while (true);
-
-	// backtrack
-	while (--d) {
-		gain[d - 1] = -std::max(-gain[d - 1], gain[d]);
+		if (score >= 0) {
+			if (next_attacker == KING && lva_(dst, side, next_attacker, occ) != 0) {
+				// we recapture with king, but then the opponent will take our king (bad)
+				side ^= 1; // since the king is the last generated, we assume we have no other resources so the opponent wins the SEE
+			}
+			break; // positive gain
+		}
 	}
 
-	return gain[0] >= threshold;
+	return side != this->side; // if it's the opponent's turn, we ended on our capture (good). otherwise they won the SEE
 }
 
 bool Board::is_pseudolegal(Move move) const {
