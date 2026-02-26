@@ -976,6 +976,10 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 
 			double node_adjustment = 1.414479 - 0.931647 * (bm_nodes / (double)tot_nodes);
 			soft *= node_adjustment;
+
+			if (abs(eval) >= VALUE_MATE_MAX_PLY)
+				soft = 0.1; // doesn't matter anymore
+
 			if (time_elapsed > mxtime * soft) {
 				// We probably won't be able to complete the next ID loop
 				stop_search = true;
