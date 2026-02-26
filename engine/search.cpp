@@ -753,12 +753,16 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			int searched_depth = std::clamp(newdepth - r / 1024, 1, newdepth + 1);
 
 			score = -negamax(ti, searched_depth, -alpha - 1, -alpha, -side, 0, true, ply+1);
-			if (score > alpha && searched_depth < newdepth) {
+			if (score > alpha) {
 				// LMR search failed, re-search full depth
 				bool do_deeper = score > beta + 100;
+				bool do_shallower = !do_deeper && newdepth > 1 && score < best + newdepth + 1;
 				newdepth += do_deeper;
+				newdepth -= do_shallower;
 
-				score = -negamax(ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
+				if (searched_depth < newdepth) {
+					score = -negamax(ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
+				}
 			}
 		} else if (!pv || i > 0) {
 			// Case 2: Early moves in nodes
