@@ -887,6 +887,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 	Board &board = ti.board;
 
 	Value static_eval = eval(board, (BoardState *)ti.bs) * (board.side ? -1 : 1);
+	int consec_move = 0;
 
 	Move best_move = NullMove;
 	Value eval = -VALUE_INFINITE;
@@ -933,7 +934,15 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 		}
 		if (stop_search) break;
 		eval = result;
-		best_move = ti.pvtable[0][0];
+		Move mv = ti.pvtable[0][0];
+
+		if (mv == best_move) {
+			consec_move++;
+		} else {
+			consec_move = 1;
+		}
+
+		best_move = mv;
 		
 		if (ti.is_main) {
 			// We must calculate best move nodes and total nodes at around the same time
@@ -966,12 +975,18 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 			}
 
 			double soft = 0.573154;
-			if (depth >= 6 && !best_iscapt && !best_ispromo && !in_check) {
-				// adjust soft limit based on complexity
-				Value complexity = abs(eval - static_eval);
-				double factor = std::clamp(complexity / 200.0, 0.0, 1.0);
-				// higher complexity = spend more time, lower complexity = spend less time
-				soft = 0.33232 + 0.45762 * factor;
+			if (depth >= 6) {
+				if (!best_iscapt && !best_ispromo && !in_check) {
+					// adjust soft limit based on complexity
+					Value complexity = abs(eval - static_eval);
+					double factor = std::clamp(complexity / 200.0, 0.0, 1.0);
+					// higher complexity = spend more time, lower complexity = spend less time
+					soft = 0.33232 + 0.45762 * factor;
+				}
+
+				double bm_stability = 1.8 - 0.4 * consec_move;
+				bm_stability = std::clamp(bm_stability, 0.8, 1.8);
+				soft *= bm_stability;
 			}
 
 			double node_adjustment = 1.414479 - 0.931647 * (bm_nodes / (double)tot_nodes);
