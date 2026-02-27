@@ -80,7 +80,7 @@ Move MovePicker::next() {
 				end = quiet_scores.size();
 				break;
 			}
-			bool see = board.see(move, -score / 50);
+			bool see = board.see(move, -score / 46);
 			if (see) {
 				return move;
 			} else {
@@ -123,7 +123,7 @@ Move MovePicker::next() {
 			if (move == ttMove)
 				continue;
 
-			if (!board.see(move, 105))
+			if (!board.see(move, 97))
 				continue; // Skip bad captures
 
 			int score = 0;

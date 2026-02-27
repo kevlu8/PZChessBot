@@ -46,7 +46,7 @@ __attribute__((constructor)) void init_lmr() {
 	for (int i = 0; i < 250; i++) {
 		for (int d = 0; d < MAX_PLY; d++) {
 			if (d <= 1 || i <= 1) reduction[i][d] = 1024;
-			else reduction[i][d] = (0.76 + log(i) * log(d) / 2.32) * 1024;
+			else reduction[i][d] = (0.74 + log(i) * log(d) / 2.33) * 1024;
 		}
 	}
 }
@@ -265,7 +265,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	int end = scores.size();
 
 	while ((move = next_move(scores, end)) != NullMove) {
-		bool see = ti.board.see(move, -4);
+		bool see = ti.board.see(move, -12);
 		if (!see) {
 			/**
 			 * QSearch SEE pruning
@@ -284,7 +284,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 			 * alpha, we can skip the move.
 			 */
 			int see_threshold = alpha - stand_pat - DELTA_THRESHOLD;
-			if (!ti.board.see(move, see_threshold / 5))
+			if (!ti.board.see(move, 168 * see_threshold / 1024))
 				continue;
 		}
 
@@ -405,6 +405,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	 */
 	auto tentry = ttable.probe(board.zobrist);
 	Value tteval = -VALUE_INFINITE;
+	bool ttcapt = false;
 	if (tentry && is_valid_score(tentry->eval)) tteval = tt_to_score(tentry->eval, ply);
 	if (!pv && tentry && is_valid_score(tteval) && tentry->depth >= depth && ti.line[ply].excl == NullMove) {
 		// Check for cutoffs
@@ -417,7 +418,10 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		}
 	}
 
-	if (tentry) ttpv |= tentry->ttpv();
+	if (tentry) {
+		ttpv |= tentry->ttpv();
+		ttcapt = board.is_capture(tentry->best_move);
+	}
 
 	// Evaluate and correct evaluation
 	Value cur_eval = 0;
@@ -575,7 +579,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * we don't have one, it's likely that the position is not good enough to warrant a TT move.
 		 * Thus, we can reduce the depth of the search slightly.
 		 */
-		depth -= 2;
+		depth--;
 	}
 
 	Move best_move = NullMove;
@@ -621,7 +625,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (singular_score < singular_beta) {
 				extension++;
 
-				if (singular_score <= singular_beta - 23)
+				if (singular_score <= singular_beta - 20)
 					extension++;
 			} else if (singular_score >= beta)
 				/**
@@ -666,7 +670,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				break;
 			}
 
-			Value futility = cur_eval + 300 + 100 * depth + hist / 32;
+			Value futility = cur_eval + 307 + 100 * depth + hist / 28;
 			if (!in_check && !capt && !promo && depth <= 5 && futility <= alpha) {
 				/**
 				 * Futility pruning
@@ -695,7 +699,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				 * 
 				 * Skip searching moves with bad SEE scores
 				 */
-				const int see_threshold = capt ? -27 * depth * depth : -59 * depth;
+				const int see_threshold = capt ? -23 * depth * depth : -55 * depth;
 				bool see = board.see(move, see_threshold);
 				if (!see)
 					continue;
@@ -733,19 +737,26 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			int r = reduction[i][depth];
 
 			// Base reduction
-			r -= 372;
+			r -= 270;
 
-			r -= 1062 * pv; // Reduce less in PV nodes
-			r += 1303 * cutnode; // Reduce more in cutnodes
-			r += 918 * (ti.line[ply+1].cutoffcnt > 3);
-			r -= 975 * ttpv;
+			r -= 1095 * pv; // Reduce less in PV nodes
+			r += 798 * (ti.line[ply+1].cutoffcnt > 3);
+			r -= 869 * ttpv;
 
 			if (move == ti.line[ply].killer) {
-				r -= 932;
+				r -= 816;
 			}
 
+			if (cutnode) {
+				r += 1673;
+				if (!tentry || tentry->best_move == NullMove)
+					r -= 265;
+			}
+
+			r += 345 * ttcapt;
+
 			if (!capt && !promo)
-				r -= hist / 8;
+				r -= hist / 10;
 
 			if (capt || promo)
 				r = std::min(r, 1024); // Do not reduce captures or promotions
@@ -756,7 +767,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (score > alpha) {
 				// LMR search failed, re-search full depth
 				bool do_deeper = score > beta + 100;
-				bool do_shallower = !do_deeper && newdepth > 1 && score < best + newdepth + 1;
+				bool do_shallower = !do_deeper && newdepth > 1 && score < best + newdepth - 3;
 				newdepth += do_deeper;
 				newdepth -= do_shallower;
 
@@ -825,7 +836,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (ti.line[ply].killer != move) {
 				ti.line[ply].killer = move; // Update killer move
 			}
-			const Value bonus = std::min(1896, 3 * depth * depth + 109 * depth - 142);
+			const Value bonus = std::min(1896, 2 * depth * depth + 123 * depth - 130);
 			if (!capt) { // Not a capture
 				ti.thread_hist.update_history(board, move, ply, &ti.line[ply], bonus);
 				for (auto &qmove : quiets) {
@@ -974,14 +985,14 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 				in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE) > 0;
 			}
 
-			double soft = 0.573154;
+			double soft = 0.53;
 			if (depth >= 6) {
 				if (!best_iscapt && !best_ispromo && !in_check) {
 					// adjust soft limit based on complexity
 					Value complexity = abs(eval - static_eval);
-					double factor = std::clamp(complexity / 200.0, 0.0, 1.0);
+					double factor = std::clamp(complexity / 192.0, 0.0, 1.0);
 					// higher complexity = spend more time, lower complexity = spend less time
-					soft = 0.33232 + 0.45762 * factor;
+					soft = 0.32 + 0.44 * factor;
 				}
 
 				double bm_stability = 1.8 - 0.4 * consec_move;
@@ -989,7 +1000,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 				soft *= bm_stability;
 			}
 
-			double node_adjustment = 1.414479 - 0.931647 * (bm_nodes / (double)tot_nodes);
+			double node_adjustment = 1.34 - 0.92 * (bm_nodes / (double)tot_nodes);
 			soft *= node_adjustment;
 
 			if (abs(eval) >= VALUE_MATE_MAX_PLY)
