@@ -264,7 +264,10 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	Move move = NullMove;
 	int end = scores.size();
 
-	while ((move = next_move(scores, end)) != NullMove && ti.board.is_legal(move)) {
+	while ((move = next_move(scores, end)) != NullMove) {
+		if (!ti.board.is_legal(move))
+			continue;
+
 		bool see = ti.board.see(move, -12);
 		if (!see) {
 			/**
@@ -542,8 +545,8 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		Move pc_move = NullMove;
 		int pc_depth = depth - 5;
 		Value pc_beta = beta + PROBCUT_MARGIN;
-		while ((pc_move = pcpicker.next()) != NullMove && board.is_legal(pc_move)) {
-			if (pc_move == ti.line[ply].excl)
+		while ((pc_move = pcpicker.next()) != NullMove) {
+			if (pc_move == ti.line[ply].excl || !board.is_legal(pc_move))
 				continue;
 
 			ti.line[ply].move = pc_move;
@@ -602,8 +605,8 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	ti.line[ply+1].cutoffcnt = 0;
 
-	while ((move = mp.next()) != NullMove && board.is_legal(move)) {
-		if (move == ti.line[ply].excl)
+	while ((move = mp.next()) != NullMove) {
+		if (move == ti.line[ply].excl || !board.is_legal(move))
 			continue;
 		
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));
