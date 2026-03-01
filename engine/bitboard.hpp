@@ -84,12 +84,10 @@ struct Board {
 
 	Board() {
 		reset_board();
-		recompute_hash();
 	}
 
 	Board(std::string fen) {
 		load_fen(fen);
-		recompute_hash();
 	};
 
 	void load_fen(std::string);

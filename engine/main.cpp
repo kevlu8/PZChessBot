@@ -125,6 +125,7 @@ void run_uci() {
 			int nodes = -1;
 			bool inf = false;
 			int movetime = -1;
+			int perft_depth = -1;
 			ss >> token;
 			while (ss >> token) {
 				if (token == "wtime") {
@@ -143,7 +144,25 @@ void run_uci() {
 					ss >> nodes;
 				} else if (token == "movetime") {
 					ss >> movetime;
+				} else if (token == "perft") {
+					ss >> perft_depth;
 				}
+			}
+			if (perft_depth != -1) {
+				uint64_t tot_nodes = 0;
+				pzstd::vector<Move> moves;
+				board.legal_moves(moves);
+				for (Move &move : moves) {
+					if (!board.is_legal(move))
+						continue;
+					board.make_move(move);
+					uint64_t cnt = perft(board, perft_depth - 1);
+					board.unmake_move();
+					std::cout << move.to_string() << ": " << cnt << std::endl;
+					tot_nodes += cnt;
+				}
+				std::cout << "Total nodes: " << tot_nodes << std::endl;
+				continue;
 			}
 			int timeleft = board.side ? btime : wtime;
 			int inc = board.side ? binc : winc;

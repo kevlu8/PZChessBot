@@ -16,21 +16,22 @@ std::atomic<uint64_t> nodecnt[64][64] = {{}};
 std::atomic<uint64_t> nodes[MAX_THREADS] = {};
 
 uint64_t perft(Board &board, int depth) {
-	// If white's turn is beginning and black is in check
-	if (board.side == WHITE && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7]), WHITE))
-		return 0;
-	// If black's turn is beginning and white is in check
-	else if (board.side == BLACK && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6]), BLACK))
-		return 0;
 	if (depth == 0)
 		return 1;
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 	uint64_t cnt = 0;
 	for (Move &move : moves) {
-		board.make_move(move);
-		cnt += perft(board, depth - 1);
-		board.unmake_move();
+		if (!board.is_legal(move))
+			continue;
+
+		if (depth > 1) {
+			board.make_move(move);
+			cnt += perft(board, depth - 1);
+			board.unmake_move();
+		} else {
+			cnt++;
+		}
 	}
 	return cnt;
 }
@@ -215,7 +216,11 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	}
 
 	bool opp_in_check = ti.board.control(__tzcnt_u64(ti.board.piece_boards[KING] & ti.board.piece_boards[OPPOCC(ti.board.side)]), ti.board.side);
-	if (opp_in_check) return VALUE_MATE;
+	if (opp_in_check) {
+		/// TODO: DEBUG ONLY - REMOVE AFTER TESTING
+		std::cout << "bestmove 0000" << std::endl;
+		exit(0);
+	}
 
 	// Do evaluation and corrections
 	Value stand_pat = 0;
@@ -264,7 +269,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	Move move = NullMove;
 	int end = scores.size();
 
-	while ((move = next_move(scores, end)) != NullMove) {
+	while ((move = next_move(scores, end)) != NullMove && ti.board.is_legal(move)) {
 		bool see = ti.board.see(move, -12);
 		if (!see) {
 			/**
@@ -366,12 +371,18 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (board.side == WHITE) {
 		// If it is white to move and white controls black's king, it's mate
-		if (bcontrol > 0)
-			return VALUE_MATE;
+		if (bcontrol > 0) {
+			/// TODO: DEBUG ONLY - REMOVE AFTER TESTING
+			std::cout << "bestmove 0000" << std::endl;
+			exit(0);
+		}
 	} else {
 		// Likewise, the contrary also applies.
-		if (wcontrol > 0)
-			return VALUE_MATE;
+		if (wcontrol > 0) {
+			/// TODO: DEBUG ONLY - REMOVE AFTER TESTING
+			std::cout << "bestmove 0000" << std::endl;
+			exit(0);
+		}
 	}
 
 	// Threefold or 50 move rule
@@ -536,7 +547,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		Move pc_move = NullMove;
 		int pc_depth = depth - 5;
 		Value pc_beta = beta + PROBCUT_MARGIN;
-		while ((pc_move = pcpicker.next()) != NullMove) {
+		while ((pc_move = pcpicker.next()) != NullMove && board.is_legal(pc_move)) {
 			if (pc_move == ti.line[ply].excl)
 				continue;
 
@@ -596,7 +607,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	ti.line[ply+1].cutoffcnt = 0;
 
-	while ((move = mp.next()) != NullMove) {
+	while ((move = mp.next()) != NullMove && board.is_legal(move)) {
 		if (move == ti.line[ply].excl)
 			continue;
 		
