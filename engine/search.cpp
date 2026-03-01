@@ -753,7 +753,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 					r -= 265;
 			}
 
-			r += 345 * ttcapt;
+			r += 1024 * ttcapt;
 
 			if (!capt && !promo)
 				r -= hist / 10;
