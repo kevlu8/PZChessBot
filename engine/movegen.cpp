@@ -610,7 +610,7 @@ Bitboard pawn_attacks(Square sq, bool color) {
 }
 
 void Board::update_control() {
-	memset(controlled_squares, 0, sizeof(controlled_squares));
+	memset(side_control, 0, sizeof(side_control));
 	memset(pinned, 0, sizeof(pinned));
 	memset(pinners, 0, sizeof(pinners));
 	memset(checkers, 0, sizeof(checkers));
@@ -629,8 +629,7 @@ void Board::update_control() {
 	while (white) {
 		Square sq = (Square)_tzcnt_u64(white);
 		Bitboard control = rook_attacks(sq, occ ^ b_king);
-		controlled_squares[ROOK] |= control;
-		controlled_squares[OCC(WHITE)] |= control;
+		side_control[WHITE] |= control;
 		white = _blsr_u64(white);
 
 		if (_mm_popcnt_u64(rook_blockers_pure[sq][b_king_sq] & occ) == 1) {
@@ -644,8 +643,7 @@ void Board::update_control() {
 	while (black) {
 		Square sq = (Square)_tzcnt_u64(black);
 		Bitboard control = rook_attacks(sq, occ ^ w_king);
-		controlled_squares[ROOK] |= control;
-		controlled_squares[OCC(BLACK)] |= control;
+		side_control[BLACK] |= control;
 		black = _blsr_u64(black);
 
 		if (_mm_popcnt_u64(rook_blockers_pure[sq][w_king_sq] & occ) == 1) {
@@ -657,14 +655,14 @@ void Board::update_control() {
 			checkers[WHITE] |= square_bits(sq);
 	}
 
+	// Bishops
 	pieces = piece_boards[BISHOP] | piece_boards[QUEEN];
 	white = pieces & piece_boards[OCC(WHITE)];
 	black = pieces & piece_boards[OCC(BLACK)];
 	while (white) {
 		Square sq = (Square)_tzcnt_u64(white);
 		Bitboard control = bishop_attacks(sq, occ ^ b_king);
-		controlled_squares[BISHOP] |= control;
-		controlled_squares[OCC(WHITE)] |= control;
+		side_control[WHITE] |= control;
 		white = _blsr_u64(white);
 
 		if (_mm_popcnt_u64(bishop_blockers_pure[sq][b_king_sq] & occ) == 1) {
@@ -678,8 +676,7 @@ void Board::update_control() {
 	while (black) {
 		Square sq = (Square)_tzcnt_u64(black);
 		Bitboard control = bishop_attacks(sq, occ ^ w_king);
-		controlled_squares[BISHOP] |= control;
-		controlled_squares[OCC(BLACK)] |= control;
+		side_control[BLACK] |= control;
 		black = _blsr_u64(black);
 
 		if (_mm_popcnt_u64(bishop_blockers_pure[sq][w_king_sq] & occ) == 1) {
@@ -691,6 +688,7 @@ void Board::update_control() {
 			checkers[WHITE] |= square_bits(sq);
 	}
 
+	// Knights
 	pieces = piece_boards[KNIGHT];
 	white = pieces & piece_boards[OCC(WHITE)];
 	black = pieces & piece_boards[OCC(BLACK)];
@@ -698,8 +696,7 @@ void Board::update_control() {
 		Bitboard hor1 = ((white & ~FileHBits) << 1) | ((white & ~FileABits) >> 1);
 		Bitboard hor2 = ((white & ~FileHBits & ~FileGBits) << 2) | ((white & ~FileABits & ~FileBBits) >> 2);
 		Bitboard control = (hor1 << 16) | (hor1 >> 16) | (hor2 << 8) | (hor2 >> 8);
-		controlled_squares[KNIGHT] |= control;
-		controlled_squares[OCC(WHITE)] |= control;
+		side_control[WHITE] |= control;
 
 		checkers[BLACK] |= knight_movetable[b_king_sq] & white;
 	}
@@ -707,49 +704,46 @@ void Board::update_control() {
 		Bitboard hor1 = ((black & ~FileHBits) << 1) | ((black & ~FileABits) >> 1);
 		Bitboard hor2 = ((black & ~FileHBits & ~FileGBits) << 2) | ((black & ~FileABits & ~FileBBits) >> 2);
 		Bitboard control = (hor1 << 16) | (hor1 >> 16) | (hor2 << 8) | (hor2 >> 8);
-		controlled_squares[KNIGHT] |= control;
-		controlled_squares[OCC(BLACK)] |= control;
+		side_control[BLACK] |= control;
 
 		checkers[WHITE] |= knight_movetable[w_king_sq] & black;
 	}
 
+	// Pawns
 	pieces = piece_boards[PAWN];
 	white = pieces & piece_boards[OCC(WHITE)];
 	black = pieces & piece_boards[OCC(BLACK)];
 	{
 		Bitboard control = ((white & ~FileABits) << 7) | ((white & ~FileHBits) << 9);
-		controlled_squares[PAWN] |= control;
-		controlled_squares[OCC(WHITE)] |= control;
+		side_control[WHITE] |= control;
 
 		checkers[BLACK] |= pawn_attacks(b_king_sq, BLACK) & white;
 	}
 	{
 		Bitboard control = ((black & ~FileHBits) >> 7) | ((black & ~FileABits) >> 9);
-		controlled_squares[PAWN] |= control;
-		controlled_squares[OCC(BLACK)] |= control;
+		side_control[BLACK] |= control;
 
 		checkers[WHITE] |= pawn_attacks(w_king_sq, WHITE) & black;
 	}
 
+	// Kings
 	pieces = piece_boards[KING];
 	white = pieces & piece_boards[OCC(WHITE)];
 	black = pieces & piece_boards[OCC(BLACK)];
 	{
 		Bitboard control = white | ((white & ~FileHBits) << 1) | ((white & ~FileABits) >> 1);
 		control |= (control << 8) | (control >> 8);
-		controlled_squares[KING] |= control;
-		controlled_squares[OCC(WHITE)] |= control;
+		side_control[WHITE] |= control;
 	}
 	{
 		Bitboard control = black | ((black & ~FileHBits) << 1) | ((black & ~FileABits) >> 1);
 		control |= (control << 8) | (control >> 8);
-		controlled_squares[KING] |= control;
-		controlled_squares[OCC(BLACK)] |= control;
+		side_control[BLACK] |= control;
 	}
 }
 
 bool Board::control(int sq, bool side) const {
-	return controlled_squares[OCC(side)] & square_bits((Square)sq);
+	return side_control[side] & square_bits((Square)sq);
 }
 
 Bitboard Board::lva_(Square sq, int side, PieceType &p, Bitboard occ) const {
@@ -990,7 +984,7 @@ bool Board::is_legal(Move move) const {
 
 	// Moving king, cannot move into check
 	if ((mailbox[move.src()] & 7) == KING)
-		return (controlled_squares[OPPOCC(side)] & square_bits(move.dst())) == 0;
+		return (side_control[side ^ 1] & square_bits(move.dst())) == 0;
 
 	// Double check, only king moves allowed
 	if (_mm_popcnt_u64(checkers[side]) > 1)

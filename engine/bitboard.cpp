@@ -331,18 +331,18 @@ bool Board::sanity_check(char *print) {
 
 	bool ctrlerror = 0;
 	for (int i = 0; i < 64; i++) {
-		if (control((Square)i, WHITE) != !!(controlled_squares[OCC(WHITE)] & square_bits((Square)i))) {
+		if (control((Square)i, WHITE) != !!(side_control[WHITE] & square_bits((Square)i))) {
 			std::cerr << "Control bitboard for white on square " << char((i & 7) + 'a') << char((i >> 3) + '1') << " is incorrect\n";
 			ctrlerror = 1;
 		}
-		if (control((Square)i, BLACK) != !!(controlled_squares[OCC(BLACK)] & square_bits((Square)i))) {
+		if (control((Square)i, BLACK) != !!(side_control[BLACK] & square_bits((Square)i))) {
 			std::cerr << "Control bitboard for black on square " << char((i & 7) + 'a') << char((i >> 3) + '1') << " is incorrect\n";
 			ctrlerror = 1;
 		}
 	}
 	if (ctrlerror) {
-		std::cerr << "White control bitboard: " << std::hex << controlled_squares[OCC(WHITE)] << std::dec << '\n';
-		print_bitboard(controlled_squares[OCC(WHITE)]);
+		std::cerr << "White control bitboard: " << std::hex << side_control[WHITE] << std::dec << '\n';
+		print_bitboard(side_control[WHITE]);
 		Bitboard ctrl = 0;
 		for (int i = 0; i < 64; i++) {
 			if (control((Square)i, WHITE)) {
@@ -352,8 +352,8 @@ bool Board::sanity_check(char *print) {
 		std::cerr << "Computed white control bitboard: " << std::hex << ctrl << std::dec << '\n';
 		print_bitboard(ctrl);
 
-		std::cerr << "Black control bitboard: " << std::hex << controlled_squares[OCC(BLACK)] << std::dec << '\n';
-		print_bitboard(controlled_squares[OCC(BLACK)]);
+		std::cerr << "Black control bitboard: " << std::hex << side_control[BLACK] << std::dec << '\n';
+		print_bitboard(side_control[BLACK]);
 		ctrl = 0;
 		for (int i = 0; i < 64; i++) {
 			if (control((Square)i, BLACK)) {
