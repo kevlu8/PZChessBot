@@ -606,6 +606,11 @@ void Board::update_control() {
 	memset(controlled_squares, 0, sizeof(controlled_squares));
 	Bitboard occ = piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)];
 
+	Bitboard w_king = piece_boards[KING] & piece_boards[OCC(WHITE)];
+	Bitboard b_king = piece_boards[KING] & piece_boards[OCC(BLACK)];
+	Square w_king_sq = (Square)_tzcnt_u64(w_king);
+	Square b_king_sq = (Square)_tzcnt_u64(b_king);
+
 	// Rooks
 	Bitboard pieces = piece_boards[ROOK] | piece_boards[QUEEN];
 	Bitboard white = pieces & piece_boards[OCC(WHITE)];
@@ -616,6 +621,14 @@ void Board::update_control() {
 		controlled_squares[ROOK] |= control;
 		controlled_squares[OCC(WHITE)] |= control;
 		white = _blsr_u64(white);
+
+		if (_mm_popcnt_u64(rook_blockers[sq][b_king_sq] & piece_boards[OCC(BLACK)]) == 1) {
+			pinned[BLACK] |= rook_blockers[sq][b_king_sq] & piece_boards[OCC(BLACK)];
+			pinners[BLACK] |= square_bits(sq);
+		}
+
+		if (control & b_king)
+			checkers[BLACK] |= square_bits(sq);
 	}
 	while (black) {
 		Square sq = (Square)_tzcnt_u64(black);
@@ -623,6 +636,14 @@ void Board::update_control() {
 		controlled_squares[ROOK] |= control;
 		controlled_squares[OCC(BLACK)] |= control;
 		black = _blsr_u64(black);
+
+		if (_mm_popcnt_u64(rook_blockers[sq][w_king_sq] & piece_boards[OCC(WHITE)]) == 1) {
+			pinned[WHITE] |= rook_blockers[sq][w_king_sq] & piece_boards[OCC(WHITE)];
+			pinners[WHITE] |= square_bits(sq);
+		}
+
+		if (control & w_king)
+			checkers[WHITE] |= square_bits(sq);
 	}
 
 	pieces = piece_boards[BISHOP] | piece_boards[QUEEN];
@@ -634,6 +655,14 @@ void Board::update_control() {
 		controlled_squares[BISHOP] |= control;
 		controlled_squares[OCC(WHITE)] |= control;
 		white = _blsr_u64(white);
+
+		if (_mm_popcnt_u64(bishop_blockers[sq][b_king_sq] & piece_boards[OCC(BLACK)]) == 1) {
+			pinned[BLACK] |= bishop_blockers[sq][b_king_sq] & piece_boards[OCC(BLACK)];
+			pinners[BLACK] |= square_bits(sq);
+		}
+
+		if (control & b_king)
+			checkers[BLACK] |= square_bits(sq);
 	}
 	while (black) {
 		Square sq = (Square)_tzcnt_u64(black);
@@ -641,6 +670,14 @@ void Board::update_control() {
 		controlled_squares[BISHOP] |= control;
 		controlled_squares[OCC(BLACK)] |= control;
 		black = _blsr_u64(black);
+
+		if (_mm_popcnt_u64(bishop_blockers[sq][w_king_sq] & piece_boards[OCC(WHITE)]) == 1) {
+			pinned[WHITE] |= bishop_blockers[sq][w_king_sq] & piece_boards[OCC(WHITE)];
+			pinners[WHITE] |= square_bits(sq);
+		}
+
+		if (control & w_king)
+			checkers[WHITE] |= square_bits(sq);
 	}
 
 	pieces = piece_boards[KNIGHT];
@@ -652,6 +689,8 @@ void Board::update_control() {
 		Bitboard control = (hor1 << 16) | (hor1 >> 16) | (hor2 << 8) | (hor2 >> 8);
 		controlled_squares[KNIGHT] |= control;
 		controlled_squares[OCC(WHITE)] |= control;
+
+		checkers[BLACK] |= knight_movetable[b_king_sq] & white;
 	}
 	{
 		Bitboard hor1 = ((black & ~FileHBits) << 1) | ((black & ~FileABits) >> 1);
@@ -659,6 +698,8 @@ void Board::update_control() {
 		Bitboard control = (hor1 << 16) | (hor1 >> 16) | (hor2 << 8) | (hor2 >> 8);
 		controlled_squares[KNIGHT] |= control;
 		controlled_squares[OCC(BLACK)] |= control;
+
+		checkers[WHITE] |= knight_movetable[w_king_sq] & black;
 	}
 
 	pieces = piece_boards[PAWN];
@@ -668,11 +709,15 @@ void Board::update_control() {
 		Bitboard control = ((white & ~FileABits) << 7) | ((white & ~FileHBits) << 9);
 		controlled_squares[PAWN] |= control;
 		controlled_squares[OCC(WHITE)] |= control;
+
+		checkers[BLACK] |= pawn_attacks(b_king_sq, WHITE) & white;
 	}
 	{
 		Bitboard control = ((black & ~FileHBits) >> 7) | ((black & ~FileABits) >> 9);
 		controlled_squares[PAWN] |= control;
 		controlled_squares[OCC(BLACK)] |= control;
+
+		checkers[WHITE] |= pawn_attacks(w_king_sq, BLACK) & black;
 	}
 
 	pieces = piece_boards[KING];
@@ -913,4 +958,51 @@ bool Board::is_pseudolegal(Move move) const {
 		break;
 	}
 	return false;
+}
+
+bool Board::is_legal(Move move) const {
+	if (move.type() == EN_PASSANT) {
+		// Just return true, i don't want to deal with this rn
+		return true;
+	}
+
+	// Moving king, cannot move into check
+	if ((mailbox[move.src()] & 7) == KING)
+		return controlled_squares[!side] & square_bits(move.dst()) == 0;
+
+	// Double check, only king moves allowed
+	if (_mm_popcnt_u64(checkers[side]) > 1)
+		return false;
+
+	Square king_sq = (Square)_tzcnt_u64(piece_boards[KING] & piece_boards[OCC(side)]);
+	if (checkers[side]) {
+		// Block
+		Square checker_sq = (Square)_tzcnt_u64(checkers[side]);
+		Bitboard between = rook_blockers[checker_sq][king_sq] | bishop_blockers[checker_sq][king_sq];
+		if (between & square_bits(move.dst()))
+			return true;
+
+		// Capture
+		if (move.dst() == checker_sq)
+			return true;
+
+		return false;
+	}
+
+	// Pinned piece
+	if (pinned[side] & square_bits(move.src())) {
+		// Find the pinner
+		Bitboard p = pinners[side];
+		while (p) {
+			// Get ray between pinned piece and king
+			Square pinner_sq = (Square)_tzcnt_u64(p);
+			Bitboard ray = __blsi_u64(p) | rook_blockers[pinner_sq][king_sq] | bishop_blockers[pinner_sq][king_sq];
+			if (square_bits(move.src()) & ray)
+				return square_bits(move.dst()) & ray;
+			p ^= ray;
+		}
+	}
+
+	// Nothing is wrong, return true
+	return true;
 }
