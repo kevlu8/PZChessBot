@@ -64,6 +64,7 @@ void gen_rook_moves(int sq, Bitboard piece) {
 			rook_blockers_pure[dst][sq] = rook_blockers_pure[sq][dst] = rook_blockers[sq][dst];
 		} else if (board & north) {
 			rook_blockers[sq][dst] = north & (_blsmsk_u64(board) >> 1);
+			rook_blockers[dst][sq] = rook_blockers[sq][dst];
 			rook_blockers_pure[dst][sq] = rook_blockers_pure[sq][dst] = rook_blockers[sq][dst];
 		}
 	}
