@@ -215,13 +215,6 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 		}
 	}
 
-	bool opp_in_check = ti.board.control(__tzcnt_u64(ti.board.piece_boards[KING] & ti.board.piece_boards[OPPOCC(ti.board.side)]), ti.board.side);
-	if (opp_in_check) {
-		/// TODO: DEBUG ONLY - REMOVE AFTER TESTING
-		std::cout << "bestmove 0000" << std::endl;
-		exit(0);
-	}
-
 	// Do evaluation and corrections
 	Value stand_pat = 0;
 	Value raw_eval = 0;
@@ -368,35 +361,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		return alpha;
 	}
 
-	// Control on white king and black king respectively
-	bool wcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK);
-	bool bcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE);
-	if (board.side == WHITE) {
-		// If it is white to move and white controls black's king, it's mate
-		if (bcontrol > 0) {
-			/// TODO: DEBUG ONLY - REMOVE AFTER TESTING
-			std::cout << "bestmove 0000" << std::endl;
-			exit(0);
-		}
-	} else {
-		// Likewise, the contrary also applies.
-		if (wcontrol > 0) {
-			/// TODO: DEBUG ONLY - REMOVE AFTER TESTING
-			std::cout << "bestmove 0000" << std::endl;
-			exit(0);
-		}
-	}
-
 	// Threefold or 50 move rule
 	if (!root && (board.threefold(ply) || board.halfmove >= 100 || board.insufficient_material())) {
 		return 0;
-	}
-
-	bool in_check = false;
-	if (board.side == WHITE) {
-		in_check = wcontrol > 0;
-	} else {
-		in_check = bcontrol > 0;
 	}
 
 	if (depth <= 0) {
@@ -435,6 +402,8 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		ttpv |= tentry->ttpv();
 		ttcapt = board.is_capture(tentry->best_move);
 	}
+
+	bool in_check = (board.piece_boards[KING] & board.piece_boards[OCC(board.side)]) & board.side_control[board.side ^ 1];
 
 	// Evaluate and correct evaluation
 	Value cur_eval = 0;
