@@ -106,13 +106,13 @@ Move Move::from_string(const std::string &str, const void *b) {
 					return Move(src, dst);
 			} else {
 				if (str == "e1g1")
-					return Move::make<CASTLING>(src, board->rook_pos[1]);
-				if (str == "e1c1")
 					return Move::make<CASTLING>(src, board->rook_pos[0]);
+				if (str == "e1c1")
+					return Move::make<CASTLING>(src, board->rook_pos[1]);
 				if (str == "e8g8")
-					return Move::make<CASTLING>(src, board->rook_pos[3]);
-				if (str == "e8c8")
 					return Move::make<CASTLING>(src, board->rook_pos[2]);
+				if (str == "e8c8")
+					return Move::make<CASTLING>(src, board->rook_pos[3]);
 			}
 		} else if ((board->mailbox[src] & 7) == PAWN && dst == ((const Board *)b)->ep_square) {
 			// En passant
