@@ -251,27 +251,28 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool p
 		
 		mp.skip_quiets(); // in case we were searching evasions, if we reach here that means we have found one. So, we can skip all other quiets.
 
-		bool see = ti.board.see(move, -12);
-		if (!see) {
-			/**
-			 * QSearch SEE pruning
-			 * 
-			 * In the QSearch, we don't care too much about missing tactics. So, we can
-			 * be more aggressive with our pruning. If a capture loses material, we can
-			 * discard it directly.
-			 */
-			continue;
-		} else {
-			/**
-			 * QS Futility pruning
-			 * 
-			 * Also known as delta pruning. If adding the value of the capture to our
-			 * static evaluation plus a safety margin is still not enough to raise
-			 * alpha, we can skip the move.
-			 */
-			int see_threshold = alpha - stand_pat - DELTA_THRESHOLD;
-			if (!ti.board.see(move, 168 * see_threshold / 1024))
+		if (best > -VALUE_MATE_MAX_PLY) {
+			if (!ti.board.see(move, -12)) {
+				/**
+				 * QSearch SEE pruning
+				 * 
+				 * In the QSearch, we don't care too much about missing tactics. So, we can
+				 * be more aggressive with our pruning. If a capture loses material, we can
+				 * discard it directly.
+				 */
 				continue;
+			} else {
+				/**
+				 * QS Futility pruning
+				 * 
+				 * Also known as delta pruning. If adding the value of the capture to our
+				 * static evaluation plus a safety margin is still not enough to raise
+				 * alpha, we can skip the move.
+				 */
+				int see_threshold = alpha - stand_pat - DELTA_THRESHOLD;
+				if (!ti.board.see(move, 168 * see_threshold / 1024))
+					continue;
+			}
 		}
 
 		ti.line[ply].move = move;
