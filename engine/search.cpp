@@ -185,7 +185,7 @@ bool is_valid_score(Value score) {
  * - Search for checks and check evasions (every time I've tried this it has lost tons of elo)
  * - Late move reduction (instead of reducing depth, we reduce the search window) (not a known technique, maybe worth trying?)
  */
-Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool pv=false) {
+Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool pv=false) {
 	nodes[ti.id]++;
 
 	if (stop_search) return 0;
@@ -198,13 +198,13 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 		}
 	}
 
-	if (depth >= MAX_PLY)
+	if (ply >= MAX_PLY)
 		return eval(ti.board, (BoardState *)ti.bs) * side; // Just in case
 
 	// Check for TTable cutoff
 	auto tentry = ttable.probe(ti.board.zobrist);
 	Value tteval = -VALUE_INFINITE;
-	if (tentry && is_valid_score(tentry->eval)) tteval = tt_to_score(tentry->eval, depth);
+	if (tentry && is_valid_score(tentry->eval)) tteval = tt_to_score(tentry->eval, ply);
 	if (!pv && tentry && is_valid_score(tteval)) {
 		if (tentry->bound() == EXACT) return tteval;
 		if (tentry->bound() == LOWER_BOUND) {
@@ -218,20 +218,16 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	bool in_check = ti.board.checkers[ti.board.side];
 
 	// Do evaluation and corrections
-	Value stand_pat = 0;
-	Value raw_eval = 0;
-	stand_pat = tentry ? tentry->s_eval : eval(ti.board, (BoardState *)ti.bs) * side;
-	raw_eval = stand_pat;
-	ti.thread_hist.apply_correction(ti.board, &ti.line[depth], depth, stand_pat);
-	if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
-		stand_pat = tteval;
-
-	if (!tentry) ttable.store(ti.board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
-
-	// If it's a mate, stop here since there's no point in searching further
-	// Theoretically shouldn't ever happen because of stand pat
-	if (stand_pat == VALUE_MATE || stand_pat == -VALUE_MATE)
-		return stand_pat;
+	Value stand_pat = -VALUE_INFINITE;
+	Value raw_eval = -VALUE_INFINITE;
+	if (!in_check) {
+		stand_pat = tentry ? tentry->s_eval : eval(ti.board, (BoardState *)ti.bs) * side;
+		raw_eval = stand_pat;
+		ti.thread_hist.apply_correction(ti.board, &ti.line[ply], ply, stand_pat);
+		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
+			stand_pat = tteval;
+		if (!tentry) ttable.store(ti.board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
+	}
 
 	// If we are too good, return the score
 	if (stand_pat >= beta)
@@ -278,22 +274,22 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 				continue;
 		}
 
-		ti.line[depth].move = move;
-		ti.line[depth].captured = (PieceType)(ti.board.mailbox[move.dst()] & 7);
-		ti.line[depth].piece = (PieceType)(ti.board.mailbox[move.src()] & 7);
-		ti.line[depth].cont_hist = &ti.thread_hist.cont_hist[ti.board.side][ti.board.mailbox[move.src()] & 7][move.dst()];
-		ti.line[depth].corr_hist = &ti.thread_hist.corrhist_cont[ti.board.side][ti.board.mailbox[move.src()] & 7][move.dst()];
+		ti.line[ply].move = move;
+		ti.line[ply].captured = (PieceType)(ti.board.mailbox[move.dst()] & 7);
+		ti.line[ply].piece = (PieceType)(ti.board.mailbox[move.src()] & 7);
+		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[ti.board.side][ti.board.mailbox[move.src()] & 7][move.dst()];
+		ti.line[ply].corr_hist = &ti.thread_hist.corrhist_cont[ti.board.side][ti.board.mailbox[move.src()] & 7][move.dst()];
 
 		ti.board.make_move(move);
 		_mm_prefetch(&ttable.TT[ti.board.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
-		Value score = -quiesce(ti, -beta, -alpha, -side, depth + 1, pv);
+		Value score = -quiesce(ti, -beta, -alpha, -side, ply + 1, pv);
 		ti.board.unmake_move();
 
-		ti.line[depth].move = NullMove;
-		ti.line[depth].captured = NO_PIECETYPE;
-		ti.line[depth].piece = NO_PIECETYPE;
-		ti.line[depth].cont_hist = nullptr;
-		ti.line[depth].corr_hist = nullptr;
+		ti.line[ply].move = NullMove;
+		ti.line[ply].captured = NO_PIECETYPE;
+		ti.line[ply].piece = NO_PIECETYPE;
+		ti.line[ply].cont_hist = nullptr;
+		ti.line[ply].corr_hist = nullptr;
 
 		if (score > best) {
 			if (score > alpha) {
@@ -305,14 +301,19 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 		}
 
 		if (score >= beta) {
-			ttable.store(ti.board.zobrist, score_to_tt(score, depth), raw_eval, 0, LOWER_BOUND, pv, move);
+			ttable.store(ti.board.zobrist, score_to_tt(score, ply), raw_eval, 0, LOWER_BOUND, pv, move);
 			return best;
 		}
 
 		moves_searched++;
 	}
 
-	ttable.store(ti.board.zobrist, score_to_tt(best, depth), raw_eval, 0, alpha_raise ? EXACT : UPPER_BOUND, pv, best_move);
+	if (best == -VALUE_INFINITE) {
+		if (in_check) return -VALUE_MATE + ply;
+		else return 0;
+	}
+
+	ttable.store(ti.board.zobrist, score_to_tt(best, ply), raw_eval, 0, alpha_raise ? EXACT : UPPER_BOUND, pv, best_move);
 
 	return best;
 }
