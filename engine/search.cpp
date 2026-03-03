@@ -308,9 +308,8 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool p
 		moves_searched++;
 	}
 
-	if (best == -VALUE_INFINITE) {
-		if (in_check) return -VALUE_MATE + ply;
-		else return 0;
+	if (in_check && best == -VALUE_INFINITE) {
+		return -VALUE_MATE + 1;
 	}
 
 	ttable.store(ti.board.zobrist, score_to_tt(best, ply), raw_eval, 0, alpha_raise ? EXACT : UPPER_BOUND, pv, best_move);
