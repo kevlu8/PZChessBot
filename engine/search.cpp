@@ -16,21 +16,22 @@ std::atomic<uint64_t> nodecnt[64][64] = {{}};
 std::atomic<uint64_t> nodes[MAX_THREADS] = {};
 
 uint64_t perft(Board &board, int depth) {
-	// If white's turn is beginning and black is in check
-	if (board.side == WHITE && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[7]), WHITE))
-		return 0;
-	// If black's turn is beginning and white is in check
-	else if (board.side == BLACK && board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[6]), BLACK))
-		return 0;
 	if (depth == 0)
 		return 1;
 	pzstd::vector<Move> moves;
 	board.legal_moves(moves);
 	uint64_t cnt = 0;
 	for (Move &move : moves) {
-		board.make_move(move);
-		cnt += perft(board, depth - 1);
-		board.unmake_move();
+		if (!board.is_legal(move))
+			continue;
+
+		if (depth > 1) {
+			board.make_move(move);
+			cnt += perft(board, depth - 1);
+			board.unmake_move();
+		} else {
+			cnt++;
+		}
 	}
 	return cnt;
 }
@@ -214,9 +215,6 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 		}
 	}
 
-	bool opp_in_check = ti.board.control(__tzcnt_u64(ti.board.piece_boards[KING] & ti.board.piece_boards[OPPOCC(ti.board.side)]), ti.board.side);
-	if (opp_in_check) return VALUE_MATE;
-
 	// Do evaluation and corrections
 	Value stand_pat = 0;
 	Value raw_eval = 0;
@@ -265,6 +263,9 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	int end = scores.size();
 
 	while ((move = next_move(scores, end)) != NullMove) {
+		if (!ti.board.is_legal(move))
+			continue;
+
 		bool see = ti.board.see(move, -12);
 		if (!see) {
 			/**
@@ -360,30 +361,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		return alpha;
 	}
 
-	// Control on white king and black king respectively
-	bool wcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK);
-	bool bcontrol = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE);
-
-	if (board.side == WHITE) {
-		// If it is white to move and white controls black's king, it's mate
-		if (bcontrol > 0)
-			return VALUE_MATE;
-	} else {
-		// Likewise, the contrary also applies.
-		if (wcontrol > 0)
-			return VALUE_MATE;
-	}
-
 	// Threefold or 50 move rule
 	if (!root && (board.threefold(ply) || board.halfmove >= 100 || board.insufficient_material())) {
 		return 0;
-	}
-
-	bool in_check = false;
-	if (board.side == WHITE) {
-		in_check = wcontrol > 0;
-	} else {
-		in_check = bcontrol > 0;
 	}
 
 	if (depth <= 0) {
@@ -422,6 +402,8 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		ttpv |= tentry->ttpv();
 		ttcapt = board.is_capture(tentry->best_move);
 	}
+
+	bool in_check = (board.piece_boards[KING] & board.piece_boards[OCC(board.side)]) & board.side_control[board.side ^ 1];
 
 	// Evaluate and correct evaluation
 	Value cur_eval = 0;
@@ -537,7 +519,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		int pc_depth = depth - 5;
 		Value pc_beta = beta + PROBCUT_MARGIN;
 		while ((pc_move = pcpicker.next()) != NullMove) {
-			if (pc_move == ti.line[ply].excl)
+			if (pc_move == ti.line[ply].excl || !board.is_legal(pc_move))
 				continue;
 
 			ti.line[ply].move = pc_move;
@@ -597,7 +579,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	ti.line[ply+1].cutoffcnt = 0;
 
 	while ((move = mp.next()) != NullMove) {
-		if (move == ti.line[ply].excl)
+		if (move == ti.line[ply].excl || !board.is_legal(move))
 			continue;
 		
 		bool capt = (board.piece_boards[OPPOCC(board.side)] & square_bits(move.dst()));

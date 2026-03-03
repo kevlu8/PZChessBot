@@ -61,3 +61,6 @@ test/test
 *.py
 *.epd
 cutechess
+*.log
+base
+config.json
