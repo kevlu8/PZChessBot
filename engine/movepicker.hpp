@@ -20,6 +20,9 @@ enum MP_Stage {
 	MP_PC_GEN,
 	MP_PC_MOVES,
 
+	MP_QS_GEN,
+	MP_QS_MOVES,
+
 	MP_STAGE_DONE,
 };
 
@@ -39,6 +42,7 @@ private:
 public:
 	MovePicker(Board &board, SSEntry *ss, int ply, History *main_hist, std::optional<TTable::TTEntry> &tentry);
 	MovePicker(Board &board, History *main_hist, std::optional<TTable::TTEntry> &tentry); // Probcut constructor
+	MovePicker(Board &board, History *main_hist, bool skip_quiets); // QSearch constructor
 
 	Move next();
 

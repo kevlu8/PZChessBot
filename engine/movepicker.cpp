@@ -26,6 +26,10 @@ MovePicker::MovePicker(Board &board, History *main_hist, std::optional<TTable::T
 	ttMove = tentry ? tentry->best_move : NullMove;
 }
 
+MovePicker::MovePicker(Board &board, History *main_hist, bool skip_quiets) : board(board), ss(nullptr), ply(0), main_hist(main_hist), qskip(skip_quiets) {
+	stage = MP_QS_GEN;
+}
+
 Move MovePicker::next() {
 	if (stage == MP_STAGE_DONE)
 		return NullMove;
@@ -147,6 +151,45 @@ Move MovePicker::next() {
 		if (move != NullMove) return move;
 		stage = MP_STAGE_DONE;
 		return NullMove;
+	}
+
+	if (stage == MP_QS_GEN) {
+		stage = MP_QS_MOVES;
+		if (qskip) board.captures(moves);
+		else board.legal_moves(moves);
+
+		for (Move move : moves) {
+			int score = 0;
+
+			bool capt = board.is_capture(move);
+			bool promo = move.type() == PROMOTION;
+
+			if (capt || promo) {
+				if (capt)
+					score = MVV[board.mailbox[move.dst()] & 7] +
+							main_hist->capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
+				if (promo)
+					score += MVV[move.promotion() + KNIGHT] - PawnValue;
+				noisy_scores.push_back({move, score});
+			} else {
+				noisy_scores.push_back({move, -100000}); // order quiets after
+			}
+		}
+
+		end = noisy_scores.size();
+	}
+
+	if (stage == MP_QS_MOVES) {
+		if (end == 0) {
+			stage = MP_STAGE_DONE;
+			return NullMove;
+		}
+		while (true) {
+			auto [move, score] = pick_next(noisy_scores, end);
+			if (move != NullMove) return move;
+			stage = MP_STAGE_DONE;
+			return NullMove;
+		}
 	}
 
 	if (stage == MP_STAGE_DONE) {
