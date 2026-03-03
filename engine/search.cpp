@@ -215,6 +215,8 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 		}
 	}
 
+	bool in_check = ti.board.checkers[ti.board.side];
+
 	// Do evaluation and corrections
 	Value stand_pat = 0;
 	Value raw_eval = 0;
@@ -237,22 +239,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	if (stand_pat > alpha)
 		alpha = stand_pat;
 
-	pzstd::vector<Move> moves;
-	ti.board.captures(moves);
-	if (moves.empty())
-		return stand_pat;
-
-	// Sort captures and promotions
-	pzstd::vector<std::pair<Move, int>> scores;
-	for (Move &move : moves) {
-		if (ti.board.is_capture(move)) {
-			int score = 0;
-			score = MVV_LVA[ti.board.mailbox[move.dst()] & 7][ti.board.mailbox[move.src()] & 7];
-			scores.push_back({move, score});
-		} else if (move.type() == PROMOTION) {
-			scores.push_back({move, PieceValue[move.promotion() + KNIGHT] - PawnValue});
-		}
-	}
+	MovePicker mp(ti.board, &ti.thread_hist, !in_check);
 
 	Value best = stand_pat;
 	Move best_move = NullMove;
@@ -260,11 +247,13 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 	int alpha_raise = 0;
 
 	Move move = NullMove;
-	int end = scores.size();
+	int moves_searched = 0;
 
-	while ((move = next_move(scores, end)) != NullMove) {
+	while ((move = mp.next()) != NullMove) {
 		if (!ti.board.is_legal(move))
 			continue;
+		
+		mp.skip_quiets(); // in case we were searching evasions, if we reach here that means we have found one. So, we can skip all other quiets.
 
 		bool see = ti.board.see(move, -12);
 		if (!see) {
@@ -314,10 +303,13 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int depth, bool
 			best = score;
 			best_move = move;
 		}
+
 		if (score >= beta) {
 			ttable.store(ti.board.zobrist, score_to_tt(score, depth), raw_eval, 0, LOWER_BOUND, pv, move);
 			return best;
 		}
+
+		moves_searched++;
 	}
 
 	ttable.store(ti.board.zobrist, score_to_tt(best, depth), raw_eval, 0, alpha_raise ? EXACT : UPPER_BOUND, pv, best_move);
@@ -403,7 +395,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		ttcapt = board.is_capture(tentry->best_move);
 	}
 
-	bool in_check = (board.piece_boards[KING] & board.piece_boards[OCC(board.side)]) & board.side_control[board.side ^ 1];
+	bool in_check = board.checkers[board.side];
 
 	// Evaluate and correct evaluation
 	Value cur_eval = 0;
