@@ -27,8 +27,7 @@ struct SSEntry {
 	SSEntry() : move(NullMove), eval(VALUE_NONE), excl(NullMove), cont_hist(nullptr), corr_hist(nullptr), cutoffcnt(0) {}
 };
 
-class History {
-public:
+struct History {
 	/**
 	 * The history heuristic is a move ordering heuristic that helps sort quiet moves.
 	 * It works by storing its effectiveness in the past through beta cutoffs.
@@ -43,6 +42,21 @@ public:
 	 */
 	Value capthist[2][6][6][64]; // [piece][captured][dst]
 
+	History() {
+		memset(history, 0, sizeof(history));
+		memset(cont_hist, 0, sizeof(cont_hist));
+		memset(capthist, 0, sizeof(capthist));
+	}
+
+	int get_conthist(Board &board, Move move, int ply, SSEntry *line);
+	int get_history(Board &board, Move move, int ply, SSEntry *line);
+	int get_capthist(Board &board, Move move);
+
+	void update_history(Board &board, Move &move, int ply, SSEntry *line, Value bonus);
+	void update_capthist(Board &board, Move move, Value bonus);
+};
+
+struct Corrhist {
 	/**
 	 * Static Evaluation Correction History (CorrHist) is a heuristic that "corrects"
 	 * the static evaluation towards the actual evaluation of the position, based on
@@ -54,10 +68,7 @@ public:
 	Value corrhist_min[2][CORRHIST_SZ]; // [side][minor piece hash]
 	ContHistEntry corrhist_cont[2][7][64]; // [side][piece][to]
 
-	History() {
-		memset(history, 0, sizeof(history));
-		memset(cont_hist, 0, sizeof(cont_hist));
-		memset(capthist, 0, sizeof(capthist));
+	Corrhist() {
 		memset(corrhist_ps, 0, sizeof(corrhist_ps));
 		memset(corrhist_np, 0, sizeof(corrhist_np));
 		memset(corrhist_maj, 0, sizeof(corrhist_maj));
@@ -65,13 +76,8 @@ public:
 		memset(corrhist_cont, 0, sizeof(corrhist_cont));
 	}
 
-	int get_conthist(Board &board, Move move, int ply, SSEntry *line);
-	int get_history(Board &board, Move move, int ply, SSEntry *line);
-	int get_capthist(Board &board, Move move);
-
-	void update_history(Board &board, Move &move, int ply, SSEntry *line, Value bonus);
-	void update_capthist(Board &board, Move move, Value bonus);
-
 	void update_corrhist(Board &board, SSEntry *line, int ply, int bonus);
 	void apply_correction(Board &board, SSEntry *line, int ply, Value &eval);
 };
+
+extern Corrhist shared_corrhist;
