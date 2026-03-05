@@ -41,7 +41,7 @@ public:
 	 * Capture history is a heuristic similar to the history heuristic, but it's used for
 	 * captures. It basically replaces LVA.
 	 */
-	Value capthist[6][6][64]; // [piece][captured][dst]
+	Value capthist[2][6][6][64]; // [piece][captured][dst]
 
 	/**
 	 * Static Evaluation Correction History (CorrHist) is a heuristic that "corrects"
@@ -70,7 +70,7 @@ public:
 	int get_capthist(Board &board, Move move);
 
 	void update_history(Board &board, Move &move, int ply, SSEntry *line, Value bonus);
-	void update_capthist(PieceType piece, PieceType captured, Square dst, Value bonus);
+	void update_capthist(Board &board, Move move, Value bonus);
 
 	void update_corrhist(Board &board, SSEntry *line, int ply, int bonus);
 	void apply_correction(Board &board, SSEntry *line, int ply, Value &eval);

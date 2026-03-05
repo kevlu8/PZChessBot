@@ -22,7 +22,7 @@ int History::get_history(Board &board, Move move, int ply, SSEntry *line) {
 }
 
 int History::get_capthist(Board &board, Move move) {
-	int score = capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
+	int score = capthist[board.side][board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
 	return score;
 }
 
@@ -43,9 +43,9 @@ void History::update_history(Board &board, Move &move, int ply, SSEntry *line, V
 		(line - 6)->cont_hist->hist[board.side][board.mailbox[move.src()] & 7][move.dst()] += cbonus - conthist * abs(bonus) / MAX_HISTORY;
 }
 
-void History::update_capthist(PieceType piece, PieceType captured, Square dst, Value bonus) {
+void History::update_capthist(Board &board, Move move, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
-	capthist[piece][captured][dst] += cbonus - capthist[piece][captured][dst] * abs(bonus) / MAX_HISTORY;
+	capthist[board.side][board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()] += cbonus - capthist[board.side][board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()] * abs(bonus) / MAX_HISTORY;
 }
 
 // Moving exponential average for corrhist

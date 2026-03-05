@@ -55,8 +55,7 @@ Move MovePicker::next() {
 
 			if (capt || promo) {
 				if (capt)
-					score += MVV[board.mailbox[move.dst()] & 7] +
-							 main_hist->capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
+					score += MVV[board.mailbox[move.dst()] & 7] + main_hist->get_capthist(board, move);
 				if (promo)
 					score += MVV[move.promotion() + KNIGHT] - PawnValue;
 				
@@ -132,8 +131,7 @@ Move MovePicker::next() {
 
 			int score = 0;
 			if (board.is_capture(move))
-				score = MVV[board.mailbox[move.dst()] & 7] +
-						main_hist->capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
+				score = MVV[board.mailbox[move.dst()] & 7] + main_hist->get_capthist(board, move);
 			else
 				score = MVV[move.promotion() + KNIGHT] - PawnValue;
 			noisy_scores.push_back({move, score});
@@ -166,8 +164,7 @@ Move MovePicker::next() {
 
 			if (capt || promo) {
 				if (capt)
-					score = MVV[board.mailbox[move.dst()] & 7] +
-							main_hist->capthist[board.mailbox[move.src()] & 7][board.mailbox[move.dst()] & 7][move.dst()];
+					score = MVV[board.mailbox[move.dst()] & 7] + main_hist->get_capthist(board, move);
 				if (promo)
 					score += MVV[move.promotion() + KNIGHT] - PawnValue;
 				noisy_scores.push_back({move, score});
