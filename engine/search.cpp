@@ -635,7 +635,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 		int hist = capt ? ti.thread_hist.get_capthist(board, move) : ti.thread_hist.get_history(board, move, ply, &ti.line[ply]);
 		if (best > -VALUE_MATE_MAX_PLY) {
-			if (i >= (5 + depth * depth) / (2 - improving)) {
+			if (i >= (3 + depth * depth) / (2 - improving)) {
 				/**
 				 * Late Move Pruning
 				 * 
