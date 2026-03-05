@@ -818,10 +818,10 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 					ti.thread_hist.update_history(board, qmove, ply, &ti.line[ply], -bonus); // Penalize quiet moves
 				}
 			} else { // Capture
-				ti.thread_hist.update_capthist(PieceType(board.mailbox[move.src()] & 7), PieceType(board.mailbox[move.dst()] & 7), move.dst(), bonus);
+				ti.thread_hist.update_capthist(board, move, bonus);
 			}
 			for (auto &cmove : captures) {
-				ti.thread_hist.update_capthist(PieceType(board.mailbox[cmove.src()] & 7), PieceType(board.mailbox[cmove.dst()] & 7), cmove.dst(), -bonus);
+				ti.thread_hist.update_capthist(board, cmove, -bonus);
 			}
 			break;
 		}
