@@ -63,6 +63,7 @@ struct HistoryEntry {
 struct Board {
 	Bitboard piece_boards[8] = {0};
 	Bitboard side_control[2] = {0}; // side_control[WHITE] are squares controlled by WHITE pieces
+	Bitboard piece_control[13] = {0};
 	Bitboard pinned[2]; // pinned[WHITE] are pieces pinned to the WHITE king
 	Bitboard pinners[2]; // pinners[WHITE] are pieces pinning WHITE pieces
 	Bitboard checkers[2]; // checkers[WHITE] are pieces checking the WHITE king
