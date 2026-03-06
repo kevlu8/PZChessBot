@@ -757,6 +757,7 @@ Bitboard pawn_attacks(Square sq, bool color) {
 
 void Position::update_control() {
 	memset(side_control, 0, sizeof(side_control));
+	memset(piece_control, 0, sizeof(piece_control));
 	memset(pinned, 0, sizeof(pinned));
 	memset(pinners, 0, sizeof(pinners));
 	memset(checkers, 0, sizeof(checkers));
@@ -776,6 +777,7 @@ void Position::update_control() {
 		Square sq = (Square)arch::tzcnt(white);
 		Bitboard control = rook_attacks(sq, occ ^ b_king);
 		side_control[WHITE] |= control;
+		piece_control[mailbox[sq]] |= control;
 		white = arch::blsr(white);
 
 		if (arch::popcnt(rook_blockers_pure[sq][b_king_sq] & occ) == 1) {
@@ -790,6 +792,7 @@ void Position::update_control() {
 		Square sq = (Square)arch::tzcnt(black);
 		Bitboard control = rook_attacks(sq, occ ^ w_king);
 		side_control[BLACK] |= control;
+		piece_control[mailbox[sq]] |= control;
 		black = arch::blsr(black);
 
 		if (arch::popcnt(rook_blockers_pure[sq][w_king_sq] & occ) == 1) {
@@ -809,6 +812,7 @@ void Position::update_control() {
 		Square sq = (Square)arch::tzcnt(white);
 		Bitboard control = bishop_attacks(sq, occ ^ b_king);
 		side_control[WHITE] |= control;
+		piece_control[mailbox[sq]] |= control;
 		white = arch::blsr(white);
 
 		if (arch::popcnt(bishop_blockers_pure[sq][b_king_sq] & occ) == 1) {
@@ -823,6 +827,7 @@ void Position::update_control() {
 		Square sq = (Square)arch::tzcnt(black);
 		Bitboard control = bishop_attacks(sq, occ ^ w_king);
 		side_control[BLACK] |= control;
+		piece_control[mailbox[sq]] |= control;
 		black = arch::blsr(black);
 
 		if (arch::popcnt(bishop_blockers_pure[sq][w_king_sq] & occ) == 1) {
@@ -843,6 +848,7 @@ void Position::update_control() {
 		Bitboard hor2 = ((white & ~FileHBits & ~FileGBits) << 2) | ((white & ~FileABits & ~FileBBits) >> 2);
 		Bitboard control = (hor1 << 16) | (hor1 >> 16) | (hor2 << 8) | (hor2 >> 8);
 		side_control[WHITE] |= control;
+		piece_control[WHITE_KNIGHT] |= control;
 
 		checkers[BLACK] |= knight_movetable[b_king_sq] & white;
 	}
@@ -851,6 +857,7 @@ void Position::update_control() {
 		Bitboard hor2 = ((black & ~FileHBits & ~FileGBits) << 2) | ((black & ~FileABits & ~FileBBits) >> 2);
 		Bitboard control = (hor1 << 16) | (hor1 >> 16) | (hor2 << 8) | (hor2 >> 8);
 		side_control[BLACK] |= control;
+		piece_control[BLACK_KNIGHT] |= control;
 
 		checkers[WHITE] |= knight_movetable[w_king_sq] & black;
 	}
@@ -862,12 +869,14 @@ void Position::update_control() {
 	{
 		Bitboard control = ((white & ~FileABits) << 7) | ((white & ~FileHBits) << 9);
 		side_control[WHITE] |= control;
+		piece_control[WHITE_PAWN] |= control;
 
 		checkers[BLACK] |= pawn_attacks(b_king_sq, BLACK) & white;
 	}
 	{
 		Bitboard control = ((black & ~FileHBits) >> 7) | ((black & ~FileABits) >> 9);
 		side_control[BLACK] |= control;
+		piece_control[BLACK_PAWN] |= control;
 
 		checkers[WHITE] |= pawn_attacks(w_king_sq, WHITE) & black;
 	}

@@ -81,6 +81,7 @@ struct HistoryEntry {
 struct Position {
 	Bitboard piece_boards[8] = {};
 	Bitboard side_control[2] = {};
+	Bitboard piece_control[13] = {};
 	Bitboard pinned[2];
 	Bitboard pinners[2];
 	Bitboard checkers[2];
