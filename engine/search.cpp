@@ -223,7 +223,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool p
 	if (!in_check) {
 		stand_pat = tentry ? tentry->s_eval : eval(ti.board, (BoardState *)ti.bs) * side;
 		raw_eval = stand_pat;
-		ti.thread_hist.apply_correction(ti.board, &ti.line[ply], ply, stand_pat);
+		shared_corrhist.apply_correction(ti.board, &ti.line[ply], ply, stand_pat);
 		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
 			stand_pat = tteval;
 		if (!tentry) ttable.store(ti.board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
@@ -279,7 +279,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool p
 		ti.line[ply].captured = (PieceType)(ti.board.mailbox[move.dst()] & 7);
 		ti.line[ply].piece = (PieceType)(ti.board.mailbox[move.src()] & 7);
 		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[ti.board.side][ti.board.mailbox[move.src()] & 7][move.dst()];
-		ti.line[ply].corr_hist = &ti.thread_hist.corrhist_cont[ti.board.side][ti.board.mailbox[move.src()] & 7][move.dst()];
+		ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[ti.board.side][ti.board.mailbox[move.src()] & 7][move.dst()];
 
 		ti.board.make_move(move);
 		_mm_prefetch(&ttable.TT[ti.board.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
@@ -405,7 +405,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	if (!in_check) {
 		cur_eval = tentry ? tentry->s_eval : eval(board, (BoardState *)ti.bs) * side;
 		raw_eval = cur_eval;
-		if (!excluded) ti.thread_hist.apply_correction(board, &ti.line[ply], ply, cur_eval);
+		if (!excluded) shared_corrhist.apply_correction(board, &ti.line[ply], ply, cur_eval);
 		tt_corr_eval = cur_eval;
 		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
 			tt_corr_eval = tteval;
@@ -452,7 +452,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * are probably Zugzwangs (e.g. endgames).
 		 */
 		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[board.side][0][0];
-		ti.line[ply].corr_hist = &ti.thread_hist.corrhist_cont[board.side][0][0];
+		ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[board.side][0][0];
 		board.make_move(NullMove);
 		// Perform a reduced-depth search
 		Value r = NMP_R_VALUE + depth / 3;
@@ -519,7 +519,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			ti.line[ply].captured = (PieceType)(board.mailbox[pc_move.dst()] & 7);
 			ti.line[ply].piece = (PieceType)(board.mailbox[pc_move.src()] & 7);
 			ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[board.side][board.mailbox[pc_move.src()] & 7][pc_move.dst()];
-			ti.line[ply].corr_hist = &ti.thread_hist.corrhist_cont[board.side][board.mailbox[pc_move.src()] & 7][pc_move.dst()];
+			ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[board.side][board.mailbox[pc_move.src()] & 7][pc_move.dst()];
 
 			board.make_move(pc_move);
 			_mm_prefetch(&ttable.TT[board.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
@@ -685,7 +685,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		ti.line[ply].captured = (PieceType)(board.mailbox[move.dst()] & 7);
 		ti.line[ply].piece = (PieceType)(board.mailbox[move.src()] & 7);
 		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[board.side][board.mailbox[move.src()] & 7][move.dst()];
-		ti.line[ply].corr_hist = &ti.thread_hist.corrhist_cont[board.side][board.mailbox[move.src()] & 7][move.dst()];
+		ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[board.side][board.mailbox[move.src()] & 7][move.dst()];
 
 		board.make_move(move);
 
@@ -845,7 +845,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		&& !(flag == UPPER_BOUND && best >= cur_eval) && !(flag == LOWER_BOUND && best <= cur_eval)) {
 		// Best move is a quiet move, update CorrHist
 		int bonus = (best - cur_eval) * depth / 8;
-		ti.thread_hist.update_corrhist(board, &ti.line[ply], ply, bonus);
+		shared_corrhist.update_corrhist(board, &ti.line[ply], ply, bonus);
 	}
 
 	if (!excluded) {

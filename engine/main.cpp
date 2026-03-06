@@ -6,6 +6,7 @@
 
 #include "bitboard.hpp"
 #include "eval.hpp"
+#include "history.hpp"
 #include "movegen.hpp"
 #include "movetimings.hpp"
 #include "search.hpp"
@@ -76,6 +77,7 @@ void run_uci() {
 			if (searchthread.joinable()) searchthread.join();
 			board = Board();
 			ttable.resize(TT_SIZE);
+			shared_corrhist = Corrhist();
 			for (int i = 0; i < num_threads; i++) {
 				clear_search_vars(tis[i]);
 			}
