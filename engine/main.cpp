@@ -19,10 +19,12 @@ size_t TT_SIZE = DEFAULT_TT_SIZE;
 bool quiet = false, online = false, dfrc_uci = false;
 
 ThreadInfo *tis;
+std::thread searchthread;
 
 void regenerate_threads() {
 	kill_threads();
 	threads.clear();
+	if (searchthread.joinable()) searchthread.join();
 	delete[] tis;
 	tis = new ThreadInfo[num_threads];
 	threads.reserve(num_threads);
@@ -35,7 +37,6 @@ void regenerate_threads() {
 }
 
 void run_uci() {
-	std::thread searchthread;
 	std::string command;
 	Board board = Board();
 	while (getline(std::cin, command)) {
@@ -87,7 +88,6 @@ void run_uci() {
 			}
 		} else if (command == "ucinewgame") {
 			regenerate_threads();
-			if (searchthread.joinable()) searchthread.join();
 
 			board = Board();
 			ttable.resize(TT_SIZE);
@@ -116,7 +116,6 @@ void run_uci() {
 			}
 		} else if (command == "quit") {
 			kill_threads();
-			if (searchthread.joinable()) searchthread.join();
 			exit(0);
 		} else if (command == "stop") {
 			stop_search = true;
