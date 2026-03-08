@@ -602,6 +602,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 				if (singular_score <= singular_beta - 20)
 					extension++;
+				
+				if (!pv && singular_score <= singular_beta - 100)
+					extension++;
 			} else if (singular_score >= beta)
 				/**
 				 * Multicut
