@@ -62,6 +62,8 @@ void Corrhist::update_corrhist(Board &board, SSEntry *line, int ply, int bonus) 
 	update_entry(corrhist_min[board.side][board.minor_hash() % CORRHIST_SZ]);
 	if (ply >= 2)
 		update_entry((line - 1)->corr_hist->hist[board.side][(line - 2)->piece][(line - 2)->move.dst()]);
+	if (ply >= 3)
+		update_entry((line - 1)->corr_hist->hist[board.side][(line - 3)->piece][(line - 3)->move.dst()]);
 }
 
 void Corrhist::apply_correction(Board &board, SSEntry *line, int ply, Value &eval) {
@@ -76,6 +78,8 @@ void Corrhist::apply_correction(Board &board, SSEntry *line, int ply, Value &eva
 	corr += 70 * corrhist_min[board.side][board.minor_hash() % CORRHIST_SZ];
 	if (ply >= 2)
 		corr += 134 * (line - 1)->corr_hist->hist[board.side][(line - 2)->piece][(line - 2)->move.dst()];
+	if (ply >= 3)
+		corr += 134 * (line - 1)->corr_hist->hist[board.side][(line - 3)->piece][(line - 3)->move.dst()];
 
 	eval += corr / 2048;
 }
