@@ -601,7 +601,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (singular_score < singular_beta) {
 				extension++;
 
-				int dext_margin = dext_base() - dext_capt() * capt + dext_pv() * pv + dext_improving() * improving;
+				int dext_margin = dext_base() + dext_capt() * capt + dext_pv() * pv + dext_improving() * improving;
 				if (singular_score <= singular_beta - dext_margin)
 					extension++;
 				
