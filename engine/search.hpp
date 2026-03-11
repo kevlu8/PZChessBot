@@ -57,8 +57,8 @@ struct ThreadInfo {
 	bool is_main = false;
     alignas(64) History thread_hist;
 	SSEntry line[MAX_PLY + 5] = {};
-	Move pvtable[MAX_PLY][MAX_PLY];
-	int pvlen[MAX_PLY] = {};
+	Move pvtable[MAX_PLY + 5][MAX_PLY + 5];
+	int pvlen[MAX_PLY + 5] = {};
 	BoardState bs[NINPUTS * 2][NINPUTS * 2];
     bool nmp_disable = false;
 
