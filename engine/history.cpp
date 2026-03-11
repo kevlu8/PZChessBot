@@ -1,4 +1,5 @@
 #include "history.hpp"
+#include "params.hpp"
 
 int History::get_conthist(Board &board, Move move, int ply, SSEntry *line) {
 	int score = 0;
@@ -71,15 +72,15 @@ void Corrhist::apply_correction(Board &board, SSEntry *line, int ply, Value &eva
 		return; // Don't apply correction if we are already at a mate score
 	
 	int corr = 0;
-	corr += 125 * corrhist_ps[board.side][board.pawn_hash() % CORRHIST_SZ];
-	corr += 138 * corrhist_np[board.side][WHITE][board.nonpawn_hash(WHITE) % CORRHIST_SZ];
-	corr += 138 * corrhist_np[board.side][BLACK][board.nonpawn_hash(BLACK) % CORRHIST_SZ];
-	corr += 72 * corrhist_maj[board.side][board.major_hash() % CORRHIST_SZ];
-	corr += 70 * corrhist_min[board.side][board.minor_hash() % CORRHIST_SZ];
+	corr += corr_ps() * corrhist_ps[board.side][board.pawn_hash() % CORRHIST_SZ];
+	corr += corr_np() * corrhist_np[board.side][WHITE][board.nonpawn_hash(WHITE) % CORRHIST_SZ];
+	corr += corr_np() * corrhist_np[board.side][BLACK][board.nonpawn_hash(BLACK) % CORRHIST_SZ];
+	corr += corr_maj() * corrhist_maj[board.side][board.major_hash() % CORRHIST_SZ];
+	corr += corr_min() * corrhist_min[board.side][board.minor_hash() % CORRHIST_SZ];
 	if (ply >= 2)
-		corr += 134 * (line - 1)->corr_hist->hist[board.side][(line - 2)->piece][(line - 2)->move.dst()];
+		corr += corr_cont() * (line - 1)->corr_hist->hist[board.side][(line - 2)->piece][(line - 2)->move.dst()];
 	if (ply >= 3)
-		corr += 134 * (line - 1)->corr_hist->hist[board.side][(line - 3)->piece][(line - 3)->move.dst()];
+		corr += corr_cont2() * (line - 1)->corr_hist->hist[board.side][(line - 3)->piece][(line - 3)->move.dst()];
 
 	eval += corr / 2048;
 }

@@ -1,4 +1,5 @@
 #include "movepicker.hpp"
+#include "params.hpp"
 
 std::pair<Move, int> pick_next(pzstd::vector<std::pair<Move, int>> &scores, int &end) {
 	if (end == 0) return {NullMove, 0}; // Ran out
@@ -83,7 +84,7 @@ Move MovePicker::next() {
 				end = quiet_scores.size();
 				break;
 			}
-			bool see = board.see(move, -score / 46);
+			bool see = board.see(move, -score / badnoisy_div());
 			if (see) {
 				return move;
 			} else {
@@ -126,7 +127,7 @@ Move MovePicker::next() {
 			if (move == ttMove)
 				continue;
 
-			if (!board.see(move, 97))
+			if (!board.see(move, probcut_see()))
 				continue; // Skip bad captures
 
 			int score = 0;
