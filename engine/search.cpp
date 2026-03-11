@@ -1009,40 +1009,17 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 	}
 }
 
-std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time, int depth, int64_t maxnodes, int quiet) {
-	for (int i = 0; i < 64; i++) for (int j = 0; j < 64; j++) nodecnt[i][j] = 0;
+void prepare_search(int64_t time, int64_t maxnodes, bool quiet, uint16_t num) {
+	for (int i = 0; i < 64; i++)
+		for (int j = 0; j < 64; j++)
+			nodecnt[i][j] = 0;
 
 	mxtime = time;
 	mx_nodes = maxnodes;
 	start = std::chrono::steady_clock::now();
 	stop_search = false;
 	minimal = quiet;
-
-	Move best_move = NullMove;
-	Value eval = 0;
-
-	std::vector<std::thread> thread_handles;
-
-	for (int t = 0; t < num_threads; t++) {
-		ThreadInfo &ti = threads[t];
-		ti.board = board;
-		ti.seldepth = 0;
-		nodes[t] = 0;
-		ti.id = t;
-		ti.is_main = (t == 0);
-		// don't clear search vars here; keep history
-		thread_handles.emplace_back(iterativedeepening, std::ref(ti), depth);
-	}
-
-	for (int t = 0; t < num_threads; t++) {
-		thread_handles[t].join();
-	}
-
-	ThreadInfo &best_thread = threads[0];
-
-	ttable.inc_gen();
-
-	return {best_thread.pvtable[0][0], best_thread.eval};
+	num_threads = num;
 }
 
 void clear_search_vars(ThreadInfo &ti) {
