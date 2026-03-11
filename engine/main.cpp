@@ -10,6 +10,7 @@
 #include "movegen.hpp"
 #include "movetimings.hpp"
 #include "search.hpp"
+#include "threads.hpp"
 #include "ttable.hpp"
 
 #define MAX_TT (262144)
@@ -19,10 +20,9 @@
 size_t TT_SIZE = DEFAULT_TT_SIZE;
 bool quiet = false, online = false, dfrc_uci = false;
 
-ThreadInfo *tis;
+Pool pool;
 
 void run_uci() {
-	std::thread searchthread;
 	std::string command;
 	Board board = Board();
 	while (getline(std::cin, command)) {
@@ -62,14 +62,12 @@ void run_uci() {
 			} else if (optionname == "Quiet") {
 				quiet = optionvalue == "true";
 			} else if (optionname == "Threads") {
-				num_threads = std::stoi(optionvalue);
+				size_t num_threads = std::stoi(optionvalue);
 				if (num_threads < 1 || num_threads > MAX_THREADS) {
 					std::cerr << "Invalid number of threads: " << num_threads << std::endl;
 					num_threads = 1;
 				}
-				delete[] tis;
-				tis = new ThreadInfo[num_threads];
-				for (int i = 0; i < num_threads; i++) tis[i].set_bs();
+				pool.resize(num_threads);
 				std::cout << "info string Using " << num_threads << " threads" << std::endl;
 			} else if (optionname == "UCI_Chess960") {
 				dfrc_uci = (optionvalue == "true");
@@ -78,13 +76,11 @@ void run_uci() {
 			}
 		} else if (command == "ucinewgame") {
 			stop_search = true;
-			if (searchthread.joinable()) searchthread.join();
+			pool.wait_finished();
 			board = Board();
 			ttable.resize(TT_SIZE);
 			shared_corrhist = Corrhist();
-			for (int i = 0; i < num_threads; i++) {
-				clear_search_vars(tis[i]);
-			}
+			pool.clear_search_vars();
 		} else if (command.substr(0, 8) == "position") {
 			// either `position startpos` or `position fen ...`
 			if (command.find("startpos") != std::string::npos) {
@@ -105,11 +101,12 @@ void run_uci() {
 				}
 			}
 		} else if (command == "quit") {
-			if (searchthread.joinable()) searchthread.join();
+			stop_search = true;
+			pool.wait_finished();
 			exit(0);
 		} else if (command == "stop") {
 			stop_search = true;
-			if (searchthread.joinable()) searchthread.join();
+			pool.wait_finished();
 		} else if (command == "eval") {
 			std::array<Value, 8> score = debug_eval(board);
 			board.print_board();
@@ -123,8 +120,7 @@ void run_uci() {
 				std::cout << std::endl;
 			}
 		} else if (command.substr(0, 2) == "go") {
-			if (!stop_search) continue; // ignore
-			if (searchthread.joinable()) searchthread.join();
+			pool.wait_finished();
 			// `go wtime ... btime ... winc ... binc ...`
 			// only care about wtime and btime
 			std::stringstream ss(command);
@@ -175,27 +171,30 @@ void run_uci() {
 			}
 			int timeleft = board.side ? btime : wtime;
 			int inc = board.side ? binc : winc;
-			searchthread = std::thread(
-				[=, &board]() {
-					if (!quiet) std::cout << "info string Starting search..." << std::endl;
-					if (inf) search(board, tis, 1e18, MAX_PLY, 1e18, quiet);
-					else if (depth != -1) search(board, tis, 1e18, depth, 1e18, quiet);
-					else if (nodes != -1) search(board, tis, 1e18, MAX_PLY, nodes, quiet);
-					else if (movetime != -1) search(board, tis, movetime, MAX_PLY, 1e18, quiet);
-					else search(board, tis, timemgmt(timeleft, inc, online), MAX_PLY, 1e18, quiet);
-				}
-			);
+
+			if (!quiet)
+				std::cout << "info string Starting search..." << std::endl;
+
+			if (inf)
+				pool.search(board, 1e18, MAX_PLY, 1e18, quiet);
+			else if (depth != -1)
+				pool.search(board, 1e18, depth, 1e18, quiet);
+			else if (nodes != -1)
+				pool.search(board, 1e18, MAX_PLY, nodes, quiet);
+			else if (movetime != -1)
+				pool.search(board, movetime, MAX_PLY, 1e18, quiet);
+			else
+				pool.search(board, timemgmt(timeleft, inc, online), MAX_PLY, 1e18, quiet);
+		} else if (command == "wait") {
+			pool.wait_finished();
 		}
 	}
 	stop_search = true;
-	if (searchthread.joinable())
-		searchthread.join();
+	pool.wait_finished();
 }
 
 __attribute__((weak)) int main(int argc, char *argv[]) {
 	print_config();
-	tis = new ThreadInfo[1]; // single thread for now
-	tis[0].set_bs();
 	if (argc == 2 && std::string(argv[1]) == "bench") {
 		const std::string bench_positions[] = {
 			"r3k2r/2pb1ppp/2pp1q2/p7/1nP1B3/1P2P3/P2N1PPP/R2QK2R w KQkq - 0 14",
@@ -254,8 +253,9 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		uint64_t start = clock();
 		for (const auto &fen : bench_positions) {
 			board.reset(fen);
-			clear_search_vars(tis[0]);
-			search(board, tis, 1e9, 12, 1e18, 0);
+			pool.clear_search_vars();
+			pool.search(board, 1e9, 12, 1e18, 0);
+			pool.wait_finished();
 			tot_nodes += nodes[0];
 		}
 		uint64_t end = clock();
@@ -329,7 +329,8 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 					auto s_eval = debug_eval(board)[(npieces - 2) / 4] * (board.side == WHITE ? 1 : -1);
 					if (abs(s_eval) >= 600) restart = true; // do a fast static eval to quickly filter out crazy positions
 					else {
-						auto res = search(board, tis, 1e9, MAX_PLY, 10000, 1);
+						pool.search(board, 1e9, 4, 10000, true);
+						auto res = pool.wait_finished();
 						if (abs(res.second) >= 400) restart = true;
 					}
 				}
@@ -346,11 +347,11 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		// calculate pawn value
 		Board board = Board();
 		int tot = 0;
-		Value startpos_score = eval(board, &tis[0].bs[0][0]);
+		Value startpos_score = eval(board, &pool.get_ti(0).bs[0][0]);
 		for (int i = 0; i < 8; i++) {
 			board.reset_startpos();
 			board.mailbox[SQ_A2 + i] = NO_PIECE;
-			Value score = eval(board, &tis[0].bs[0][0]);
+			Value score = eval(board, &pool.get_ti(0).bs[0][0]);
 			int diff = startpos_score - score;
 			tot += diff;
 		}
@@ -373,7 +374,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		while (getline(bookfile, line)) {
 			std::string fen = line.substr(0, line.find(' '));
 			board.reset(fen);
-			Value score = abs(eval(board, &tis[0].bs[0][0]));
+			Value score = abs(eval(board, &pool.get_ti(0).bs[0][0]));
 			tot_eval += score;
 			npositions++;
 		}
