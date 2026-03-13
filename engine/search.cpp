@@ -183,7 +183,6 @@ bool is_valid_score(Value score) {
  * return our evaluation.
  * 
  * TODO:
- * - Search for checks and check evasions (every time I've tried this it has lost tons of elo)
  * - Late move reduction (instead of reducing depth, we reduce the search window) (not a known technique, maybe worth trying?)
  */
 Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool pv=false) {
