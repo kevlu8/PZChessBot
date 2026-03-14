@@ -674,7 +674,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 					break;
 			}
 
-			if (depth <= 5 && best > -VALUE_INFINITE) {
+			{
 				/**
 				 * PVS SEE Pruning
 				 * 
