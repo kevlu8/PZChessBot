@@ -697,6 +697,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		_mm_prefetch(&ttable.TT[board.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
 
 		int newdepth = depth - 1 + extension;
+		bool do_conthist_update = false;
 
 		/**
 		 * PV Search (principal variation)
@@ -755,6 +756,10 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 				if (searched_depth < newdepth) {
 					score = -negamax(ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
+
+					if (!capt && (score <= alpha || score >= beta)) {
+						do_conthist_update = true;
+					}
 				}
 			}
 		} else if (!pv || i > 0) {
@@ -775,6 +780,12 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		ti.line[ply].piece = NO_PIECETYPE;
 		ti.line[ply].cont_hist = nullptr;
 		ti.line[ply].corr_hist = nullptr;
+
+		if (do_conthist_update) {
+			const int bonus = std::min(1896, hist_quad() * newdepth * newdepth + hist_lin() * newdepth - hist_const());
+			ti.thread_hist.update_history(board, move, ply, &ti.line[ply], score <= alpha ? -bonus : bonus);
+			do_conthist_update = false;
+		}
 
 		if (root) {
 			nodecnt[move.src()][move.dst()] += nodes[ti.id] - prev_nodes;

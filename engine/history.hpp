@@ -53,6 +53,7 @@ struct History {
 	int get_capthist(Board &board, Move move);
 
 	void update_history(Board &board, Move &move, int ply, SSEntry *line, Value bonus);
+	void update_conthist(Board &board, Move &move, int ply, SSEntry *line, Value bonus);
 	void update_capthist(Board &board, Move move, Value bonus);
 };
 
