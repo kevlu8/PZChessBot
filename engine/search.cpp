@@ -803,6 +803,16 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 					for (int j = 0; j < ti.pvlen[ply+1]; j++) {
 						ti.pvtable[ply][j+1] = ti.pvtable[ply+1][j];
 					}
+
+					/**
+					 * Alpha raise reductions
+					 * 
+					 * Once we have raised alpha, it is unlikely that we will be able to do so again (assuming good ordering),
+					 * so we can search the rest of our moves with a reduced depth.
+					 */
+					if (depth >= 3 && depth <= 10) {
+						depth--;
+					}
 				}
 			}
 			best = score;
