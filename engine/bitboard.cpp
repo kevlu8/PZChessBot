@@ -85,7 +85,7 @@ std::string Move::to_san(const void *b) const {
 	}
 
 	if (type() == CASTLING) {
-		if (dst() == SQ_G1 || dst() == SQ_G8) {
+		if (dst() == SQ_G1 || dst() == SQ_G8 || dst() == SQ_H1 || dst() == SQ_H8) {
 			return "O-O";
 		} else {
 			return "O-O-O";

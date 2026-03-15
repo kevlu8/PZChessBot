@@ -172,6 +172,7 @@ int main(int argc, char *argv[]) {
 		tis[i].board = Board();
 	}
 	std::cout << "PZChessBot " << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
+	std::cout << "Using " << n_threads << " threads for datagen" << std::endl;
 
 	std::vector<std::thread> threads;
 	for (int i = 0; i < n_threads; i++) {
