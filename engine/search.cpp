@@ -818,7 +818,8 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			if (ti.line[ply].killer != move) {
 				ti.line[ply].killer = move; // Update killer move
 			}
-			const Value bonus = std::min(1896, hist_quad() * depth * depth + hist_lin() * depth - hist_const());
+			int hist_depth = depth + (score >= beta + hist_large_margin());
+			const int bonus = std::min(1896, hist_quad() * hist_depth * hist_depth + hist_lin() * hist_depth - hist_const());
 			if (!capt) { // Not a capture
 				ti.thread_hist.update_history(board, move, ply, &ti.line[ply], bonus);
 				for (auto &qmove : quiets) {

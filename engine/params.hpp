@@ -70,6 +70,7 @@ TUNE(lmr_ttcapt, 1019, 0, 2048, 128);
 TUNE(lmr_ttpv_alpha, -84, -1024, 1024, 256);
 TUNE(dodeeper_margin, 91, 20, 200, 10);
 TUNE(doshallower_margin, -8, -64, 64, 8);
+TUNE(hist_large_margin, 100, 0, 256, 16);
 TUNE(hist_quad, 3, 0, 6, 1);
 TUNE(hist_lin, 122, 64, 256, 15);
 TUNE(hist_const, 120, 0, 256, 16);
