@@ -14,8 +14,9 @@
 #include "search.hpp"
 #include "ttable.hpp"
 
+#include "dfrc.hpp"
+
 #define MAX_TT (262144)
-#include "params.hpp"
 
 // Options
 size_t TT_SIZE = DEFAULT_TT_SIZE;
@@ -36,9 +37,20 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 	std::mt19937_64 rng(id + std::chrono::system_clock::now().time_since_epoch().count());
 	while (threads_done.load() != n_threads && games < DATAGEN_MAX_GAMES) {
 		bool do_adjudication = (rng() % 100) < DATAGEN_ADJUDICATION_PERCENT;
+		bool dfrc = (rng() % 100) < DATAGEN_DFRC_PERCENT;
 		clear_search_vars(tiw);
 		clear_search_vars(tib);
 		Board &board = tiw.board;
+
+		if (dfrc) {
+			std::string w_home = frcFens[rng() % 960];
+			for (auto &c : w_home) c = std::toupper(c);
+			std::string b_home = frcFens[rng() % 960];
+			std::string fen = b_home + "/pppppppp/8/8/8/8/PPPPPPPP/" + w_home + " w KQkq - 0 1";
+			tiw.board.reset(fen);
+			tib.board.reset(fen);
+			std::cout << "Generated FRC position: " << fen << std::endl;
+		}
 
 		for (int i = 0; i < DATAGEN_NUM_RAND; i++) {
 			pzstd::vector<Move> moves;
@@ -49,16 +61,13 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 			tib.board.make_move(moves[mvidx]);
 		}
 
-		bool in_check = false, checking_opponent = false;
-		if (board.side == WHITE) {
-			in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK);
-			checking_opponent = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE);
-		} else {
-			in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE);
-			checking_opponent = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK);
-		}
-		if (in_check || checking_opponent) continue;
 		if (_mm_popcnt_u64(board.piece_boards[KING]) != 2) continue;
+
+		bool in_check = false, checking_opponent = false;
+		in_check = board.checkers[board.side];
+		checking_opponent = board.checkers[!board.side];
+		if (in_check || checking_opponent) continue;
+
 		auto s_eval = eval(board, (BoardState *)tiw.bs);
 		if (abs(s_eval) >= 800) continue; // ridiculous position
 		auto res = search(tiw.board, &tiw).second;
