@@ -202,7 +202,6 @@ __attribute__((constructor)) void init_movetables() {
 			if (king == rook)
 				continue;
 			if (king < rook) {
-				// Kingside castling
 				castle_blockers[king][rook] = rook_blockers[king][SQ_G1] | rook_blockers[rook][SQ_F1] | square_bits(SQ_F1) | square_bits(SQ_G1);
 				castle_blockers[king][rook] &= ~(square_bits(rook) | square_bits(king));
 				castle_blockers[king + SQ_A8][rook + SQ_A8] = castle_blockers[king][rook] << 56;
@@ -422,20 +421,20 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 		if (board.castling & WHITE_OO) {
 			if (castle_blockers[sq][board.rook_pos[0]] & occs)
 				goto skip_white_oo;
-			for (Square s = Square(sq + 1); s <= SQ_G1; s++) {
-				if (board.control(s, BLACK))
-					goto skip_white_oo;
-			}
+			if (board.side_control[BLACK] & (rook_blockers[sq][SQ_G1] | square_bits(SQ_G1) | piece))
+				goto skip_white_oo;
+			if (board.pinned[WHITE] & square_bits(board.rook_pos[0]))
+				goto skip_white_oo;
 			moves.push_back(Move::make<CASTLING>(sq, board.rook_pos[0]));
 		}
 	skip_white_oo:
 		if (board.castling & WHITE_OOO) {
 			if (castle_blockers[sq][board.rook_pos[1]] & occs)
 				goto skip_white_ooo;
-			for (Square s = SQ_C1; s < sq; s++) {
-				if (board.control(s, BLACK))
-					goto skip_white_ooo;
-			}
+			if (board.side_control[BLACK] & (rook_blockers[sq][SQ_C1] | square_bits(SQ_C1) | piece))
+				goto skip_white_ooo;
+			if (board.pinned[WHITE] & square_bits(board.rook_pos[1]))
+				goto skip_white_ooo;
 			moves.push_back(Move::make<CASTLING>(sq, board.rook_pos[1]));
 		}
 	skip_white_ooo:;
@@ -443,20 +442,20 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 		if (board.castling & BLACK_OO) {
 			if (castle_blockers[sq][board.rook_pos[2]] & occs)
 				goto skip_black_oo;
-			for (Square s = Square(sq + 1); s <= SQ_G8; s++) {
-				if (board.control(s, WHITE))
-					goto skip_black_oo;
-			}
+			if (board.side_control[WHITE] & (rook_blockers[sq][SQ_G8] | square_bits(SQ_G8) | piece))
+				goto skip_black_oo;
+			if (board.pinned[BLACK] & square_bits(board.rook_pos[2]))
+				goto skip_black_oo;
 			moves.push_back(Move::make<CASTLING>(sq, board.rook_pos[2]));
 		}
 	skip_black_oo:
 		if (board.castling & BLACK_OOO) {
 			if (castle_blockers[sq][board.rook_pos[3]] & occs)
 				goto skip_black_ooo;
-			for (Square s = SQ_C8; s < sq; s++) {
-				if (board.control(s, WHITE))
-					goto skip_black_ooo;
-			}
+			if (board.side_control[WHITE] & (rook_blockers[sq][SQ_C8] | square_bits(SQ_C8) | piece))
+				goto skip_black_ooo;
+			if (board.pinned[BLACK] & square_bits(board.rook_pos[3]))
+				goto skip_black_ooo;
 			moves.push_back(Move::make<CASTLING>(sq, board.rook_pos[3]));
 		}
 	skip_black_ooo:;
@@ -976,38 +975,7 @@ bool Board::is_pseudolegal(Move move) const {
 			if ((castling & (1 << rights_idx)) == 0)
 				return false;
 
-			if (side == WHITE && control(SQ_E1, BLACK))
-				return false;
-			if (side == BLACK && control(SQ_E8, WHITE))
-				return false;
-
-			Bitboard mask = 0;
-			if (rights_idx == 0b00) {
-				for (Square s = Square(move.src() + 1); s <= SQ_G1; s++) {
-					if (control(s, BLACK))
-						return false;
-				}
-				mask = rook_blockers[move.src()][move.dst()] | square_bits(SQ_F1);
-			} else if (rights_idx == 0b01) {
-				for (Square s = SQ_C1; s < move.src(); s++) {
-					if (control(s, BLACK))
-						return false;
-				}
-				mask = rook_blockers[move.src()][move.dst()] | square_bits(SQ_D1);
-			} else if (rights_idx == 0b10) {
-				for (Square s = Square(move.src() + 1); s <= SQ_G8; s++) {
-					if (control(s, WHITE))
-						return false;
-				}
-				mask = rook_blockers[move.src()][move.dst()] | square_bits(SQ_F8);
-			} else if (rights_idx == 0b11) {
-				for (Square s = SQ_C8; s < move.src(); s++) {
-					if (control(s, WHITE))
-						return false;
-				}
-				mask = rook_blockers[move.src()][move.dst()] | square_bits(SQ_D8);
-			}
-			return (mask & (piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)])) == 0;
+			return (mailbox[move.dst()] & 7) == ROOK && (castle_blockers[move.src()][move.dst()] & (piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)])) == 0;
 		} else [[likely]] {
 			return king_movetable[move.src()] & square_bits(move.dst());
 		}
@@ -1031,6 +999,26 @@ bool Board::is_legal(Move move) const {
 		Bitboard rooks = (piece_boards[ROOK] | piece_boards[QUEEN]) & piece_boards[OPPOCC(side)];
 		Bitboard bishops = (piece_boards[BISHOP] | piece_boards[QUEEN]) & piece_boards[OPPOCC(side)];
 		return (rook_attacks(king_sq, occ) & rooks) == 0 && (bishop_attacks(king_sq, occ) & bishops) == 0;
+	}
+
+	if (move.type() == CASTLING) {
+		Bitboard occs = piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)];
+		if (move.dst() == rook_pos[0] || move.dst() == rook_pos[2]) {
+			// Kingside
+			if (side_control[!side] &
+				(rook_blockers[move.src()][SQ_G1 | (move.src() & 0b111000)] | square_bits(Square(SQ_G1 | (move.src() & 0b111000))) | square_bits(move.src())))
+				return false;
+			if (pinned[side] & square_bits(move.dst()))
+				return false;
+		} else {
+			// Queenside
+			if (side_control[!side] &
+				(rook_blockers[move.src()][SQ_C1 | (move.src() & 0b111000)] | square_bits(Square(SQ_C1 | (move.src() & 0b111000))) | square_bits(move.src())))
+				return false;
+			if (pinned[side] & square_bits(move.dst()))
+				return false;
+		}
+		return true;
 	}
 
 	// Moving king, cannot move into check
