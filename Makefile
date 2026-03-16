@@ -2,7 +2,7 @@
 EXE      ?= pzchessbot
 EVALFILE ?= nnue.bin
 SNODES 	 ?= 5000
-NRAND    ?= 12
+NRAND    ?= 8
 
 # Compilers
 CXX      := g++

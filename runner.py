@@ -27,7 +27,7 @@ def run_loop():
 			print(f"Error fetching config: {e}")
 			time.sleep(60)
 			continue
-		nrand = config.get("num_rand", 12)
+		nrand = config.get("num_rand", 8)
 		snodes = config.get("soft_nodes", 5000)
 		netfile = config.get("netfile", "None")
 		if netfile != prev_netfile:

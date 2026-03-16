@@ -49,7 +49,7 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 			std::string fen = b_home + "/pppppppp/8/8/8/8/PPPPPPPP/" + w_home + " w KQkq - 0 1";
 			tiw.board.reset(fen);
 			tib.board.reset(fen);
-			std::cout << "Generated FRC position: " << fen << std::endl;
+			// std::cout << "Generated FRC position: " << fen << std::endl;
 		}
 
 		for (int i = 0; i < DATAGEN_NUM_RAND; i++) {
