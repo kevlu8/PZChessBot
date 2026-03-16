@@ -14,8 +14,7 @@ Bitboard rook_blockers[64][64];
 Bitboard bishop_blockers[64][64];
 Bitboard rook_blockers_pure[64][64];
 Bitboard bishop_blockers_pure[64][64];
-Bitboard oo_blockers[64][64];
-Bitboard ooo_blockers[64][64];
+Bitboard castle_blockers[64][64];
 
 MagicEntry rook_magics[64];
 MagicEntry bishop_magics[64];
@@ -202,12 +201,15 @@ __attribute__((constructor)) void init_movetables() {
 		for (Square rook = SQ_A1; rook <= SQ_H1; rook++) {
 			if (king == rook)
 				continue;
-			oo_blockers[king][rook] = rook_blockers[king][SQ_G1] | rook_blockers[rook][SQ_F1] | square_bits(SQ_F1) | square_bits(SQ_G1);
-			oo_blockers[king][rook] &= ~(square_bits(rook) | square_bits(king));
-			oo_blockers[king + SQ_A8][rook + SQ_A8] = oo_blockers[king][rook] << 56;
-			ooo_blockers[king][rook] = rook_blockers[king][SQ_C1] | rook_blockers[rook][SQ_D1] | square_bits(SQ_C1) | square_bits(SQ_D1);
-			ooo_blockers[king][rook] &= ~(square_bits(rook) | square_bits(king));
-			ooo_blockers[king + SQ_A8][rook + SQ_A8] = ooo_blockers[king][rook] << 56;
+			if (king < rook) {
+				castle_blockers[king][rook] = rook_blockers[king][SQ_G1] | rook_blockers[rook][SQ_F1] | square_bits(SQ_F1) | square_bits(SQ_G1);
+				castle_blockers[king][rook] &= ~(square_bits(rook) | square_bits(king));
+				castle_blockers[king + SQ_A8][rook + SQ_A8] = castle_blockers[king][rook] << 56;
+			} else {
+				castle_blockers[king][rook] = rook_blockers[king][SQ_C1] | rook_blockers[rook][SQ_D1] | square_bits(SQ_C1) | square_bits(SQ_D1);
+				castle_blockers[king][rook] &= ~(square_bits(rook) | square_bits(king));
+				castle_blockers[king + SQ_A8][rook + SQ_A8] = castle_blockers[king][rook] << 56;
+			}
 		}
 	}
 }
@@ -417,7 +419,7 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 	Bitboard occs = board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)];
 	if (board.side == WHITE && !board.control(sq, BLACK)) {
 		if (board.castling & WHITE_OO) {
-			if (oo_blockers[sq][board.rook_pos[0]] & occs)
+			if (castle_blockers[sq][board.rook_pos[0]] & occs)
 				goto skip_white_oo;
 			if (board.side_control[BLACK] & (rook_blockers[sq][SQ_G1] | square_bits(SQ_G1) | piece))
 				goto skip_white_oo;
@@ -427,7 +429,7 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 		}
 	skip_white_oo:
 		if (board.castling & WHITE_OOO) {
-			if (ooo_blockers[sq][board.rook_pos[1]] & occs)
+			if (castle_blockers[sq][board.rook_pos[1]] & occs)
 				goto skip_white_ooo;
 			if (board.side_control[BLACK] & (rook_blockers[sq][SQ_C1] | square_bits(SQ_C1) | piece))
 				goto skip_white_ooo;
@@ -438,7 +440,7 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 	skip_white_ooo:;
 	} else if (board.side == BLACK && !board.control(sq, WHITE)) {
 		if (board.castling & BLACK_OO) {
-			if (oo_blockers[sq][board.rook_pos[2]] & occs)
+			if (castle_blockers[sq][board.rook_pos[2]] & occs)
 				goto skip_black_oo;
 			if (board.side_control[WHITE] & (rook_blockers[sq][SQ_G8] | square_bits(SQ_G8) | piece))
 				goto skip_black_oo;
@@ -448,7 +450,7 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 		}
 	skip_black_oo:
 		if (board.castling & BLACK_OOO) {
-			if (ooo_blockers[sq][board.rook_pos[3]] & occs)
+			if (castle_blockers[sq][board.rook_pos[3]] & occs)
 				goto skip_black_ooo;
 			if (board.side_control[WHITE] & (rook_blockers[sq][SQ_C8] | square_bits(SQ_C8) | piece))
 				goto skip_black_ooo;
@@ -973,17 +975,7 @@ bool Board::is_pseudolegal(Move move) const {
 			if ((castling & (1 << rights_idx)) == 0)
 				return false;
 
-			Bitboard mask = 0;
-			if (rights_idx == 0b00) {
-				mask = oo_blockers[move.src()][move.dst()];
-			} else if (rights_idx == 0b01) {
-				mask = ooo_blockers[move.src()][move.dst()];
-			} else if (rights_idx == 0b10) {
-				mask = oo_blockers[move.src()][move.dst()];
-			} else if (rights_idx == 0b11) {
-				mask = ooo_blockers[move.src()][move.dst()];
-			}
-			return (mask & (piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)])) == 0;
+			return (mailbox[move.dst()] & 7) == ROOK && (castle_blockers[move.src()][move.dst()] & (piece_boards[OCC(WHITE)] | piece_boards[OCC(BLACK)])) == 0;
 		} else [[likely]] {
 			return king_movetable[move.src()] & square_bits(move.dst());
 		}
