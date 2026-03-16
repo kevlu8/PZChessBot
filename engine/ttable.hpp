@@ -53,7 +53,7 @@ struct TTable {
 				size_t end = (t == num_threads - 1) ? TT_SIZE : start + chunk_size;
 				for (size_t i = start; i < end; i++) {
 					for (int j = 0; j < 3; j++) {
-						TT[i].entries[j] = TTEntry();
+						new (&TT[i].entries[j]) TTEntry();
 					}
 				}
 			});
