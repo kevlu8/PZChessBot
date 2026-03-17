@@ -191,11 +191,9 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool p
 
 	if (ti.stop_search) return 0;
 
-	if (ti.is_main && !(ti.nodes & 4095)) {
-		if (ti.nodes > mx_nodes) { // currently, the nodes will be broken but time will be accurate
-			ti.stop_search = true;
-			return 0;
-		}
+	if (ti.nodes > mx_nodes) { // currently, the nodes will be broken but time will be accurate
+		ti.stop_search = true;
+		return 0;
 	}
 
 	if (ply >= MAX_PLY)
@@ -328,11 +326,9 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (ti.stop_search) return 0;
 
-	if (ti.is_main && !(ti.nodes & 4095)) {
-		if (ti.nodes > mx_nodes) { // currently, the nodes will be broken but time will be accurate
-			ti.stop_search = true;
-			return 0;
-		}
+	if (ti.nodes > mx_nodes) { // currently, the nodes will be broken but time will be accurate
+		ti.stop_search = true;
+		return 0;
 	}
 
 	/**
@@ -919,66 +915,6 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 		best_move = ti.pvtable[0][0];
 
 		if (ti.nodes >= DATAGEN_SOFT_NODES) break;
-
-		/*
-		if (ti.is_main) {
-			// We must calculate best move nodes and total nodes at around the same time
-			// so that node counts don't change in between due to race conditions
-			// This is a really crude way of doing it (todo change later)
-			uint64_t bm_nodes = nodecnt[best_move.src()][best_move.dst()];
-			uint64_t tot_nodes = 0;
-			for (int t = 0; t < num_threads; t++) {
-				tot_nodes += nodes[t]; // ig this is dangerous but whatever
-			}
-
-			// UCI output from main thread only
-			auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-			last_line.str("");
-			last_line << "info depth " << d << " seldepth " << ti.seldepth << " score " << score_to_uci(eval) << " time " << time_elapsed << " nodes " << tot_nodes << " nps "
-					  << (time_elapsed ? (tot_nodes * 1000 / time_elapsed) : tot_nodes) << " hashfull " << (int)(get_ttable_sz() * 1000) << " pv";
-			for (int ply = 0; ply < ti.pvlen[0]; ply++) {
-				last_line << " " << ti.pvtable[0][ply].to_string();
-			}
-			if (!minimal) std::cout << last_line.str() << std::endl;
-
-			// only do time management on main thread
-			bool best_iscapt = board.is_capture(best_move);
-			bool best_ispromo = (best_move.type() == PROMOTION);
-			bool in_check = false;
-			if (board.side == WHITE) {
-				in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK) > 0;
-			} else {
-				in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE) > 0;
-			}
-
-			double soft = 0.53;
-			if (depth >= 6) {
-				if (!best_iscapt && !best_ispromo && !in_check) {
-					// adjust soft limit based on complexity
-					Value complexity = abs(eval - static_eval);
-					double factor = std::clamp(complexity / 192.0, 0.0, 1.0);
-					// higher complexity = spend more time, lower complexity = spend less time
-					soft = 0.32 + 0.44 * factor;
-				}
-
-				double bm_stability = bm_base() / 100.0 - bm_mul() / 100.0 * consec_move;
-				bm_stability = std::clamp(bm_stability, 0.8, 1.8);
-				soft *= bm_stability;
-			}
-
-			double node_adjustment = 1.34 - 0.92 * (bm_nodes / (double)tot_nodes);
-			soft *= node_adjustment;
-
-			if (abs(eval) >= VALUE_MATE_MAX_PLY)
-				soft = 0.1; // doesn't matter anymore
-
-			if (time_elapsed > mxtime * soft) {
-				// We probably won't be able to complete the next ID loop
-				ti.stop_search = true;
-				break;
-			}
-		}
-		*/
 
 		ti.maxdepth = d;
 	}
