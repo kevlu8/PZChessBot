@@ -20,9 +20,8 @@
 size_t TT_SIZE = DEFAULT_TT_SIZE;
 bool quiet = false, online = false, dfrc_uci = false;
 
-Pool pool;
-
 void run_uci() {
+	Pool pool;
 	std::string command;
 	Board board = Board();
 	while (getline(std::cin, command)) {
@@ -248,6 +247,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			"3br1k1/p1pn3p/1p3n2/5pNq/2P1p3/1PN3PP/P2Q1PB1/4R1K1 w - - 0 23",
 			"2r2b2/5p2/5k2/p1r1pP2/P2pB3/1P3P2/K1P3R1/7R w - - 23 93",
 		};
+		Pool pool;
 		Board board = Board();
 		uint64_t tot_nodes = 0;
 		uint64_t start = clock();
@@ -285,6 +285,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				ss >> nmoves;
 			}
 		}
+		Pool pool;
 		Board board = Board();
 		std::mt19937_64 rng(s);
 		std::ifstream bookfile(book == "None" ? "" : book);
@@ -345,6 +346,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 	}
 	if (argc == 2 && std::string(argv[1]) == "pawnvalue") {
 		// calculate pawn value
+		Pool pool;
 		Board board = Board();
 		int tot = 0;
 		Value startpos_score = eval(board, &pool.get_ti(0).bs[0][0]);
@@ -362,6 +364,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 	}
 	if (argc == 2 && std::string(argv[1]) == "avgeval") {
 		// assume book is at ./lichess-big3-resolved.txt
+		Pool pool;
 		Board board = Board();
 		std::ifstream bookfile("./lichess-big3-resolved.txt");
 		std::string line;
