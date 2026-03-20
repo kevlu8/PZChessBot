@@ -65,6 +65,7 @@ void Corrhist::update_corrhist(Position &pos, SSEntry *line, int ply, int bonus)
 		update_entry((line - 1)->corr_hist->hist[pos.side][(line - 2)->piece][(line - 2)->move.dst()]);
 	if (ply >= 3)
 		update_entry((line - 1)->corr_hist->hist[pos.side][(line - 3)->piece][(line - 3)->move.dst()]);
+	update_entry(corrhist_threat[pos.side][(pos.side_control[pos.side]) % THREAT_PRIME_MOD]);
 }
 
 void Corrhist::apply_correction(Position &pos, SSEntry *line, int ply, Value &eval) {
@@ -81,6 +82,7 @@ void Corrhist::apply_correction(Position &pos, SSEntry *line, int ply, Value &ev
 		corr += corr_cont() * (line - 1)->corr_hist->hist[pos.side][(line - 2)->piece][(line - 2)->move.dst()];
 	if (ply >= 3)
 		corr += corr_cont2() * (line - 1)->corr_hist->hist[pos.side][(line - 3)->piece][(line - 3)->move.dst()];
+	corr += corr_threat() * corrhist_threat[pos.side][(pos.side_control[pos.side]) % THREAT_PRIME_MOD];
 
 	eval += corr / 2048;
 }

@@ -83,5 +83,6 @@ TUNE(corr_maj, 62, 32, 128, 8);
 TUNE(corr_min, 73, 32, 128, 8);
 TUNE(corr_cont, 132, 64, 256, 16);
 TUNE(corr_cont2, 157, 64, 256, 16);
+TUNE(corr_threat, 100, 64, 256, 16);
 TUNE(probcut_see, 102, 50, 200, 10);
 TUNE(badnoisy_div, 51, 10, 100, 8);
