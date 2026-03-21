@@ -6,6 +6,7 @@
 
 // Correction history table size
 #define CORRHIST_SZ 16384
+#define THREAT_PRIME_MOD 16381
 
 struct ContHistEntry {
 	Value hist[2][7][64]; // [side][piecetype][to]
@@ -67,6 +68,7 @@ struct Corrhist {
 	Value corrhist_maj[2][CORRHIST_SZ]; // [side][major piece hash]
 	Value corrhist_min[2][CORRHIST_SZ]; // [side][minor piece hash]
 	ContHistEntry corrhist_cont[2][7][64]; // [side][piece][to]
+	Value corrhist_threat[2][CORRHIST_SZ];
 
 	Corrhist() {
 		memset(corrhist_ps, 0, sizeof(corrhist_ps));
@@ -74,6 +76,7 @@ struct Corrhist {
 		memset(corrhist_maj, 0, sizeof(corrhist_maj));
 		memset(corrhist_min, 0, sizeof(corrhist_min));
 		memset(corrhist_cont, 0, sizeof(corrhist_cont));
+		memset(corrhist_threat, 0, sizeof(corrhist_threat));
 	}
 
 	void update_corrhist(Position &pos, SSEntry *line, int ply, int bonus);
