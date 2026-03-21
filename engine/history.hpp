@@ -48,12 +48,12 @@ struct History {
 		memset(capthist, 0, sizeof(capthist));
 	}
 
-	int get_conthist(Board &board, Move move, int ply, SSEntry *line);
-	int get_history(Board &board, Move move, int ply, SSEntry *line);
-	int get_capthist(Board &board, Move move);
+	int get_conthist(Position &pos, Move move, int ply, SSEntry *line);
+	int get_history(Position &pos, Move move, int ply, SSEntry *line);
+	int get_capthist(Position &pos, Move move);
 
-	void update_history(Board &board, Move &move, int ply, SSEntry *line, Value bonus);
-	void update_capthist(Board &board, Move move, Value bonus);
+	void update_history(Position &pos, Move &move, int ply, SSEntry *line, Value bonus);
+	void update_capthist(Position &pos, Move move, Value bonus);
 };
 
 struct Corrhist {
@@ -76,8 +76,8 @@ struct Corrhist {
 		memset(corrhist_cont, 0, sizeof(corrhist_cont));
 	}
 
-	void update_corrhist(Board &board, SSEntry *line, int ply, int bonus);
-	void apply_correction(Board &board, SSEntry *line, int ply, Value &eval);
+	void update_corrhist(Position &pos, SSEntry *line, int ply, int bonus);
+	void apply_correction(Position &pos, SSEntry *line, int ply, Value &eval);
 };
 
 extern Corrhist shared_corrhist;

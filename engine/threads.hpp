@@ -13,6 +13,7 @@ class Pool {
 private:
 	size_t num_threads;
 	std::vector<std::thread> threads;
+	Position pos;
 	ThreadInfo *tis;
 
 	std::unique_ptr<std::barrier<>> start_barrier, ready_barrier;
@@ -44,7 +45,7 @@ public:
 
 	void resize(size_t num);
 
-	void search(Board &board, int64_t time, int depth, int64_t maxnodes, bool quiet);
+	void search(Position &pos, RepetitionHandler &rp, int64_t time, int depth, int64_t maxnodes, bool quiet);
 
 	void clear_search_vars() {
 		std::unique_lock lock(mtx);

@@ -39,18 +39,19 @@ void Pool::thread_loop(size_t i) {
 			std::shared_lock lock(mtx);
 			ready_barrier->arrive_and_wait();
 
-			iterativedeepening(tis[i], depth);
+			iterativedeepening(pos, tis[i], depth);
 		}
 	}
 }
 
-void Pool::search(Board &board, int64_t time, int depth, int64_t maxnodes, bool quiet) {
+void Pool::search(Position &pos, RepetitionHandler &rp, int64_t time, int depth, int64_t maxnodes, bool quiet) {
 	prepare_search(time, maxnodes, quiet, num_threads);
 	this->depth = depth;
+	this->pos = pos;
 
 	for (int t = 0; t < num_threads; t++) {
 		ThreadInfo &ti = tis[t];
-		ti.board = board;
+		ti.rp = rp;
 		ti.seldepth = 0;
 		nodes[t] = 0;
 		ti.id = t;

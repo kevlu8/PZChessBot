@@ -60,49 +60,43 @@ struct HistoryEntry {
 	}
 };
 
-struct Board {
-	Bitboard piece_boards[8] = {0};
-	Bitboard side_control[2] = {0}; // side_control[WHITE] are squares controlled by WHITE pieces
-	Bitboard pinned[2]; // pinned[WHITE] are pieces pinned to the WHITE king
-	Bitboard pinners[2]; // pinners[WHITE] are pieces pinning WHITE pieces
-	Bitboard checkers[2]; // checkers[WHITE] are pieces checking the WHITE king
+struct Position {
+	Bitboard piece_boards[8] = {};
+	Bitboard side_control[2] = {};
+	Bitboard pinned[2];
+	Bitboard pinners[2];
+	Bitboard checkers[2];
 	bool side = WHITE;
 	uint8_t halfmove = 0;
-	uint8_t castling = 0xf; // 1111
+	uint8_t castling = 0xf;
 	Square ep_square = SQ_NONE;
 	Square rook_pos[4];
 	uint64_t zobrist = 0;
-	uint64_t piece_hashes[15] = {};
-	pzstd::vector<uint64_t, 1024> hash_hist;
+	uint64_t piece_hashes[15];
 
 	// Mailbox representation of the board for faster queries of certain data
-	Piece mailbox[8 * 8];
+	Piece mailbox[64];
 
-	// Moves with extra information (taken piece etc..)
-	// better documentation will be included later
-	std::stack<HistoryEntry> move_hist;
-	std::stack<uint8_t> halfmove_hist;
+	int fullmove = 0;
 
-	Board() {
-		reset_board();
+	Position() {
+		reset_pos();
 	}
 
-	Board(std::string fen) {
+	Position(std::string fen) {
 		load_fen(fen);
-	};
+	}
 
 	void load_fen(std::string);
 	std::string get_fen() const;
 	void print_board() const;
-	void print_board_pretty(bool print_meta = false) const;
 	bool sanity_check(char *);
 
-	void reset_board();
-	void reset_startpos() { reset_board(); }
-	void reset(std::string fen) { reset_board(); load_fen(fen); }
+	void reset_pos();
+	void reset_startpos() { reset_pos(); }
+	void reset(std::string fen) { reset_pos(); load_fen(fen); }
 
 	void make_move(Move);
-	void unmake_move();
 	void update_control();
 
 	void legal_moves(pzstd::vector<Move> &) const;
@@ -118,11 +112,27 @@ struct Board {
 
 	void recompute_hash();
 
-	bool threefold(int ply);
 	bool insufficient_material() const;
 
 	uint64_t pawn_hash() const;
 	uint64_t nonpawn_hash(bool color) const;
 	uint64_t major_hash() const;
 	uint64_t minor_hash() const;
+};
+
+struct RepetitionHandler {
+	pzstd::vector<uint64_t, 1024> hash_hist;
+
+	RepetitionHandler() {
+		hash_hist.clear();
+	}
+
+	void clear() {
+		hash_hist.clear();
+	}
+
+	bool threefold(int ply, uint64_t hash);
+
+	void push_hash(uint64_t hash) { hash_hist.push_back(hash); }
+	void pop_hash() { hash_hist.pop_back(); }
 };

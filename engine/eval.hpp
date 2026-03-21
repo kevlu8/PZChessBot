@@ -7,11 +7,11 @@
 
 extern Network nnue_network;
 
-Value simple_eval(Board &board);
+Value simple_eval(Position &);
 
-Value eval(Board &board, BoardState *bs);
+Value eval(Position &, BoardState *);
 
-std::array<Value, 8> debug_eval(Board &board);
+std::array<Value, 8> debug_eval(Position &);
 
 constexpr int IBUCKET_LAYOUT[] = {
 	0, 2, 4, 6, 7, 5, 3, 1,

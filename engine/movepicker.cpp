@@ -17,17 +17,17 @@ std::pair<Move, int> pick_next(pzstd::vector<std::pair<Move, int>> &scores, int 
 	return {best_move, best_score};
 }
 
-MovePicker::MovePicker(Board &board, SSEntry *ss, int ply, History *main_hist, std::optional<TTable::TTEntry> &tentry) : board(board), ss(ss), ply(ply), main_hist(main_hist) {
+MovePicker::MovePicker(Position &pos, SSEntry *ss, int ply, History *main_hist, std::optional<TTable::TTEntry> &tentry) : pos(pos), ss(ss), ply(ply), main_hist(main_hist) {
 	stage = MP_STAGE_TT;
 	ttMove = tentry ? tentry->best_move : NullMove;
 }
 
-MovePicker::MovePicker(Board &board, History *main_hist, std::optional<TTable::TTEntry> &tentry) : board(board), ss(nullptr), ply(0), main_hist(main_hist) {
+MovePicker::MovePicker(Position &pos, History *main_hist, std::optional<TTable::TTEntry> &tentry) : pos(pos), ss(nullptr), ply(0), main_hist(main_hist) {
 	stage = MP_PC_TT;
 	ttMove = tentry ? tentry->best_move : NullMove;
 }
 
-MovePicker::MovePicker(Board &board, History *main_hist, bool skip_quiets) : board(board), ss(nullptr), ply(0), main_hist(main_hist), qskip(skip_quiets) {
+MovePicker::MovePicker(Position &pos, History *main_hist, bool skip_quiets) : pos(pos), ss(nullptr), ply(0), main_hist(main_hist), qskip(skip_quiets) {
 	stage = MP_QS_GEN;
 }
 
@@ -37,13 +37,13 @@ Move MovePicker::next() {
 
 	if (stage == MP_STAGE_TT) {
 		stage = MP_STAGE_GEN;
-		if (ttMove != NullMove && board.is_pseudolegal(ttMove))
+		if (ttMove != NullMove && pos.is_pseudolegal(ttMove))
 			return ttMove;
 	}
 
 	if (stage == MP_STAGE_GEN) {
 		stage = MP_STAGE_GOODNOISY;
-		board.legal_moves(moves);
+		pos.legal_moves(moves);
 
 		for (Move move : moves) {
 			if (move == ttMove)
@@ -51,19 +51,19 @@ Move MovePicker::next() {
 
 			int score = 0;
 
-			bool capt = board.is_capture(move);
+			bool capt = pos.is_capture(move);
 			bool promo = move.type() == PROMOTION;
 
 			if (capt || promo) {
 				if (capt)
-					score += MVV[board.mailbox[move.dst()] & 7] + main_hist->get_capthist(board, move);
+					score += MVV[pos.mailbox[move.dst()] & 7] + main_hist->get_capthist(pos, move);
 				if (promo)
 					score += MVV[move.promotion() + KNIGHT] - PawnValue;
 				
 				noisy_scores.push_back({move, score});
 			} else {
 				if (qskip) continue;
-				score = main_hist->get_history(board, move, ply, ss);
+				score = main_hist->get_history(pos, move, ply, ss);
 				quiet_scores.push_back({move, score});
 			}
 		}
@@ -84,7 +84,7 @@ Move MovePicker::next() {
 				end = quiet_scores.size();
 				break;
 			}
-			bool see = board.see(move, -score / badnoisy_div());
+			bool see = pos.see(move, -score / badnoisy_div());
 			if (see) {
 				return move;
 			} else {
@@ -115,24 +115,24 @@ Move MovePicker::next() {
 
 	if (stage == MP_PC_TT) {
 		stage = MP_PC_GEN;
-		if (ttMove != NullMove && board.is_pseudolegal(ttMove))
+		if (ttMove != NullMove && pos.is_pseudolegal(ttMove))
 			return ttMove;
 	}
 
 	if (stage == MP_PC_GEN) {
 		stage = MP_PC_MOVES;
-		board.captures(moves);
+		pos.captures(moves);
 
 		for (Move move : moves) {
 			if (move == ttMove)
 				continue;
 
-			if (!board.see(move, probcut_see()))
+			if (!pos.see(move, probcut_see()))
 				continue; // Skip bad captures
 
 			int score = 0;
-			if (board.is_capture(move))
-				score = MVV[board.mailbox[move.dst()] & 7] + main_hist->get_capthist(board, move);
+			if (pos.is_capture(move))
+				score = MVV[pos.mailbox[move.dst()] & 7] + main_hist->get_capthist(pos, move);
 			else
 				score = MVV[move.promotion() + KNIGHT] - PawnValue;
 			noisy_scores.push_back({move, score});
@@ -154,18 +154,18 @@ Move MovePicker::next() {
 
 	if (stage == MP_QS_GEN) {
 		stage = MP_QS_MOVES;
-		if (qskip) board.captures(moves);
-		else board.legal_moves(moves);
+		if (qskip) pos.captures(moves);
+		else pos.legal_moves(moves);
 
 		for (Move move : moves) {
 			int score = 0;
 
-			bool capt = board.is_capture(move);
+			bool capt = pos.is_capture(move);
 			bool promo = move.type() == PROMOTION;
 
 			if (capt || promo) {
 				if (capt)
-					score = MVV[board.mailbox[move.dst()] & 7] + main_hist->get_capthist(board, move);
+					score = MVV[pos.mailbox[move.dst()] & 7] + main_hist->get_capthist(pos, move);
 				if (promo)
 					score += MVV[move.promotion() + KNIGHT] - PawnValue;
 				noisy_scores.push_back({move, score});

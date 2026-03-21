@@ -28,7 +28,7 @@ enum MP_Stage {
 
 class MovePicker {
 private:
-	Board &board;
+	Position &pos;
 	pzstd::vector<Move> moves, bad_noisy;
 	pzstd::vector<std::pair<Move, int>> quiet_scores, noisy_scores;
 	Move ttMove;
@@ -40,9 +40,9 @@ private:
 	bool qskip = false;
 
 public:
-	MovePicker(Board &board, SSEntry *ss, int ply, History *main_hist, std::optional<TTable::TTEntry> &tentry);
-	MovePicker(Board &board, History *main_hist, std::optional<TTable::TTEntry> &tentry); // Probcut constructor
-	MovePicker(Board &board, History *main_hist, bool skip_quiets); // QSearch constructor
+	MovePicker(Position &pos, SSEntry *ss, int ply, History *main_hist, std::optional<TTable::TTEntry> &tentry);
+	MovePicker(Position &pos, History *main_hist, std::optional<TTable::TTEntry> &tentry); // Probcut constructor
+	MovePicker(Position &pos, History *main_hist, bool skip_quiets); // QSearch constructor
 
 	Move next();
 

@@ -23,7 +23,9 @@ bool quiet = false, online = false, dfrc_uci = false;
 void run_uci() {
 	Pool pool;
 	std::string command;
-	Board board = Board();
+	Position pos = Position();
+	RepetitionHandler rp;
+	rp.push_hash(pos.zobrist);
 	while (getline(std::cin, command)) {
 		if (command == "uci") {
 			std::cout << "id name PZChessBot " << VERSION << std::endl;
@@ -76,27 +78,34 @@ void run_uci() {
 		} else if (command == "ucinewgame") {
 			stop_search = true;
 			pool.wait_finished();
-			board = Board();
+			pos = Position();
+			rp.clear();
+			rp.push_hash(pos.zobrist);
 			ttable.resize(TT_SIZE);
 			shared_corrhist = Corrhist();
 			pool.clear_search_vars();
 		} else if (command.substr(0, 8) == "position") {
 			// either `position startpos` or `position fen ...`
 			if (command.find("startpos") != std::string::npos) {
-				board.reset_startpos();
+				pos.reset_startpos();
+				rp.clear();
+				rp.push_hash(pos.zobrist);
 			} else if (command.find("fen") != std::string::npos) {
 				std::string fen = command.substr(command.find("fen") + 4);
 				if (fen.find("moves") != std::string::npos) {
 					fen = fen.substr(0, fen.find("moves"));
 				}
-				board.reset(fen);
+				pos.reset(fen);
+				rp.clear();
+				rp.push_hash(pos.zobrist);
 			}
 			if (command.find("moves") != std::string::npos) {
 				std::string moves = command.substr(command.find("moves") + 6);
 				std::stringstream ss(moves);
 				std::string move;
 				while (ss >> move) {
-					board.make_move(Move::from_string(move, &board));
+					pos.make_move(Move::from_string(move, &pos));
+					rp.push_hash(pos.zobrist);
 				}
 			}
 		} else if (command == "quit") {
@@ -107,10 +116,10 @@ void run_uci() {
 			stop_search = true;
 			pool.wait_finished();
 		} else if (command == "eval") {
-			std::array<Value, 8> score = debug_eval(board);
-			board.print_board();
-			std::cout << "info string fen " << board.get_fen() << std::endl;
-			int nbucket = (_mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]) - 2) / 4;
+			std::array<Value, 8> score = debug_eval(pos);
+			pos.print_board();
+			std::cout << "info string fen " << pos.get_fen() << std::endl;
+			int nbucket = (_mm_popcnt_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]) - 2) / 4;
 			for (int i = 0; i < 8; i++) {
 				std::cout << "info string eval " << i << ": " << score[i];
 				if (i == nbucket) {
@@ -155,35 +164,37 @@ void run_uci() {
 			if (perft_depth != -1) {
 				uint64_t tot_nodes = 0;
 				pzstd::vector<Move> moves;
-				board.legal_moves(moves);
+				pos.legal_moves(moves);
 				for (Move &move : moves) {
-					if (!board.is_legal(move))
+					if (!pos.is_legal(move))
 						continue;
-					board.make_move(move);
-					uint64_t cnt = perft(board, perft_depth - 1);
-					board.unmake_move();
+					Position newpos = pos;
+					newpos.make_move(move);
+					rp.push_hash(newpos.zobrist);
+					uint64_t cnt = perft(pos, perft_depth - 1);
+					rp.pop_hash();
 					std::cout << move.to_string() << ": " << cnt << std::endl;
 					tot_nodes += cnt;
 				}
 				std::cout << "Total nodes: " << tot_nodes << std::endl;
 				continue;
 			}
-			int timeleft = board.side ? btime : wtime;
-			int inc = board.side ? binc : winc;
+			int timeleft = pos.side ? btime : wtime;
+			int inc = pos.side ? binc : winc;
 
 			if (!quiet)
 				std::cout << "info string Starting search..." << std::endl;
 
 			if (inf)
-				pool.search(board, 1e18, MAX_PLY, 1e18, quiet);
+				pool.search(pos, rp, 1e18, MAX_PLY, 1e18, quiet);
 			else if (depth != -1)
-				pool.search(board, 1e18, depth, 1e18, quiet);
+				pool.search(pos, rp, 1e18, depth, 1e18, quiet);
 			else if (nodes != -1)
-				pool.search(board, 1e18, MAX_PLY, nodes, quiet);
+				pool.search(pos, rp, 1e18, MAX_PLY, nodes, quiet);
 			else if (movetime != -1)
-				pool.search(board, movetime, MAX_PLY, 1e18, quiet);
+				pool.search(pos, rp, movetime, MAX_PLY, 1e18, quiet);
 			else
-				pool.search(board, timemgmt(timeleft, inc, online), MAX_PLY, 1e18, quiet);
+				pool.search(pos, rp, timemgmt(timeleft, inc, online), MAX_PLY, 1e18, quiet);
 		} else if (command == "wait") {
 			pool.wait_finished();
 		}
@@ -248,13 +259,16 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			"2r2b2/5p2/5k2/p1r1pP2/P2pB3/1P3P2/K1P3R1/7R w - - 23 93",
 		};
 		Pool pool;
-		Board board = Board();
+		Position pos = Position();
+		RepetitionHandler rp;
 		uint64_t tot_nodes = 0;
 		uint64_t start = clock();
 		for (const auto &fen : bench_positions) {
-			board.reset(fen);
+			pos.reset(fen);
+			rp.clear();
+			rp.push_hash(pos.zobrist);
 			pool.clear_search_vars();
-			pool.search(board, 1e9, 12, 1e18, 0);
+			pool.search(pos, rp, 1e9, 12, 1e18, 0);
 			pool.wait_finished();
 			tot_nodes += nodes[0];
 		}
@@ -286,7 +300,9 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			}
 		}
 		Pool pool;
-		Board board = Board();
+		Position pos = Position();
+		RepetitionHandler rp;
+		rp.push_hash(pos.zobrist);
 		std::mt19937_64 rng(s);
 		std::ifstream bookfile(book == "None" ? "" : book);
 		std::vector<std::string> fens;
@@ -299,38 +315,44 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			bookfile.close();
 		}
 		while (n--) {
-			if (fens.empty()) board.reset_startpos();
-			else {
-				board.reset(fens[rng() % fens.size()]);
+			if (fens.empty()) {
+				pos.reset_startpos();
+				rp.clear();
+				rp.push_hash(pos.zobrist);
+			} else {
+				pos.reset(fens[rng() % fens.size()]);
+				rp.clear();
+				rp.push_hash(pos.zobrist);
 			}
 			bool restart = false;
 			for (int i = 0; i < nmoves; i++) {
 				pzstd::vector<Move> moves;
-				board.legal_moves(moves);
+				pos.legal_moves(moves);
 				if (moves.size() == 0) {
 					restart = true;
 					break;
 				}
-				board.make_move(moves[rng() % moves.size()]);
+				pos.make_move(moves[rng() % moves.size()]);
+				rp.push_hash(pos.zobrist);
 			}
 			bool in_check = false, checking_opponent = false;
-			if (board.side == WHITE) {
-				in_check = board.control(_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK);
-				checking_opponent = board.control(_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE);
+			if (pos.side == WHITE) {
+				in_check = pos.control(_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)]), BLACK);
+				checking_opponent = pos.control(_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]), WHITE);
 			} else {
-				in_check = board.control(_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE);
-				checking_opponent = board.control(_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK);
+				in_check = pos.control(_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]), WHITE);
+				checking_opponent = pos.control(_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)]), BLACK);
 			}
 			if (in_check || checking_opponent) restart = true;
 			// make sure position is legal and somewhat balanced
 			if (!restart) {
-				if (_mm_popcnt_u64(board.piece_boards[KING]) != 2) restart = true;
+				if (_mm_popcnt_u64(pos.piece_boards[KING]) != 2) restart = true;
 				else if (filter_weird) {
-					int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
-					auto s_eval = debug_eval(board)[(npieces - 2) / 4] * (board.side == WHITE ? 1 : -1);
+					int npieces = _mm_popcnt_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
+					auto s_eval = debug_eval(pos)[(npieces - 2) / 4] * (pos.side == WHITE ? 1 : -1);
 					if (abs(s_eval) >= 600) restart = true; // do a fast static eval to quickly filter out crazy positions
 					else {
-						pool.search(board, 1e9, 4, 10000, true);
+						pool.search(pos, rp, 1e9, 4, 10000, true);
 						auto res = pool.wait_finished();
 						if (abs(res.second) >= 400) restart = true;
 					}
@@ -340,20 +362,20 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 				n++;
 				continue;
 			}
-			std::cout << "info string genfens " << board.get_fen() << std::endl;
+			std::cout << "info string genfens " << pos.get_fen() << std::endl;
 		}
 		return 0;
 	}
 	if (argc == 2 && std::string(argv[1]) == "pawnvalue") {
 		// calculate pawn value
 		Pool pool;
-		Board board = Board();
+		Position pos = Position();
 		int tot = 0;
-		Value startpos_score = eval(board, &pool.get_ti(0).bs[0][0]);
+		Value startpos_score = eval(pos, &pool.get_ti(0).bs[0][0]);
 		for (int i = 0; i < 8; i++) {
-			board.reset_startpos();
-			board.mailbox[SQ_A2 + i] = NO_PIECE;
-			Value score = eval(board, &pool.get_ti(0).bs[0][0]);
+			pos.reset_startpos();
+			pos.mailbox[SQ_A2 + i] = NO_PIECE;
+			Value score = eval(pos, &pool.get_ti(0).bs[0][0]);
 			int diff = startpos_score - score;
 			tot += diff;
 		}
@@ -365,7 +387,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 	if (argc == 2 && std::string(argv[1]) == "avgeval") {
 		// assume book is at ./lichess-big3-resolved.txt
 		Pool pool;
-		Board board = Board();
+		Position pos = Position();
 		std::ifstream bookfile("./lichess-big3-resolved.txt");
 		std::string line;
 		int64_t tot_eval = 0;
@@ -376,8 +398,8 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		}
 		while (getline(bookfile, line)) {
 			std::string fen = line.substr(0, line.find(' '));
-			board.reset(fen);
-			Value score = abs(eval(board, &pool.get_ti(0).bs[0][0]));
+			pos.reset(fen);
+			Value score = abs(eval(pos, &pool.get_ti(0).bs[0][0]));
 			tot_eval += score;
 			npositions++;
 		}
