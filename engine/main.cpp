@@ -47,9 +47,9 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 
 	std::string filename = std::to_string(id) + "_datagen.viri";
 
-	char header_buf[1048576];
+	char header_buf[0x20];
 	int header_ptr = 0;
-	char move_buf[1048576];
+	char move_buf[0x2000];
 	int ptr = 0;
 
 	std::fstream outfile(filename, std::ios::out | std::ios::binary);
@@ -129,7 +129,7 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 		}
 		while (pieces.size() < 32) pieces.push_back(0);
 		for (int i = 0; i < 32; i += 2) {
-			uint8_t byte = (pieces[i] << 4) | pieces[i + 1];
+			uint8_t byte = pieces[i] | (pieces[i + 1] << 4);
 			write_header_buf((char *)&byte, 1);
 		}
 
