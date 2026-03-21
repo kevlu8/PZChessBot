@@ -68,12 +68,6 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 		}
 	}
 
-	// Copy previous accumulator as base for new one
-	for (int i = 0; i < HL_SIZE; i++) {
-		acc.w_acc.val[i] = prev_acc.w_acc.val[i];
-		acc.b_acc.val[i] = prev_acc.b_acc.val[i];
-	}
-
 	int winbucket = IBUCKET_LAYOUT[_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)])];
 	int binbucket = IBUCKET_LAYOUT[_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]) ^ 56];
 
@@ -93,35 +87,87 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 			rook_dest = move.src() < move.dst() ? SQ_F8 : SQ_D8;
 		}
 		// 4 updates: rm king, rm rook, add king, add rook
-		acc.update_sub(move.src(), KING, pos.side, winbucket, binbucket);
-		acc.update_sub(move.dst(), ROOK, pos.side, winbucket, binbucket);
-		acc.update_add(king_dest, KING, pos.side, winbucket, binbucket);
-		acc.update_add(rook_dest, ROOK, pos.side, winbucket, binbucket);
+		int windex1 = calculate_index(move.src(), KING, pos.side, 0, winbucket);
+		int bindex1 = calculate_index(move.src(), KING, pos.side, 1, binbucket);
+		int windex2 = calculate_index(move.dst(), ROOK, pos.side, 0, winbucket);
+		int bindex2 = calculate_index(move.dst(), ROOK, pos.side, 1, binbucket);
+		int windex3 = calculate_index(king_dest, KING, pos.side, 0, winbucket);
+		int bindex3 = calculate_index(king_dest, KING, pos.side, 1, binbucket);
+		int windex4 = calculate_index(rook_dest, ROOK, pos.side, 0, winbucket);
+		int bindex4 = calculate_index(rook_dest, ROOK, pos.side, 1, binbucket);
+		for (int i = 0; i < HL_SIZE; i++) {
+			acc.w_acc.val[i] = prev_acc.w_acc.val[i] - nnue_network.accumulator_weights[windex1][i] - nnue_network.accumulator_weights[windex2][i] + nnue_network.accumulator_weights[windex3][i] + nnue_network.accumulator_weights[windex4][i];
+			acc.b_acc.val[i] = prev_acc.b_acc.val[i] - nnue_network.accumulator_weights[bindex1][i] - nnue_network.accumulator_weights[bindex2][i] + nnue_network.accumulator_weights[bindex3][i] + nnue_network.accumulator_weights[bindex4][i];
+		}
 		return;
 	}
 
 	if (ep) {
 		// 3 updates: rm pawn, rm taken pawn, add pawn
 		Square taken_pawn = Square((move.src() & 0b111000) | (move.dst() & 0b000111));
-		acc.update_sub(move.src(), PAWN, pos.side, winbucket, binbucket);
-		acc.update_sub(taken_pawn, PAWN, !pos.side, winbucket, binbucket);
-		acc.update_add(move.dst(), PAWN, pos.side, winbucket, binbucket);
+		int windex1 = calculate_index(move.src(), PAWN, pos.side, 0, winbucket);
+		int bindex1 = calculate_index(move.src(), PAWN, pos.side, 1, binbucket);
+		int windex2 = calculate_index(taken_pawn, PAWN, !pos.side, 0, winbucket);
+		int bindex2 = calculate_index(taken_pawn, PAWN, !pos.side, 1, binbucket);
+		int windex3 = calculate_index(move.dst(), PAWN, pos.side, 0, winbucket);
+		int bindex3 = calculate_index(move.dst(), PAWN, pos.side, 1, binbucket);
+		for (int i = 0; i < HL_SIZE; i++) {
+			acc.w_acc.val[i] = prev_acc.w_acc.val[i] - nnue_network.accumulator_weights[windex1][i] - nnue_network.accumulator_weights[windex2][i] + nnue_network.accumulator_weights[windex3][i];
+			acc.b_acc.val[i] = prev_acc.b_acc.val[i] - nnue_network.accumulator_weights[bindex1][i] - nnue_network.accumulator_weights[bindex2][i] + nnue_network.accumulator_weights[bindex3][i];
+		}
+		return;
+	}
+
+	if (promo) {
+		if (!capture) {
+			// 2 updates: rm pawn, add promo piece
+			int windex1 = calculate_index(move.src(), PAWN, pos.side, 0, winbucket);
+			int bindex1 = calculate_index(move.src(), PAWN, pos.side, 1, binbucket);
+			int windex2 = calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), pos.side, 0, winbucket);
+			int bindex2 = calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), pos.side, 1, binbucket);
+			for (int i = 0; i < HL_SIZE; i++) {
+				acc.w_acc.val[i] = prev_acc.w_acc.val[i] - nnue_network.accumulator_weights[windex1][i] + nnue_network.accumulator_weights[windex2][i];
+				acc.b_acc.val[i] = prev_acc.b_acc.val[i] - nnue_network.accumulator_weights[bindex1][i] + nnue_network.accumulator_weights[bindex2][i];
+			}
+		} else {
+			// 3 updates: rm pawn, rm captured piece, add promo piece
+			int windex1 = calculate_index(move.src(), PAWN, pos.side, 0, winbucket);
+			int bindex1 = calculate_index(move.src(), PAWN, pos.side, 1, binbucket);
+			PieceType captured_pt = PieceType(pos.mailbox[move.dst()] & 7);
+			int windex2 = calculate_index(move.dst(), captured_pt, !pos.side, 0, winbucket);
+			int bindex2 = calculate_index(move.dst(), captured_pt, !pos.side, 1, binbucket);
+			int windex3 = calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), pos.side, 0, winbucket);
+			int bindex3 = calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), pos.side, 1, binbucket);
+			for (int i = 0; i < HL_SIZE; i++) {
+				acc.w_acc.val[i] = prev_acc.w_acc.val[i] - nnue_network.accumulator_weights[windex1][i] - nnue_network.accumulator_weights[windex2][i] + nnue_network.accumulator_weights[windex3][i];
+				acc.b_acc.val[i] = prev_acc.b_acc.val[i] - nnue_network.accumulator_weights[bindex1][i] - nnue_network.accumulator_weights[bindex2][i] + nnue_network.accumulator_weights[bindex3][i];
+			}
+		}
 		return;
 	}
 
 	if (capture) {
-		// 1 update (so far): rm captured
-		acc.update_sub(move.dst(), PieceType(pos.mailbox[move.dst()] & 7), !pos.side, winbucket, binbucket);
-	}
-
-	if (promo) {
-		// 2 updates: rm pawn, add promo piece
-		acc.update_sub(move.src(), PAWN, pos.side, winbucket, binbucket);
-		acc.update_add(move.dst(), PieceType(move.promotion() + KNIGHT), pos.side, winbucket, binbucket);
+		// 3 updates: rm piece, rm captured, add piece
+		int windex1 = calculate_index(move.src(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 0, winbucket);
+		int bindex1 = calculate_index(move.src(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 1, binbucket);
+		int windex2 = calculate_index(move.dst(), PieceType(pos.mailbox[move.dst()] & 7), !pos.side, 0, winbucket);
+		int bindex2 = calculate_index(move.dst(), PieceType(pos.mailbox[move.dst()] & 7), !pos.side, 1, binbucket);
+		int windex3 = calculate_index(move.dst(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 0, winbucket);
+		int bindex3 = calculate_index(move.dst(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 1, binbucket);
+		for (int i = 0; i < HL_SIZE; i++) {
+			acc.w_acc.val[i] = prev_acc.w_acc.val[i] - nnue_network.accumulator_weights[windex1][i] - nnue_network.accumulator_weights[windex2][i] + nnue_network.accumulator_weights[windex3][i];
+			acc.b_acc.val[i] = prev_acc.b_acc.val[i] - nnue_network.accumulator_weights[bindex1][i] - nnue_network.accumulator_weights[bindex2][i] + nnue_network.accumulator_weights[bindex3][i];
+		}
 		return;
 	}
 
 	// 2 updates: rm piece, add piece
-	acc.update_sub(move.src(), PieceType(pos.mailbox[move.src()] & 7), pos.side, winbucket, binbucket);
-	acc.update_add(move.dst(), PieceType(pos.mailbox[move.src()] & 7), pos.side, winbucket, binbucket);
+	int windex1 = calculate_index(move.src(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 0, winbucket);
+	int bindex1 = calculate_index(move.src(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 1, binbucket);
+	int windex2 = calculate_index(move.dst(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 0, winbucket);
+	int bindex2 = calculate_index(move.dst(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 1, binbucket);
+	for (int i = 0; i < HL_SIZE; i++) {
+		acc.w_acc.val[i] = prev_acc.w_acc.val[i] - nnue_network.accumulator_weights[windex1][i] + nnue_network.accumulator_weights[windex2][i];
+		acc.b_acc.val[i] = prev_acc.b_acc.val[i] - nnue_network.accumulator_weights[bindex1][i] + nnue_network.accumulator_weights[bindex2][i];
+	}
 }
