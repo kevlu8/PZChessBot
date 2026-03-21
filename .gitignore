@@ -64,3 +64,5 @@ cutechess
 *.log
 base
 config.json
+pz-base
+pz-dev

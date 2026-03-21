@@ -27,10 +27,10 @@ uint64_t perft(Position &pos, int depth) {
 			continue;
 
 		if (depth > 1) {
-			Position newpos = pos;
-			newpos.make_move(move);
+			Position pos_after = pos;
+			pos_after.make_move(move);
 
-			cnt += perft(newpos, depth - 1);
+			cnt += perft(pos_after, depth - 1);
 		} else {
 			cnt++;
 		}
@@ -486,7 +486,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 				return null_score; // Direct cutoff for low depths
 
 			ti.nmp_disable = true;
-			Value score = negamax(pos_after, ti, depth - r, beta - 1, beta, side, 0, false, ply);
+			Value score = negamax(pos, ti, depth - r, beta - 1, beta, side, 0, false, ply);
 			ti.nmp_disable = false;
 			if (score >= beta)
 				return null_score;

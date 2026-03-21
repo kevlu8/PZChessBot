@@ -168,10 +168,10 @@ void run_uci() {
 				for (Move &move : moves) {
 					if (!pos.is_legal(move))
 						continue;
-					Position newpos = pos;
-					newpos.make_move(move);
-					rp.push_hash(newpos.zobrist);
-					uint64_t cnt = perft(pos, perft_depth - 1);
+					Position pos_after = pos;
+					pos_after.make_move(move);
+					rp.push_hash(pos_after.zobrist);
+					uint64_t cnt = perft(pos_after, perft_depth - 1);
 					rp.pop_hash();
 					std::cout << move.to_string() << ": " << cnt << std::endl;
 					tot_nodes += cnt;
@@ -266,7 +266,6 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		for (const auto &fen : bench_positions) {
 			pos.reset(fen);
 			rp.clear();
-			rp.push_hash(pos.zobrist);
 			pool.clear_search_vars();
 			pool.search(pos, rp, 1e9, 12, 1e18, 0);
 			pool.wait_finished();
