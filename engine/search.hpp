@@ -47,7 +47,6 @@
 extern bool stop_search;
 
 extern std::atomic<uint64_t> nodes[MAX_THREADS];
-extern uint16_t num_threads;
 
 struct ThreadInfo {
 	Board board;
@@ -61,6 +60,10 @@ struct ThreadInfo {
 	int pvlen[MAX_PLY + 5] = {};
 	BoardState bs[NINPUTS * 2][NINPUTS * 2];
     bool nmp_disable = false;
+
+    ThreadInfo() {
+        set_bs();
+    }
 
     void set_bs() {
         for (int i = 0; i < NINPUTS * 2; i++) {
@@ -77,7 +80,9 @@ struct ThreadInfo {
     }
 };
 
-std::pair<Move, Value> search(Board &board, ThreadInfo *threads, int64_t time = 1e9, int depth = MAX_PLY, int64_t nodes = 1e18, int quiet = 0);
+void prepare_search(int64_t time, int64_t maxnodes, bool quiet, uint16_t num_threads);
+
+void iterativedeepening(ThreadInfo &ti, int depth);
 
 uint64_t perft(Board &board, int depth);
 
