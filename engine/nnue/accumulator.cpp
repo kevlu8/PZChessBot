@@ -156,27 +156,23 @@ void AccumulatorManager::apply_lazy(Position &pos) {
 
 	for (int i = index + 1; i <= idx; i++) {
 		auto &u = updates[i];
-		for (int k = 0; k < HL_SIZE; k++) {
-			accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k];
-			accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k];
-		}
-		for (int j = 0; j < u.deltas; j++) {
-			if (u.w_deltas[j] >= NEGATE) {
-				// Subtract at index u.w_deltas[j] - NEGATE
-				int windex = u.w_deltas[j] - NEGATE;
-				int bindex = u.b_deltas[j] - NEGATE;
-				for (int k = 0; k < HL_SIZE; k++) {
-					accs[i].w_acc.val[k] -= nnue_network.accumulator_weights[windex][k];
-					accs[i].b_acc.val[k] -= nnue_network.accumulator_weights[bindex][k];
-				}
-			} else {
-				// Add at index u.w_deltas[j]
-				int windex = u.w_deltas[j];
-				int bindex = u.b_deltas[j];
-				for (int k = 0; k < HL_SIZE; k++) {
-					accs[i].w_acc.val[k] += nnue_network.accumulator_weights[windex][k];
-					accs[i].b_acc.val[k] += nnue_network.accumulator_weights[bindex][k];
-				}
+		if (u.deltas == 2) {
+			// -+
+			for (int k = 0; k < HL_SIZE; k++) {
+				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - nnue_network.accumulator_weights[u.w_deltas[0]][k] + nnue_network.accumulator_weights[u.w_deltas[1]][k];
+				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - nnue_network.accumulator_weights[u.b_deltas[0]][k] + nnue_network.accumulator_weights[u.b_deltas[1]][k];
+			}
+		} else if (u.deltas == 3) {
+			// --+
+			for (int k = 0; k < HL_SIZE; k++) {
+				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - nnue_network.accumulator_weights[u.w_deltas[0]][k] - nnue_network.accumulator_weights[u.w_deltas[1]][k] + nnue_network.accumulator_weights[u.w_deltas[2]][k];
+				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - nnue_network.accumulator_weights[u.b_deltas[0]][k] - nnue_network.accumulator_weights[u.b_deltas[1]][k] + nnue_network.accumulator_weights[u.b_deltas[2]][k];
+			}
+		} else if (u.deltas == 4) {
+			// --++
+			for (int k = 0; k < HL_SIZE; k++) {
+				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - nnue_network.accumulator_weights[u.w_deltas[0]][k] - nnue_network.accumulator_weights[u.w_deltas[1]][k] + nnue_network.accumulator_weights[u.w_deltas[2]][k] + nnue_network.accumulator_weights[u.w_deltas[3]][k];
+				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - nnue_network.accumulator_weights[u.b_deltas[0]][k] - nnue_network.accumulator_weights[u.b_deltas[1]][k] + nnue_network.accumulator_weights[u.b_deltas[2]][k] + nnue_network.accumulator_weights[u.b_deltas[3]][k];
 			}
 		}
 		accs[i].correct = true;
@@ -236,7 +232,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 		int bindex3 = calculate_index(king_dest, KING, pos.side, 1, binbucket);
 		int windex4 = calculate_index(rook_dest, ROOK, pos.side, 0, winbucket);
 		int bindex4 = calculate_index(rook_dest, ROOK, pos.side, 1, binbucket);
-		updates[idx] = {windex1 + NEGATE, bindex1 + NEGATE, windex2 + NEGATE, bindex2 + NEGATE, windex3, bindex3, windex4, bindex4};
+		updates[idx] = {windex1, bindex1, windex2, bindex2, windex3, bindex3, windex4, bindex4};
 		return;
 	}
 
@@ -249,7 +245,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 		int bindex2 = calculate_index(taken_pawn, PAWN, !pos.side, 1, binbucket);
 		int windex3 = calculate_index(move.dst(), PAWN, pos.side, 0, winbucket);
 		int bindex3 = calculate_index(move.dst(), PAWN, pos.side, 1, binbucket);
-		updates[idx] = {windex1 + NEGATE, bindex1 + NEGATE, windex2 + NEGATE, bindex2 + NEGATE, windex3, bindex3};
+		updates[idx] = {windex1, bindex1, windex2, bindex2, windex3, bindex3};
 		return;
 	}
 
@@ -260,7 +256,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 			int bindex1 = calculate_index(move.src(), PAWN, pos.side, 1, binbucket);
 			int windex2 = calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), pos.side, 0, winbucket);
 			int bindex2 = calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), pos.side, 1, binbucket);
-			updates[idx] = {windex1 + NEGATE, bindex1 + NEGATE, windex2, bindex2};
+			updates[idx] = {windex1, bindex1, windex2, bindex2};
 		} else {
 			// 3 updates: rm pawn, rm captured piece, add promo piece
 			int windex1 = calculate_index(move.src(), PAWN, pos.side, 0, winbucket);
@@ -270,7 +266,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 			int bindex2 = calculate_index(move.dst(), captured_pt, !pos.side, 1, binbucket);
 			int windex3 = calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), pos.side, 0, winbucket);
 			int bindex3 = calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), pos.side, 1, binbucket);
-			updates[idx] = {windex1 + NEGATE, bindex1 + NEGATE, windex2 + NEGATE, bindex2 + NEGATE, windex3, bindex3};
+			updates[idx] = {windex1, bindex1, windex2, bindex2, windex3, bindex3};
 		}
 		return;
 	}
@@ -283,7 +279,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 		int bindex2 = calculate_index(move.dst(), PieceType(pos.mailbox[move.dst()] & 7), !pos.side, 1, binbucket);
 		int windex3 = calculate_index(move.dst(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 0, winbucket);
 		int bindex3 = calculate_index(move.dst(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 1, binbucket);
-		updates[idx] = {windex1 + NEGATE, bindex1 + NEGATE, windex2 + NEGATE, bindex2 + NEGATE, windex3, bindex3};
+		updates[idx] = {windex1, bindex1, windex2, bindex2, windex3, bindex3};
 		return;
 	}
 
@@ -292,5 +288,5 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 	int bindex1 = calculate_index(move.src(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 1, binbucket);
 	int windex2 = calculate_index(move.dst(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 0, winbucket);
 	int bindex2 = calculate_index(move.dst(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 1, binbucket);
-	updates[idx] = {windex1 + NEGATE, bindex1 + NEGATE, windex2, bindex2};
+	updates[idx] = {windex1, bindex1, windex2, bindex2};
 }

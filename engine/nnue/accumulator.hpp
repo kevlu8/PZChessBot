@@ -4,8 +4,6 @@
 #include "network.hpp"
 #include "../bitboard.hpp"
 
-#define NEGATE 30000
-
 struct AccumulatorManager {
 	struct AccumulatorPair {
 		int winbucket, binbucket;
@@ -21,7 +19,6 @@ struct AccumulatorManager {
 		int deltas = 0;
 
 		Update() : deltas(0) {}
-		Update(int w1, int b1) { w_deltas[0] = w1; b_deltas[0] = b1; deltas = 1; }
 		Update(int w1, int b1, int w2, int b2) { w_deltas[0] = w1; b_deltas[0] = b1; w_deltas[1] = w2; b_deltas[1] = b2; deltas = 2; }
 		Update(int w1, int b1, int w2, int b2, int w3, int b3) { w_deltas[0] = w1; b_deltas[0] = b1; w_deltas[1] = w2; b_deltas[1] = b2; w_deltas[2] = w3; b_deltas[2] = b3; deltas = 3; }
 		Update(int w1, int b1, int w2, int b2, int w3, int b3, int w4, int b4) { w_deltas[0] = w1; b_deltas[0] = b1; w_deltas[1] = w2; b_deltas[1] = b2; w_deltas[2] = w3; b_deltas[2] = b3; w_deltas[3] = w4; b_deltas[3] = b4; deltas = 4; }
