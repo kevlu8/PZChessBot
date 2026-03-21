@@ -27,13 +27,33 @@ ThreadInfo *tis;
 std::atomic<uint64_t> g_tot_pos(0), g_tot_games(0), threads_done(0);
 int n_threads = 1;
 
+uint16_t move_to_bin(Move move) {
+	uint16_t data = 0;
+	data = move.src() | (move.dst() << 6);
+	if (move.type() == PROMOTION) {
+		PieceType pt = PieceType(move.promotion() + KNIGHT);
+		if (pt == BISHOP) data |= 1 << 12;
+		else if (pt == ROOK) data |= 2 << 12;
+		else if (pt == QUEEN) data |= 3 << 12;
+	}
+	if (move.type() == EN_PASSANT) data |= 1 << 14;
+	else if (move.type() == CASTLING) data |= 2 << 14;
+	else if (move.type() == PROMOTION) data |= 3 << 14;
+	return data;
+}
+
 void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 	int id = tiw.id / 2;
 
-	std::string filename = std::to_string(id) + "_datagen.pgn";
+	std::string filename = std::to_string(id) + "_datagen.viri";
 
-	std::fstream outfile(filename, std::ios::out);
-	uint64_t games = 0, total_pos = 0;
+	char header_buf[1048576];
+	int header_ptr = 0;
+	char move_buf[1048576];
+	int ptr = 0;
+
+	std::fstream outfile(filename, std::ios::out | std::ios::binary);
+	uint64_t games = 0;
 	std::mt19937_64 rng(id + std::chrono::system_clock::now().time_since_epoch().count());
 	while (threads_done.load() != n_threads && games < DATAGEN_MAX_GAMES) {
 		bool do_adjudication = (rng() % 100) < DATAGEN_ADJUDICATION_PERCENT;
@@ -43,27 +63,110 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 		Position &pos = tiw.pos;
 		RepetitionHandler &rp = tiw.rp;
 
+		header_ptr = ptr = 0;
+
+		std::string start_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
 		if (dfrc) {
 			std::string w_home = frcFens[rng() % 960];
 			for (auto &c : w_home) c = std::toupper(c);
 			std::string b_home = frcFens[rng() % 960];
-			std::string fen = b_home + "/pppppppp/8/8/8/8/PPPPPPPP/" + w_home + " w KQkq - 0 1";
-			tiw.pos.reset(fen);
-			tib.pos.reset(fen);
-			tiw.rp.clear();
-			tib.rp.clear();
-			tiw.rp.push_hash(tiw.pos.zobrist);
-			tib.rp.push_hash(tib.pos.zobrist);
-			// std::cout << "Generated FRC position: " << fen << std::endl;
+			start_fen = b_home + "/pppppppp/8/8/8/8/PPPPPPPP/" + w_home + " w KQkq - 0 1";
 		}
+
+		tiw.pos.reset(start_fen);
+		tib.pos.reset(start_fen);
+		tiw.rp.clear();
+		tib.rp.clear();
+		tiw.rp.push_hash(tiw.pos.zobrist);
+		tib.rp.push_hash(tib.pos.zobrist);
+
+		auto write_buf = [&](char *data, int sz) {
+			memcpy(move_buf + ptr, data, sz);
+			ptr += sz;
+		};
+
+		auto write_header_buf = [&](char *data, int sz) {
+			memcpy(header_buf + header_ptr, data, sz);
+			header_ptr += sz;
+		};
+
+		// write viriformat header
+		// 1. occupancy
+		Bitboard occ = pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)];
+		write_header_buf((char *)&occ, 8);
+		// 2. piece info
+		std::vector<uint8_t> pieces;
+		auto castles = pos.castling;
+		bool seen_white_king = false, seen_black_king = false;
+		for (int sq = 0; sq < 64; sq++) {
+			Piece p = pos.mailbox[sq];
+			if (p == NO_PIECE) continue;
+
+			PieceType pt = PieceType(p & 7);
+			uint8_t piece_info = 0;
+			if (p & 8) piece_info |= 0b1000; // black pieces
+			if (pt == KNIGHT) piece_info |= 1;
+			else if (pt == BISHOP) piece_info |= 2;
+			else if (pt == QUEEN) piece_info |= 4;
+			else if (pt == KING) piece_info |= 5;
+			// pawn is 0
+
+			if (pt == KING) {
+				if (p & 8) seen_black_king = true;
+				else seen_white_king = true;
+			}
+
+			if (pt == ROOK) {
+				if (!seen_white_king && (castles & WHITE_OOO)) piece_info |= 6;
+				else if (seen_white_king && (castles & WHITE_OO)) piece_info |= 6;
+				else if (!seen_black_king && (castles & BLACK_OOO)) piece_info |= 6;
+				else if (seen_black_king && (castles & BLACK_OO)) piece_info |= 6;
+				else piece_info |= 3; // normal rook
+			}
+
+			pieces.push_back(piece_info);
+		}
+		while (pieces.size() < 32) pieces.push_back(0);
+		for (int i = 0; i < 32; i += 2) {
+			uint8_t byte = (pieces[i] << 4) | pieces[i + 1];
+			write_header_buf((char *)&byte, 1);
+		}
+
+		// 3. stm + EP
+		uint8_t meta = 0;
+		if (pos.side == BLACK) meta |= 0b10000000;
+		// EP technically should be included but startpos cannot have EP
+		meta |= 64;
+		write_header_buf((char *)&meta, 1);
+
+		// 4. hm clock
+		uint8_t hm = pos.halfmove;
+		write_header_buf((char *)&hm, 1);
+
+		// 5. fm clock
+		uint16_t fm = 1;
+		write_header_buf((char *)&fm, 2);
+
+		// 6. eval of cur pos (0)
+		int16_t eval_ = 0;
+		write_header_buf((char *)&eval_, 2);
+
+		// 7. game result (pending - 0 = black, 1 = draw, 2 = white)
 
 		for (int i = 0; i < DATAGEN_NUM_RAND; i++) {
 			pzstd::vector<Move> moves;
 			pos.legal_moves(moves);
 			if (moves.size() == 0) break;
 			int mvidx = rng() % moves.size();
-			tiw.pos.make_move(moves[mvidx]);
-			tib.pos.make_move(moves[mvidx]);
+			Move mv = moves[mvidx];
+			tiw.pos.make_move(mv);
+			tib.pos.make_move(mv);
+
+			uint16_t binmove = move_to_bin(mv);
+			write_buf((char *)&binmove, 2);
+			uint16_t eval_ = 0;
+			write_buf((char *)&eval_, 2);
 		}
 
 		if (_mm_popcnt_u64(pos.piece_boards[KING]) != 2) continue;
@@ -82,10 +185,10 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 
 		std::vector<std::string> movelist;
 
-		std::string game_res = "";
+		uint8_t game_res = 0;
 
 		int consec_draw = 0, consec_w_win = 0, consec_b_win = 0;
-		int plies = DATAGEN_NUM_RAND;
+		int plies = 0;
 		while (true) {
 			tiw.nodes = tib.nodes = 0;
 			ThreadInfo &ti = (pos.side == WHITE) ? tiw : tib;
@@ -95,18 +198,14 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 			Value w_score = score * (pos.side == WHITE ? 1 : -1);
 
 			if (score == VALUE_STALE) {
-				game_res = "1/2-1/2";
+				game_res = 1;
 				break;
 			}
 
-			std::stringstream movess;
-			movess << bestmove.to_san((void *)&ti.pos) << " {" << std::fixed << std::setprecision(2) << std::showpos << (score / 100.0) << "}";
-
-			movelist.push_back(movess.str());
 			tiw.pos.make_move(bestmove);
 			tib.pos.make_move(bestmove);
 
-			if (abs(score) <= 20 && plies >= 80) consec_draw++;
+			if (abs(score) <= 20 && plies >= 100) consec_draw++;
 			else consec_draw = 0;
 
 			if (w_score >= 2000) consec_w_win++;
@@ -116,38 +215,46 @@ void datagen(ThreadInfo &tiw, ThreadInfo &tib) {
 			else consec_b_win = 0;
 
 			if ((consec_draw >= 16 && do_adjudication) || tiw.rp.threefold(0, tiw.pos.zobrist_without_ep()) || tiw.pos.insufficient_material() || tiw.pos.halfmove >= 100) {
-				game_res = "1/2-1/2";
+				game_res = 1;
 				break;
 			}
 
 			if ((consec_w_win >= 8 && do_adjudication) || w_score >= VALUE_MATE_MAX_PLY) {
-				game_res = "1-0";
+				game_res = 2;
 				break;
 			}
 
 			if ((consec_b_win >= 8 && do_adjudication) || w_score <= -VALUE_MATE_MAX_PLY) {
-				game_res = "0-1";
+				game_res = 0;
 				break;
 			}
+
+			uint16_t binmove = move_to_bin(bestmove);
+			write_buf((char *)&binmove, 2);
+			write_buf((char *)&w_score, 2);
 
 			plies++;
 		}
 		games++;
-		total_pos += plies;
 
-		outfile << "[Result \"" << game_res << "\"]\n";
-		outfile << "[FEN \"" << startfen << "\"]\n";
-		outfile << "\n";
+		// 7. game result
+		write_header_buf((char *)&game_res, 1);
+		
+		// 8. padding
+		uint32_t pad = 0;
+		write_header_buf((char *)&pad, 1);
+		write_buf((char *)&pad, 4);
 
-		for (int i = 0; i < movelist.size(); i++) {
-			outfile << movelist[i] << " ";
-		}
-		outfile << "\n\n";
-		outfile.flush();
+		// flush header buf into file
+		outfile.write(header_buf, header_ptr);
+		header_ptr = 0;
 
-		g_tot_pos += total_pos;
-		total_pos = 0;
-		g_tot_games++;
+		// flush buf into file
+		outfile.write(move_buf, ptr);
+		ptr = 0;
+
+		g_tot_pos += plies;
+		g_tot_games += 1;
 	}
 
 	outfile.close();

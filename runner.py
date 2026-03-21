@@ -45,7 +45,7 @@ def run_loop():
 				continue
 		# re-compile
 		subprocess.run(["make", "clean"])
-		subprocess.run(["make", f"SNODES={snodes}", f"NRAND={nrand}", "-j4"])
+		subprocess.run(["make", f"SNODES={snodes}", f"NRAND={nrand}", "-j"])
 		# run engine
 		print("Starting data generation...")
 		# n cores
@@ -67,9 +67,9 @@ def run_loop():
 		result.stdout.close()
 		result.wait()
 		# finished run, upload data
-		# files will be of name "<id>_datagen.pgn"
+		# files will be of name "<id>_datagen.viri"
 		for i in range(int(ncores)):
-			filename = f"{i}_datagen.pgn"
+			filename = f"{i}_datagen.viri"
 			# verify exists
 			try:
 				with open(filename, "rb") as f:
@@ -77,11 +77,10 @@ def run_loop():
 			except FileNotFoundError:
 				print(f"Data file {filename} not found, skipping upload.")
 				continue
-			# compress
-			print(f"Compressing and uploading {filename}...")
-			subprocess.run(["zstd", "-19", "-q", filename])
+			# uploading
+			print(f"Uploading {filename}...")
 			try:
-				with open(filename + ".zst", "rb") as f:
+				with open(filename, "rb") as f:
 					try:
 						resp = requests.post(f"{api}/data", headers={"X-Keyword": "OpenBench"}, data=f)
 						if resp.status_code == 200:
@@ -91,11 +90,10 @@ def run_loop():
 					except Exception as e:
 						print(f"Error uploading {filename}: {e}")
 			except FileNotFoundError:
-				print(f"Compressed file {filename}.zst not found, skipping upload.")
+				print(f"File {filename} not found, skipping upload.")
 				continue
 			# delete files
 			os.remove(filename)
-			os.remove(filename + ".zst")
 
 def heartbeat():
 	while True:
