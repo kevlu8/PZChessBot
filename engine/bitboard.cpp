@@ -795,3 +795,7 @@ uint64_t Position::major_hash() const {
 uint64_t Position::minor_hash() const {
 	return piece_hashes[WHITE_KING] ^ piece_hashes[WHITE_BISHOP] ^ piece_hashes[WHITE_KNIGHT] ^ piece_hashes[BLACK_KING] ^ piece_hashes[BLACK_BISHOP] ^ piece_hashes[BLACK_KNIGHT];
 }
+
+uint64_t Position::zobrist_without_ep() const {
+	return zobrist ^ (ep_square != SQ_NONE ? zobrist_ep[ep_square & 0b111] : 0);
+}

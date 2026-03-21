@@ -118,6 +118,7 @@ struct Position {
 	uint64_t nonpawn_hash(bool color) const;
 	uint64_t major_hash() const;
 	uint64_t minor_hash() const;
+	uint64_t zobrist_without_ep() const;
 };
 
 struct RepetitionHandler {

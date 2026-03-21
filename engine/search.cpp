@@ -286,7 +286,7 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 
 		Position pos_after = pos;
 		pos_after.make_move(move);
-		rp.push_hash(pos_after.zobrist);
+		rp.push_hash(pos_after.zobrist_without_ep());
 		
 		_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
 		Value score = -quiesce(pos_after, ti, -beta, -alpha, -side, ply + 1, pv);
@@ -362,7 +362,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	}
 
 	// Threefold or 50 move rule
-	if (!root && (rp.threefold(ply, pos.zobrist) || pos.halfmove >= 100 || pos.insufficient_material())) {
+	if (!root && (rp.threefold(ply, pos.zobrist_without_ep()) || pos.halfmove >= 100 || pos.insufficient_material())) {
 		return 0;
 	}
 
@@ -463,7 +463,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 
 		Position pos_after = pos;
 		pos_after.make_move(NullMove);
-		rp.push_hash(pos_after.zobrist);
+		rp.push_hash(pos_after.zobrist_without_ep());
 
 		// Perform a reduced-depth search
 		Value r = NMP_R_VALUE + depth / 3;
@@ -536,7 +536,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 
 			Position pos_after = pos;
 			pos_after.make_move(pc_move);
-			rp.push_hash(pos_after.zobrist);
+			rp.push_hash(pos_after.zobrist_without_ep());
 			_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
 			Value score = -quiesce(pos_after, ti, -pc_beta, -pc_beta + 1, -side, ply + 1);
 
@@ -709,7 +709,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 
 		Position pos_after = pos;
 		pos_after.make_move(move);
-		rp.push_hash(pos_after.zobrist);
+		rp.push_hash(pos_after.zobrist_without_ep());
 
 		_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
 
