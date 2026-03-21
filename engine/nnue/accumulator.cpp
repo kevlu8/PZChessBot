@@ -46,6 +46,86 @@ void AccumulatorManager::full_refresh(Position &pos, int index) {
 	accs[index].correct = true;
 }
 
+void AccumulatorManager::refresh_finny(Position &pos, int index) {
+	int winbucket = IBUCKET_LAYOUT[_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)])];
+	int binbucket = IBUCKET_LAYOUT[_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]) ^ 56];
+	accs[index].winbucket = winbucket;
+	accs[index].binbucket = binbucket;
+
+	Accumulator &f_w_acc = finny.accs[winbucket].w_acc;
+	Accumulator &f_b_acc = finny.accs[binbucket].b_acc;
+	Accumulator &w_acc = accs[index].w_acc;
+	Accumulator &b_acc = accs[index].b_acc;
+
+	for (int i = 0; i < HL_SIZE; i++) {
+		w_acc.val[i] = f_w_acc.val[i];
+		b_acc.val[i] = f_b_acc.val[i];
+	}
+
+	for (int i = 0; i < 64; i++) {
+		Piece piece = pos.mailbox[i];
+		bool side = piece >> 3; // 1 = black, 0 = white
+		PieceType pt = PieceType(piece & 7);
+		
+		Piece prev_w_piece = finny.mailboxes[winbucket][WHITE][i];
+		bool prev_w_side = prev_w_piece >> 3;
+		PieceType prev_w_pt = PieceType(prev_w_piece & 7);
+
+		if (piece != prev_w_piece) {
+			if (piece != NO_PIECE) {
+				// Add to accumulator
+				int index = calculate_index((Square)i, pt, side, 0, winbucket);
+				for (int k = 0; k < HL_SIZE; k++) {
+					w_acc.val[k] += nnue_network.accumulator_weights[index][k];
+				}
+			}
+
+			if (prev_w_piece != NO_PIECE) {
+				// Remove from accumulator
+				int index = calculate_index((Square)i, prev_w_pt, prev_w_side, 0, winbucket);
+				for (int k = 0; k < HL_SIZE; k++) {
+					w_acc.val[k] -= nnue_network.accumulator_weights[index][k];
+				}
+			}
+		}
+
+		Piece prev_b_piece = finny.mailboxes[binbucket][BLACK][i];
+		bool prev_b_side = prev_b_piece >> 3;
+		PieceType prev_b_pt = PieceType(prev_b_piece & 7);
+
+		if (piece != prev_b_piece) {
+			if (piece != NO_PIECE) {
+				// Add to accumulator
+				int index = calculate_index((Square)i, pt, side, 1, binbucket);
+				for (int k = 0; k < HL_SIZE; k++) {
+					b_acc.val[k] += nnue_network.accumulator_weights[index][k];
+				}
+			}
+
+			if (prev_b_piece != NO_PIECE) {
+				// Remove from accumulator
+				int index = calculate_index((Square)i, prev_b_pt, prev_b_side, 1, binbucket);
+				for (int k = 0; k < HL_SIZE; k++) {
+					b_acc.val[k] -= nnue_network.accumulator_weights[index][k];
+				}
+			}
+		}
+	}
+
+	// Update finny tables
+	for (int i = 0; i < HL_SIZE; i++) {
+		f_w_acc.val[i] = w_acc.val[i];
+		f_b_acc.val[i] = b_acc.val[i];
+	}
+
+	for (int i = 0; i < 64; i++) {
+		finny.mailboxes[winbucket][WHITE][i] = pos.mailbox[i];
+		finny.mailboxes[binbucket][BLACK][i] = pos.mailbox[i];
+	}
+
+	accs[index].correct = true;
+}
+
 void AccumulatorManager::apply_lazy(Position &pos) {
 	if (current().correct) return; // No updates needed
 	int index = idx, last_same_bucket = idx;
@@ -70,7 +150,7 @@ void AccumulatorManager::apply_lazy(Position &pos) {
 
 	if (!good_found) {
 		// :(
-		full_refresh(pos, idx); /// TODO: reset last_same_bucket and build back up?
+		refresh_finny(pos, idx);
 		return;
 	}
 
@@ -122,7 +202,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 		int prev_bucket = IBUCKET_LAYOUT[move.src() ^ (pos.side ? 56 : 0)];
 		int new_bucket = IBUCKET_LAYOUT[dest ^ (pos.side ? 56 : 0)];
 		if (prev_bucket != new_bucket) {
-			full_refresh(pos_after, idx);
+			refresh_finny(pos_after, idx);
 			return;
 		}
 	}
