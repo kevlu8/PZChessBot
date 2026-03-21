@@ -29,6 +29,8 @@ void AccumulatorManager::full_refresh(Position &pos, int index) {
 	Square bkingsq = (Square)_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]);
 	int winbucket = IBUCKET_LAYOUT[wkingsq];
 	int binbucket = IBUCKET_LAYOUT[bkingsq ^ 56];
+	accs[index].winbucket = winbucket;
+	accs[index].binbucket = binbucket;
 
 	for (uint16_t i = 0; i < 64; i++) {
 		Piece piece = pos.mailbox[i];
@@ -44,10 +46,67 @@ void AccumulatorManager::full_refresh(Position &pos, int index) {
 	accs[index].correct = true;
 }
 
+void AccumulatorManager::apply_lazy(Position &pos) {
+	if (current().correct) return; // No updates needed
+	int index = idx, last_same_bucket = idx;
+	bool good_found = false;
+	while (true) {
+		index--;
+
+		if (accs[index].winbucket != current().winbucket || accs[index].binbucket != current().binbucket) {
+			// A bucket change occurred meaning we can't do any incremental updates past this point
+			break;
+		}
+
+		last_same_bucket = index;
+
+		if (accs[index].correct) {
+			// Found a basepoint we can do incremental off of
+			// Note that it is implied that the buckets are the same and have not changed
+			good_found = true;
+			break;
+		}
+	}
+
+	if (!good_found) {
+		// :(
+		full_refresh(pos, idx); /// TODO: reset last_same_bucket and build back up?
+		return;
+	}
+
+	for (int i = index + 1; i <= idx; i++) {
+		auto &u = updates[i];
+		for (int k = 0; k < HL_SIZE; k++) {
+			accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k];
+			accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k];
+		}
+		for (int j = 0; j < u.deltas; j++) {
+			if (u.w_deltas[j] >= NEGATE) {
+				// Subtract at index u.w_deltas[j] - NEGATE
+				int windex = u.w_deltas[j] - NEGATE;
+				int bindex = u.b_deltas[j] - NEGATE;
+				for (int k = 0; k < HL_SIZE; k++) {
+					accs[i].w_acc.val[k] -= nnue_network.accumulator_weights[windex][k];
+					accs[i].b_acc.val[k] -= nnue_network.accumulator_weights[bindex][k];
+				}
+			} else {
+				// Add at index u.w_deltas[j]
+				int windex = u.w_deltas[j];
+				int bindex = u.b_deltas[j];
+				for (int k = 0; k < HL_SIZE; k++) {
+					accs[i].w_acc.val[k] += nnue_network.accumulator_weights[windex][k];
+					accs[i].b_acc.val[k] += nnue_network.accumulator_weights[bindex][k];
+				}
+			}
+		}
+		accs[i].correct = true;
+	}
+}
+
 void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after) {
-	AccumulatorPair &acc = accs[idx + 1], &prev_acc = accs[idx];
-	acc.correct = true;
 	idx++;
+	AccumulatorPair &acc = accs[idx], &prev_acc = accs[idx - 1];
+	acc.correct = false;
 
 	if (move.type() == CASTLING || (pos.mailbox[move.src()] & 7) == KING) {
 		// The king may have stepped into a new bucket, let's check to make sure
@@ -70,6 +129,8 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 
 	int winbucket = IBUCKET_LAYOUT[_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)])];
 	int binbucket = IBUCKET_LAYOUT[_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]) ^ 56];
+	acc.winbucket = winbucket;
+	acc.binbucket = binbucket;
 
 	// 5 cases: quiet, promo, capture, en passant, castling
 	bool promo = move.type() == PROMOTION;
@@ -95,10 +156,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 		int bindex3 = calculate_index(king_dest, KING, pos.side, 1, binbucket);
 		int windex4 = calculate_index(rook_dest, ROOK, pos.side, 0, winbucket);
 		int bindex4 = calculate_index(rook_dest, ROOK, pos.side, 1, binbucket);
-		for (int i = 0; i < HL_SIZE; i++) {
-			acc.w_acc.val[i] = prev_acc.w_acc.val[i] - nnue_network.accumulator_weights[windex1][i] - nnue_network.accumulator_weights[windex2][i] + nnue_network.accumulator_weights[windex3][i] + nnue_network.accumulator_weights[windex4][i];
-			acc.b_acc.val[i] = prev_acc.b_acc.val[i] - nnue_network.accumulator_weights[bindex1][i] - nnue_network.accumulator_weights[bindex2][i] + nnue_network.accumulator_weights[bindex3][i] + nnue_network.accumulator_weights[bindex4][i];
-		}
+		updates[idx] = {windex1 + NEGATE, bindex1 + NEGATE, windex2 + NEGATE, bindex2 + NEGATE, windex3, bindex3, windex4, bindex4};
 		return;
 	}
 
@@ -111,10 +169,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 		int bindex2 = calculate_index(taken_pawn, PAWN, !pos.side, 1, binbucket);
 		int windex3 = calculate_index(move.dst(), PAWN, pos.side, 0, winbucket);
 		int bindex3 = calculate_index(move.dst(), PAWN, pos.side, 1, binbucket);
-		for (int i = 0; i < HL_SIZE; i++) {
-			acc.w_acc.val[i] = prev_acc.w_acc.val[i] - nnue_network.accumulator_weights[windex1][i] - nnue_network.accumulator_weights[windex2][i] + nnue_network.accumulator_weights[windex3][i];
-			acc.b_acc.val[i] = prev_acc.b_acc.val[i] - nnue_network.accumulator_weights[bindex1][i] - nnue_network.accumulator_weights[bindex2][i] + nnue_network.accumulator_weights[bindex3][i];
-		}
+		updates[idx] = {windex1 + NEGATE, bindex1 + NEGATE, windex2 + NEGATE, bindex2 + NEGATE, windex3, bindex3};
 		return;
 	}
 
@@ -125,10 +180,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 			int bindex1 = calculate_index(move.src(), PAWN, pos.side, 1, binbucket);
 			int windex2 = calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), pos.side, 0, winbucket);
 			int bindex2 = calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), pos.side, 1, binbucket);
-			for (int i = 0; i < HL_SIZE; i++) {
-				acc.w_acc.val[i] = prev_acc.w_acc.val[i] - nnue_network.accumulator_weights[windex1][i] + nnue_network.accumulator_weights[windex2][i];
-				acc.b_acc.val[i] = prev_acc.b_acc.val[i] - nnue_network.accumulator_weights[bindex1][i] + nnue_network.accumulator_weights[bindex2][i];
-			}
+			updates[idx] = {windex1 + NEGATE, bindex1 + NEGATE, windex2, bindex2};
 		} else {
 			// 3 updates: rm pawn, rm captured piece, add promo piece
 			int windex1 = calculate_index(move.src(), PAWN, pos.side, 0, winbucket);
@@ -138,10 +190,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 			int bindex2 = calculate_index(move.dst(), captured_pt, !pos.side, 1, binbucket);
 			int windex3 = calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), pos.side, 0, winbucket);
 			int bindex3 = calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), pos.side, 1, binbucket);
-			for (int i = 0; i < HL_SIZE; i++) {
-				acc.w_acc.val[i] = prev_acc.w_acc.val[i] - nnue_network.accumulator_weights[windex1][i] - nnue_network.accumulator_weights[windex2][i] + nnue_network.accumulator_weights[windex3][i];
-				acc.b_acc.val[i] = prev_acc.b_acc.val[i] - nnue_network.accumulator_weights[bindex1][i] - nnue_network.accumulator_weights[bindex2][i] + nnue_network.accumulator_weights[bindex3][i];
-			}
+			updates[idx] = {windex1 + NEGATE, bindex1 + NEGATE, windex2 + NEGATE, bindex2 + NEGATE, windex3, bindex3};
 		}
 		return;
 	}
@@ -154,10 +203,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 		int bindex2 = calculate_index(move.dst(), PieceType(pos.mailbox[move.dst()] & 7), !pos.side, 1, binbucket);
 		int windex3 = calculate_index(move.dst(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 0, winbucket);
 		int bindex3 = calculate_index(move.dst(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 1, binbucket);
-		for (int i = 0; i < HL_SIZE; i++) {
-			acc.w_acc.val[i] = prev_acc.w_acc.val[i] - nnue_network.accumulator_weights[windex1][i] - nnue_network.accumulator_weights[windex2][i] + nnue_network.accumulator_weights[windex3][i];
-			acc.b_acc.val[i] = prev_acc.b_acc.val[i] - nnue_network.accumulator_weights[bindex1][i] - nnue_network.accumulator_weights[bindex2][i] + nnue_network.accumulator_weights[bindex3][i];
-		}
+		updates[idx] = {windex1 + NEGATE, bindex1 + NEGATE, windex2 + NEGATE, bindex2 + NEGATE, windex3, bindex3};
 		return;
 	}
 
@@ -166,8 +212,5 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 	int bindex1 = calculate_index(move.src(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 1, binbucket);
 	int windex2 = calculate_index(move.dst(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 0, winbucket);
 	int bindex2 = calculate_index(move.dst(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 1, binbucket);
-	for (int i = 0; i < HL_SIZE; i++) {
-		acc.w_acc.val[i] = prev_acc.w_acc.val[i] - nnue_network.accumulator_weights[windex1][i] + nnue_network.accumulator_weights[windex2][i];
-		acc.b_acc.val[i] = prev_acc.b_acc.val[i] - nnue_network.accumulator_weights[bindex1][i] + nnue_network.accumulator_weights[bindex2][i];
-	}
+	updates[idx] = {windex1 + NEGATE, bindex1 + NEGATE, windex2, bindex2};
 }

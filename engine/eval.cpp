@@ -20,6 +20,8 @@ Value eval(Position &pos, AccumulatorManager &am) {
 	int npieces = _mm_popcnt_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
 	int32_t score = 0;
 
+	am.apply_lazy(pos);
+
 	int nbucket = (npieces - 2) / 4;
 
 	if (pos.side == WHITE) {
