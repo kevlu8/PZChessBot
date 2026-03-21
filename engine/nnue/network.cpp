@@ -29,20 +29,6 @@ int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nb
 	return nbucket * INPUT_SIZE + side * 64 * 6 + pt * 64 + sq;
 }
 
-void accumulator_add(const Network &net, Accumulator &acc, uint16_t index) {
-	// Note: do not need to manually vectorize this, compiler will do it for us
-	for (int i = 0; i < HL_SIZE; i++) {
-		acc.val[i] += net.accumulator_weights[index][i];
-	}
-}
-
-void accumulator_sub(const Network &net, Accumulator &acc, uint16_t index) {
-	// Note: do not need to manually vectorize this, compiler will do it for us
-	for (int i = 0; i < HL_SIZE; i++) {
-		acc.val[i] -= net.accumulator_weights[index][i];
-	}
-}
-
 int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket) {
 	__m256i sum = _mm256_setzero_si256();
 	const __m256i zero = _mm256_setzero_si256();

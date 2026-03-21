@@ -10,6 +10,17 @@
 #define QA 255
 #define QB 64
 
+constexpr int IBUCKET_LAYOUT[] = {
+	0, 2, 4, 6, 7, 5, 3, 1,
+	8, 8, 10, 10, 11, 11, 9, 9,
+	12, 12, 12, 12, 13, 13, 13, 13,
+	12, 12, 12, 12, 13, 13, 13, 13,
+	14, 14, 14, 14, 15, 15, 15, 15,
+	14, 14, 14, 14, 15, 15, 15, 15,
+	14, 14, 14, 14, 15, 15, 15, 15,
+	14, 14, 14, 14, 15, 15, 15, 15,
+};
+
 struct Accumulator {
 	int16_t val[HL_SIZE] = {};
 };
@@ -24,10 +35,6 @@ struct Network {
 };
 
 int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nbucket);
-
-void accumulator_add(const Network &net, Accumulator &acc, uint16_t index);
-
-void accumulator_sub(const Network &net, Accumulator &acc, uint16_t index);
 
 int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket);
 

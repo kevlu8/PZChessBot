@@ -202,7 +202,7 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 	RepetitionHandler &rp = ti.rp;
 
 	if (ply >= MAX_PLY)
-		return eval(pos, (BoardState *)ti.bs) * side; // Just in case
+		return eval(pos, ti.am) * side; // Just in case
 
 	// Check for TTable cutoff
 	auto tentry = ttable.probe(pos.zobrist);
@@ -224,7 +224,7 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 	Value stand_pat = -VALUE_INFINITE;
 	Value raw_eval = -VALUE_INFINITE;
 	if (!in_check) {
-		stand_pat = tentry ? tentry->s_eval : eval(pos, (BoardState *)ti.bs) * side;
+		stand_pat = tentry ? tentry->s_eval : eval(pos, ti.am) * side;
 		raw_eval = stand_pat;
 		shared_corrhist.apply_correction(pos, &ti.line[ply], ply, stand_pat);
 		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
@@ -287,10 +287,12 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 		Position pos_after = pos;
 		pos_after.make_move(move);
 		rp.push_hash(pos_after.zobrist_without_ep());
+		ti.am.make_move(pos, move, pos_after);
 		
 		_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
 		Value score = -quiesce(pos_after, ti, -beta, -alpha, -side, ply + 1, pv);
 
+		ti.am.pop_move();
 		rp.pop_hash();
 		
 		ti.line[ply].move = NullMove;
@@ -329,7 +331,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	RepetitionHandler &rp = ti.rp;
 
 	if (ply >= MAX_PLY)
-		return eval(pos, (BoardState *)ti.bs) * side;
+		return eval(pos, ti.am) * side;
 
 	if (pv) {
 		ti.pvlen[ply] = 0;
@@ -410,7 +412,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	Value raw_eval = 0;
 	Value tt_corr_eval = 0;
 	if (!in_check) {
-		cur_eval = tentry ? tentry->s_eval : eval(pos, (BoardState *)ti.bs) * side;
+		cur_eval = tentry ? tentry->s_eval : eval(pos, ti.am) * side;
 		raw_eval = cur_eval;
 		if (!excluded) shared_corrhist.apply_correction(pos, &ti.line[ply], ply, cur_eval);
 		tt_corr_eval = cur_eval;
@@ -537,12 +539,15 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			Position pos_after = pos;
 			pos_after.make_move(pc_move);
 			rp.push_hash(pos_after.zobrist_without_ep());
+			ti.am.make_move(pos, pc_move, pos_after);
+
 			_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
 			Value score = -quiesce(pos_after, ti, -pc_beta, -pc_beta + 1, -side, ply + 1);
 
 			if (score >= pc_beta)
 				score = -negamax(pos_after, ti, pc_depth, -pc_beta, -pc_beta + 1, -side, 0, !cutnode, ply + 1);
 
+			ti.am.pop_move();
 			rp.pop_hash();
 
 			ti.line[ply].move = NullMove;
@@ -710,6 +715,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		Position pos_after = pos;
 		pos_after.make_move(move);
 		rp.push_hash(pos_after.zobrist_without_ep());
+		ti.am.make_move(pos, move, pos_after);
 
 		_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
 
@@ -785,6 +791,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			score = -negamax(pos_after, ti, newdepth, -beta, -alpha, -side, 1, false, ply+1);
 		}
 
+		ti.am.pop_move();
 		rp.pop_hash();
 
 		ti.line[ply].move = NullMove;
@@ -895,7 +902,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 
 	depth = std::min(depth, MAX_PLY - 1);
 
-	Value static_eval = eval(pos, (BoardState *)ti.bs) * (pos.side ? -1 : 1);
+	Value static_eval = eval(pos, ti.am) * (pos.side ? -1 : 1);
 	int consec_move = 0;
 
 	Move best_move = NullMove;

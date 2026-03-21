@@ -4,7 +4,7 @@
 
 #include "nnue/network.hpp"
 
-struct BoardState {
-	Accumulator w_acc, b_acc;
-	Piece mailbox[64] = {};
-};
+// struct BoardState {
+// 	Accumulator w_acc, b_acc;
+// 	Piece mailbox[64] = {};
+// };

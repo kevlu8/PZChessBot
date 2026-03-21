@@ -59,26 +59,10 @@ struct ThreadInfo {
 	SSEntry line[MAX_PLY + 5] = {};
 	Move pvtable[MAX_PLY + 5][MAX_PLY + 5];
 	int pvlen[MAX_PLY + 5] = {};
-	BoardState bs[NINPUTS * 2][NINPUTS * 2];
+    AccumulatorManager am;
     bool nmp_disable = false;
 
-    ThreadInfo() {
-        set_bs();
-    }
-
-    void set_bs() {
-        for (int i = 0; i < NINPUTS * 2; i++) {
-            for (int j = 0; j < NINPUTS * 2; j++) {
-                for (int k = 0; k < HL_SIZE; k++) {
-                    bs[i][j].w_acc.val[k] = nnue_network.accumulator_biases[k];
-                    bs[i][j].b_acc.val[k] = nnue_network.accumulator_biases[k];
-                }
-                for (int k = 0; k < 64; k++) {
-                    bs[i][j].mailbox[k] = NO_PIECE;
-                }
-            }
-        }
-    }
+    ThreadInfo() : am(pos) {}
 };
 
 void prepare_search(int64_t time, int64_t maxnodes, bool quiet, uint16_t num_threads);
