@@ -49,7 +49,8 @@ extern bool stop_search;
 extern std::atomic<uint64_t> nodes[MAX_THREADS];
 
 struct ThreadInfo {
-	Board board;
+	Position pos;
+    RepetitionHandler rp;
 	int maxdepth = 0, seldepth = 0;
     Value eval = 0;
     int id = 0;
@@ -82,8 +83,8 @@ struct ThreadInfo {
 
 void prepare_search(int64_t time, int64_t maxnodes, bool quiet, uint16_t num_threads);
 
-void iterativedeepening(ThreadInfo &ti, int depth);
+void iterativedeepening(Position &pos, ThreadInfo &ti, int depth);
 
-uint64_t perft(Board &board, int depth);
+uint64_t perft(Position &pos, int depth);
 
 void clear_search_vars(ThreadInfo &ti);

@@ -16,20 +16,21 @@ uint16_t num_threads = 1;
 std::atomic<uint64_t> nodecnt[64][64] = {{}};
 std::atomic<uint64_t> nodes[MAX_THREADS] = {};
 
-uint64_t perft(Board &board, int depth) {
+uint64_t perft(Position &pos, int depth) {
 	if (depth == 0)
 		return 1;
 	pzstd::vector<Move> moves;
-	board.legal_moves(moves);
+	pos.legal_moves(moves);
 	uint64_t cnt = 0;
 	for (Move &move : moves) {
-		if (!board.is_legal(move))
+		if (!pos.is_legal(move))
 			continue;
 
 		if (depth > 1) {
-			board.make_move(move);
-			cnt += perft(board, depth - 1);
-			board.unmake_move();
+			Position pos_after = pos;
+			pos_after.make_move(move);
+
+			cnt += perft(pos_after, depth - 1);
 		} else {
 			cnt++;
 		}
@@ -185,7 +186,7 @@ bool is_valid_score(Value score) {
  * TODO:
  * - Late move reduction (instead of reducing depth, we reduce the search window) (not a known technique, maybe worth trying?)
  */
-Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool pv=false) {
+Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool pv=false) {
 	nodes[ti.id]++;
 
 	if (stop_search) return 0;
@@ -198,11 +199,13 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool p
 		}
 	}
 
+	RepetitionHandler &rp = ti.rp;
+
 	if (ply >= MAX_PLY)
-		return eval(ti.board, (BoardState *)ti.bs) * side; // Just in case
+		return eval(pos, (BoardState *)ti.bs) * side; // Just in case
 
 	// Check for TTable cutoff
-	auto tentry = ttable.probe(ti.board.zobrist);
+	auto tentry = ttable.probe(pos.zobrist);
 	Value tteval = -VALUE_INFINITE;
 	if (tentry && is_valid_score(tentry->eval)) tteval = tt_to_score(tentry->eval, ply);
 	if (!pv && tentry && is_valid_score(tteval)) {
@@ -215,18 +218,18 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool p
 		}
 	}
 
-	bool in_check = ti.board.checkers[ti.board.side];
+	bool in_check = pos.checkers[pos.side];
 
 	// Do evaluation and corrections
 	Value stand_pat = -VALUE_INFINITE;
 	Value raw_eval = -VALUE_INFINITE;
 	if (!in_check) {
-		stand_pat = tentry ? tentry->s_eval : eval(ti.board, (BoardState *)ti.bs) * side;
+		stand_pat = tentry ? tentry->s_eval : eval(pos, (BoardState *)ti.bs) * side;
 		raw_eval = stand_pat;
-		shared_corrhist.apply_correction(ti.board, &ti.line[ply], ply, stand_pat);
+		shared_corrhist.apply_correction(pos, &ti.line[ply], ply, stand_pat);
 		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
 			stand_pat = tteval;
-		if (!tentry) ttable.store(ti.board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
+		if (!tentry) ttable.store(pos.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
 	}
 
 	// If we are too good, return the score
@@ -235,7 +238,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool p
 	if (stand_pat > alpha)
 		alpha = stand_pat;
 
-	MovePicker mp(ti.board, &ti.thread_hist, !in_check);
+	MovePicker mp(pos, &ti.thread_hist, !in_check);
 
 	Value best = stand_pat;
 	Move best_move = NullMove;
@@ -246,13 +249,13 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool p
 	int moves_searched = 0;
 
 	while ((move = mp.next()) != NullMove) {
-		if (!ti.board.is_legal(move))
+		if (!pos.is_legal(move))
 			continue;
 		
 		mp.skip_quiets(); // in case we were searching evasions, if we reach here that means we have found one. So, we can skip all other quiets.
 
 		if (best > -VALUE_MATE_MAX_PLY) {
-			if (!ti.board.see(move, qs_see())) {
+			if (!pos.see(move, qs_see())) {
 				/**
 				 * QSearch SEE pruning
 				 * 
@@ -270,22 +273,26 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool p
 				 * alpha, we can skip the move.
 				 */
 				int see_threshold = alpha - stand_pat - qsfp_margin();
-				if (!ti.board.see(move, qsfp_see() * see_threshold / 1024))
+				if (!pos.see(move, qsfp_see() * see_threshold / 1024))
 					continue;
 			}
 		}
 
 		ti.line[ply].move = move;
-		ti.line[ply].captured = (PieceType)(ti.board.mailbox[move.dst()] & 7);
-		ti.line[ply].piece = (PieceType)(ti.board.mailbox[move.src()] & 7);
-		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[ti.board.side][ti.board.mailbox[move.src()] & 7][move.dst()];
-		ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[ti.board.side][ti.board.mailbox[move.src()] & 7][move.dst()];
+		ti.line[ply].captured = (PieceType)(pos.mailbox[move.dst()] & 7);
+		ti.line[ply].piece = (PieceType)(pos.mailbox[move.src()] & 7);
+		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
+		ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
 
-		ti.board.make_move(move);
-		_mm_prefetch(&ttable.TT[ti.board.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
-		Value score = -quiesce(ti, -beta, -alpha, -side, ply + 1, pv);
-		ti.board.unmake_move();
+		Position pos_after = pos;
+		pos_after.make_move(move);
+		rp.push_hash(pos_after.zobrist_without_ep());
+		
+		_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
+		Value score = -quiesce(pos_after, ti, -beta, -alpha, -side, ply + 1, pv);
 
+		rp.pop_hash();
+		
 		ti.line[ply].move = NullMove;
 		ti.line[ply].captured = NO_PIECETYPE;
 		ti.line[ply].piece = NO_PIECETYPE;
@@ -302,7 +309,7 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool p
 		}
 
 		if (score >= beta) {
-			ttable.store(ti.board.zobrist, score_to_tt(score, ply), raw_eval, 0, LOWER_BOUND, pv, move);
+			ttable.store(pos.zobrist, score_to_tt(score, ply), raw_eval, 0, LOWER_BOUND, pv, move);
 			return best;
 		}
 
@@ -313,16 +320,16 @@ Value quiesce(ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool p
 		return -VALUE_MATE + 1;
 	}
 
-	ttable.store(ti.board.zobrist, score_to_tt(best, ply), raw_eval, 0, alpha_raise ? EXACT : UPPER_BOUND, pv, best_move);
+	ttable.store(pos.zobrist, score_to_tt(best, ply), raw_eval, 0, alpha_raise ? EXACT : UPPER_BOUND, pv, best_move);
 
 	return best;
 }
 
-Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 0, bool root = false) {
-	Board &board = ti.board;
+Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 0, bool root = false) {
+	RepetitionHandler &rp = ti.rp;
 
 	if (ply >= MAX_PLY)
-		return eval(board, (BoardState *)ti.bs) * side;
+		return eval(pos, (BoardState *)ti.bs) * side;
 
 	if (pv) {
 		ti.pvlen[ply] = 0;
@@ -355,13 +362,13 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Threefold or 50 move rule
-	if (!root && (board.threefold(ply) || board.halfmove >= 100 || board.insufficient_material())) {
+	if (!root && (rp.threefold(ply, pos.zobrist_without_ep()) || pos.halfmove >= 100 || pos.insufficient_material())) {
 		return 0;
 	}
 
 	if (depth <= 0) {
 		// Reached the maximum depth, perform quiescence search
-		return quiesce(ti, alpha, beta, side, ply, pv);
+		return quiesce(pos, ti, alpha, beta, side, ply, pv);
 	}
 
 	bool ttpv = pv;
@@ -376,7 +383,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	 * Note that we cannot do this in singular search (`ti.line[ply].excl != NullMove`)
 	 * because the singular search excludes a move that may be the best move in the position.
 	 */
-	auto tentry = ttable.probe(board.zobrist);
+	auto tentry = ttable.probe(pos.zobrist);
 	Value tteval = -VALUE_INFINITE;
 	bool ttcapt = false;
 	if (tentry && is_valid_score(tentry->eval)) tteval = tt_to_score(tentry->eval, ply);
@@ -393,23 +400,23 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	if (tentry) {
 		ttpv |= tentry->ttpv();
-		ttcapt = board.is_capture(tentry->best_move);
+		ttcapt = pos.is_capture(tentry->best_move);
 	}
 
-	bool in_check = board.checkers[board.side];
+	bool in_check = pos.checkers[pos.side];
 
 	// Evaluate and correct evaluation
 	Value cur_eval = 0;
 	Value raw_eval = 0;
 	Value tt_corr_eval = 0;
 	if (!in_check) {
-		cur_eval = tentry ? tentry->s_eval : eval(board, (BoardState *)ti.bs) * side;
+		cur_eval = tentry ? tentry->s_eval : eval(pos, (BoardState *)ti.bs) * side;
 		raw_eval = cur_eval;
-		if (!excluded) shared_corrhist.apply_correction(board, &ti.line[ply], ply, cur_eval);
+		if (!excluded) shared_corrhist.apply_correction(pos, &ti.line[ply], ply, cur_eval);
 		tt_corr_eval = cur_eval;
 		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
 			tt_corr_eval = tteval;
-		else if (!tentry) ttable.store(board.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
+		else if (!tentry) ttable.store(pos.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
 	}
 
 	ti.line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
@@ -437,8 +444,8 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	}
 
 	// Null-move pruning
-	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
-	int npawns_and_kings = _mm_popcnt_u64(board.piece_boards[PAWN] | board.piece_boards[KING]);
+	int npieces = _mm_popcnt_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
+	int npawns_and_kings = _mm_popcnt_u64(pos.piece_boards[PAWN] | pos.piece_boards[KING]);
 	if (!pv && !in_check && !ti.nmp_disable && npieces != npawns_and_kings && cur_eval >= beta + nmp_margin() - nmp_depth() * depth && depth >= 2 && !excluded) { // Avoid NMP in pawn endgames
 		/**
 		 * This works off the *null-move observation*.
@@ -451,15 +458,21 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * really no good way of preventing this except for disabling NMP in positions where there
 		 * are probably Zugzwangs (e.g. endgames).
 		 */
-		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[board.side][0][0];
-		ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[board.side][0][0];
-		board.make_move(NullMove);
+		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[pos.side][0][0];
+		ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[pos.side][0][0];
+
+		Position pos_after = pos;
+		pos_after.make_move(NullMove);
+		rp.push_hash(pos_after.zobrist_without_ep());
+
 		// Perform a reduced-depth search
 		Value r = NMP_R_VALUE + depth / 3;
-		Value null_score = -negamax(ti, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
-		board.unmake_move();
+		Value null_score = -negamax(pos_after, ti, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
+
+		rp.pop_hash();
 		ti.line[ply].cont_hist = nullptr;
 		ti.line[ply].corr_hist = nullptr;
+
 		if (null_score >= beta) {
 			/**
 			 * Although many implementations cutoff directly here, we instead do a verification search
@@ -473,7 +486,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				return null_score; // Direct cutoff for low depths
 
 			ti.nmp_disable = true;
-			Value score = negamax(ti, depth - r, beta - 1, beta, side, 0, false, ply);
+			Value score = negamax(pos, ti, depth - r, beta - 1, beta, side, 0, false, ply);
 			ti.nmp_disable = false;
 			if (score >= beta)
 				return null_score;
@@ -486,7 +499,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * If we are losing by a lot, check w/ qsearch to see if we could possibly improve.
 		 * If not, we can prune the search.
 		 */
-		Value razor_score = quiesce(ti, alpha, beta, side, ply, 0);
+		Value razor_score = quiesce(pos, ti, alpha, beta, side, ply, 0);
 		if (razor_score <= alpha)
 			return razor_score;
 	}
@@ -507,28 +520,30 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		 * or not the move could cut. If the QSearch doesn't fail high, we skip the move
 		 * in order to save effort.
 		 */
-		MovePicker pcpicker(board, &ti.thread_hist, tentry);
+		MovePicker pcpicker(pos, &ti.thread_hist, tentry);
 		Move pc_move = NullMove;
 		int pc_depth = depth - 5;
 		Value pc_beta = beta + probcut_margin();
 		while ((pc_move = pcpicker.next()) != NullMove) {
-			if (pc_move == ti.line[ply].excl || !board.is_legal(pc_move))
+			if (pc_move == ti.line[ply].excl || !pos.is_legal(pc_move))
 				continue;
 
 			ti.line[ply].move = pc_move;
-			ti.line[ply].captured = (PieceType)(board.mailbox[pc_move.dst()] & 7);
-			ti.line[ply].piece = (PieceType)(board.mailbox[pc_move.src()] & 7);
-			ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[board.side][board.mailbox[pc_move.src()] & 7][pc_move.dst()];
-			ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[board.side][board.mailbox[pc_move.src()] & 7][pc_move.dst()];
+			ti.line[ply].captured = (PieceType)(pos.mailbox[pc_move.dst()] & 7);
+			ti.line[ply].piece = (PieceType)(pos.mailbox[pc_move.src()] & 7);
+			ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[pos.side][pos.mailbox[pc_move.src()] & 7][pc_move.dst()];
+			ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[pos.side][pos.mailbox[pc_move.src()] & 7][pc_move.dst()];
 
-			board.make_move(pc_move);
-			_mm_prefetch(&ttable.TT[board.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
-			Value score = -quiesce(ti, -pc_beta, -pc_beta + 1, -side, ply + 1);
+			Position pos_after = pos;
+			pos_after.make_move(pc_move);
+			rp.push_hash(pos_after.zobrist_without_ep());
+			_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
+			Value score = -quiesce(pos_after, ti, -pc_beta, -pc_beta + 1, -side, ply + 1);
 
 			if (score >= pc_beta)
-				score = -negamax(ti, pc_depth, -pc_beta, -pc_beta + 1, -side, 0, !cutnode, ply + 1);
+				score = -negamax(pos_after, ti, pc_depth, -pc_beta, -pc_beta + 1, -side, 0, !cutnode, ply + 1);
 
-			board.unmake_move();
+			rp.pop_hash();
 
 			ti.line[ply].move = NullMove;
 			ti.line[ply].captured = NO_PIECETYPE;
@@ -537,7 +552,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			ti.line[ply].corr_hist = nullptr;
 
 			if (score >= pc_beta) {
-				ttable.store(board.zobrist, score_to_tt(score, ply), raw_eval, pc_depth + 1, LOWER_BOUND, false, pc_move);
+				ttable.store(pos.zobrist, score_to_tt(score, ply), raw_eval, pc_depth + 1, LOWER_BOUND, false, pc_move);
 				return score;
 			}
 		}
@@ -545,7 +560,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 	Value best = -VALUE_INFINITE;
 
-	MovePicker mp(board, &ti.line[ply], ply, &ti.thread_hist, tentry);
+	MovePicker mp(pos, &ti.line[ply], ply, &ti.thread_hist, tentry);
 
 	// Internal iterative reductions
 	if ((pv || cutnode) && depth > 4 && !(tentry && tentry->best_move != NullMove)) {
@@ -572,10 +587,10 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 	ti.line[ply+1].cutoffcnt = 0;
 
 	while ((move = mp.next()) != NullMove) {
-		if (move == ti.line[ply].excl || !board.is_legal(move))
+		if (move == ti.line[ply].excl || !pos.is_legal(move))
 			continue;
 
-		bool capt = board.is_capture(move);
+		bool capt = pos.is_capture(move);
 		bool promo = (move.type() == PROMOTION);
 		
 		int extension = 0;
@@ -594,7 +609,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			 */
 			ti.line[ply].excl = move;
 			Value singular_beta = tteval - 2 * depth;
-			Value singular_score = negamax(ti, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
+			Value singular_score = negamax(pos, ti, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
 			ti.line[ply].excl = NullMove; // Reset exclusion move
 
 			if (singular_score < singular_beta) {
@@ -638,7 +653,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			}
 		}
 
-		int hist = capt ? ti.thread_hist.get_capthist(board, move) : ti.thread_hist.get_history(board, move, ply, &ti.line[ply]);
+		int hist = capt ? ti.thread_hist.get_capthist(pos, move) : ti.thread_hist.get_history(pos, move, ply, &ti.line[ply]);
 		if (best > -VALUE_MATE_MAX_PLY) {
 			if (i >= (3 + depth * depth) / (2 - improving)) {
 				/**
@@ -680,21 +695,23 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				 * Skip searching moves with bad SEE scores
 				 */
 				const int see_threshold = capt ? -see_quad() * depth * depth : -see_lin() * depth;
-				bool see = board.see(move, see_threshold);
+				bool see = pos.see(move, see_threshold);
 				if (!see)
 					continue;
 			}
 		}
 
 		ti.line[ply].move = move;
-		ti.line[ply].captured = (PieceType)(board.mailbox[move.dst()] & 7);
-		ti.line[ply].piece = (PieceType)(board.mailbox[move.src()] & 7);
-		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[board.side][board.mailbox[move.src()] & 7][move.dst()];
-		ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[board.side][board.mailbox[move.src()] & 7][move.dst()];
+		ti.line[ply].captured = (PieceType)(pos.mailbox[move.dst()] & 7);
+		ti.line[ply].piece = (PieceType)(pos.mailbox[move.src()] & 7);
+		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
+		ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
 
-		board.make_move(move);
+		Position pos_after = pos;
+		pos_after.make_move(move);
+		rp.push_hash(pos_after.zobrist_without_ep());
 
-		_mm_prefetch(&ttable.TT[board.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
+		_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
 
 		int newdepth = depth - 1 + extension;
 
@@ -745,7 +762,7 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 
 			int searched_depth = std::clamp(newdepth - r / 1024, 1, newdepth + 1);
 
-			score = -negamax(ti, searched_depth, -alpha - 1, -alpha, -side, 0, true, ply+1);
+			score = -negamax(pos_after, ti, searched_depth, -alpha - 1, -alpha, -side, 0, true, ply+1);
 			if (score > alpha) {
 				// LMR search failed, re-search full depth
 				bool do_deeper = score > beta + dodeeper_margin();
@@ -754,21 +771,21 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 				newdepth -= do_shallower;
 
 				if (searched_depth < newdepth) {
-					score = -negamax(ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
+					score = -negamax(pos_after, ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
 				}
 			}
 		} else if (!pv || i > 0) {
 			// Case 2: Early moves in nodes
-			score = -negamax(ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
+			score = -negamax(pos_after, ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
 		}
 		if (pv && (i == 0 || score > alpha)) {
 			// Case 3: First PV node move or re-search
 			if (tentry && move == tentry->best_move && tentry->depth > 1)
 				newdepth = std::max((int)newdepth, 1); // Make sure we don't enter QS if we have an available TT move
-			score = -negamax(ti, newdepth, -beta, -alpha, -side, 1, false, ply+1);
+			score = -negamax(pos_after, ti, newdepth, -beta, -alpha, -side, 1, false, ply+1);
 		}
 
-		board.unmake_move();
+		rp.pop_hash();
 
 		ti.line[ply].move = NullMove;
 		ti.line[ply].captured = NO_PIECETYPE;
@@ -821,15 +838,15 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 			int hist_depth = depth + (score >= beta + hist_large_margin());
 			const int bonus = std::min(1896, hist_quad() * hist_depth * hist_depth + hist_lin() * hist_depth - hist_const());
 			if (!capt) { // Not a capture
-				ti.thread_hist.update_history(board, move, ply, &ti.line[ply], bonus);
+				ti.thread_hist.update_history(pos, move, ply, &ti.line[ply], bonus);
 				for (auto &qmove : quiets) {
-					ti.thread_hist.update_history(board, qmove, ply, &ti.line[ply], -bonus); // Penalize quiet moves
+					ti.thread_hist.update_history(pos, qmove, ply, &ti.line[ply], -bonus); // Penalize quiet moves
 				}
 			} else { // Capture
-				ti.thread_hist.update_capthist(board, move, bonus);
+				ti.thread_hist.update_capthist(pos, move, bonus);
 			}
 			for (auto &cmove : captures) {
-				ti.thread_hist.update_capthist(board, cmove, -bonus);
+				ti.thread_hist.update_capthist(pos, cmove, -bonus);
 			}
 			break;
 		}
@@ -847,24 +864,24 @@ Value negamax(ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value be
 		else return 0;
 	}
 
-	bool best_iscapture = board.is_capture(best_move);
+	bool best_iscapture = pos.is_capture(best_move);
 	bool best_ispromo = (best_move.type() == PROMOTION);
 	if (!excluded && !in_check && !(best_move != NullMove && (best_iscapture || best_ispromo))
 		&& !(flag == UPPER_BOUND && best >= cur_eval) && !(flag == LOWER_BOUND && best <= cur_eval)) {
 		// Best move is a quiet move, update CorrHist
 		int bonus = (best - cur_eval) * depth / 8;
-		shared_corrhist.update_corrhist(board, &ti.line[ply], ply, bonus);
+		shared_corrhist.update_corrhist(pos, &ti.line[ply], ply, bonus);
 	}
 
 	if (!excluded) {
 		Move tt_move = best_move != NullMove ? best_move : tentry ? tentry->best_move : NullMove;
-		ttable.store(board.zobrist, score_to_tt(best, ply), raw_eval, depth, flag, ttpv, tt_move);
+		ttable.store(pos.zobrist, score_to_tt(best, ply), raw_eval, depth, flag, ttpv, tt_move);
 	}
 
 	return best;
 }
 
-void iterativedeepening(ThreadInfo &ti, int depth) {
+void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 	for (int i = 0; i < 64; i++) {
 		for (int j = 0; j < 64; j++) {
 			for (int k = 0; k < 2; k++) {
@@ -878,9 +895,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 
 	depth = std::min(depth, MAX_PLY - 1);
 
-	Board &board = ti.board;
-
-	Value static_eval = eval(board, (BoardState *)ti.bs) * (board.side ? -1 : 1);
+	Value static_eval = eval(pos, (BoardState *)ti.bs) * (pos.side ? -1 : 1);
 	int consec_move = 0;
 
 	Move best_move = NullMove;
@@ -901,7 +916,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 			beta = eval + window_sz;
 		}
 
-		auto result = negamax(ti, d, alpha, beta, board.side ? -1 : 1, 1, false, 0, true);
+		auto result = negamax(pos, ti, d, alpha, beta, pos.side ? -1 : 1, 1, false, 0, true);
 		int asp_depth = d;
 
 		// Gradually expand the window if we fail high or low
@@ -923,7 +938,7 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 			alpha = std::clamp(alpha, -VALUE_INFINITE, (int)VALUE_INFINITE);
 			beta = std::clamp(beta, -VALUE_INFINITE, (int)VALUE_INFINITE);
 			window_sz *= 2;
-			result = negamax(ti, asp_depth, alpha, beta, board.side ? -1 : 1, 1, false, 0, true);
+			result = negamax(pos, ti, asp_depth, alpha, beta, pos.side ? -1 : 1, 1, false, 0, true);
 			if (stop_search) break;
 		}
 		if (stop_search) break;
@@ -959,13 +974,13 @@ void iterativedeepening(ThreadInfo &ti, int depth) {
 			if (!minimal) std::cout << last_line.str() << std::endl;
 
 			// only do time management on main thread
-			bool best_iscapt = board.is_capture(best_move);
+			bool best_iscapt = pos.is_capture(best_move);
 			bool best_ispromo = (best_move.type() == PROMOTION);
 			bool in_check = false;
-			if (board.side == WHITE) {
-				in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]), BLACK) > 0;
+			if (pos.side == WHITE) {
+				in_check = pos.control(__tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)]), BLACK) > 0;
 			} else {
-				in_check = board.control(__tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]), WHITE) > 0;
+				in_check = pos.control(__tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]), WHITE) > 0;
 			}
 
 			double soft = 0.53;
@@ -1022,7 +1037,6 @@ void prepare_search(int64_t time, int64_t maxnodes, bool quiet, uint16_t num) {
 }
 
 void clear_search_vars(ThreadInfo &ti) {
-	ti.board.reset_startpos();
 	memset(&ti.thread_hist, 0, sizeof(History));
 	for (int i = 0; i < MAX_PLY; i++) {
 		ti.line[i] = SSEntry();

@@ -7,21 +7,21 @@ __attribute__((constructor)) void init_network() {
 	nnue_network.load();
 }
 
-Value simple_eval(Board &board) {
+Value simple_eval(Position &pos) {
 	Value score = 0;
 	for (int i = 0; i < 6; i++) {
-		score += PieceValue[i] * _mm_popcnt_u64(board.piece_boards[i] & board.piece_boards[OCC(WHITE)]);
-		score -= PieceValue[i] * _mm_popcnt_u64(board.piece_boards[i] & board.piece_boards[OCC(BLACK)]);
+		score += PieceValue[i] * _mm_popcnt_u64(pos.piece_boards[i] & pos.piece_boards[OCC(WHITE)]);
+		score -= PieceValue[i] * _mm_popcnt_u64(pos.piece_boards[i] & pos.piece_boards[OCC(BLACK)]);
 	}
 	return score;
 }
 
-Value eval(Board &board, BoardState *bs) {
-	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
+Value eval(Position &pos, BoardState *bs) {
+	int npieces = _mm_popcnt_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
 	int32_t score = 0;
 	// Query the NNUE network
-	Square wkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]);
-	Square bkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]);
+	Square wkingsq = (Square)_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)]);
+	Square bkingsq = (Square)_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]);
 	int winbucket = IBUCKET_LAYOUT[wkingsq];
 	int binbucket = IBUCKET_LAYOUT[bkingsq ^ 56];
 
@@ -29,7 +29,7 @@ Value eval(Board &board, BoardState *bs) {
 	BoardState &state = *(bs + winbucket * NINPUTS * 2 + binbucket);
 
 	for (uint16_t i = 0; i < 64; i++) {
-		Piece piece = board.mailbox[i];
+		Piece piece = pos.mailbox[i];
 		Piece prevpiece = state.mailbox[i];
 		if (piece == prevpiece) continue;
 		bool side = piece >> 3; // 1 = black, 0 = white
@@ -54,40 +54,40 @@ Value eval(Board &board, BoardState *bs) {
 		}
 	}
 
-	memcpy(state.mailbox, board.mailbox, sizeof(state.mailbox));
+	memcpy(state.mailbox, pos.mailbox, sizeof(state.mailbox));
 
 	int nbucket = (npieces - 2) / 4;
 
-	if (board.side == WHITE) {
+	if (pos.side == WHITE) {
 		score = nnue_eval(nnue_network, state.w_acc, state.b_acc, nbucket);
 	} else {
 		score = -nnue_eval(nnue_network, state.b_acc, state.w_acc, nbucket);
 	}
 	
-	const int mat_phase = PawnValue * _mm_popcnt_u64(board.piece_boards[PAWN])
-						+ KnightValue * _mm_popcnt_u64(board.piece_boards[KNIGHT])
-						+ BishopValue * _mm_popcnt_u64(board.piece_boards[BISHOP])
-						+ RookValue * _mm_popcnt_u64(board.piece_boards[ROOK])
-						+ QueenValue * _mm_popcnt_u64(board.piece_boards[QUEEN]);
+	const int mat_phase = PawnValue * _mm_popcnt_u64(pos.piece_boards[PAWN])
+						+ KnightValue * _mm_popcnt_u64(pos.piece_boards[KNIGHT])
+						+ BishopValue * _mm_popcnt_u64(pos.piece_boards[BISHOP])
+						+ RookValue * _mm_popcnt_u64(pos.piece_boards[ROOK])
+						+ QueenValue * _mm_popcnt_u64(pos.piece_boards[QUEEN]);
 	
 	return score * (26500 + mat_phase) / 32768;
 }
 
-std::array<Value, 8> debug_eval(Board &board) {
-	if (!(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)])) {
+std::array<Value, 8> debug_eval(Position &pos) {
+	if (!(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)])) {
 		// If black has no king, this is mate for white
 		return {VALUE_MATE, 0, 0, 0, 0, 0, 0, 0};
 	}
-	if (!(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)])) {
+	if (!(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)])) {
 		// Likewise, if white has no king, this is mate for black
 		return {-VALUE_MATE, 0, 0, 0, 0, 0, 0, 0};
 	}
-	if (board.halfmove >= 100) {
+	if (pos.halfmove >= 100) {
 		return {0, 0, 0, 0, 0, 0, 0, 0}; // Draw by 50 moves
 	}
 
-	Square wkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(WHITE)]);
-	Square bkingsq = (Square)_tzcnt_u64(board.piece_boards[KING] & board.piece_boards[OCC(BLACK)]);
+	Square wkingsq = (Square)_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)]);
+	Square bkingsq = (Square)_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]);
 	int winbucket = IBUCKET_LAYOUT[wkingsq];
 	int binbucket = IBUCKET_LAYOUT[bkingsq ^ 56];
 
@@ -99,7 +99,7 @@ std::array<Value, 8> debug_eval(Board &board) {
 
 	// Query the NNUE network
 	for (uint16_t i = 0; i < 64; i++) {
-		Piece piece = board.mailbox[i];
+		Piece piece = pos.mailbox[i];
 		bool side = piece >> 3; // 1 = black, 0 = white
 		PieceType pt = PieceType(piece & 7);
 
@@ -112,10 +112,10 @@ std::array<Value, 8> debug_eval(Board &board) {
 		}
 	}
 
-	int npieces = _mm_popcnt_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
+	int npieces = _mm_popcnt_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
 
 	std::array<Value, 8> score = {};
-	if (board.side == WHITE) {
+	if (pos.side == WHITE) {
 		for (int i = 0; i < 8; i++) {
 			score[i] = nnue_eval(nnue_network, w_acc, b_acc, i);
 		}

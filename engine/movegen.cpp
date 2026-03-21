@@ -214,18 +214,18 @@ __attribute__((constructor)) void init_movetables() {
 	}
 }
 
-void white_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
-	Bitboard pieces = board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)];
+void white_pawn_moves(const Position &pos, pzstd::vector<Move> &moves) {
+	Bitboard pieces = pos.piece_boards[PAWN] & pos.piece_boards[OCC(WHITE)];
 	Bitboard dsts;
 	// En passant
-	if (board.ep_square != SQ_NONE) {
-		dsts = ((pieces & ~FileABits & Rank5Bits) << 7) & square_bits(board.ep_square);
+	if (pos.ep_square != SQ_NONE) {
+		dsts = ((pieces & ~FileABits & Rank5Bits) << 7) & square_bits(pos.ep_square);
 		while (dsts) {
 			int sq = _tzcnt_u64(dsts);
 			moves.push_back(Move::make<EN_PASSANT>(sq - 7, sq));
 			dsts = _blsr_u64(dsts);
 		}
-		dsts = ((pieces & ~FileHBits & Rank5Bits) << 9) & square_bits(board.ep_square);
+		dsts = ((pieces & ~FileHBits & Rank5Bits) << 9) & square_bits(pos.ep_square);
 		while (dsts) {
 			int sq = _tzcnt_u64(dsts);
 			moves.push_back(Move::make<EN_PASSANT>(sq - 9, sq));
@@ -233,7 +233,7 @@ void white_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
 		}
 	}
 	// Promotion
-	dsts = ((pieces & Rank7Bits) << 8) & ~(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
+	dsts = ((pieces & Rank7Bits) << 8) & ~(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
 	while (dsts) {
 		int sq = _tzcnt_u64(dsts);
 		moves.push_back(Move::make<PROMOTION>(sq - 8, sq, QUEEN));
@@ -243,7 +243,7 @@ void white_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
 		dsts = _blsr_u64(dsts);
 	}
 	// Captures
-	dsts = ((pieces & ~FileABits) << 7) & board.piece_boards[OCC(BLACK)];
+	dsts = ((pieces & ~FileABits) << 7) & pos.piece_boards[OCC(BLACK)];
 	while (dsts) {
 		int sq = _tzcnt_u64(dsts);
 		if (sq >= SQ_A8) {
@@ -256,7 +256,7 @@ void white_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
 		}
 		dsts = _blsr_u64(dsts);
 	}
-	dsts = ((pieces & ~FileHBits) << 9) & board.piece_boards[OCC(BLACK)];
+	dsts = ((pieces & ~FileHBits) << 9) & pos.piece_boards[OCC(BLACK)];
 	while (dsts) {
 		int sq = _tzcnt_u64(dsts);
 		if (sq >= SQ_A8) {
@@ -270,7 +270,7 @@ void white_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
 		dsts = _blsr_u64(dsts);
 	}
 	// Normal single pushes (no promotion)
-	dsts = ((pieces & ~Rank7Bits) << 8) & ~(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
+	dsts = ((pieces & ~Rank7Bits) << 8) & ~(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
 	Bitboard tmp = dsts;
 	while (tmp) {
 		int sq = _tzcnt_u64(tmp);
@@ -278,7 +278,7 @@ void white_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
 		tmp = _blsr_u64(tmp);
 	}
 	// Double pushes
-	dsts = ((dsts & Rank3Bits) << 8) & ~(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
+	dsts = ((dsts & Rank3Bits) << 8) & ~(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
 	while (dsts) {
 		int sq = _tzcnt_u64(dsts);
 		moves.push_back(Move(sq - 16, sq));
@@ -286,18 +286,18 @@ void white_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
 	}
 }
 
-void black_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
-	Bitboard pieces = board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)];
+void black_pawn_moves(const Position &pos, pzstd::vector<Move> &moves) {
+	Bitboard pieces = pos.piece_boards[PAWN] & pos.piece_boards[OCC(BLACK)];
 	Bitboard dsts;
 	// En passant
-	if (board.ep_square != SQ_NONE) {
-		dsts = ((pieces & ~FileHBits & Rank4Bits) >> 7) & square_bits(board.ep_square);
+	if (pos.ep_square != SQ_NONE) {
+		dsts = ((pieces & ~FileHBits & Rank4Bits) >> 7) & square_bits(pos.ep_square);
 		while (dsts) {
 			int sq = _tzcnt_u64(dsts);
 			moves.push_back(Move::make<EN_PASSANT>(sq + 7, sq));
 			dsts = _blsr_u64(dsts);
 		}
-		dsts = ((pieces & ~FileABits & Rank4Bits) >> 9) & square_bits(board.ep_square);
+		dsts = ((pieces & ~FileABits & Rank4Bits) >> 9) & square_bits(pos.ep_square);
 		while (dsts) {
 			int sq = _tzcnt_u64(dsts);
 			moves.push_back(Move::make<EN_PASSANT>(sq + 9, sq));
@@ -305,7 +305,7 @@ void black_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
 		}
 	}
 	// Promotion
-	dsts = ((pieces & Rank2Bits) >> 8) & ~(board.piece_boards[OCC(BLACK)] | board.piece_boards[OCC(WHITE)]);
+	dsts = ((pieces & Rank2Bits) >> 8) & ~(pos.piece_boards[OCC(BLACK)] | pos.piece_boards[OCC(WHITE)]);
 	while (dsts) {
 		int sq = _tzcnt_u64(dsts);
 		moves.push_back(Move::make<PROMOTION>(sq + 8, sq, QUEEN));
@@ -315,7 +315,7 @@ void black_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
 		dsts = _blsr_u64(dsts);
 	}
 	// Captures
-	dsts = ((pieces & ~FileHBits) >> 7) & board.piece_boards[OCC(WHITE)];
+	dsts = ((pieces & ~FileHBits) >> 7) & pos.piece_boards[OCC(WHITE)];
 	while (dsts) {
 		int sq = _tzcnt_u64(dsts);
 		if (sq <= SQ_H1) {
@@ -328,7 +328,7 @@ void black_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
 		}
 		dsts = _blsr_u64(dsts);
 	}
-	dsts = ((pieces & ~FileABits) >> 9) & board.piece_boards[OCC(WHITE)];
+	dsts = ((pieces & ~FileABits) >> 9) & pos.piece_boards[OCC(WHITE)];
 	while (dsts) {
 		int sq = _tzcnt_u64(dsts);
 		if (sq <= SQ_H1) {
@@ -342,7 +342,7 @@ void black_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
 		dsts = _blsr_u64(dsts);
 	}
 	// Normal single pushes (no promotion)
-	dsts = ((pieces & ~Rank2Bits) >> 8) & ~(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
+	dsts = ((pieces & ~Rank2Bits) >> 8) & ~(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
 	Bitboard tmp = dsts;
 	while (tmp) {
 		int sq = _tzcnt_u64(tmp);
@@ -350,7 +350,7 @@ void black_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
 		tmp = _blsr_u64(tmp);
 	}
 	// Double pushes
-	dsts = ((dsts & Rank6Bits) >> 8) & ~(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
+	dsts = ((dsts & Rank6Bits) >> 8) & ~(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
 	while (dsts) {
 		int sq = _tzcnt_u64(dsts);
 		moves.push_back(Move(sq + 16, sq));
@@ -358,19 +358,19 @@ void black_pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
 	}
 }
 
-void pawn_moves(const Board &board, pzstd::vector<Move> &moves) {
-	if (board.side == WHITE) {
-		white_pawn_moves(board, moves);
+void pawn_moves(const Position &pos, pzstd::vector<Move> &moves) {
+	if (pos.side == WHITE) {
+		white_pawn_moves(pos, moves);
 	} else {
-		black_pawn_moves(board, moves);
+		black_pawn_moves(pos, moves);
 	}
 }
 
-void knight_moves(const Board &board, pzstd::vector<Move> &moves) {
-	Bitboard pieces = board.piece_boards[KNIGHT] & board.piece_boards[OCC(board.side)];
+void knight_moves(const Position &pos, pzstd::vector<Move> &moves) {
+	Bitboard pieces = pos.piece_boards[KNIGHT] & pos.piece_boards[OCC(pos.side)];
 	while (pieces) {
 		int sq = _tzcnt_u64(pieces);
-		Bitboard dsts = knight_movetable[sq] & ~board.piece_boards[OCC(board.side)];
+		Bitboard dsts = knight_movetable[sq] & ~pos.piece_boards[OCC(pos.side)];
 		while (dsts) {
 			int dst = _tzcnt_u64(dsts);
 			moves.push_back(Move(sq, dst));
@@ -380,12 +380,12 @@ void knight_moves(const Board &board, pzstd::vector<Move> &moves) {
 	}
 }
 
-void bishop_moves(const Board &board, pzstd::vector<Move> &moves) {
-	Bitboard pieces = (board.piece_boards[BISHOP] | board.piece_boards[QUEEN]) & board.piece_boards[OCC(board.side)];
+void bishop_moves(const Position &pos, pzstd::vector<Move> &moves) {
+	Bitboard pieces = (pos.piece_boards[BISHOP] | pos.piece_boards[QUEEN]) & pos.piece_boards[OCC(pos.side)];
 	while (pieces) {
 		int sq = _tzcnt_u64(pieces);
-		uint32_t idx = bishop_magics[sq].offset + _pext_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)], bishop_magics[sq].mask);
-		Bitboard dsts = bishop_movetable[idx] & ~board.piece_boards[OCC(board.side)];
+		uint32_t idx = bishop_magics[sq].offset + _pext_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)], bishop_magics[sq].mask);
+		Bitboard dsts = bishop_movetable[idx] & ~pos.piece_boards[OCC(pos.side)];
 		while (dsts) {
 			int dst = _tzcnt_u64(dsts);
 			moves.push_back(Move(sq, dst));
@@ -395,12 +395,12 @@ void bishop_moves(const Board &board, pzstd::vector<Move> &moves) {
 	}
 }
 
-void rook_moves(const Board &board, pzstd::vector<Move> &moves) {
-	Bitboard pieces = (board.piece_boards[ROOK] | board.piece_boards[QUEEN]) & board.piece_boards[OCC(board.side)];
+void rook_moves(const Position &pos, pzstd::vector<Move> &moves) {
+	Bitboard pieces = (pos.piece_boards[ROOK] | pos.piece_boards[QUEEN]) & pos.piece_boards[OCC(pos.side)];
 	while (pieces) {
 		int sq = _tzcnt_u64(pieces);
-		uint32_t idx = rook_magics[sq].offset + _pext_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)], rook_magics[sq].mask);
-		Bitboard dsts = rook_movetable[idx] & ~board.piece_boards[OCC(board.side)];
+		uint32_t idx = rook_magics[sq].offset + _pext_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)], rook_magics[sq].mask);
+		Bitboard dsts = rook_movetable[idx] & ~pos.piece_boards[OCC(pos.side)];
 		while (dsts) {
 			int dst = _tzcnt_u64(dsts);
 			moves.push_back(Move(sq, dst));
@@ -410,58 +410,58 @@ void rook_moves(const Board &board, pzstd::vector<Move> &moves) {
 	}
 }
 
-void king_moves(const Board &board, pzstd::vector<Move> &moves) {
-	Bitboard piece = board.piece_boards[KING] & board.piece_boards[OCC(board.side)];
+void king_moves(const Position &pos, pzstd::vector<Move> &moves) {
+	Bitboard piece = pos.piece_boards[KING] & pos.piece_boards[OCC(pos.side)];
 	if (__builtin_expect(piece == 0, false))
 		return;
 	int sq = _tzcnt_u64(piece);
 	// Castling
-	Bitboard occs = board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)];
-	if (board.side == WHITE && !board.control(sq, BLACK)) {
-		if (board.castling & WHITE_OO) {
-			if (castle_blockers[sq][board.rook_pos[0]] & occs)
+	Bitboard occs = pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)];
+	if (pos.side == WHITE && !pos.control(sq, BLACK)) {
+		if (pos.castling & WHITE_OO) {
+			if (castle_blockers[sq][pos.rook_pos[0]] & occs)
 				goto skip_white_oo;
-			if (board.side_control[BLACK] & (rook_blockers[sq][SQ_G1] | square_bits(SQ_G1) | piece))
+			if (pos.side_control[BLACK] & (rook_blockers[sq][SQ_G1] | square_bits(SQ_G1) | piece))
 				goto skip_white_oo;
-			if (board.pinned[WHITE] & square_bits(board.rook_pos[0]))
+			if (pos.pinned[WHITE] & square_bits(pos.rook_pos[0]))
 				goto skip_white_oo;
-			moves.push_back(Move::make<CASTLING>(sq, board.rook_pos[0]));
+			moves.push_back(Move::make<CASTLING>(sq, pos.rook_pos[0]));
 		}
 	skip_white_oo:
-		if (board.castling & WHITE_OOO) {
-			if (castle_blockers[sq][board.rook_pos[1]] & occs)
+		if (pos.castling & WHITE_OOO) {
+			if (castle_blockers[sq][pos.rook_pos[1]] & occs)
 				goto skip_white_ooo;
-			if (board.side_control[BLACK] & (rook_blockers[sq][SQ_C1] | square_bits(SQ_C1) | piece))
+			if (pos.side_control[BLACK] & (rook_blockers[sq][SQ_C1] | square_bits(SQ_C1) | piece))
 				goto skip_white_ooo;
-			if (board.pinned[WHITE] & square_bits(board.rook_pos[1]))
+			if (pos.pinned[WHITE] & square_bits(pos.rook_pos[1]))
 				goto skip_white_ooo;
-			moves.push_back(Move::make<CASTLING>(sq, board.rook_pos[1]));
+			moves.push_back(Move::make<CASTLING>(sq, pos.rook_pos[1]));
 		}
 	skip_white_ooo:;
-	} else if (board.side == BLACK && !board.control(sq, WHITE)) {
-		if (board.castling & BLACK_OO) {
-			if (castle_blockers[sq][board.rook_pos[2]] & occs)
+	} else if (pos.side == BLACK && !pos.control(sq, WHITE)) {
+		if (pos.castling & BLACK_OO) {
+			if (castle_blockers[sq][pos.rook_pos[2]] & occs)
 				goto skip_black_oo;
-			if (board.side_control[WHITE] & (rook_blockers[sq][SQ_G8] | square_bits(SQ_G8) | piece))
+			if (pos.side_control[WHITE] & (rook_blockers[sq][SQ_G8] | square_bits(SQ_G8) | piece))
 				goto skip_black_oo;
-			if (board.pinned[BLACK] & square_bits(board.rook_pos[2]))
+			if (pos.pinned[BLACK] & square_bits(pos.rook_pos[2]))
 				goto skip_black_oo;
-			moves.push_back(Move::make<CASTLING>(sq, board.rook_pos[2]));
+			moves.push_back(Move::make<CASTLING>(sq, pos.rook_pos[2]));
 		}
 	skip_black_oo:
-		if (board.castling & BLACK_OOO) {
-			if (castle_blockers[sq][board.rook_pos[3]] & occs)
+		if (pos.castling & BLACK_OOO) {
+			if (castle_blockers[sq][pos.rook_pos[3]] & occs)
 				goto skip_black_ooo;
-			if (board.side_control[WHITE] & (rook_blockers[sq][SQ_C8] | square_bits(SQ_C8) | piece))
+			if (pos.side_control[WHITE] & (rook_blockers[sq][SQ_C8] | square_bits(SQ_C8) | piece))
 				goto skip_black_ooo;
-			if (board.pinned[BLACK] & square_bits(board.rook_pos[3]))
+			if (pos.pinned[BLACK] & square_bits(pos.rook_pos[3]))
 				goto skip_black_ooo;
-			moves.push_back(Move::make<CASTLING>(sq, board.rook_pos[3]));
+			moves.push_back(Move::make<CASTLING>(sq, pos.rook_pos[3]));
 		}
 	skip_black_ooo:;
 	}
 	// Normal moves
-	Bitboard dsts = king_movetable[sq] & ~board.piece_boards[OCC(board.side)];
+	Bitboard dsts = king_movetable[sq] & ~pos.piece_boards[OCC(pos.side)];
 	while (dsts) {
 		int dst = _tzcnt_u64(dsts);
 		moves.push_back(Move(sq, dst));
@@ -469,7 +469,7 @@ void king_moves(const Board &board, pzstd::vector<Move> &moves) {
 	}
 }
 
-void Board::legal_moves(pzstd::vector<Move> &moves) const {
+void Position::legal_moves(pzstd::vector<Move> &moves) const {
 	rook_moves(*this, moves);
 	bishop_moves(*this, moves);
 	knight_moves(*this, moves);
@@ -477,18 +477,18 @@ void Board::legal_moves(pzstd::vector<Move> &moves) const {
 	king_moves(*this, moves);
 }
 
-void pawn_captures(const Board &board, pzstd::vector<Move> &moves) {
-	if (board.side == WHITE) {
-		Bitboard pieces = board.piece_boards[PAWN] & board.piece_boards[OCC(WHITE)];
+void pawn_captures(const Position &pos, pzstd::vector<Move> &moves) {
+	if (pos.side == WHITE) {
+		Bitboard pieces = pos.piece_boards[PAWN] & pos.piece_boards[OCC(WHITE)];
 		// Promotion
-		Bitboard dsts = ((pieces & Rank7Bits) << 8) & ~(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)]);
+		Bitboard dsts = ((pieces & Rank7Bits) << 8) & ~(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
 		while (dsts) {
 			int sq = _tzcnt_u64(dsts);
 			moves.push_back(Move::make<PROMOTION>(sq - 8, sq, QUEEN));
 			dsts = _blsr_u64(dsts);
 		}
 		// Captures
-		dsts = ((pieces & ~FileABits) << 7) & board.piece_boards[OCC(BLACK)];
+		dsts = ((pieces & ~FileABits) << 7) & pos.piece_boards[OCC(BLACK)];
 		while (dsts) {
 			int sq = _tzcnt_u64(dsts);
 			if (sq >= SQ_A8) {
@@ -501,7 +501,7 @@ void pawn_captures(const Board &board, pzstd::vector<Move> &moves) {
 			}
 			dsts = _blsr_u64(dsts);
 		}
-		dsts = ((pieces & ~FileHBits) << 9) & board.piece_boards[OCC(BLACK)];
+		dsts = ((pieces & ~FileHBits) << 9) & pos.piece_boards[OCC(BLACK)];
 		while (dsts) {
 			int sq = _tzcnt_u64(dsts);
 			if (sq >= SQ_A8) {
@@ -515,16 +515,16 @@ void pawn_captures(const Board &board, pzstd::vector<Move> &moves) {
 			dsts = _blsr_u64(dsts);
 		}
 	} else {
-		Bitboard pieces = board.piece_boards[PAWN] & board.piece_boards[OCC(BLACK)];
+		Bitboard pieces = pos.piece_boards[PAWN] & pos.piece_boards[OCC(BLACK)];
 		// Promotion
-		Bitboard dsts = ((pieces & Rank2Bits) >> 8) & ~(board.piece_boards[OCC(BLACK)] | board.piece_boards[OCC(WHITE)]);
+		Bitboard dsts = ((pieces & Rank2Bits) >> 8) & ~(pos.piece_boards[OCC(BLACK)] | pos.piece_boards[OCC(WHITE)]);
 		while (dsts) {
 			int sq = _tzcnt_u64(dsts);
 			moves.push_back(Move::make<PROMOTION>(sq + 8, sq, QUEEN));
 			dsts = _blsr_u64(dsts);
 		}
 		// Captures
-		dsts = ((pieces & ~FileHBits) >> 7) & board.piece_boards[OCC(WHITE)];
+		dsts = ((pieces & ~FileHBits) >> 7) & pos.piece_boards[OCC(WHITE)];
 		while (dsts) {
 			int sq = _tzcnt_u64(dsts);
 			if (sq <= SQ_H1) {
@@ -537,7 +537,7 @@ void pawn_captures(const Board &board, pzstd::vector<Move> &moves) {
 			}
 			dsts = _blsr_u64(dsts);
 		}
-		dsts = ((pieces & ~FileABits) >> 9) & board.piece_boards[OCC(WHITE)];
+		dsts = ((pieces & ~FileABits) >> 9) & pos.piece_boards[OCC(WHITE)];
 		while (dsts) {
 			int sq = _tzcnt_u64(dsts);
 			if (sq <= SQ_H1) {
@@ -553,11 +553,11 @@ void pawn_captures(const Board &board, pzstd::vector<Move> &moves) {
 	}
 }
 
-void knight_captures(const Board &board, pzstd::vector<Move> &moves) {
-	Bitboard pieces = board.piece_boards[KNIGHT] & board.piece_boards[OCC(board.side)];
+void knight_captures(const Position &pos, pzstd::vector<Move> &moves) {
+	Bitboard pieces = pos.piece_boards[KNIGHT] & pos.piece_boards[OCC(pos.side)];
 	while (pieces) {
 		int sq = _tzcnt_u64(pieces);
-		Bitboard dsts = knight_movetable[sq] & board.piece_boards[OPPOCC(board.side)];
+		Bitboard dsts = knight_movetable[sq] & pos.piece_boards[OPPOCC(pos.side)];
 		while (dsts) {
 			int dst = _tzcnt_u64(dsts);
 			moves.push_back(Move(sq, dst));
@@ -567,12 +567,12 @@ void knight_captures(const Board &board, pzstd::vector<Move> &moves) {
 	}
 }
 
-void bishop_captures(const Board &board, pzstd::vector<Move> &moves) {
-	Bitboard pieces = (board.piece_boards[BISHOP] | board.piece_boards[QUEEN]) & board.piece_boards[OCC(board.side)];
+void bishop_captures(const Position &pos, pzstd::vector<Move> &moves) {
+	Bitboard pieces = (pos.piece_boards[BISHOP] | pos.piece_boards[QUEEN]) & pos.piece_boards[OCC(pos.side)];
 	while (pieces) {
 		int sq = _tzcnt_u64(pieces);
-		uint32_t idx = bishop_magics[sq].offset + _pext_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)], bishop_magics[sq].mask);
-		Bitboard dsts = bishop_movetable[idx] & board.piece_boards[OPPOCC(board.side)];
+		uint32_t idx = bishop_magics[sq].offset + _pext_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)], bishop_magics[sq].mask);
+		Bitboard dsts = bishop_movetable[idx] & pos.piece_boards[OPPOCC(pos.side)];
 		while (dsts) {
 			int dst = _tzcnt_u64(dsts);
 			moves.push_back(Move(sq, dst));
@@ -582,12 +582,12 @@ void bishop_captures(const Board &board, pzstd::vector<Move> &moves) {
 	}
 }
 
-void rook_captures(const Board &board, pzstd::vector<Move> &moves) {
-	Bitboard pieces = (board.piece_boards[ROOK] | board.piece_boards[QUEEN]) & board.piece_boards[OCC(board.side)];
+void rook_captures(const Position &pos, pzstd::vector<Move> &moves) {
+	Bitboard pieces = (pos.piece_boards[ROOK] | pos.piece_boards[QUEEN]) & pos.piece_boards[OCC(pos.side)];
 	while (pieces) {
 		int sq = _tzcnt_u64(pieces);
-		uint32_t idx = rook_magics[sq].offset + _pext_u64(board.piece_boards[OCC(WHITE)] | board.piece_boards[OCC(BLACK)], rook_magics[sq].mask);
-		Bitboard dsts = rook_movetable[idx] & board.piece_boards[OPPOCC(board.side)];
+		uint32_t idx = rook_magics[sq].offset + _pext_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)], rook_magics[sq].mask);
+		Bitboard dsts = rook_movetable[idx] & pos.piece_boards[OPPOCC(pos.side)];
 		while (dsts) {
 			int dst = _tzcnt_u64(dsts);
 			moves.push_back(Move(sq, dst));
@@ -597,12 +597,12 @@ void rook_captures(const Board &board, pzstd::vector<Move> &moves) {
 	}
 }
 
-void king_captures(const Board &board, pzstd::vector<Move> &moves) {
-	Bitboard piece = board.piece_boards[KING] & board.piece_boards[OCC(board.side)];
+void king_captures(const Position &pos, pzstd::vector<Move> &moves) {
+	Bitboard piece = pos.piece_boards[KING] & pos.piece_boards[OCC(pos.side)];
 	if (__builtin_expect(piece == 0, false))
 		return;
 	int sq = _tzcnt_u64(piece);
-	Bitboard dsts = king_movetable[sq] & board.piece_boards[OPPOCC(board.side)];
+	Bitboard dsts = king_movetable[sq] & pos.piece_boards[OPPOCC(pos.side)];
 	while (dsts) {
 		int dst = _tzcnt_u64(dsts);
 		moves.push_back(Move(sq, dst));
@@ -610,7 +610,7 @@ void king_captures(const Board &board, pzstd::vector<Move> &moves) {
 	}
 }
 
-void Board::captures(pzstd::vector<Move> &moves) const {
+void Position::captures(pzstd::vector<Move> &moves) const {
 	rook_captures(*this, moves);
 	bishop_captures(*this, moves);
 	knight_captures(*this, moves);
@@ -651,7 +651,7 @@ Bitboard pawn_attacks(Square sq, bool color) {
 		return ((square_bits(Square(sq - 7)) & 0xfefefefefefefefe) | (square_bits(Square(sq - 9)) & 0x7f7f7f7f7f7f7f7f));
 }
 
-void Board::update_control() {
+void Position::update_control() {
 	memset(side_control, 0, sizeof(side_control));
 	memset(pinned, 0, sizeof(pinned));
 	memset(pinners, 0, sizeof(pinners));
@@ -784,11 +784,11 @@ void Board::update_control() {
 	}
 }
 
-bool Board::control(int sq, bool side) const {
+bool Position::control(int sq, bool side) const {
 	return side_control[side] & square_bits((Square)sq);
 }
 
-Bitboard Board::lva_(Square sq, int side, PieceType &p, Bitboard occ) const {
+Bitboard Position::lva_(Square sq, int side, PieceType &p, Bitboard occ) const {
 	if (side == WHITE) {
 		Bitboard pawn = pawn_attacks(sq, BLACK) & piece_boards[PAWN] & piece_boards[OCC(WHITE)] & occ;
 		if (pawn) {
@@ -856,16 +856,16 @@ Bitboard Board::lva_(Square sq, int side, PieceType &p, Bitboard occ) const {
 	return 0;
 }
 
-int gain_(Board &board, Move &move) {
+int gain_(Position &pos, Move &move) {
 	if (move.type() == CASTLING) return 0;
 	if (move.type() == EN_PASSANT) return PawnValue;
-	
-	int value = PieceValue[board.mailbox[move.dst()] & 7];
+
+	int value = PieceValue[pos.mailbox[move.dst()] & 7];
 	if (move.type() == PROMOTION) value += PieceValue[move.promotion() + KNIGHT] - PawnValue;
 	return value;
 }
 
-bool Board::see(Move move, int threshold) {
+bool Position::see(Move move, int threshold) {
 	Square src = move.src();
 	Square dst = move.dst();
 	PieceType atkr = PieceType(mailbox[src] & 7);
@@ -907,7 +907,7 @@ bool Board::see(Move move, int threshold) {
 	return side != this->side; // if it's the opponent's turn, we ended on our capture (good). otherwise they won the SEE
 }
 
-bool Board::is_pseudolegal(Move move) const {
+bool Position::is_pseudolegal(Move move) const {
 	// Must be our piece to move
 	if ((mailbox[move.src()] >> 3) != side)
 		return false;
@@ -984,7 +984,7 @@ bool Board::is_pseudolegal(Move move) const {
 	return false;
 }
 
-bool Board::is_legal(Move move) const {
+bool Position::is_legal(Move move) const {
 	Square king_sq = (Square)_tzcnt_u64(piece_boards[KING] & piece_boards[OCC(side)]);
 
 	if (move.type() == EN_PASSANT) {
