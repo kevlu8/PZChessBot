@@ -205,7 +205,7 @@ void run_uci() {
 
 __attribute__((weak)) int main(int argc, char *argv[]) {
 	print_config();
-	if (argc == 2 && std::string(argv[1]) == "bench") {
+	if ((argc == 2 || argc == 3) && std::string(argv[1]) == "bench") {
 		const std::string bench_positions[] = {
 			"r3k2r/2pb1ppp/2pp1q2/p7/1nP1B3/1P2P3/P2N1PPP/R2QK2R w KQkq - 0 14",
 			"4rrk1/2p1b1p1/p1p3q1/4p3/2P2n1p/1P1NR2P/PB3PP1/3R1QK1 b - - 2 24",
@@ -258,7 +258,15 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			"3br1k1/p1pn3p/1p3n2/5pNq/2P1p3/1PN3PP/P2Q1PB1/4R1K1 w - - 0 23",
 			"2r2b2/5p2/5k2/p1r1pP2/P2pB3/1P3P2/K1P3R1/7R w - - 23 93",
 		};
-		Pool pool;
+		int num_threads = 1;
+		if (argc == 3) {
+			num_threads = std::stoi(argv[2]);
+			if (num_threads < 1 || num_threads > MAX_THREADS) {
+				std::cerr << "Invalid number of threads: " << num_threads << std::endl;
+				num_threads = 1;
+			}
+		}
+		Pool pool(num_threads);
 		Position pos = Position();
 		RepetitionHandler rp;
 		uint64_t tot_nodes = 0;
@@ -269,7 +277,9 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			pool.clear_search_vars();
 			pool.search(pos, rp, 1e9, 12, 1e18, 0);
 			pool.wait_finished();
-			tot_nodes += nodes[0];
+			for (size_t i = 0; i < num_threads; ++i) {
+				tot_nodes += nodes[i];
+			}
 		}
 		uint64_t end = clock();
 		std::cout << tot_nodes << " nodes " << int(tot_nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
