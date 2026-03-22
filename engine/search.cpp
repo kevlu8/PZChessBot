@@ -248,6 +248,8 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 	Move move = NullMove;
 	int moves_searched = 0;
 
+	TTFlag ttf = UPPER_BOUND;
+
 	while ((move = mp.next()) != NullMove) {
 		if (!pos.is_legal(move))
 			continue;
@@ -303,16 +305,16 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 
 		if (score > best) {
 			if (score > alpha) {
+				ttf = EXACT;
 				alpha = score;
-				alpha_raise++;
 			}
 			best = score;
 			best_move = move;
 		}
 
 		if (score >= beta) {
-			ttable.store(pos.zobrist, score_to_tt(score, ply), raw_eval, 0, LOWER_BOUND, pv, move);
-			return best;
+			ttf = LOWER_BOUND;
+			break;
 		}
 
 		moves_searched++;
@@ -322,7 +324,8 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 		return -VALUE_MATE + 1;
 	}
 
-	ttable.store(pos.zobrist, score_to_tt(best, ply), raw_eval, 0, alpha_raise ? EXACT : UPPER_BOUND, pv, best_move);
+	Move tt_move = best_move != NullMove ? best_move : (tentry ? tentry->best_move : NullMove);
+	ttable.store(pos.zobrist, score_to_tt(best, ply), raw_eval, 0, ttf, pv, tt_move);
 
 	return best;
 }
