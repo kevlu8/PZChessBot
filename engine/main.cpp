@@ -369,12 +369,13 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		// calculate pawn value
 		Pool pool;
 		Position pos = Position();
+		AccumulatorManager am(pos);
 		int tot = 0;
-		Value startpos_score = eval(pos, &pool.get_ti(0).bs[0][0]);
+		Value startpos_score = eval(pos, am);
 		for (int i = 0; i < 8; i++) {
 			pos.reset_startpos();
 			pos.mailbox[SQ_A2 + i] = NO_PIECE;
-			Value score = eval(pos, &pool.get_ti(0).bs[0][0]);
+			Value score = eval(pos, am);
 			int diff = startpos_score - score;
 			tot += diff;
 		}
@@ -395,10 +396,12 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			std::cerr << "Could not open book file" << std::endl;
 			return 1;
 		}
+		AccumulatorManager am(pos);
 		while (getline(bookfile, line)) {
 			std::string fen = line.substr(0, line.find(' '));
 			pos.reset(fen);
-			Value score = abs(eval(pos, &pool.get_ti(0).bs[0][0]));
+			am.full_refresh(pos, 0);
+			Value score = abs(eval(pos, am));
 			tot_eval += score;
 			npositions++;
 		}

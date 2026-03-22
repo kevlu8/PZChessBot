@@ -52,6 +52,7 @@ void Pool::search(Position &pos, RepetitionHandler &rp, int64_t time, int depth,
 	for (int t = 0; t < num_threads; t++) {
 		ThreadInfo &ti = tis[t];
 		ti.rp = rp;
+		ti.am = AccumulatorManager(pos);
 		ti.seldepth = 0;
 		nodes[t] = 0;
 		ti.id = t;
