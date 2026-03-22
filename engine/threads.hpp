@@ -14,7 +14,7 @@ private:
 	size_t num_threads;
 	std::vector<std::thread> threads;
 	Position pos;
-	ThreadInfo *tis;
+	ThreadInfo **tis;
 
 	std::unique_ptr<std::barrier<>> start_barrier, ready_barrier;
 	std::shared_mutex mtx;
@@ -26,21 +26,20 @@ private:
 
 public:
 	Pool() : num_threads(1), stop(false) {
-		tis = (ThreadInfo *)large_alloc(num_threads * sizeof(ThreadInfo));
-		new (tis) ThreadInfo();
+		tis = new ThreadInfo *[1];
 		start_barrier = std::make_unique<std::barrier<>>(2);
 		ready_barrier = std::make_unique<std::barrier<>>(2);
 		threads.emplace_back(&Pool::thread_loop, this, 0);
+		ready_barrier->arrive_and_wait();
 	}
 
 	Pool(size_t num_threads) : num_threads(num_threads), stop(false) {
-		tis = (ThreadInfo *)large_alloc(num_threads * sizeof(ThreadInfo));
+		tis = new ThreadInfo *[num_threads];
 		start_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
 		ready_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
-		for (size_t i = 0; i < num_threads; ++i) {
-			new (&tis[i]) ThreadInfo();
+		for (size_t i = 0; i < num_threads; ++i)
 			threads.emplace_back(&Pool::thread_loop, this, i);
-		}
+		ready_barrier->arrive_and_wait();
 	}
 
 	void resize(size_t num);
@@ -50,12 +49,12 @@ public:
 	void clear_search_vars() {
 		std::unique_lock lock(mtx);
 		for (size_t i = 0; i < num_threads; i++) {
-			::clear_search_vars(tis[i]);
+			::clear_search_vars(*tis[i]);
 		}
 	}
 
 	ThreadInfo &get_ti(size_t i) {
-		return tis[i];
+		return *tis[i];
 	}
 
 	std::pair<Move, Value> wait_finished();
@@ -66,9 +65,7 @@ public:
 		for (auto &t : threads) {
 			t.join();
 		}
-		for (size_t i = 0; i < num_threads; ++i) {
-			tis[i].~ThreadInfo();
-		}
-		large_free(tis, num_threads * sizeof(ThreadInfo));
+		threads.clear();
+		delete tis;
 	}
 };

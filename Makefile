@@ -10,6 +10,7 @@ WINCXX   := x86_64-w64-mingw32-g++
 BASEFLAGS   := -std=c++20 -DNNUE_PATH=\"$(EVALFILE)\" -m64
 OPTFLAGS    := -O3 -flto=auto
 DEBUGFLAGS  := -g -march=x86-64-v3 -fsanitize=address,undefined
+LIBS		:= -lnuma
 
 # Sources & objects
 SRCS  := $(wildcard engine/*.cpp engine/nnue/*.cpp)
@@ -33,23 +34,23 @@ binaries: pzchessbot-linux-avx2 pzchessbot-win-avx2 pzchessbot-linux-avx512 pzch
 
 pzchessbot-linux-avx2: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v3 -static
 pzchessbot-linux-avx2: $(SRCS) $(HDRS)
-	$(CXX) $(CXXFLAGS) -o $@ $(SRCS)
+	$(CXX) $(CXXFLAGS) -o $@ $(SRCS) $(LIBS)
 
 pzchessbot-win-avx2: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v3 -static
 pzchessbot-win-avx2: $(SRCS) $(HDRS)
-	$(WINCXX) $(CXXFLAGS) -o $@ $(SRCS)
+	$(WINCXX) $(CXXFLAGS) -o $@ $(SRCS) $(WINLIBS)
 
 pzchessbot-linux-avx512: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v4 -static
 pzchessbot-linux-avx512: $(SRCS) $(HDRS)
-	$(CXX) $(CXXFLAGS) -o $@ $(SRCS)
+	$(CXX) $(CXXFLAGS) -o $@ $(SRCS) $(LIBS)
 
 pzchessbot-win-avx512: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v4 -static
 pzchessbot-win-avx512: $(SRCS) $(HDRS)
-	$(WINCXX) $(CXXFLAGS) -o $@ $(SRCS)
+	$(WINCXX) $(CXXFLAGS) -o $@ $(SRCS) $(WINLIBS)
 
 # Link final binary
 $(EXE): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LIBS)
 	@echo "Build complete. Run with ./$(EXE)"
 
 # Compile objects with dependency generation
