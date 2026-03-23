@@ -25,7 +25,7 @@ void run_uci() {
 	std::string command;
 	Position pos = Position();
 	RepetitionHandler rp;
-	rp.push_hash(pos.zobrist);
+	rp.push_hash(pos.zobrist_without_ep());
 	while (getline(std::cin, command)) {
 		if (command == "uci") {
 			std::cout << "id name PZChessBot " << VERSION << std::endl;
@@ -80,7 +80,7 @@ void run_uci() {
 			pool.wait_finished();
 			pos = Position();
 			rp.clear();
-			rp.push_hash(pos.zobrist);
+			rp.push_hash(pos.zobrist_without_ep());
 			ttable.resize(TT_SIZE);
 			shared_corrhist = Corrhist();
 			pool.clear_search_vars();
@@ -89,7 +89,7 @@ void run_uci() {
 			if (command.find("startpos") != std::string::npos) {
 				pos.reset_startpos();
 				rp.clear();
-				rp.push_hash(pos.zobrist);
+				rp.push_hash(pos.zobrist_without_ep());
 			} else if (command.find("fen") != std::string::npos) {
 				std::string fen = command.substr(command.find("fen") + 4);
 				if (fen.find("moves") != std::string::npos) {
@@ -97,7 +97,7 @@ void run_uci() {
 				}
 				pos.reset(fen);
 				rp.clear();
-				rp.push_hash(pos.zobrist);
+				rp.push_hash(pos.zobrist_without_ep());
 			}
 			if (command.find("moves") != std::string::npos) {
 				std::string moves = command.substr(command.find("moves") + 6);
@@ -105,7 +105,7 @@ void run_uci() {
 				std::string move;
 				while (ss >> move) {
 					pos.make_move(Move::from_string(move, &pos));
-					rp.push_hash(pos.zobrist);
+					rp.push_hash(pos.zobrist_without_ep());
 				}
 			}
 		} else if (command == "quit") {
@@ -170,7 +170,7 @@ void run_uci() {
 						continue;
 					Position pos_after = pos;
 					pos_after.make_move(move);
-					rp.push_hash(pos_after.zobrist);
+					rp.push_hash(pos_after.zobrist_without_ep());
 					uint64_t cnt = perft(pos_after, perft_depth - 1);
 					rp.pop_hash();
 					std::cout << move.to_string() << ": " << cnt << std::endl;
@@ -301,7 +301,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		Pool pool;
 		Position pos = Position();
 		RepetitionHandler rp;
-		rp.push_hash(pos.zobrist);
+		rp.push_hash(pos.zobrist_without_ep());
 		std::mt19937_64 rng(s);
 		std::ifstream bookfile(book == "None" ? "" : book);
 		std::vector<std::string> fens;
@@ -317,11 +317,11 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			if (fens.empty()) {
 				pos.reset_startpos();
 				rp.clear();
-				rp.push_hash(pos.zobrist);
+				rp.push_hash(pos.zobrist_without_ep());
 			} else {
 				pos.reset(fens[rng() % fens.size()]);
 				rp.clear();
-				rp.push_hash(pos.zobrist);
+				rp.push_hash(pos.zobrist_without_ep());
 			}
 			bool restart = false;
 			for (int i = 0; i < nmoves; i++) {
@@ -332,7 +332,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 					break;
 				}
 				pos.make_move(moves[rng() % moves.size()]);
-				rp.push_hash(pos.zobrist);
+				rp.push_hash(pos.zobrist_without_ep());
 			}
 			bool in_check = false, checking_opponent = false;
 			if (pos.side == WHITE) {
