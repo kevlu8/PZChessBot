@@ -250,6 +250,8 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 
 	TTFlag ttf = UPPER_BOUND;
 
+	Value futility = stand_pat + qsfp_margin();
+
 	while ((move = mp.next()) != NullMove) {
 		if (!pos.is_legal(move))
 			continue;
@@ -266,17 +268,17 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 				 * discard it directly.
 				 */
 				continue;
-			} else {
+			} else if (!in_check) {
 				/**
 				 * QS Futility pruning
 				 * 
-				 * Also known as delta pruning. If adding the value of the capture to our
-				 * static evaluation plus a safety margin is still not enough to raise
-				 * alpha, we can skip the move.
+				 * If we are not in check and our stand pat score is very bad, we skip captures
+				 * that are equal or worse.
 				 */
-				int see_threshold = alpha - stand_pat - qsfp_margin();
-				if (!pos.see(move, qsfp_see() * see_threshold / 1024))
+				if (futility <= alpha && !pos.see(move, 1)) {
+					best = std::max(best, futility);
 					continue;
+				}
 			}
 		}
 

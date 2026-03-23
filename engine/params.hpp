@@ -36,8 +36,7 @@ void handle_set(std::string optionname, std::string optionvalue);
 
 // Tunables go below
 TUNE(qs_see, -10, -100, 100, 10);
-TUNE(qsfp_see, 153, 50, 600, 50);
-TUNE(qsfp_margin, 346, 100, 500, 25);
+TUNE(qsfp_margin, 150, 100, 500, 25);
 TUNE(rfp_threshold, 58, 20, 110, 10);
 TUNE(rfp_improving, 31, 10, 50, 8);
 TUNE(rfp_quad, 5, 1, 8, 1);
