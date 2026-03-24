@@ -6,6 +6,26 @@ A chess engine created by two high school students, started when we were in midd
 
 [Play against PZChessBot!](https://lichess.org/@/PZChessBot)
 
+## Installation
+
+For a non-development build, simply navigate to the [releases page](https://github.com/kevlu8/PZChessBot/releases) and download the latest release.
+
+For the latest development build, you can clone the repository and build it yourself:
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/kevlu8/PZChessBot.git
+```
+
+2. Download the latest NNUE model from [PZChessBot-Networks](https://github.com/kevlu8/PZChessBot-Networks/releases) and place it in the `PZChessBot` folder. Make sure the model is named `nnue.bin`.
+
+3. Build the engine:
+
+```bash
+make -j
+```
+
 ## Strength
 
 |      Version     | CCRL Blitz | CCRL 40/15 | CCRL 40/15 4CPU | Lichess Rapid |
@@ -22,7 +42,7 @@ A chess engine created by two high school students, started when we were in midd
 | v5.0             |    3457    |    3396    |        -        |     2850      |
 | v6.0             |    3603    |    3491    |        -        |     2900      |
 | v6.1             |   ~3630    |     -      |      3581       |     2950      |
-| v20260313-dev    |   ~3680    |     -      |        -        |     3000      |
+| v20260313-dev    |   ~3680    |     -      |        -        |     3050      |
 
 ## Logistics & Features
 
