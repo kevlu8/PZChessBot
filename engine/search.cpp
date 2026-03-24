@@ -663,7 +663,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 
 		int hist = capt ? ti.thread_hist.get_capthist(pos, move) : ti.thread_hist.get_history(pos, move, ply, &ti.line[ply]);
 		if (best > -VALUE_MATE_MAX_PLY) {
-			int lmrdepth = std::clamp(depth - 1 - reduction[i][depth], 1, MAX_PLY);
+			int lmrdepth = std::clamp(depth - 1 - reduction[i][depth] / 1024, 1, MAX_PLY);
 			if (i >= (3 + depth * depth) / (2 - improving)) {
 				/**
 				 * Late Move Pruning
