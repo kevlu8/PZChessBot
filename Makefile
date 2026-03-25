@@ -9,8 +9,7 @@ CXX      := g++
 WINCXX   := x86_64-w64-mingw32-g++
 
 # CPU Cores
-CORES    := $(shell nproc)
-NPROC    := $(shell if [ $(CORES) -lt 64 ]; then echo $(CORES); else echo 64; fi)
+NPROC    := $(shell nproc)
 
 # Flags
 BASEFLAGS   := -std=c++17 -DNNUE_PATH=\"$(EVALFILE)\" -m64 -DMAX_THREADS=$(NPROC) -DDATAGEN_SOFT_NODES=$(SNODES) -DDATAGEN_NUM_RAND=$(NRAND)

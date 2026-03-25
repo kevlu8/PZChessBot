@@ -44,7 +44,7 @@ constexpr int MAX_PLY = 201;
 // constexpr int MAX_THREADS = 64;
 
 #ifndef MAX_THREADS
-#define MAX_THREADS 16
+#define MAX_THREADS 128
 #endif
 
 typedef int16_t Value;
