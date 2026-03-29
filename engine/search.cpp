@@ -16,6 +16,7 @@ uint16_t num_threads = 1;
 
 std::atomic<uint64_t> nodecnt[64][64] = {{}};
 std::atomic<uint64_t> nodes[MAX_THREADS] = {};
+std::atomic<uint64_t> tbhits = 0;
 
 uint64_t perft(Position &pos, int depth) {
 	if (depth == 0)
@@ -161,6 +162,8 @@ std::string score_to_uci(Value score) {
 		return "mate " + std::to_string((VALUE_MATE - score + 1) / 2);
 	} else if (score <= -VALUE_MATE_MAX_PLY) {
 		return "mate " + std::to_string((-VALUE_MATE - score) / 2);
+	} else if (abs(score) >= VALUE_TB_WIN_MAX_PLY) {
+		return "cp " + std::to_string(score);
 	} else {
 		return "cp " + std::to_string(int(score / NNUE_PAWN_VALUE));
 	}
@@ -409,6 +412,31 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	if (tentry) {
 		ttpv |= tentry->ttpv();
 		ttcapt = pos.is_capture(tentry->best_move);
+	}
+
+	/**
+	 * TB Probing
+	 * 
+	 * If tablebases are available, we can look up our position to get a perfect evaluation.
+	 */
+	if (!root && !excluded && tbman.initialized) {
+		auto tb_res = tbman.probe_pos(pos);
+		if (tb_res.has_value()) {
+			tbhits++;
+			Value tb_score = 0;
+			if (tb_res == 1) tb_score = VALUE_TB_WIN - ply;
+			else if (tb_res == -1) tb_score = -VALUE_TB_WIN + ply;
+			else tb_score = 0;
+
+			TTFlag tb_bound = EXACT;
+			if (tb_res == 1) tb_bound = LOWER_BOUND;
+			else if (tb_res == -1) tb_bound = UPPER_BOUND;
+
+			if (tb_bound == EXACT || (tb_bound == LOWER_BOUND && tb_score >= beta) || (tb_bound == UPPER_BOUND && tb_score <= alpha)) {
+				ttable.store(pos.zobrist, tb_score, tb_score, depth, tb_bound, ttpv, NullMove);
+				return tb_score;
+			}
+		}
 	}
 
 	bool in_check = pos.checkers[pos.side];
@@ -980,13 +1008,14 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			// UCI output from main thread only
 			auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
 			last_line.str("");
+
 			auto [w, dr, l] = score_to_wdl(pos, eval);
 			last_line << "info depth " << d << " seldepth " << ti.seldepth << " score " << score_to_uci(eval);
 
 			if (show_wdl) last_line << " wdl " << w << ' ' << dr << ' ' << l;
 
 			last_line << " time " << time_elapsed << " nodes " << tot_nodes << " nps " << (time_elapsed ? (tot_nodes * 1000 / time_elapsed) : tot_nodes)
-					  << " hashfull " << (int)(get_ttable_sz() * 1000) << " pv";
+					  << " hashfull " << (int)(get_ttable_sz() * 1000) << " tbhits " << tbhits << " pv";
 			for (int ply = 0; ply < ti.pvlen[0]; ply++) {
 				last_line << " " << ti.pvtable[0][ply].to_string();
 			}

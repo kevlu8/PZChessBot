@@ -92,5 +92,6 @@ PZChessBot is a basic negamax engine.
 - The [bullet](https://github.com/jw1912/bullet) NNUE trainer
 - The [ChessProgramming Wiki](https://chessprogramming.org/) for their clear albeit outdated explanations
 - [OpenBench](https://github.com/AndyGrant/OpenBench) for providing an excellent testing GUI
-- [sscg13](https://github.com/sscg13) for sharing an OpenBench instance with me and helping me with a lot of miscellaneous stuff
+- [sscg13](https://github.com/sscg13) for having shared an OpenBench instance with me and helping me with a lot of miscellaneous stuff
+- [Pyrrhic](https://github.com/AndyGrant/Pyrrhic) for providing tablebase probing code
 - Lastly, YOU for checking out this project!
