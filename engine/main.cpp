@@ -86,7 +86,10 @@ void run_uci() {
 						std::cout << "info string Syzygy successfully loaded" << std::endl;
 					}
 				}
-			} else {
+			} else if (optionname == "SyzygyProbeDepth") {
+				int probe_depth = std::stoi(optionvalue);
+				tbman.min_depth = probe_depth;
+		 	} else {
 				handle_set(optionname, optionvalue);
 			}
 		} else if (command == "ucinewgame") {

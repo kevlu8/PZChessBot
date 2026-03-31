@@ -419,7 +419,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	 * 
 	 * If tablebases are available, we can look up our position to get a perfect evaluation.
 	 */
-	if (!root && !excluded && tbman.initialized) {
+	if (!root && !excluded && tbman.initialized && depth >= tbman.min_depth) {
 		auto tb_res = tbman.probe_pos(pos);
 		if (tb_res.has_value()) {
 			tbhits++;
@@ -433,7 +433,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			else if (tb_res == -1) tb_bound = UPPER_BOUND;
 
 			if (tb_bound == EXACT || (tb_bound == LOWER_BOUND && tb_score >= beta) || (tb_bound == UPPER_BOUND && tb_score <= alpha)) {
-				ttable.store(pos.zobrist, tb_score, tb_score, depth, tb_bound, ttpv, NullMove);
+				ttable.store(pos.zobrist, tb_score, VALUE_NONE, depth, tb_bound, ttpv, NullMove);
 				return tb_score;
 			}
 		}
