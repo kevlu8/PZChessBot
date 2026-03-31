@@ -9,6 +9,7 @@
 struct TBManager {
 	bool initialized = false;
 	int min_depth = 1;
+	int max_pieces = 7;
 	std::string path = "";
 
 	TBManager() = default;
@@ -30,6 +31,7 @@ struct TBManager {
 			tb_free();
 			initialized = false;
 			min_depth = 1;
+			max_pieces = 7;
 			path = "";
 		}
 	}

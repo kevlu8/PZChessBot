@@ -6,7 +6,7 @@ std::optional<int> TBManager::probe_pos(Position &pos) {
 	}
 
 	int npieces = _mm_popcnt_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
-	if (npieces > TB_LARGEST) {
+	if (npieces > TB_LARGEST || npieces > max_pieces) {
 		return std::nullopt;
 	}
 
