@@ -1,6 +1,7 @@
 #include "search.hpp"
 #include <utility>
 #include "params.hpp"
+#include "wdl.hpp"
 
 #define MOVENUM(x) ((((#x)[1] - '1') << 12) | (((#x)[0] - 'a') << 8) | (((#x)[3] - '1') << 4) | ((#x)[2] - 'a'))
 
@@ -8,7 +9,7 @@ uint64_t mx_nodes = 1e18; // Maximum nodes to search
 bool stop_search = true;
 std::chrono::steady_clock::time_point start;
 uint64_t mxtime = 1e18; // Maximum time to search in milliseconds
-bool minimal = false;
+bool minimal = false, show_wdl = false;
 std::stringstream last_line;
 
 uint16_t num_threads = 1;
@@ -979,8 +980,13 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			// UCI output from main thread only
 			auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
 			last_line.str("");
-			last_line << "info depth " << d << " seldepth " << ti.seldepth << " score " << score_to_uci(eval) << " time " << time_elapsed << " nodes " << tot_nodes << " nps "
-					  << (time_elapsed ? (tot_nodes * 1000 / time_elapsed) : tot_nodes) << " hashfull " << (int)(get_ttable_sz() * 1000) << " pv";
+			auto [w, dr, l] = score_to_wdl(pos, eval);
+			last_line << "info depth " << d << " seldepth " << ti.seldepth << " score " << score_to_uci(eval);
+
+			if (show_wdl) last_line << " wdl " << w << ' ' << dr << ' ' << l;
+
+			last_line << " time " << time_elapsed << " nodes " << tot_nodes << " nps " << (time_elapsed ? (tot_nodes * 1000 / time_elapsed) : tot_nodes)
+					  << " hashfull " << (int)(get_ttable_sz() * 1000) << " pv";
 			for (int ply = 0; ply < ti.pvlen[0]; ply++) {
 				last_line << " " << ti.pvtable[0][ply].to_string();
 			}
