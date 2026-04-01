@@ -112,9 +112,9 @@ Move next_move(pzstd::vector<std::pair<Move, int>> &scores, int &end) {
  * alpha-beta search algorithm, hence why this conversion is necessary.
  */
 Value score_to_tt(Value score, int ply) {
-	if (score >= VALUE_MATE_MAX_PLY) {
+	if (score >= VALUE_WIN) {
 		return score + ply;
-	} else if (score <= -VALUE_MATE_MAX_PLY) {
+	} else if (score <= -VALUE_WIN) {
 		return score - ply;
 	} else {
 		return score;
@@ -125,9 +125,9 @@ Value score_to_tt(Value score, int ply) {
  * Convert a TTable-stored score to a search-returnable score
  */
 Value tt_to_score(Value score, int ply) {
-	if (score >= VALUE_MATE_MAX_PLY) {
+	if (score >= VALUE_WIN) {
 		return score - ply;
-	} else if (score <= -VALUE_MATE_MAX_PLY) {
+	} else if (score <= -VALUE_WIN) {
 		return score + ply;
 	} else {
 		return score;
@@ -433,7 +433,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			else if (tb_res == -1) tb_bound = UPPER_BOUND;
 
 			if (tb_bound == EXACT || (tb_bound == LOWER_BOUND && tb_score >= beta) || (tb_bound == UPPER_BOUND && tb_score <= alpha)) {
-				ttable.store(pos.zobrist, tb_score, VALUE_NONE, depth, tb_bound, ttpv, NullMove);
+				// ttable.store(pos.zobrist, tb_score, VALUE_NONE, depth, tb_bound, ttpv, NullMove);
 				return tb_score;
 			}
 		}
@@ -1082,6 +1082,7 @@ void prepare_search(int64_t time, int64_t maxnodes, bool quiet, uint16_t num) {
 	stop_search = false;
 	minimal = quiet;
 	num_threads = num;
+	tbhits = 0;
 }
 
 void clear_search_vars(ThreadInfo &ti) {

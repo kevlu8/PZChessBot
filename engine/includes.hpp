@@ -41,6 +41,7 @@ constexpr Value VALUE_NONE = -31000;
 
 constexpr Value VALUE_TB_WIN = 28000;
 constexpr Value VALUE_TB_WIN_MAX_PLY = VALUE_TB_WIN - MAX_PLY;
+constexpr Value VALUE_WIN = VALUE_TB_WIN_MAX_PLY; // They're the same thing
 
 constexpr Value PawnValue = 100;
 constexpr Value KnightValue = 350;
