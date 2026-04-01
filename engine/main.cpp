@@ -34,6 +34,7 @@ void run_uci() {
 			std::cout << "option name Threads type spin default 1 min 1 max " << MAX_THREADS << std::endl;
 			std::cout << "option name Quiet type check default false" << std::endl;
 			std::cout << "option name UCI_Chess960 type check default false" << std::endl;
+			std::cout << "option name UCI_ShowWDL type check default false" << std::endl;
 			print_uci();
 			std::cout << "uciok" << std::endl;
 		} else if (command == "icu") {
@@ -72,6 +73,8 @@ void run_uci() {
 				std::cout << "info string Using " << num_threads << " threads" << std::endl;
 			} else if (optionname == "UCI_Chess960") {
 				dfrc_uci = (optionvalue == "true");
+			} else if (optionname == "UCI_ShowWDL") {
+				show_wdl = (optionvalue == "true");
 			} else {
 				handle_set(optionname, optionvalue);
 			}

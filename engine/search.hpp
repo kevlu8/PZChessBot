@@ -45,6 +45,7 @@
 #define HISTORY_MARGIN 2753
 
 extern bool stop_search;
+extern bool show_wdl;
 
 extern std::atomic<uint64_t> nodes[MAX_THREADS];
 
