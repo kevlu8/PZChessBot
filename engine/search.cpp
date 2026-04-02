@@ -231,7 +231,7 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 		stand_pat = tentry ? tentry->s_eval : eval(pos, ti.am) * side;
 		raw_eval = stand_pat;
 		shared_corrhist.apply_correction(pos, &ti.line[ply], ply, stand_pat);
-		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
+		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_WIN && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
 			stand_pat = tteval;
 		if (!tentry) ttable.store(pos.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
 	}
@@ -262,7 +262,7 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 		
 		mp.skip_quiets(); // in case we were searching evasions, if we reach here that means we have found one. So, we can skip all other quiets.
 
-		if (best > -VALUE_MATE_MAX_PLY) {
+		if (best > -VALUE_WIN) {
 			if (!pos.see(move, qs_see())) {
 				/**
 				 * QSearch SEE pruning
@@ -450,7 +450,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		raw_eval = cur_eval;
 		if (!excluded) shared_corrhist.apply_correction(pos, &ti.line[ply], ply, cur_eval);
 		tt_corr_eval = cur_eval;
-		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_MATE_MAX_PLY && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
+		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_WIN && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
 			tt_corr_eval = tteval;
 		else if (!tentry) ttable.store(pos.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
 	}
@@ -516,7 +516,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			 * reduced depth and NMP disabled. If that search also fails high, we can be more certain that the position
 			 * is actually winning.
 			 */
-			if (abs(null_score) >= VALUE_MATE_MAX_PLY) null_score = beta; // Prevent false mates
+			if (abs(null_score) >= VALUE_WIN) null_score = beta; // Prevent false mates
 
 			if (depth <= 12)
 				return null_score; // Direct cutoff for low depths
@@ -541,7 +541,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	}
 
 	// Probcut
-	if (!pv && !in_check && depth >= 7 && !excluded && abs(beta) < VALUE_MATE_MAX_PLY && !(tentry && is_valid_score(tteval) && tteval < beta + probcut_margin())) {
+	if (!pv && !in_check && depth >= 7 && !excluded && abs(beta) < VALUE_WIN && !(tentry && is_valid_score(tteval) && tteval < beta + probcut_margin())) {
 		/**
 		 * ProbCut
 		 * 
@@ -693,7 +693,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		}
 
 		int hist = capt ? ti.thread_hist.get_capthist(pos, move) : ti.thread_hist.get_history(pos, move, ply, &ti.line[ply]);
-		if (best > -VALUE_MATE_MAX_PLY) {
+		if (best > -VALUE_WIN) {
 			int lmrdepth = std::clamp(depth - 1 - reduction[i][depth] / 1024, 1, MAX_PLY);
 			if (i >= (3 + depth * depth) / (2 - improving)) {
 				/**
@@ -870,7 +870,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		if (score >= beta) {
 			ti.line[ply].cutoffcnt++;
 			flag = LOWER_BOUND;
-			if (abs(score) < VALUE_MATE_MAX_PLY && abs(alpha) < VALUE_MATE_MAX_PLY) {
+			if (abs(score) < VALUE_WIN && abs(alpha) < VALUE_WIN) {
 				// note that best and score are functionally equivalent here; best is just what's returned + stored to TT
 				best = (score * depth + beta) / (depth + 1); // wtf?????
 			}
@@ -1049,7 +1049,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			double node_adjustment = 1.34 - 0.92 * (bm_nodes / (double)tot_nodes);
 			soft *= node_adjustment;
 
-			if (abs(eval) >= VALUE_MATE_MAX_PLY)
+			if (abs(eval) >= VALUE_WIN)
 				soft = 0.1; // doesn't matter anymore
 
 			if (time_elapsed > mxtime * soft) {
