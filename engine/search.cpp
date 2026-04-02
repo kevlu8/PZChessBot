@@ -193,6 +193,8 @@ bool is_valid_score(Value score) {
 Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool pv=false) {
 	nodes[ti.id]++;
 
+	if (pv) ti.pvlen[ply] = 0;
+
 	if (stop_search) return 0;
 
 	if (ti.is_main && !(nodes[ti.id] & 4095)) {
@@ -313,6 +315,14 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 			if (score > alpha) {
 				ttf = EXACT;
 				alpha = score;
+
+				if (score < beta) {
+					ti.pvtable[ply][0] = move;
+					ti.pvlen[ply] = ti.pvlen[ply+1]+1;
+					for (int j = 0; j < ti.pvlen[ply+1]; j++) {
+						ti.pvtable[ply][j+1] = ti.pvtable[ply+1][j];
+					}
+				}
 			}
 			best = score;
 			best_move = move;
@@ -327,7 +337,7 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 	}
 
 	if (in_check && best == -VALUE_INFINITE) {
-		return -VALUE_MATE + 1;
+		return -VALUE_MATE + ply;
 	}
 
 	Move tt_move = best_move != NullMove ? best_move : (tentry ? tentry->best_move : NullMove);
@@ -530,7 +540,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	}
 
 	// Razoring
-	if (!pv && !in_check && depth <= 8 && tt_corr_eval + razor_margin() * depth < alpha && !excluded) {
+	if (!pv && !in_check && depth <= 8 && tt_corr_eval + razor_margin() * depth < alpha && !excluded && abs(alpha) < 2000) {
 		/**
 		 * If we are losing by a lot, check w/ qsearch to see if we could possibly improve.
 		 * If not, we can prune the search.
