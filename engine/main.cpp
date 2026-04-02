@@ -35,6 +35,9 @@ void run_uci() {
 			std::cout << "option name Quiet type check default false" << std::endl;
 			std::cout << "option name UCI_Chess960 type check default false" << std::endl;
 			std::cout << "option name UCI_ShowWDL type check default false" << std::endl;
+			std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
+			std::cout << "option name SyzygyProbeDepth type spin default 1 min 1 max 100" << std::endl;
+			std::cout << "option name SyzygyProbeLimit type spin default 7 min 1 max 7" << std::endl;
 			print_uci();
 			std::cout << "uciok" << std::endl;
 		} else if (command == "icu") {
@@ -75,6 +78,22 @@ void run_uci() {
 				dfrc_uci = (optionvalue == "true");
 			} else if (optionname == "UCI_ShowWDL") {
 				show_wdl = (optionvalue == "true");
+			} else if (optionname == "SyzygyPath") {
+				if (optionvalue == "<empty>" || optionvalue == "") {
+					tbman.destroy();
+					std::cout << "info string Syzygy path cleared" << std::endl;
+				} else {
+					tbman.init(optionvalue);
+					if (tbman.initialized) {
+						std::cout << "info string Syzygy successfully loaded" << std::endl;
+					}
+				}
+			} else if (optionname == "SyzygyProbeDepth") {
+				int probe_depth = std::stoi(optionvalue);
+				tbman.min_depth = probe_depth;
+		 	} else if (optionname == "SyzygyProbeLimit") {
+				int piece_limit = std::stoi(optionvalue);
+				tbman.max_pieces = piece_limit;
 			} else {
 				handle_set(optionname, optionvalue);
 			}

@@ -12,8 +12,8 @@ OPTFLAGS    := -O3 -flto=auto
 DEBUGFLAGS  := -g -march=x86-64-v3 -fsanitize=address,undefined
 
 # Sources & objects
-SRCS  := $(wildcard engine/*.cpp engine/nnue/*.cpp)
-HDRS  := $(wildcard engine/*.hpp engine/nnue/*.hpp)
+SRCS  := $(wildcard engine/*.cpp engine/nnue/*.cpp Pyrrhic/tbprobe.cpp)
+HDRS  := $(wildcard engine/*.hpp engine/nnue/*.hpp Pyrrhic/tbprobe.h)
 OBJS  := $(SRCS:.cpp=.o)
 DEPS  := $(OBJS:.o=.d)
 
