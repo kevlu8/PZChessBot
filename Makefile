@@ -2,12 +2,17 @@
 EXE      ?= pzchessbot
 EVALFILE ?= nnue.bin
 
+GIT_SHORT_HASH := $(shell git rev-parse --short HEAD)
+GIT_DATE := $(shell git log -1 --format=%cd --date=format:"%Y%m%d")
+
+VERSION := v$(GIT_DATE)-$(GIT_SHORT_HASH)-dev
+
 # Compilers
 CXX      := g++
 WINCXX   := x86_64-w64-mingw32-g++
 
 # Flags
-BASEFLAGS   := -std=c++20 -DNNUE_PATH=\"$(EVALFILE)\" -m64
+BASEFLAGS   := -std=c++20 -DNNUE_PATH=\"$(EVALFILE)\" -m64 -DVERSION=\"$(VERSION)\"
 OPTFLAGS    := -O3 -flto=auto
 DEBUGFLAGS  := -g -march=x86-64-v3 -fsanitize=address,undefined
 
