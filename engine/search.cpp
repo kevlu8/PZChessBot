@@ -700,6 +700,15 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 				 */
 				extension -= 2;
 			}
+		} else if (!root && !excluded && cutnode && depth >= 10 && tentry && is_valid_score(tteval) && tteval >= beta && tentry->bound() != UPPER_BOUND) {
+			/**
+			 * Other cutnode negative extensions
+			 * 
+			 * One of the singular extension conditions was not met, meaning that most likely there is no
+			 * TT move or the TT depth is too low. If we are expect a cutoff and the TT supports this
+			 * (even with low depth), reduce the depth of all moves to favour a cutoff.
+			 */
+			extension--;
 		}
 
 		int hist = capt ? ti.thread_hist.get_capthist(pos, move) : ti.thread_hist.get_history(pos, move, ply, &ti.line[ply]);
