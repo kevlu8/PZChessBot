@@ -1050,13 +1050,20 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
 			last_line.str("");
 
-			auto [w, dr, l] = score_to_wdl(pos, eval);
 			last_line << "info depth " << d << " seldepth " << ti.seldepth << " score " << score_to_uci(eval);
 
-			if (show_wdl) last_line << " wdl " << w << ' ' << dr << ' ' << l;
+			if (show_wdl) {
+				auto [w, dr, l] = score_to_wdl(pos, eval);
+				last_line << " wdl " << w << ' ' << dr << ' ' << l;
+			}
 
-			last_line << " time " << time_elapsed << " nodes " << tot_nodes << " nps " << (time_elapsed ? (tot_nodes * 1000 / time_elapsed) : tot_nodes)
-					  << " hashfull " << (int)(get_ttable_sz() * 1000) << " tbhits " << tbhits << " pv";
+			last_line << " time " << time_elapsed << " nodes " << tot_nodes << " nps " << (time_elapsed ? (tot_nodes * 1000 / time_elapsed) : tot_nodes);
+
+			// Hashfull is expensive to compute, so only compute it after a certain amount of time has passed
+			if (time_elapsed >= 500) last_line << " hashfull " << (int)(get_ttable_sz() * 1000);
+
+			last_line << " tbhits " << tbhits << " pv";
+
 			for (int ply = 0; ply < ti.pvlen[0]; ply++) {
 				last_line << " " << ti.pvtable[0][ply].to_string();
 			}
@@ -1073,7 +1080,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			}
 
 			double soft = 0.53;
-			if (depth >= 6) {
+			if (d >= 6) {
 				if (!best_iscapt && !best_ispromo && !in_check) {
 					// adjust soft limit based on complexity
 					Value complexity = abs(eval - static_eval);

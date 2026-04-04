@@ -327,6 +327,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		Pool pool;
 		Position pos = Position();
 		RepetitionHandler rp;
+		AccumulatorManager am(pos);
 		rp.push_hash(pos.zobrist_without_ep());
 		std::mt19937_64 rng(s);
 		std::ifstream bookfile(book == "None" ? "" : book);
@@ -340,7 +341,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			bookfile.close();
 		}
 		while (n--) {
-			if (fens.empty()) {
+			if (fens.empty()) { // no book datagen
 				pos.reset_startpos();
 				rp.clear();
 				rp.push_hash(pos.zobrist_without_ep());
@@ -353,33 +354,33 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			for (int i = 0; i < nmoves; i++) {
 				pzstd::vector<Move> moves;
 				pos.legal_moves(moves);
-				if (moves.size() == 0) {
+				pzstd::vector<Move> legal_moves;
+				for (Move &move : moves) {
+					if (pos.is_legal(move))
+						legal_moves.push_back(move);
+				}
+				if (legal_moves.size() == 0) {
 					restart = true;
 					break;
 				}
-				pos.make_move(moves[rng() % moves.size()]);
+				pos.make_move(legal_moves[rng() % legal_moves.size()]);
 				rp.push_hash(pos.zobrist_without_ep());
 			}
-			bool in_check = false, checking_opponent = false;
-			if (pos.side == WHITE) {
-				in_check = pos.control(_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)]), BLACK);
-				checking_opponent = pos.control(_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]), WHITE);
-			} else {
-				in_check = pos.control(_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]), WHITE);
-				checking_opponent = pos.control(_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)]), BLACK);
-			}
+			am.full_refresh(pos, 0);
+			bool in_check = pos.checkers[pos.side];
+			bool checking_opponent = pos.checkers[!pos.side];
 			if (in_check || checking_opponent) restart = true;
 			// make sure position is legal and somewhat balanced
 			if (!restart) {
 				if (_mm_popcnt_u64(pos.piece_boards[KING]) != 2) restart = true;
 				else if (filter_weird) {
 					int npieces = _mm_popcnt_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
-					auto s_eval = debug_eval(pos)[(npieces - 2) / 4] * (pos.side == WHITE ? 1 : -1);
-					if (abs(s_eval) >= 600) restart = true; // do a fast static eval to quickly filter out crazy positions
+					auto s_eval = eval(pos, am);
+					if (abs(s_eval) >= 3000) restart = true; // do a fast static eval to quickly filter out crazy positions
 					else {
-						pool.search(pos, rp, 1e9, 4, 10000, true);
+						pool.search(pos, rp, 1e9, MAX_PLY, 5000, true);
 						auto res = pool.wait_finished();
-						if (abs(res.second) >= 400) restart = true;
+						if (abs(res.second) >= 2000) restart = true;
 					}
 				}
 			}
