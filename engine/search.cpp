@@ -9,7 +9,7 @@ uint64_t mx_nodes = 1e18; // Maximum nodes to search
 bool stop_search = true;
 std::chrono::steady_clock::time_point start;
 uint64_t mxtime = 1e18; // Maximum time to search in milliseconds
-bool minimal = false, show_wdl = false;
+bool minimal = false, show_wdl = false, do_softnodes = false;
 std::stringstream last_line;
 
 uint16_t num_threads = 1;
@@ -197,9 +197,20 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 
 	if (stop_search) return 0;
 
-	if (ti.is_main && !(nodes[ti.id] & 4095)) {
-		auto time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-		if (time > mxtime || nodes[ti.id] > mx_nodes) { // currently, the nodes will be broken but time will be accurate
+	if (ti.is_main) {
+		if (!(nodes[ti.id] & 4095)) {
+			// The time check is relatively expensive and thus only performed every 4096 nodes
+			auto time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+			if (time > mxtime) {
+				stop_search = true;
+				return 0;
+			}
+		}
+
+		if (!do_softnodes && nodes[ti.id] > mx_nodes) {
+			stop_search = true;
+			return 0;
+		} else if (do_softnodes && nodes[ti.id] > mx_nodes * 50) {
 			stop_search = true;
 			return 0;
 		}
@@ -361,9 +372,20 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 
 	if (stop_search) return 0;
 
-	if (ti.is_main && !(nodes[ti.id] & 4095)) {
-		auto time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-		if (time > mxtime || nodes[ti.id] > mx_nodes) { // currently, the nodes will be broken but time will be accurate
+	if (ti.is_main) {
+		if (!(nodes[ti.id] & 4095)) {
+			// The time check is relatively expensive and thus only performed every 4096 nodes
+			auto time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+			if (time > mxtime) {
+				stop_search = true;
+				return 0;
+			}
+		}
+
+		if (!do_softnodes && nodes[ti.id] > mx_nodes) {
+			stop_search = true;
+			return 0;
+		} else if (do_softnodes && nodes[ti.id] > mx_nodes * 50) {
 			stop_search = true;
 			return 0;
 		}
@@ -1071,7 +1093,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			if (abs(eval) >= VALUE_WIN)
 				soft = 0.1; // doesn't matter anymore
 
-			if (time_elapsed > mxtime * soft) {
+			if (time_elapsed > mxtime * soft || tot_nodes >= mx_nodes) {
 				// We probably won't be able to complete the next ID loop
 				stop_search = true;
 				break;
