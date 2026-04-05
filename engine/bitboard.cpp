@@ -267,6 +267,7 @@ void Position::reset_pos() {
 
 	side = WHITE;
 	halfmove = 0;
+	fullmove = 0;
 	castling = 0xf;  // 1111
 	ep_square = SQ_NONE;
 	rook_pos[0] = SQ_H1;

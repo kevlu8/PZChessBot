@@ -210,7 +210,7 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 		if (!do_softnodes && nodes[ti.id] > mx_nodes) {
 			stop_search = true;
 			return 0;
-		} else if (do_softnodes && nodes[ti.id] > mx_nodes * 50) {
+		} else if (do_softnodes && mx_nodes < 1e15 && nodes[ti.id] > mx_nodes * 50) {
 			stop_search = true;
 			return 0;
 		}
@@ -385,7 +385,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		if (!do_softnodes && nodes[ti.id] > mx_nodes) {
 			stop_search = true;
 			return 0;
-		} else if (do_softnodes && nodes[ti.id] > mx_nodes * 50) {
+		} else if (do_softnodes && mx_nodes < 1e15 && nodes[ti.id] > mx_nodes * 50) {
 			stop_search = true;
 			return 0;
 		}
