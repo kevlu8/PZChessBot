@@ -19,6 +19,7 @@
 // Options
 size_t TT_SIZE = DEFAULT_TT_SIZE;
 bool quiet = false, online = false, dfrc_uci = false;
+int move_overhead = 0;
 
 void run_uci() {
 	Pool pool;
@@ -33,6 +34,7 @@ void run_uci() {
 			std::cout << "option name Hash type spin default 16 min 1 max " << MAX_TT << std::endl;
 			std::cout << "option name Threads type spin default 1 min 1 max " << MAX_THREADS << std::endl;
 			std::cout << "option name Quiet type check default false" << std::endl;
+			std::cout << "option name Move Overhead type spin default 0 min 0 max 10000" << std::endl;
 			std::cout << "option name softnodes type check default false" << std::endl;
 			std::cout << "option name UCI_Chess960 type check default false" << std::endl;
 			std::cout << "option name UCI_ShowWDL type check default false" << std::endl;
@@ -75,6 +77,13 @@ void run_uci() {
 				}
 				pool.resize(num_threads);
 				std::cout << "info string Using " << num_threads << " threads" << std::endl;
+			} else if (optionname == "Move") {
+				int overhead = std::stoi(optionvalue);
+				if (overhead < 0 || overhead > 10000) {
+					std::cerr << "Invalid move overhead: " << overhead << std::endl;
+					overhead = 0;
+				}
+				move_overhead = overhead;
 			} else if (optionname == "softnodes") {
 				do_softnodes = optionvalue == "true";
 				std::cout << "info string softnodes " << (do_softnodes ? "enabled" : "disabled") << std::endl;
@@ -210,6 +219,8 @@ void run_uci() {
 
 			if (!quiet)
 				std::cout << "info string Starting search..." << std::endl;
+
+			timeleft = std::max(1, timeleft - move_overhead);
 
 			if (inf)
 				pool.search(pos, rp, 1e18, MAX_PLY, 1e18, quiet);
