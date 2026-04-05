@@ -465,7 +465,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			else if (tb_res == -1) tb_bound = UPPER_BOUND;
 
 			if (tb_bound == EXACT || (tb_bound == LOWER_BOUND && tb_score >= beta) || (tb_bound == UPPER_BOUND && tb_score <= alpha)) {
-				// ttable.store(pos.zobrist, tb_score, VALUE_NONE, depth, tb_bound, ttpv, NullMove);
+				ttable.store(pos.zobrist, score_to_tt(tb_score, ply), VALUE_NONE, depth, tb_bound, ttpv, NullMove);
 				return tb_score;
 			}
 		}
