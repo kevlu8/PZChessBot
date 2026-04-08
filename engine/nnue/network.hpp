@@ -28,7 +28,7 @@ struct Accumulator {
 struct Network {
 	int16_t accumulator_weights[INPUT_SIZE * NINPUTS][HL_SIZE];
 	int16_t accumulator_biases[HL_SIZE];
-	int16_t output_weights[NBUCKETS][2 * HL_SIZE];
+	int16_t output_weights[NBUCKETS][HL_SIZE];
 	int16_t output_bias[NBUCKETS];
 
 	void load();
