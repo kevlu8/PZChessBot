@@ -30,9 +30,23 @@ int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nb
 }
 
 int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket) {
+	// For pairwise multiplication, we need to first multiply the accumulators together
+	// Then do standard matmul
+	// int32_t score = 0;
+	// for (int i = 0; i < HL_SIZE / 2; i++) {
+	// 	int32_t stm1 = std::clamp((int)stm.val[i], 0, QA);
+	// 	int32_t stm2 = std::clamp((int)stm.val[i + HL_SIZE / 2], 0, QA);
+
+	// 	int32_t ntm1 = std::clamp((int)ntm.val[i], 0, QA);
+	// 	int32_t ntm2 = std::clamp((int)ntm.val[i + HL_SIZE / 2], 0, QA);
+
+	// 	score += stm1 * stm2 * net.output_weights[nbucket][i];
+	// 	score += ntm1 * ntm2 * net.output_weights[nbucket][i + HL_SIZE / 2];
+	// }
+
 	__m256i sum = _mm256_setzero_si256();
-	const __m256i zero = _mm256_setzero_si256();
-	const __m256i qa_vec = _mm256_set1_epi16(QA);
+    const __m256i zero = _mm256_setzero_si256();
+    const __m256i qa_vec = _mm256_set1_epi16(QA);
 
 	for (int i = 0; i < HL_SIZE / 2; i += 16) {
 		__m256i stm_vals1 = _mm256_loadu_si256((__m256i *)&stm.val[i]);
@@ -59,14 +73,14 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		__m256i stm_res = _mm256_madd_epi16(stm_prod, stm_vals2);
 		__m256i ntm_res = _mm256_madd_epi16(ntm_prod, ntm_vals2);
 
-		sum = _mm256_add_epi32(sum, stm_res);
-		sum = _mm256_add_epi32(sum, ntm_res);
-	}
+        sum = _mm256_add_epi32(sum, stm_res);
+        sum = _mm256_add_epi32(sum, ntm_res);
+    }
 
-	__m128i sum_128 = _mm_add_epi32(_mm256_extracti128_si256(sum, 0), _mm256_extracti128_si256(sum, 1));
-	sum_128 = _mm_add_epi32(sum_128, _mm_shuffle_epi32(sum_128, _MM_SHUFFLE(2, 3, 0, 1)));
-	sum_128 = _mm_add_epi32(sum_128, _mm_shuffle_epi32(sum_128, _MM_SHUFFLE(1, 0, 3, 2)));
-	int32_t score = _mm_cvtsi128_si32(sum_128);
+    __m128i sum_128 = _mm_add_epi32(_mm256_extracti128_si256(sum, 0), _mm256_extracti128_si256(sum, 1));
+    sum_128 = _mm_add_epi32(sum_128, _mm_shuffle_epi32(sum_128, _MM_SHUFFLE(2, 3, 0, 1)));
+    sum_128 = _mm_add_epi32(sum_128, _mm_shuffle_epi32(sum_128, _MM_SHUFFLE(1, 0, 3, 2)));
+    int32_t score = _mm_cvtsi128_si32(sum_128);
 
 	score /= QA;
 	score += net.output_bias[nbucket];
