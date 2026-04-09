@@ -7,13 +7,29 @@ extern "C" {
 
 void Network::load() {
 	char *ptr = (char *)gnetwork_weightsData;
+
 	memcpy(accumulator_weights, ptr, sizeof(accumulator_weights));
 	ptr += sizeof(accumulator_weights);
+
 	memcpy(accumulator_biases, ptr, sizeof(accumulator_biases));
 	ptr += sizeof(accumulator_biases);
+
+	memcpy(l1_weights, ptr, sizeof(l1_weights));
+	ptr += sizeof(l1_weights);
+
+	memcpy(l1_biases, ptr, sizeof(l1_biases));
+	ptr += sizeof(l1_biases);
+
+	memcpy(l2_weights, ptr, sizeof(l2_weights));
+	ptr += sizeof(l2_weights);
+
+	memcpy(l2_biases, ptr, sizeof(l2_biases));
+	ptr += sizeof(l2_biases);
+
 	memcpy(output_weights, ptr, sizeof(output_weights));
 	ptr += sizeof(output_weights);
-	memcpy(&output_bias, ptr, sizeof(output_bias));
+
+	memcpy(&output_biases, ptr, sizeof(output_biases));
 }
 
 int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nbucket) {
@@ -30,47 +46,61 @@ int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nb
 }
 
 int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket) {
-	__m256i sum = _mm256_setzero_si256();
-	const __m256i zero = _mm256_setzero_si256();
-	const __m256i qa_vec = _mm256_set1_epi16(QA);
+	float l1[L1_SIZE];
+	float l2[L2_SIZE];
 
-	for (int i = 0; i < HL_SIZE / 2; i += 16) {
-		__m256i stm_vals1 = _mm256_loadu_si256((__m256i *)&stm.val[i]);
-		__m256i stm_vals2 = _mm256_loadu_si256((__m256i *)&stm.val[i + HL_SIZE / 2]);
-		__m256i ntm_vals1 = _mm256_loadu_si256((__m256i *)&ntm.val[i]);
-		__m256i ntm_vals2 = _mm256_loadu_si256((__m256i *)&ntm.val[i + HL_SIZE / 2]);
+	for (int i = 0; i < L1_SIZE; i++) {
+		int32_t sum = 0;
 
-		stm_vals1 = _mm256_max_epi16(stm_vals1, zero);
-		stm_vals1 = _mm256_min_epi16(stm_vals1, qa_vec);
-		stm_vals2 = _mm256_max_epi16(stm_vals2, zero);
-		stm_vals2 = _mm256_min_epi16(stm_vals2, qa_vec);
+		for (int j = 0; j < L0_SIZE / 2; j++) {
+			int16_t stm_val1 = stm.val[j];
+			int16_t stm_val2 = stm.val[j + L0_SIZE / 2];
+			int16_t ntm_val1 = ntm.val[j];
+			int16_t ntm_val2 = ntm.val[j + L0_SIZE / 2];
 
-		ntm_vals1 = _mm256_max_epi16(ntm_vals1, zero);
-		ntm_vals1 = _mm256_min_epi16(ntm_vals1, qa_vec);
-		ntm_vals2 = _mm256_max_epi16(ntm_vals2, zero);
-		ntm_vals2 = _mm256_min_epi16(ntm_vals2, qa_vec);
+			stm_val1 = std::clamp(stm_val1, (int16_t)0, (int16_t)QA);
+			stm_val2 = std::clamp(stm_val2, (int16_t)0, (int16_t)QA);
+			ntm_val1 = std::clamp(ntm_val1, (int16_t)0, (int16_t)QA);
+			ntm_val2 = std::clamp(ntm_val2, (int16_t)0, (int16_t)QA);
 
-		__m256i stm_weights = _mm256_loadu_si256((__m256i *)&net.output_weights[nbucket][i]);
-		__m256i ntm_weights = _mm256_loadu_si256((__m256i *)&net.output_weights[nbucket][i + HL_SIZE / 2]);
+			int32_t stm_weight = net.l1_weights[nbucket][i][j];
+			int32_t ntm_weight = net.l1_weights[nbucket][i][j + L0_SIZE / 2];
 
-		__m256i stm_prod = _mm256_mullo_epi16(stm_vals1, stm_weights);
-		__m256i ntm_prod = _mm256_mullo_epi16(ntm_vals1, ntm_weights);
+			sum += stm_weight * stm_val1 * stm_val2;
+			sum += ntm_weight * ntm_val1 * ntm_val2;
+		}
 
-		__m256i stm_res = _mm256_madd_epi16(stm_prod, stm_vals2);
-		__m256i ntm_res = _mm256_madd_epi16(ntm_prod, ntm_vals2);
+		float f_sum = sum;
+		f_sum /= QA * QA * QB;
+		f_sum += net.l1_biases[nbucket][i];
 
-		sum = _mm256_add_epi32(sum, stm_res);
-		sum = _mm256_add_epi32(sum, ntm_res);
+		l1[i] = f_sum;
 	}
 
-	__m128i sum_128 = _mm_add_epi32(_mm256_extracti128_si256(sum, 0), _mm256_extracti128_si256(sum, 1));
-	sum_128 = _mm_add_epi32(sum_128, _mm_shuffle_epi32(sum_128, _MM_SHUFFLE(2, 3, 0, 1)));
-	sum_128 = _mm_add_epi32(sum_128, _mm_shuffle_epi32(sum_128, _MM_SHUFFLE(1, 0, 3, 2)));
-	int32_t score = _mm_cvtsi128_si32(sum_128);
+	for (int i = 0; i < L2_SIZE; i++) {
+		float sum = net.l2_biases[nbucket][i];
 
-	score /= QA;
-	score += net.output_bias[nbucket];
-	score *= SCALE;
-	score /= QA * QB;
-	return score;
+		for (int j = 0; j < L1_SIZE; j++) {
+			float val = l1[j];
+			val = std::clamp(val, 0.0f, 1.0f);
+
+			float weight = net.l2_weights[nbucket][i][j];
+
+			sum += val * val * weight;
+		}
+
+		l2[i] = sum;
+	}
+
+	float sum = net.output_biases[nbucket];
+	for (int i = 0; i < L2_SIZE; i++) {
+		float val = l2[i];
+		val = std::clamp(val, 0.0f, 1.0f);
+
+		float weight = net.output_weights[nbucket][i];
+
+		sum += val * val * weight;
+	}
+
+	return roundf(sum * SCALE);
 }
