@@ -8,7 +8,7 @@
 #define L1_SIZE 16
 #define L2_SIZE 32
 #define NBUCKETS 8
-#define SCALE 358
+#define SCALE 421
 #define QA 255
 #define QB 64
 
