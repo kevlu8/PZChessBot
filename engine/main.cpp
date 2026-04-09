@@ -413,6 +413,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 		for (int i = 0; i < 8; i++) {
 			pos.reset_startpos();
 			pos.mailbox[SQ_A2 + i] = NO_PIECE;
+			am.refresh_finny(pos, am.idx);
 			Value score = eval(pos, am);
 			int diff = startpos_score - score;
 			tot += diff;
