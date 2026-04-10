@@ -46,9 +46,9 @@ int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nb
 }
 
 int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket) {
-	int16_t clipped_acc[L0_SIZE * 2];
-	float l1[L1_SIZE];
-	float l2[L2_SIZE];
+	alignas(32) int16_t clipped_acc[L0_SIZE * 2];
+	alignas(32) float l1[L1_SIZE];
+	alignas(32) float l2[L2_SIZE];
 
 	// Preclip the accumulator
 	{

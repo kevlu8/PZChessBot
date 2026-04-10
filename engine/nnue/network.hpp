@@ -27,7 +27,7 @@ struct Accumulator {
 	int16_t val[L0_SIZE] = {};
 };
 
-struct Network {
+struct alignas(32) Network {
 	int16_t accumulator_weights[INPUT_SIZE * NINPUTS][L0_SIZE];
 	int16_t accumulator_biases[L0_SIZE];
 
