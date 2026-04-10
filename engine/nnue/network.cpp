@@ -46,31 +46,38 @@ int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nb
 }
 
 int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket) {
+	int16_t clipped_acc[L0_SIZE * 2];
 	float l1[L1_SIZE];
 	float l2[L2_SIZE];
 
-	for (int i = 0; i < L1_SIZE; i++) {
-		__m256i sum = _mm256_setzero_si256();
+	// Preclip the accumulator
+	{
 		__m256i zero = _mm256_setzero_si256();
 		__m256i clip = _mm256_set1_epi16(QA);
 
+		for (int i = 0; i < L0_SIZE; i += 16) {
+			__m256i stm_val = _mm256_load_si256((__m256i *)&stm.val[i]);
+			__m256i ntm_val = _mm256_load_si256((__m256i *)&ntm.val[i]);
+
+			stm_val = _mm256_max_epi16(stm_val, zero);
+			stm_val = _mm256_min_epi16(stm_val, clip);
+
+			ntm_val = _mm256_max_epi16(ntm_val, zero);
+			ntm_val = _mm256_min_epi16(ntm_val, clip);
+
+			_mm256_store_si256((__m256i *)&clipped_acc[i], stm_val);
+			_mm256_store_si256((__m256i *)&clipped_acc[i + L0_SIZE], ntm_val);
+		}
+	}
+
+	for (int i = 0; i < L1_SIZE; i++) {
+		__m256i sum = _mm256_setzero_si256();
+
 		for (int j = 0; j < L0_SIZE / 2; j += 16) {
-			__m256i stm_val1 = _mm256_load_si256((__m256i *)&stm.val[j]);
-			__m256i stm_val2 = _mm256_load_si256((__m256i *)&stm.val[j + L0_SIZE / 2]);
-			__m256i ntm_val1 = _mm256_load_si256((__m256i *)&ntm.val[j]);
-			__m256i ntm_val2 = _mm256_load_si256((__m256i *)&ntm.val[j + L0_SIZE / 2]);
-
-			stm_val1 = _mm256_max_epi16(stm_val1, zero);
-			stm_val1 = _mm256_min_epi16(stm_val1, clip);
-
-			stm_val2 = _mm256_max_epi16(stm_val2, zero);
-			stm_val2 = _mm256_min_epi16(stm_val2, clip);
-
-			ntm_val1 = _mm256_max_epi16(ntm_val1, zero);
-			ntm_val1 = _mm256_min_epi16(ntm_val1, clip);
-
-			ntm_val2 = _mm256_max_epi16(ntm_val2, zero);
-			ntm_val2 = _mm256_min_epi16(ntm_val2, clip);
+			__m256i stm_val1 = _mm256_load_si256((__m256i *)&clipped_acc[j]);
+			__m256i stm_val2 = _mm256_load_si256((__m256i *)&clipped_acc[j + L0_SIZE / 2]);
+			__m256i ntm_val1 = _mm256_load_si256((__m256i *)&clipped_acc[j + L0_SIZE]);
+			__m256i ntm_val2 = _mm256_load_si256((__m256i *)&clipped_acc[j + L0_SIZE + L0_SIZE / 2]);
 
 			__m256i stm_weight = _mm256_cvtepi8_epi16(_mm_load_si128((__m128i *)&net.l1_weights[nbucket][i][j]));
 			__m256i ntm_weight = _mm256_cvtepi8_epi16(_mm_load_si128((__m128i *)&net.l1_weights[nbucket][i][j + L0_SIZE / 2]));
@@ -120,9 +127,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 
 			__m256 weight = _mm256_load_ps(&net.l2_weights[nbucket][i][j]);
 
-			__m256 res = _mm256_mul_ps(_mm256_mul_ps(val, val), weight);
-
-			sum = _mm256_add_ps(sum, res);
+			sum = _mm256_fmadd_ps(_mm256_mul_ps(val, val), weight, sum);
 		}
 
 		__m128 sum_128 = _mm_add_ps(_mm256_castps256_ps128(sum), _mm256_extractf128_ps(sum, 1));
