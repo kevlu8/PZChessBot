@@ -98,7 +98,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 
 		// l1 is secretly an array of int32
 		int32_t f_sum = _mm_cvtsi128_si32(sum_128);
-		l1[i] = std::bit_cast<float, int32_t>(f_sum);
+		l1[i] = *(float *)(&f_sum);
 	}
 
 	// Convert l1 into a proper float array
