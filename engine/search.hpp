@@ -48,6 +48,7 @@
 extern bool stop_search;
 extern bool show_wdl;
 extern bool do_softnodes;
+extern bool do_datagen;
 
 extern std::atomic<uint64_t> nodes[MAX_THREADS];
 

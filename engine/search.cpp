@@ -9,7 +9,7 @@ uint64_t mx_nodes = 1e18; // Maximum nodes to search
 bool stop_search = true;
 std::chrono::steady_clock::time_point start;
 uint64_t mxtime = 1e18; // Maximum time to search in milliseconds
-bool minimal = false, show_wdl = false, do_softnodes = false;
+bool minimal = false, show_wdl = false, do_softnodes = false, do_datagen = false;
 std::stringstream last_line;
 
 uint16_t num_threads = 1;
@@ -165,7 +165,8 @@ std::string score_to_uci(Value score) {
 	} else if (abs(score) >= VALUE_TB_WIN_MAX_PLY) {
 		return "cp " + std::to_string(score);
 	} else {
-		return "cp " + std::to_string(int(score / NNUE_PAWN_VALUE));
+		if (!do_datagen) return "cp " + std::to_string(int(score / NNUE_PAWN_VALUE));
+		else return "cp " + std::to_string(score);
 	}
 }
 
