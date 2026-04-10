@@ -24,7 +24,7 @@ constexpr int IBUCKET_LAYOUT[] = {
 };
 
 struct Accumulator {
-	int16_t val[L0_SIZE] = {};
+	alignas(32) int16_t val[L0_SIZE] = {};
 };
 
 struct alignas(32) Network {
