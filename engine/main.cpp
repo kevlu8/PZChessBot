@@ -313,7 +313,7 @@ __attribute__((weak)) int main(int argc, char *argv[]) {
 			tot_nodes += nodes[0];
 		}
 		uint64_t end = clock();
-		std::cout << tot_nodes << " nodes " << int(tot_nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
+		std::cout << 1 << " nodes " << int(tot_nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;
 		return 0;
 	}
 	if (argc == 3 && std::string(argv[2]) == "quit") {
