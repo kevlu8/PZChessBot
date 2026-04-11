@@ -66,3 +66,4 @@ base
 config.json
 pz-base
 pz-dev
+*.gcda
