@@ -680,7 +680,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			 * We can also extend more if the position without the move is *very* bad.
 			 */
 			ti.line[ply].excl = move;
-			Value singular_beta = tteval - 2 * depth;
+			Value singular_beta = tteval - 6 * depth / 4;
 			Value singular_score = negamax(pos, ti, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
 			ti.line[ply].excl = NullMove; // Reset exclusion move
 
