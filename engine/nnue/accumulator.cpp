@@ -3,7 +3,7 @@
 void AccumulatorManager::AccumulatorPair::update_add(Square sq, PieceType pt, bool side, int wbucket, int bbucket) {
 	uint16_t w_index = calculate_index(sq, pt, side, 0, wbucket);
 	uint16_t b_index = calculate_index(sq, pt, side, 1, bbucket);
-	for (int i = 0; i < L0_SIZE; i++) {
+	for (int i = 0; i < L1_SIZE; i++) {
 		w_acc.val[i] += nnue_network.accumulator_weights[w_index][i];
 		b_acc.val[i] += nnue_network.accumulator_weights[b_index][i];
 	}
@@ -12,7 +12,7 @@ void AccumulatorManager::AccumulatorPair::update_add(Square sq, PieceType pt, bo
 void AccumulatorManager::AccumulatorPair::update_sub(Square sq, PieceType pt, bool side, int wbucket, int bbucket) {
 	uint16_t w_index = calculate_index(sq, pt, side, 0, wbucket);
 	uint16_t b_index = calculate_index(sq, pt, side, 1, bbucket);
-	for (int i = 0; i < L0_SIZE; i++) {
+	for (int i = 0; i < L1_SIZE; i++) {
 		w_acc.val[i] -= nnue_network.accumulator_weights[w_index][i];
 		b_acc.val[i] -= nnue_network.accumulator_weights[b_index][i];
 	}
@@ -20,7 +20,7 @@ void AccumulatorManager::AccumulatorPair::update_sub(Square sq, PieceType pt, bo
 
 void AccumulatorManager::full_refresh(Position &pos, int index) {
 	// Init the first accumulator so we have a basepoint
-	for (int i = 0; i < L0_SIZE; i++) {
+	for (int i = 0; i < L1_SIZE; i++) {
 		accs[index].w_acc.val[i] = nnue_network.accumulator_biases[i];
 		accs[index].b_acc.val[i] = nnue_network.accumulator_biases[i];
 	}
@@ -57,7 +57,7 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 	Accumulator &w_acc = accs[index].w_acc;
 	Accumulator &b_acc = accs[index].b_acc;
 
-	for (int i = 0; i < L0_SIZE; i++) {
+	for (int i = 0; i < L1_SIZE; i++) {
 		w_acc.val[i] = f_w_acc.val[i];
 		b_acc.val[i] = f_b_acc.val[i];
 	}
@@ -75,7 +75,7 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 			if (piece != NO_PIECE) {
 				// Add to accumulator
 				int index = calculate_index((Square)i, pt, side, 0, winbucket);
-				for (int k = 0; k < L0_SIZE; k++) {
+				for (int k = 0; k < L1_SIZE; k++) {
 					w_acc.val[k] += nnue_network.accumulator_weights[index][k];
 				}
 			}
@@ -83,7 +83,7 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 			if (prev_w_piece != NO_PIECE) {
 				// Remove from accumulator
 				int index = calculate_index((Square)i, prev_w_pt, prev_w_side, 0, winbucket);
-				for (int k = 0; k < L0_SIZE; k++) {
+				for (int k = 0; k < L1_SIZE; k++) {
 					w_acc.val[k] -= nnue_network.accumulator_weights[index][k];
 				}
 			}
@@ -97,7 +97,7 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 			if (piece != NO_PIECE) {
 				// Add to accumulator
 				int index = calculate_index((Square)i, pt, side, 1, binbucket);
-				for (int k = 0; k < L0_SIZE; k++) {
+				for (int k = 0; k < L1_SIZE; k++) {
 					b_acc.val[k] += nnue_network.accumulator_weights[index][k];
 				}
 			}
@@ -105,7 +105,7 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 			if (prev_b_piece != NO_PIECE) {
 				// Remove from accumulator
 				int index = calculate_index((Square)i, prev_b_pt, prev_b_side, 1, binbucket);
-				for (int k = 0; k < L0_SIZE; k++) {
+				for (int k = 0; k < L1_SIZE; k++) {
 					b_acc.val[k] -= nnue_network.accumulator_weights[index][k];
 				}
 			}
@@ -113,7 +113,7 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 	}
 
 	// Update finny tables
-	for (int i = 0; i < L0_SIZE; i++) {
+	for (int i = 0; i < L1_SIZE; i++) {
 		f_w_acc.val[i] = w_acc.val[i];
 		f_b_acc.val[i] = b_acc.val[i];
 	}
@@ -158,19 +158,19 @@ void AccumulatorManager::apply_lazy(Position &pos) {
 		auto &u = updates[i];
 		if (u.deltas == 2) {
 			// -+
-			for (int k = 0; k < L0_SIZE; k++) {
+			for (int k = 0; k < L1_SIZE; k++) {
 				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - nnue_network.accumulator_weights[u.w_deltas[0]][k] + nnue_network.accumulator_weights[u.w_deltas[1]][k];
 				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - nnue_network.accumulator_weights[u.b_deltas[0]][k] + nnue_network.accumulator_weights[u.b_deltas[1]][k];
 			}
 		} else if (u.deltas == 3) {
 			// --+
-			for (int k = 0; k < L0_SIZE; k++) {
+			for (int k = 0; k < L1_SIZE; k++) {
 				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - nnue_network.accumulator_weights[u.w_deltas[0]][k] - nnue_network.accumulator_weights[u.w_deltas[1]][k] + nnue_network.accumulator_weights[u.w_deltas[2]][k];
 				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - nnue_network.accumulator_weights[u.b_deltas[0]][k] - nnue_network.accumulator_weights[u.b_deltas[1]][k] + nnue_network.accumulator_weights[u.b_deltas[2]][k];
 			}
 		} else if (u.deltas == 4) {
 			// --++
-			for (int k = 0; k < L0_SIZE; k++) {
+			for (int k = 0; k < L1_SIZE; k++) {
 				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - nnue_network.accumulator_weights[u.w_deltas[0]][k] - nnue_network.accumulator_weights[u.w_deltas[1]][k] + nnue_network.accumulator_weights[u.w_deltas[2]][k] + nnue_network.accumulator_weights[u.w_deltas[3]][k];
 				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - nnue_network.accumulator_weights[u.b_deltas[0]][k] - nnue_network.accumulator_weights[u.b_deltas[1]][k] + nnue_network.accumulator_weights[u.b_deltas[2]][k] + nnue_network.accumulator_weights[u.b_deltas[3]][k];
 			}

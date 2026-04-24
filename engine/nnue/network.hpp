@@ -4,9 +4,9 @@
 
 #define INPUT_SIZE 768
 #define NINPUTS 8
-#define L0_SIZE 1024
-#define L1_SIZE 16
-#define L2_SIZE 32
+#define L1_SIZE 1024
+#define L2_SIZE 16
+#define L3_SIZE 32
 #define NBUCKETS 8
 #define SCALE 421
 #define QA 255
@@ -24,20 +24,20 @@ constexpr int IBUCKET_LAYOUT[] = {
 };
 
 struct Accumulator {
-	alignas(32) int16_t val[L0_SIZE] = {};
+	alignas(32) int16_t val[L1_SIZE] = {};
 };
 
 struct alignas(32) Network {
-	int16_t accumulator_weights[INPUT_SIZE * NINPUTS][L0_SIZE];
-	int16_t accumulator_biases[L0_SIZE];
+	int16_t accumulator_weights[INPUT_SIZE * NINPUTS][L1_SIZE];
+	int16_t accumulator_biases[L1_SIZE];
 
-	int8_t l1_weights[NBUCKETS][L1_SIZE][L0_SIZE];
-	float l1_biases[NBUCKETS][L1_SIZE];
+	int8_t l1_weights[NBUCKETS][L2_SIZE][L1_SIZE];
+	float l1_biases[NBUCKETS][L2_SIZE];
 
-	float l2_weights[NBUCKETS][L2_SIZE][L1_SIZE];
-	float l2_biases[NBUCKETS][L2_SIZE];
+	float l2_weights[NBUCKETS][L3_SIZE][L2_SIZE];
+	float l2_biases[NBUCKETS][L3_SIZE];
 
-	float output_weights[NBUCKETS][L2_SIZE];
+	float output_weights[NBUCKETS][L3_SIZE];
 	float output_biases[NBUCKETS];
 
 	void load();
