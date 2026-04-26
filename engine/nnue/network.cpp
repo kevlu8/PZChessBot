@@ -132,7 +132,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 
 		__m256 bias = _mm256_load_ps(&net.l1_biases[nbucket][i]);
 
-		val = _mm256_add_ps(_mm256_mul_ps(val, div), bias);
+		val = _mm256_fmadd_ps(val, div, bias);
 
 		val = _mm256_max_ps(val, f_zero);
 		val = _mm256_min_ps(val, f_clip);
@@ -156,10 +156,10 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 			__m256 weight2 = _mm256_load_ps(&net.l2_weights[nbucket][j][i + 0x10]);
 			__m256 weight3 = _mm256_load_ps(&net.l2_weights[nbucket][j][i + 0x18]);
 
-			sum0 = _mm256_add_ps(_mm256_mul_ps(val, weight0), sum0);
-			sum1 = _mm256_add_ps(_mm256_mul_ps(val, weight1), sum1);
-			sum2 = _mm256_add_ps(_mm256_mul_ps(val, weight2), sum2);
-			sum3 = _mm256_add_ps(_mm256_mul_ps(val, weight3), sum3);
+			sum0 = _mm256_fmadd_ps(val, weight0, sum0);
+			sum1 = _mm256_fmadd_ps(val, weight1, sum1);
+			sum2 = _mm256_fmadd_ps(val, weight2, sum2);
+			sum3 = _mm256_fmadd_ps(val, weight3, sum3);
 		}
 
 		_mm256_store_ps(&l3[i + 0x00], sum0);
@@ -177,7 +177,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 
 		__m256 weight = _mm256_load_ps(&net.output_weights[nbucket][i]);
 
-		sum = _mm256_add_ps(_mm256_mul_ps(_mm256_mul_ps(val, weight), val), sum);
+		sum = _mm256_fmadd_ps(_mm256_mul_ps(val, val), weight, sum);
 	}
 
 	__m128 sum_128 = _mm_add_ps(_mm256_castps256_ps128(sum), _mm256_extractf128_ps(sum, 1));
