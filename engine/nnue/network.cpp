@@ -97,14 +97,10 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 
 			__m256i res = _mm256_maddubs_epi16(val, weight);
 
-			sum = _mm256_add_epi32(res, sum);
+			sum = _mm256_add_epi16(res, sum);
 		}
 
-		__m128i sum_128 = _mm_add_epi32(_mm256_castsi256_si128(sum), _mm256_extracti128_si256(sum, 1));
-		sum_128 = _mm_add_epi32(sum_128, _mm_shuffle_epi32(sum_128, _MM_SHUFFLE(3, 3, 1, 1)));
-		sum_128 = _mm_add_epi32(sum_128, _mm_shuffle_epi32(sum_128, _MM_SHUFFLE(3, 2, 3, 2)));
-
-		l2i[i] = _mm256_reduce_add_epi16(sum);
+		l2i[i] = simd::reduce_add_epi16(sum);
 	}
 
 	// Convert l2 into a proper float array

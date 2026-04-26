@@ -1,7 +1,6 @@
 #include <immintrin.h>
 
 namespace simd {
-
 	void store_epi16_epi8(int8_t *p, __m256i v) {
 		const __m128i shuf_mask = _mm_cvtsi64_si128(0x0e0c0a0806040200);
 
@@ -12,4 +11,15 @@ namespace simd {
 		_mm_storeu_si64(&p[8], _mm_shuffle_epi8(hi, shuf_mask));
 	}
 
+	int32_t reduce_add_epi16(__m256i v) {
+		const __m256i ones = _mm256_set1_epi16(1);
+
+		__m256i wide = _mm256_madd_epi16(v, ones);
+
+		__m128i sum = _mm_add_epi32(_mm256_castsi256_si128(wide), _mm256_extracti128_si256(wide, 1));
+		sum = _mm_add_epi32(sum, _mm_shuffle_epi32(sum, _MM_SHUFFLE(1, 0, 3, 2)));
+		sum = _mm_add_epi32(sum, _mm_shuffle_epi32(sum, _MM_SHUFFLE(2, 3, 0, 1)));
+
+		return _mm_cvtsi128_si32(sum);
+	}
 };
