@@ -1,4 +1,6 @@
 #include "network.hpp"
+#include "simd.hpp"
+
 #include "incbin.h"
 
 extern "C" {
@@ -50,57 +52,59 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 	const __m256i clip = _mm256_set1_epi16(QA);
 	const __m256 f_zero = _mm256_setzero_ps();
 	const __m256 f_clip = _mm256_set1_ps(1.0f);
-	const __m256 div = _mm256_set1_ps(1.0f / (QA * QA * QB));
+	const __m256 div = _mm256_set1_ps(1.0f / (QA * QA * QB / 256.0f));
 
-	alignas(32) int16_t clipped_acc[L1_SIZE * 2];
+	alignas(32) int8_t pairs[L1_SIZE];
 	union {
 		alignas(32) int32_t l2i[L2_SIZE];
 		alignas(32) float l2[L2_SIZE];
 	};
 	alignas(32) float l3[L3_SIZE];
 
-	// Preclip the accumulator
-	for (int i = 0; i < L1_SIZE; i += 16) {
-		__m256i stm_val = _mm256_load_si256((__m256i *)&stm.val[i]);
-		__m256i ntm_val = _mm256_load_si256((__m256i *)&ntm.val[i]);
+	// Pairwise mul
+	for (int i = 0; i < L1_SIZE / 2; i += 16) {
+		__m256i stm_val1 = _mm256_load_si256((__m256i *)&stm.val[i]);
+		__m256i stm_val2 = _mm256_load_si256((__m256i *)&stm.val[i + L1_SIZE / 2]);
+		__m256i ntm_val1 = _mm256_load_si256((__m256i *)&ntm.val[i]);
+		__m256i ntm_val2 = _mm256_load_si256((__m256i *)&ntm.val[i + L1_SIZE / 2]);
 
-		stm_val = _mm256_max_epi16(stm_val, zero);
-		stm_val = _mm256_min_epi16(stm_val, clip);
+		stm_val1 = _mm256_max_epi16(stm_val1, zero);
+		stm_val1 = _mm256_min_epi16(stm_val1, clip);
+		stm_val2 = _mm256_max_epi16(stm_val2, zero);
+		stm_val2 = _mm256_min_epi16(stm_val2, clip);
 
-		ntm_val = _mm256_max_epi16(ntm_val, zero);
-		ntm_val = _mm256_min_epi16(ntm_val, clip);
+		ntm_val1 = _mm256_max_epi16(ntm_val1, zero);
+		ntm_val1 = _mm256_min_epi16(ntm_val1, clip);
+		ntm_val2 = _mm256_max_epi16(ntm_val2, zero);
+		ntm_val2 = _mm256_min_epi16(ntm_val2, clip);
 
-		_mm256_store_si256((__m256i *)&clipped_acc[i], stm_val);
-		_mm256_store_si256((__m256i *)&clipped_acc[i + L1_SIZE], ntm_val);
+		stm_val1 = _mm256_slli_epi16(stm_val1, 7);
+		ntm_val1 = _mm256_slli_epi16(ntm_val1, 7);
+
+		__m256i stm_pair = _mm256_mulhrs_epi16(stm_val1, stm_val2);
+		__m256i ntm_pair = _mm256_mulhrs_epi16(ntm_val1, ntm_val2);
+
+		simd::store_epi16_epi8(&pairs[i], stm_pair);
+		simd::store_epi16_epi8(&pairs[i + L1_SIZE / 2], ntm_pair);
 	}
 
 	for (int i = 0; i < L2_SIZE; i++) {
 		__m256i sum = _mm256_setzero_si256();
 
-		for (int j = 0; j < L1_SIZE / 2; j += 16) {
-			__m256i stm_val1 = _mm256_load_si256((__m256i *)&clipped_acc[j]);
-			__m256i stm_val2 = _mm256_load_si256((__m256i *)&clipped_acc[j + L1_SIZE / 2]);
-			__m256i ntm_val1 = _mm256_load_si256((__m256i *)&clipped_acc[j + L1_SIZE]);
-			__m256i ntm_val2 = _mm256_load_si256((__m256i *)&clipped_acc[j + L1_SIZE + L1_SIZE / 2]);
+		for (int j = 0; j < L1_SIZE; j += 32) {
+			__m256i val = _mm256_load_si256((__m256i *)&pairs[j]);
+			__m256i weight = _mm256_load_si256((__m256i *)&net.l1_weights[nbucket][i][j]);
 
-			__m256i stm_weight = _mm256_cvtepi8_epi16(_mm_load_si128((__m128i *)&net.l1_weights[nbucket][i][j]));
-			__m256i ntm_weight = _mm256_cvtepi8_epi16(_mm_load_si128((__m128i *)&net.l1_weights[nbucket][i][j + L1_SIZE / 2]));
+			__m256i res = _mm256_maddubs_epi16(val, weight);
 
-			__m256i stm_prod = _mm256_mullo_epi16(stm_val1, stm_weight);
-			__m256i ntm_prod = _mm256_mullo_epi16(ntm_val1, ntm_weight);
-
-			__m256i stm_res = _mm256_madd_epi16(stm_val2, stm_prod);
-			__m256i ntm_res = _mm256_madd_epi16(ntm_val2, ntm_prod);
-
-			sum = _mm256_add_epi32(sum, stm_res);
-			sum = _mm256_add_epi32(sum, ntm_res);
+			sum = _mm256_add_epi32(res, sum);
 		}
 
 		__m128i sum_128 = _mm_add_epi32(_mm256_castsi256_si128(sum), _mm256_extracti128_si256(sum, 1));
 		sum_128 = _mm_add_epi32(sum_128, _mm_shuffle_epi32(sum_128, _MM_SHUFFLE(3, 3, 1, 1)));
 		sum_128 = _mm_add_epi32(sum_128, _mm_shuffle_epi32(sum_128, _MM_SHUFFLE(3, 2, 3, 2)));
 
-		l2i[i] = _mm_cvtsi128_si32(sum_128);
+		l2i[i] = _mm256_reduce_add_epi16(sum);
 	}
 
 	// Convert l2 into a proper float array
