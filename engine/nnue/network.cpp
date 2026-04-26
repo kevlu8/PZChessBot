@@ -94,19 +94,35 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		simd::store_epi16_epi8(&l1[i + L1_SIZE / 2], ntm_pair);
 	}
 
-	for (int i = 0; i < L2_SIZE; i++) {
-		__m256i sum = _mm256_setzero_si256();
+	for (int i = 0; i < L2_SIZE; i += 4) {
+		__m256i sum0 = _mm256_setzero_si256();
+		__m256i sum1 = _mm256_setzero_si256();
+		__m256i sum2 = _mm256_setzero_si256();
+		__m256i sum3 = _mm256_setzero_si256();
 
 		for (int j = 0; j < L1_SIZE; j += 32) {
 			__m256i val = _mm256_load_si256((__m256i *)&l1[j]);
-			__m256i weight = _mm256_load_si256((__m256i *)&net.l1_weights[nbucket][i][j]);
 
-			__m256i res = _mm256_maddubs_epi16(val, weight);
+			__m256i weight0 = _mm256_load_si256((__m256i *)&net.l1_weights[nbucket][i + 0][j]);
+			__m256i weight1 = _mm256_load_si256((__m256i *)&net.l1_weights[nbucket][i + 1][j]);
+			__m256i weight2 = _mm256_load_si256((__m256i *)&net.l1_weights[nbucket][i + 2][j]);
+			__m256i weight3 = _mm256_load_si256((__m256i *)&net.l1_weights[nbucket][i + 3][j]);
 
-			sum = _mm256_add_epi16(res, sum);
+			__m256i res0 = _mm256_maddubs_epi16(val, weight0);
+			__m256i res1 = _mm256_maddubs_epi16(val, weight1);
+			__m256i res2 = _mm256_maddubs_epi16(val, weight2);
+			__m256i res3 = _mm256_maddubs_epi16(val, weight3);
+
+			sum0 = _mm256_add_epi16(res0, sum0);
+			sum1 = _mm256_add_epi16(res1, sum1);
+			sum2 = _mm256_add_epi16(res2, sum2);
+			sum3 = _mm256_add_epi16(res3, sum3);
 		}
 
-		l2i[i] = simd::reduce_add_epi16(sum);
+		l2i[i + 0] = simd::reduce_add_epi16(sum0);
+		l2i[i + 1] = simd::reduce_add_epi16(sum1);
+		l2i[i + 2] = simd::reduce_add_epi16(sum2);
+		l2i[i + 3] = simd::reduce_add_epi16(sum3);
 	}
 
 	// Convert l2 into a proper float array
