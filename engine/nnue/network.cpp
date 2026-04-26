@@ -22,8 +22,14 @@ void Network::load() {
 	memcpy(l1_biases, ptr, sizeof(l1_biases));
 	ptr += sizeof(l1_biases);
 
-	memcpy(l2_weights, ptr, sizeof(l2_weights));
-	ptr += sizeof(l2_weights);
+	for (int i = 0; i < NBUCKETS; i++) {
+		for (int j = 0; j < L3_SIZE; j++) {
+			for (int k = 0; k < L2_SIZE; k++) {
+				memcpy(&l2_weights[i][k][j], ptr, 4);
+				ptr += 4;
+			}
+		}
+	}
 
 	memcpy(l2_biases, ptr, sizeof(l2_biases));
 	ptr += sizeof(l2_biases);
@@ -54,7 +60,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 	const __m256 f_clip = _mm256_set1_ps(1.0f);
 	const __m256 div = _mm256_set1_ps(1.0f / (QA * QA * QB / 256.0f));
 
-	alignas(32) int8_t pairs[L1_SIZE];
+	alignas(32) int8_t l1[L1_SIZE];
 	union {
 		alignas(32) int32_t l2i[L2_SIZE];
 		alignas(32) float l2[L2_SIZE];
@@ -84,15 +90,15 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		__m256i stm_pair = _mm256_mulhrs_epi16(stm_val1, stm_val2);
 		__m256i ntm_pair = _mm256_mulhrs_epi16(ntm_val1, ntm_val2);
 
-		simd::store_epi16_epi8(&pairs[i], stm_pair);
-		simd::store_epi16_epi8(&pairs[i + L1_SIZE / 2], ntm_pair);
+		simd::store_epi16_epi8(&l1[i], stm_pair);
+		simd::store_epi16_epi8(&l1[i + L1_SIZE / 2], ntm_pair);
 	}
 
 	for (int i = 0; i < L2_SIZE; i++) {
 		__m256i sum = _mm256_setzero_si256();
 
 		for (int j = 0; j < L1_SIZE; j += 32) {
-			__m256i val = _mm256_load_si256((__m256i *)&pairs[j]);
+			__m256i val = _mm256_load_si256((__m256i *)&l1[j]);
 			__m256i weight = _mm256_load_si256((__m256i *)&net.l1_weights[nbucket][i][j]);
 
 			__m256i res = _mm256_maddubs_epi16(val, weight);
@@ -115,24 +121,23 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		val = _mm256_max_ps(val, f_zero);
 		val = _mm256_min_ps(val, f_clip);
 
+		val = _mm256_mul_ps(val, val);
+
 		_mm256_store_ps(&l2[i], val);
 	}
 
-	for (int i = 0; i < L3_SIZE; i++) {
-		__m256 sum = _mm256_setzero_ps();
+	for (int i = 0; i < L3_SIZE; i += 8) {
+		__m256 sum = _mm256_load_ps(&net.l2_biases[nbucket][i]);
 
-		for (int j = 0; j < L2_SIZE; j += 8) {
-			__m256 val = _mm256_load_ps(&l2[j]);
-			__m256 weight = _mm256_load_ps(&net.l2_weights[nbucket][i][j]);
+		for (int j = 0; j < L2_SIZE; j++) {
+			__m256 val = _mm256_set1_ps(l2[j]);
 
-			sum = _mm256_add_ps(_mm256_mul_ps(_mm256_mul_ps(val, weight), val), sum);
+			__m256 weight = _mm256_load_ps(&net.l2_weights[nbucket][j][i]);
+
+			sum = _mm256_add_ps(_mm256_mul_ps(val, weight), sum);
 		}
 
-		__m128 sum_128 = _mm_add_ps(_mm256_castps256_ps128(sum), _mm256_extractf128_ps(sum, 1));
-		sum_128 = _mm_add_ps(sum_128, _mm_movehdup_ps(sum_128));
-		sum_128 = _mm_add_ps(sum_128, _mm_movehl_ps(sum_128, sum_128));
-
-		l3[i] = _mm_cvtss_f32(sum_128) + net.l2_biases[nbucket][i];
+		_mm256_store_ps(&l3[i], sum);
 	}
 
 	__m256 sum = _mm256_setzero_ps();

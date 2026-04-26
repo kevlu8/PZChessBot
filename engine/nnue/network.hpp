@@ -34,7 +34,7 @@ struct alignas(32) Network {
 	int8_t l1_weights[NBUCKETS][L2_SIZE][L1_SIZE];
 	float l1_biases[NBUCKETS][L2_SIZE];
 
-	float l2_weights[NBUCKETS][L3_SIZE][L2_SIZE];
+	float l2_weights[NBUCKETS][L2_SIZE][L3_SIZE];
 	float l2_biases[NBUCKETS][L3_SIZE];
 
 	float output_weights[NBUCKETS][L3_SIZE];
