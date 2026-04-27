@@ -54,11 +54,11 @@ int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nb
 }
 
 int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket) {
-	const __m256i zero = _mm256_setzero_si256();
-	const __m256i clip = _mm256_set1_epi16(QA);
-	const __m256 f_zero = _mm256_setzero_ps();
-	const __m256 f_clip = _mm256_set1_ps(1.0f);
-	const __m256 div = _mm256_set1_ps(1.0f / (QA * QA * QB / 256.0f));
+	const ivec zero = simd::setzero_ivec();
+	const ivec clip = simd::broadcast_i16(QA);
+	const fvec f_zero = simd::setzero_fvec();
+	const fvec f_clip = simd::broadcast_f32(1.0f);
+	const fvec div = simd::broadcast_f32(1.0f / (QA * QA * QB / 256.0f));
 
 	alignas(32) int8_t l1[L1_SIZE];
 	union {
@@ -69,54 +69,46 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 
 	// Pairwise mul
 	for (int i = 0; i < L1_SIZE / 2; i += 16) {
-		__m256i stm_val1 = _mm256_load_si256((__m256i *)&stm.val[i]);
-		__m256i stm_val2 = _mm256_load_si256((__m256i *)&stm.val[i + L1_SIZE / 2]);
-		__m256i ntm_val1 = _mm256_load_si256((__m256i *)&ntm.val[i]);
-		__m256i ntm_val2 = _mm256_load_si256((__m256i *)&ntm.val[i + L1_SIZE / 2]);
+		ivec stm_val1 = simd::load_ivec((ivec *)&stm.val[i]);
+		ivec stm_val2 = simd::load_ivec((ivec *)&stm.val[i + L1_SIZE / 2]);
+		ivec ntm_val1 = simd::load_ivec((ivec *)&ntm.val[i]);
+		ivec ntm_val2 = simd::load_ivec((ivec *)&ntm.val[i + L1_SIZE / 2]);
 
-		stm_val1 = _mm256_max_epi16(stm_val1, zero);
-		stm_val1 = _mm256_min_epi16(stm_val1, clip);
-		stm_val2 = _mm256_max_epi16(stm_val2, zero);
-		stm_val2 = _mm256_min_epi16(stm_val2, clip);
+		stm_val1 = simd::max_i16(stm_val1, zero);
+		stm_val1 = simd::min_i16(stm_val1, clip);
+		stm_val2 = simd::max_i16(stm_val2, zero);
+		stm_val2 = simd::min_i16(stm_val2, clip);
 
-		ntm_val1 = _mm256_max_epi16(ntm_val1, zero);
-		ntm_val1 = _mm256_min_epi16(ntm_val1, clip);
-		ntm_val2 = _mm256_max_epi16(ntm_val2, zero);
-		ntm_val2 = _mm256_min_epi16(ntm_val2, clip);
+		ntm_val1 = simd::max_i16(ntm_val1, zero);
+		ntm_val1 = simd::min_i16(ntm_val1, clip);
+		ntm_val2 = simd::max_i16(ntm_val2, zero);
+		ntm_val2 = simd::min_i16(ntm_val2, clip);
 
-		stm_val1 = _mm256_slli_epi16(stm_val1, 7);
-		ntm_val1 = _mm256_slli_epi16(ntm_val1, 7);
+		ivec stm_pair = simd::shift_mulhi(stm_val1, stm_val2);
+		ivec ntm_pair = simd::shift_mulhi(ntm_val1, ntm_val2);
 
-		__m256i stm_pair = _mm256_mulhrs_epi16(stm_val1, stm_val2);
-		__m256i ntm_pair = _mm256_mulhrs_epi16(ntm_val1, ntm_val2);
-
-		simd::store_epi16_epi8(&l1[i], stm_pair);
-		simd::store_epi16_epi8(&l1[i + L1_SIZE / 2], ntm_pair);
+		simd::store_i16_i8(&l1[i], stm_pair);
+		simd::store_i16_i8(&l1[i + L1_SIZE / 2], ntm_pair);
 	}
 
 	for (int i = 0; i < L2_SIZE; i += 4) {
-		__m256i sum0 = _mm256_setzero_si256();
-		__m256i sum1 = _mm256_setzero_si256();
-		__m256i sum2 = _mm256_setzero_si256();
-		__m256i sum3 = _mm256_setzero_si256();
+		ivec sum0 = zero;
+		ivec sum1 = zero;
+		ivec sum2 = zero;
+		ivec sum3 = zero;
 
 		for (int j = 0; j < L1_SIZE; j += 32) {
-			__m256i val = _mm256_load_si256((__m256i *)&l1[j]);
+			ivec val = simd::load_ivec((ivec *)&l1[j]);
 
-			__m256i weight0 = _mm256_load_si256((__m256i *)&net.l1_weights[nbucket][i + 0][j]);
-			__m256i weight1 = _mm256_load_si256((__m256i *)&net.l1_weights[nbucket][i + 1][j]);
-			__m256i weight2 = _mm256_load_si256((__m256i *)&net.l1_weights[nbucket][i + 2][j]);
-			__m256i weight3 = _mm256_load_si256((__m256i *)&net.l1_weights[nbucket][i + 3][j]);
+			ivec weight0 = simd::load_ivec((ivec *)&net.l1_weights[nbucket][i + 0][j]);
+			ivec weight1 = simd::load_ivec((ivec *)&net.l1_weights[nbucket][i + 1][j]);
+			ivec weight2 = simd::load_ivec((ivec *)&net.l1_weights[nbucket][i + 2][j]);
+			ivec weight3 = simd::load_ivec((ivec *)&net.l1_weights[nbucket][i + 3][j]);
 
-			__m256i res0 = _mm256_maddubs_epi16(val, weight0);
-			__m256i res1 = _mm256_maddubs_epi16(val, weight1);
-			__m256i res2 = _mm256_maddubs_epi16(val, weight2);
-			__m256i res3 = _mm256_maddubs_epi16(val, weight3);
-
-			sum0 = _mm256_add_epi16(res0, sum0);
-			sum1 = _mm256_add_epi16(res1, sum1);
-			sum2 = _mm256_add_epi16(res2, sum2);
-			sum3 = _mm256_add_epi16(res3, sum3);
+			sum0 = simd::accdp_u8i8_i16(val, weight0, sum0);
+			sum1 = simd::accdp_u8i8_i16(val, weight1, sum1);
+			sum2 = simd::accdp_u8i8_i16(val, weight2, sum2);
+			sum3 = simd::accdp_u8i8_i16(val, weight3, sum3);
 		}
 
 		l2i[i + 0] = simd::reduce_add_epi16(sum0);
@@ -127,63 +119,60 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 
 	// Convert l2 into a proper float array
 	for (int i = 0; i < L2_SIZE; i += 8) {
-		__m256i i_val = _mm256_load_si256((__m256i *)&l2i[i]);
-		__m256 val = _mm256_cvtepi32_ps(i_val);
+		ivec i_val = simd::load_ivec((ivec *)&l2i[i]);
+		fvec val = simd::cvt_i32_f32(i_val);
 
-		__m256 bias = _mm256_load_ps(&net.l1_biases[nbucket][i]);
+		fvec bias = simd::load_fvec(&net.l1_biases[nbucket][i]);
 
-		val = _mm256_fmadd_ps(val, div, bias);
+		val = simd::fma_f32(val, div, bias);
 
-		val = _mm256_max_ps(val, f_zero);
-		val = _mm256_min_ps(val, f_clip);
+		val = simd::max_f32(val, f_zero);
+		val = simd::min_f32(val, f_clip);
 
-		val = _mm256_mul_ps(val, val);
+		val = simd::mul_f32(val, val);
 
-		_mm256_store_ps(&l2[i], val);
+		simd::store_f32(&l2[i], val);
 	}
 
 	for (int i = 0; i < L3_SIZE; i += 8 * 4) {
-		__m256 sum0 = _mm256_load_ps(&net.l2_biases[nbucket][i + 0x00]);
-		__m256 sum1 = _mm256_load_ps(&net.l2_biases[nbucket][i + 0x08]);
-		__m256 sum2 = _mm256_load_ps(&net.l2_biases[nbucket][i + 0x10]);
-		__m256 sum3 = _mm256_load_ps(&net.l2_biases[nbucket][i + 0x18]);
+		fvec sum0 = simd::load_fvec(&net.l2_biases[nbucket][i + 0x00]);
+		fvec sum1 = simd::load_fvec(&net.l2_biases[nbucket][i + 0x08]);
+		fvec sum2 = simd::load_fvec(&net.l2_biases[nbucket][i + 0x10]);
+		fvec sum3 = simd::load_fvec(&net.l2_biases[nbucket][i + 0x18]);
 
 		for (int j = 0; j < L2_SIZE; j++) {
-			__m256 val = _mm256_set1_ps(l2[j]);
+			fvec val = simd::broadcast_f32(l2[j]);
 
-			__m256 weight0 = _mm256_load_ps(&net.l2_weights[nbucket][j][i + 0x00]);
-			__m256 weight1 = _mm256_load_ps(&net.l2_weights[nbucket][j][i + 0x08]);
-			__m256 weight2 = _mm256_load_ps(&net.l2_weights[nbucket][j][i + 0x10]);
-			__m256 weight3 = _mm256_load_ps(&net.l2_weights[nbucket][j][i + 0x18]);
+			fvec weight0 = simd::load_fvec(&net.l2_weights[nbucket][j][i + 0x00]);
+			fvec weight1 = simd::load_fvec(&net.l2_weights[nbucket][j][i + 0x08]);
+			fvec weight2 = simd::load_fvec(&net.l2_weights[nbucket][j][i + 0x10]);
+			fvec weight3 = simd::load_fvec(&net.l2_weights[nbucket][j][i + 0x18]);
 
-			sum0 = _mm256_fmadd_ps(val, weight0, sum0);
-			sum1 = _mm256_fmadd_ps(val, weight1, sum1);
-			sum2 = _mm256_fmadd_ps(val, weight2, sum2);
-			sum3 = _mm256_fmadd_ps(val, weight3, sum3);
+			sum0 = simd::fma_f32(val, weight0, sum0);
+			sum1 = simd::fma_f32(val, weight1, sum1);
+			sum2 = simd::fma_f32(val, weight2, sum2);
+			sum3 = simd::fma_f32(val, weight3, sum3);
 		}
 
-		_mm256_store_ps(&l3[i + 0x00], sum0);
-		_mm256_store_ps(&l3[i + 0x08], sum1);
-		_mm256_store_ps(&l3[i + 0x10], sum2);
-		_mm256_store_ps(&l3[i + 0x18], sum3);
+		simd::store_f32(&l3[i + 0x00], sum0);
+		simd::store_f32(&l3[i + 0x08], sum1);
+		simd::store_f32(&l3[i + 0x10], sum2);
+		simd::store_f32(&l3[i + 0x18], sum3);
 	}
 
-	__m256 sum = _mm256_setzero_ps();
+	fvec sum = f_zero;
 	for (int i = 0; i < L3_SIZE; i += 8) {
-		__m256 val = _mm256_load_ps(&l3[i]);
+		fvec val = simd::load_fvec(&l3[i]);
 
-		val = _mm256_max_ps(val, f_zero);
-		val = _mm256_min_ps(val, f_clip);
+		val = simd::max_f32(val, f_zero);
+		val = simd::min_f32(val, f_clip);
 
-		__m256 weight = _mm256_load_ps(&net.output_weights[nbucket][i]);
+		fvec weight = simd::load_fvec(&net.output_weights[nbucket][i]);
 
-		sum = _mm256_fmadd_ps(_mm256_mul_ps(val, val), weight, sum);
+		sum = simd::fma_f32(simd::mul_f32(val, val), weight, sum);
 	}
 
-	__m128 sum_128 = _mm_add_ps(_mm256_castps256_ps128(sum), _mm256_extractf128_ps(sum, 1));
-	sum_128 = _mm_add_ps(sum_128, _mm_movehdup_ps(sum_128));
-	sum_128 = _mm_add_ps(sum_128, _mm_movehl_ps(sum_128, sum_128));
-	float score = _mm_cvtss_f32(sum_128) + net.output_biases[nbucket];
+	float score = simd::reduce_add_ps(sum) + net.output_biases[nbucket];
 
 	return score * SCALE;
 }
