@@ -4,7 +4,7 @@
 #include <string>
 #include <list>
 
-// #define TUNING
+#define TUNING
 
 struct TunableParam {
     std::string name;
