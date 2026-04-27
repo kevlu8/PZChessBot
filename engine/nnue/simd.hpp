@@ -5,9 +5,11 @@
 #if defined(__AVX512BW__)
 using ivec = __m512i;
 using fvec = __m512;
+#define SIMD_LANE_SIZE 64 // 64 bytes for AVX-512
 #else
 using ivec = __m256i;
 using fvec = __m256;
+#define SIMD_LANE_SIZE 32 // 32 bytes for AVX2
 #endif
 
 namespace simd {

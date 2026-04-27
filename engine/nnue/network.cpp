@@ -68,7 +68,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 	alignas(64) float l3[L3_SIZE];
 
 	// Pairwise mul
-	for (int i = 0; i < L1_SIZE / 2; i += 16) {
+	for (int i = 0; i < L1_SIZE / 2; i += SIMD_LANE_SIZE / 2) {
 		ivec stm_val1 = simd::load_ivec((ivec *)&stm.val[i]);
 		ivec stm_val2 = simd::load_ivec((ivec *)&stm.val[i + L1_SIZE / 2]);
 		ivec ntm_val1 = simd::load_ivec((ivec *)&ntm.val[i]);
@@ -97,7 +97,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		ivec sum2 = zero;
 		ivec sum3 = zero;
 
-		for (int j = 0; j < L1_SIZE; j += 32) {
+		for (int j = 0; j < L1_SIZE; j += SIMD_LANE_SIZE) {
 			ivec val = simd::load_ivec((ivec *)&l1[j]);
 
 			ivec weight0 = simd::load_ivec((ivec *)&net.l1_weights[nbucket][i + 0][j]);
@@ -118,7 +118,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 	}
 
 	// Convert l2 into a proper float array
-	for (int i = 0; i < L2_SIZE; i += 8) {
+	for (int i = 0; i < L2_SIZE; i += SIMD_LANE_SIZE / 4) {
 		ivec i_val = simd::load_ivec((ivec *)&l2i[i]);
 		fvec val = simd::cvt_i32_f32(i_val);
 
@@ -181,7 +181,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 #endif
 
 	fvec sum = f_zero;
-	for (int i = 0; i < L3_SIZE; i += 8) {
+	for (int i = 0; i < L3_SIZE; i += SIMD_LANE_SIZE / 4) {
 		fvec val = simd::load_fvec(&l3[i]);
 
 		val = simd::max_f32(val, f_zero);
