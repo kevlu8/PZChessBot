@@ -60,12 +60,12 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 	const fvec f_clip = simd::broadcast_f32(1.0f);
 	const fvec div = simd::broadcast_f32(1.0f / (QA * QA * QB / 256.0f));
 
-	alignas(32) int8_t l1[L1_SIZE];
+	alignas(64) int8_t l1[L1_SIZE];
 	union {
-		alignas(32) int32_t l2i[L2_SIZE];
-		alignas(32) float l2[L2_SIZE];
+		alignas(64) int32_t l2i[L2_SIZE];
+		alignas(64) float l2[L2_SIZE];
 	};
-	alignas(32) float l3[L3_SIZE];
+	alignas(64) float l3[L3_SIZE];
 
 	// Pairwise mul
 	for (int i = 0; i < L1_SIZE / 2; i += 16) {
@@ -134,6 +134,25 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		simd::store_f32(&l2[i], val);
 	}
 
+#if defined(__AVX512BW__)
+	for (int i = 0; i < L3_SIZE; i += 8 * 2) {
+		fvec sum0 = simd::load_fvec(&net.l2_biases[nbucket][i + 0]);
+		fvec sum1 = simd::load_fvec(&net.l2_biases[nbucket][i + 8]);
+
+		for (int j = 0; j < L2_SIZE; j++) {
+			fvec val = simd::broadcast_f32(l2[j]);
+
+			fvec weight0 = simd::load_fvec(&net.l2_weights[nbucket][j][i + 0]);
+			fvec weight1 = simd::load_fvec(&net.l2_weights[nbucket][j][i + 8]);
+
+			sum0 = simd::fma_f32(val, weight0, sum0);
+			sum1 = simd::fma_f32(val, weight1, sum1);
+		}
+
+		simd::store_f32(&l3[i + 0], sum0);
+		simd::store_f32(&l3[i + 8], sum1);
+	}
+#else
 	for (int i = 0; i < L3_SIZE; i += 8 * 4) {
 		fvec sum0 = simd::load_fvec(&net.l2_biases[nbucket][i + 0x00]);
 		fvec sum1 = simd::load_fvec(&net.l2_biases[nbucket][i + 0x08]);
@@ -159,6 +178,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		simd::store_f32(&l3[i + 0x10], sum2);
 		simd::store_f32(&l3[i + 0x18], sum3);
 	}
+#endif
 
 	fvec sum = f_zero;
 	for (int i = 0; i < L3_SIZE; i += 8) {

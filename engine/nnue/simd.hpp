@@ -1,7 +1,14 @@
+#pragma once
+
 #include <immintrin.h>
 
+#if defined(__AVX512BW__)
+using ivec = __m512i;
+using fvec = __m512;
+#else
 using ivec = __m256i;
 using fvec = __m256;
+#endif
 
 namespace simd {
 	ivec setzero_ivec();
