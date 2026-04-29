@@ -19,11 +19,11 @@ fvec simd::broadcast_f32(float x) {
 }
 
 ivec simd::load_ivec(const ivec *p) {
-	return _mm256_load_si256(p);
+	return _mm256_loadu_si256(p);
 }
 
 fvec simd::load_fvec(const float *p) {
-	return _mm256_load_ps(p);
+	return _mm256_loadu_ps(p);
 }
 
 ivec simd::max_i16(ivec a, ivec b) {
@@ -65,10 +65,10 @@ fvec simd::mul_f32(fvec a, fvec b) {
 }
 
 void simd::store_f32(float *p, fvec v) {
-	_mm256_store_ps(p, v);
+	_mm256_storeu_ps(p, v);
 }
 
-void simd::store_i16_i8(int8_t *p, ivec v) {
+void simd::store_u16_u8(int8_t *p, ivec v) {
 	const __m128i shuf_mask = _mm_cvtsi64_si128(0x0e0c0a0806040200);
 
 	__m128i lo = _mm256_castsi256_si128(v);

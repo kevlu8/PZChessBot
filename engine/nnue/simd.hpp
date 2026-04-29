@@ -5,12 +5,16 @@
 #if defined(__AVX512BW__)
 using ivec = __m512i;
 using fvec = __m512;
-#define SIMD_LANE_SIZE 64 // 64 bytes for AVX-512
+#define VEC_SIZE 512
 #else
 using ivec = __m256i;
 using fvec = __m256;
-#define SIMD_LANE_SIZE 32 // 32 bytes for AVX2
+#define VEC_SIZE 256
 #endif
+
+#define BYTES_PER_VEC (VEC_SIZE / 8)
+#define SHORTS_PER_VEC (VEC_SIZE / 16)
+#define FLOATS_PER_VEC (VEC_SIZE / 32)
 
 namespace simd {
 	ivec setzero_ivec();
@@ -37,7 +41,7 @@ namespace simd {
 
 	void store_f32(float *p, fvec v);
 
-	void store_i16_i8(int8_t *p, ivec v);
+	void store_u16_u8(int8_t *p, ivec v);
 	float reduce_add_ps(fvec v);
 	int32_t reduce_add_epi16(ivec v);
 };

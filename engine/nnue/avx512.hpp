@@ -1,5 +1,7 @@
 #pragma once
 
+#if defined(__AVX512BW__)
+
 #include "simd.hpp"
 
 ivec simd::setzero_ivec() {
@@ -69,11 +71,11 @@ fvec simd::mul_f32(fvec a, fvec b) {
 }
 
 void simd::store_f32(float *p, fvec v) {
-	_mm512_store_ps(p, v);
+	_mm512_storeu_ps(p, v);
 }
 
-void simd::store_i16_i8(int8_t *p, ivec v) {
-	_mm256_store_si256((__m256i *)p, _mm512_cvtepi16_epi8(v));
+void simd::store_u16_u8(int8_t *p, ivec v) {
+	_mm256_storeu_si256((__m256i *)p, _mm512_cvtepi16_epi8(v));
 }
 
 float simd::reduce_add_ps(fvec v) {
@@ -87,3 +89,5 @@ int32_t simd::reduce_add_epi16(ivec v) {
 
 	return _mm512_reduce_add_epi32(wide);
 }
+
+#endif
