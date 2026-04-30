@@ -83,9 +83,12 @@ float simd::reduce_add_ps(fvec v) {
 }
 
 int32_t simd::reduce_add_epi16(ivec v) {
+#if defined(__AVX512VNNI__)
+	__m512i wide = v;
+#else
 	const __m512i ones = _mm512_set1_epi16(1);
-
 	__m512i wide = _mm512_madd_epi16(v, ones);
+#endif
 
 	return _mm512_reduce_add_epi32(wide);
 }
