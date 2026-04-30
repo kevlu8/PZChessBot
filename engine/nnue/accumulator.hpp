@@ -32,7 +32,7 @@ struct AccumulatorManager {
 			std::fill(&mailboxes[0][0][0], &mailboxes[0][0][0] + NINPUTS * 2 * 2 * 64, NO_PIECE);
 
 			for (int i = 0; i < NINPUTS * 2; i++) {
-				for (int j = 0; j < HL_SIZE; j++) {
+				for (int j = 0; j < L1_SIZE; j++) {
 					accs[i].w_acc.val[j] = nnue_network.accumulator_biases[j];
 					accs[i].b_acc.val[j] = nnue_network.accumulator_biases[j];
 				}

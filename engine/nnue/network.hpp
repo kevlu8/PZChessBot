@@ -4,9 +4,11 @@
 
 #define INPUT_SIZE 768
 #define NINPUTS 8
-#define HL_SIZE 1024
+#define L1_SIZE 1024
+#define L2_SIZE 16
+#define L3_SIZE 32
 #define NBUCKETS 8
-#define SCALE 358
+#define SCALE 400
 #define QA 255
 #define QB 64
 
@@ -22,14 +24,21 @@ constexpr int IBUCKET_LAYOUT[] = {
 };
 
 struct Accumulator {
-	int16_t val[HL_SIZE] = {};
+	alignas(32) int16_t val[L1_SIZE] = {};
 };
 
-struct Network {
-	int16_t accumulator_weights[INPUT_SIZE * NINPUTS][HL_SIZE];
-	int16_t accumulator_biases[HL_SIZE];
-	int16_t output_weights[NBUCKETS][HL_SIZE];
-	int16_t output_bias[NBUCKETS];
+struct alignas(32) Network {
+	int16_t accumulator_weights[INPUT_SIZE * NINPUTS][L1_SIZE];
+	int16_t accumulator_biases[L1_SIZE];
+
+	int8_t l1_weights[NBUCKETS][L2_SIZE][L1_SIZE];
+	float l1_biases[NBUCKETS][L2_SIZE];
+
+	float l2_weights[NBUCKETS][L2_SIZE][L3_SIZE];
+	float l2_biases[NBUCKETS][L3_SIZE];
+
+	float output_weights[NBUCKETS][L3_SIZE];
+	float output_biases[NBUCKETS];
 
 	void load();
 };
