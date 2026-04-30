@@ -28,20 +28,16 @@ fvec simd::load_fvec(const float *p) {
 	return _mm512_loadu_ps(p);
 }
 
-ivec simd::max_i16(ivec a, ivec b) {
-	return _mm512_max_epi16(a, b);
+ivec simd::clamp_i16(ivec x, ivec lo, ivec hi) {
+	x = _mm512_max_epi16(x, lo);
+	x = _mm512_min_epi16(x, hi);
+	return x;
 }
 
-ivec simd::min_i16(ivec a, ivec b) {
-	return _mm512_min_epi16(a, b);
-}
-
-fvec simd::max_f32(fvec a, fvec b) {
-	return _mm512_max_ps(a, b);
-}
-
-fvec simd::min_f32(fvec a, fvec b) {
-	return _mm512_min_ps(a, b);
+fvec simd::clamp_f32(fvec x, fvec lo, fvec hi) {
+	x = _mm512_max_ps(x, lo);
+	x = _mm512_min_ps(x, hi);
+	return x;
 }
 
 ivec simd::shift_mulhi(ivec a, ivec b) {
@@ -68,6 +64,10 @@ fvec simd::fma_f32(fvec a, fvec b, fvec c) {
 
 fvec simd::mul_f32(fvec a, fvec b) {
 	return _mm512_mul_ps(a, b);
+}
+
+fvec simd::add_f32(fvec a, fvec b) {
+	return _mm512_add_ps(a, b);
 }
 
 void simd::store_f32(float *p, fvec v) {
