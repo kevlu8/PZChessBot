@@ -74,8 +74,8 @@ void simd::store_f32(float *p, fvec v) {
 	_mm512_storeu_ps(p, v);
 }
 
-void simd::store_u16_u8(int8_t *p, ivec v) {
-	_mm256_storeu_si256((__m256i *)p, _mm512_cvtepi16_epi8(v));
+void simd::store_u16_u8(uint8_t *p, ivec v) {
+	_mm256_storeu_si256((__m256i *)p, _mm512_cvtusepi16_epi8(v));
 }
 
 float simd::reduce_add_ps(fvec v) {

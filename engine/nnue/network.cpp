@@ -60,11 +60,9 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 	const fvec f_clip = simd::broadcast_f32(1.0f);
 	const fvec div = simd::broadcast_f32(1.0f / (QA * QA * QB / 256.0f));
 
-	alignas(64) int8_t l1[L1_SIZE];
-	union {
-		alignas(64) int32_t l2i[L2_SIZE];
-		alignas(64) float l2[L2_SIZE];
-	};
+	alignas(64) uint8_t l1[L1_SIZE];
+	alignas(64) int32_t l2i[L2_SIZE];
+	alignas(64) float l2[L2_SIZE];
 	alignas(64) float l3[L3_SIZE];
 
 	// Pairwise mul

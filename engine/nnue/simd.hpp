@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <immintrin.h>
 
 #if defined(__AVX512BW__)
@@ -52,7 +53,7 @@ namespace simd {
 
 	void store_f32(float *p, fvec v);
 
-	void store_u16_u8(int8_t *p, ivec v);
+	void store_u16_u8(uint8_t *p, ivec v);
 	float reduce_add_ps(fvec v);
 	int32_t reduce_add_epi16(ivec v);
 };

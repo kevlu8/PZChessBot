@@ -68,14 +68,11 @@ void simd::store_f32(float *p, fvec v) {
 	_mm256_storeu_ps(p, v);
 }
 
-void simd::store_u16_u8(int8_t *p, ivec v) {
-	const __m128i shuf_mask = _mm_cvtsi64_si128(0x0e0c0a0806040200);
+void simd::store_u16_u8(uint8_t *p, ivec v) {
+	__m256i res = _mm256_packus_epi16(v, v);
+	res = _mm256_permute4x64_epi64(res, _MM_PERM_DCCA);
 
-	__m128i lo = _mm256_castsi256_si128(v);
-	__m128i hi = _mm256_extracti128_si256(v, 1);
-
-	_mm_storeu_si64(&p[0], _mm_shuffle_epi8(lo, shuf_mask));
-	_mm_storeu_si64(&p[8], _mm_shuffle_epi8(hi, shuf_mask));
+	_mm_storeu_si128((__m128i *)p, _mm256_castsi256_si128(res));
 }
 
 float simd::reduce_add_ps(fvec v) {
