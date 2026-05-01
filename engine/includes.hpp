@@ -20,9 +20,9 @@
 #include "pzstl/vector.hpp"
 #include "debug.hpp"
 
-#ifndef VERSION
-#define VERSION "dev"
-#endif
+// #ifndef VERSION
+#define VERSION "v7.0"
+// #endif
 
 #define NNUE_PAWN_VALUE 2.75
 

@@ -22,7 +22,7 @@ HDRS  := $(wildcard engine/*.hpp engine/nnue/*.hpp Pyrrhic/tbprobe.h)
 OBJS  := $(SRCS:.cpp=.o)
 DEPS  := $(OBJS:.o=.d)
 
-.PHONY: all native binaries debug clean test debug-test pgo pgo-compile
+.PHONY: all native binaries debug clean pgo pgo-compile
 
 # Default: native build
 all: pgo
@@ -64,25 +64,11 @@ $(EXE): $(OBJS)
 # Include generated dependency files
 -include $(DEPS)
 
-# Tests
-test: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS)
-test: $(OBJS)
-	$(AR) rcs test/objs.a $(OBJS)
-	$(MAKE) -C test CXXFLAGS="$(CXXFLAGS)"
-
-debug-test: CXXFLAGS = $(BASEFLAGS) $(DEBUGFLAGS)
-debug-test: $(OBJS)
-	$(AR) rcs test/objs.a $(OBJS)
-	$(MAKE) -C test CXXFLAGS="$(CXXFLAGS)" debug
-
 # Cleanup
 clean:
 	@echo "Cleaning up..."
-	rm -f $(EXE) *.exe
 	rm -f $(OBJS) $(DEPS)
-	rm -f test/objs.a
 	rm -f engine/*.gcda engine/nnue/*.gcda Pyrrhic/*.gcda
-	$(MAKE) -C test clean
 
 pgo-compile: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -fprofile-use -march=native
 pgo-compile: $(EXE)
