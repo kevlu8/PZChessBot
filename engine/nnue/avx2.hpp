@@ -14,6 +14,10 @@ ivec simd::broadcast_i16(int16_t x) {
 	return _mm256_set1_epi16(x);
 }
 
+ivec simd::broadcast_i32(int32_t x) {
+	return _mm256_set1_epi32(x);
+}
+
 fvec simd::broadcast_f32(float x) {
 	return _mm256_set1_ps(x);
 }
@@ -64,6 +68,14 @@ fvec simd::add_f32(fvec a, fvec b) {
 	return _mm256_add_ps(a, b);
 }
 
+ivec simd::add_i32(ivec a, ivec b) {
+	return _mm256_add_epi32(a, b);
+}
+
+void simd::store_ivec(ivec *p, ivec v) {
+	_mm256_storeu_si256(p, v);
+}
+
 void simd::store_f32(float *p, fvec v) {
 	_mm256_storeu_ps(p, v);
 }
@@ -83,14 +95,16 @@ float simd::reduce_add_ps(fvec v) {
 	return _mm_cvtss_f32(sum);
 }
 
-int32_t simd::reduce_add_epi16(ivec v) {
+ivec simd::hadd_i16_i32(ivec v) {
 	const __m256i ones = _mm256_set1_epi16(1);
+	return _mm256_madd_epi16(v, ones);
+}
 
-	__m256i wide = _mm256_madd_epi16(v, ones);
+uint16_t simd::nz_mask(uint8_t *p) {
+	const __m256i zero = _mm256_setzero_si256();
 
-	__m128i sum = _mm_add_epi32(_mm256_castsi256_si128(wide), _mm256_extracti128_si256(wide, 1));
-	sum = _mm_add_epi32(sum, _mm_shuffle_epi32(sum, _MM_SHUFFLE(1, 0, 3, 2)));
-	sum = _mm_add_epi32(sum, _mm_shuffle_epi32(sum, _MM_SHUFFLE(2, 3, 0, 1)));
-
-	return _mm_cvtsi128_si32(sum);
+	__m256i v = _mm256_loadu_si256((__m256i *)p);
+	__m256i msk = _mm256_cmpgt_epi32(v, zero);
+	msk = _mm256_or_si256(v, msk);
+	return (uint16_t)_mm256_movemask_ps((fvec)msk);
 }
