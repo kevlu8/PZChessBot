@@ -16,8 +16,16 @@ void Network::load() {
 	memcpy(accumulator_biases, ptr, sizeof(accumulator_biases));
 	ptr += sizeof(accumulator_biases);
 
-	memcpy(l1_weights, ptr, sizeof(l1_weights));
-	ptr += sizeof(l1_weights);
+	for (int i = 0; i < NBUCKETS; i++) {
+		for (int j = 0; j < L2_SIZE; j++) {
+			for (int k = 0; k < L1_SIZE; k += 4) {
+				memcpy(l1_weights[i][k / 4][j], ptr, 4);
+				ptr += 4;
+			}
+		}
+	}
+	// memcpy(l1_weights, ptr, sizeof(l1_weights));
+	// ptr += sizeof(l1_weights);
 
 	memcpy(l1_biases, ptr, sizeof(l1_biases));
 	ptr += sizeof(l1_biases);
@@ -65,6 +73,9 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 	alignas(64) float l2[L2_SIZE];
 	alignas(64) float l3[L3_SIZE];
 
+	uint32_t nnz_idx[L1_SIZE / 4];
+	int nnz_cnt = 0;
+
 	// Pairwise mul
 	for (int i = 0; i < L1_SIZE / 2; i += SHORTS_PER_VEC) {
 		ivec stm_val1 = simd::load_ivec((ivec *)&stm.val[i]);
@@ -85,23 +96,84 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		simd::store_u16_u8(&l1[i + L1_SIZE / 2], ntm_pair);
 	}
 
-	for (int i = 0; i < L2_SIZE; i += L1_UNROLL) {
-		ivec sums[L1_UNROLL];
-		for (int j = 0; j < L1_UNROLL; j++)
-			sums[j] = zero;
+	// NNZ bookkeeping
+	for (int i = 0; i < L1_SIZE; i += BYTES_PER_VEC) {
+		uint32_t msk = simd::nz_mask(&l1[i]);
+		while (msk) {
+			int idx = std::countr_zero(msk);
+			nnz_idx[nnz_cnt++] = i / 4 + idx;
+			msk = __blsr_u32(msk);
+		}
+	}
 
-		for (int j = 0; j < L1_SIZE; j += BYTES_PER_VEC) {
-			ivec val = simd::load_ivec((ivec *)&l1[j]);
+	for (int j = 0; j < L2_SIZE; j += FLOATS_PER_VEC)
+		simd::store_ivec((ivec *)&l2i[j], zero);
+
+	int nnz_tail = nnz_cnt % L1_UNROLL;
+	for (int i = 0; i < nnz_cnt - nnz_tail; i += L1_UNROLL) {
+		ivec vals[L1_UNROLL];
+		for (int j = 0; j < L1_UNROLL; j++)
+			vals[j] = simd::broadcast_i32(reinterpret_cast<uint32_t *>(l1)[nnz_idx[i + j]]);
+
+		for (int j = 0; j < L2_SIZE; j += BYTES_PER_VEC / 4) {
+#if defined(__AVX512VNNI__)
+			ivec sum = simd::load_ivec((ivec *)&l2i[j]);
 
 			for (int k = 0; k < L1_UNROLL; k++) {
-				ivec weight = simd::load_ivec((ivec *)&net.l1_weights[nbucket][i + k][j]);
-				sums[k] = simd::accdp_u8i8_i16(val, weight, sums[k]);
+				ivec weight = simd::load_ivec((ivec *)net.l1_weights[nbucket][nnz_idx[i + k]][j]);
+				sum = simd::accdp_u8i8_i32(vals[k], weight, sum);
 			}
-		}
+#else
+			ivec sum = zero;
 
-		for (int j = 0; j < L1_UNROLL; j++)
-			l2i[i + j] = simd::reduce_add_epi16(sums[j]);
+			for (int k = 0; k < L1_UNROLL; k++) {
+				ivec weight = simd::load_ivec((ivec *)net.l1_weights[nbucket][nnz_idx[i + k]][j]);
+				sum = simd::accdp_u8i8_i16(vals[k], weight, sum);
+			}
+
+			sum = simd::hadd_i16_i32(sum);
+			sum = simd::add_i32(sum, simd::load_ivec((ivec *)&l2i[j]));
+#endif
+			simd::store_ivec((ivec *)&l2i[j], sum);
+		}
 	}
+	for (int i = nnz_cnt - nnz_tail; i < nnz_cnt; i++) {
+		ivec val = simd::broadcast_i32(reinterpret_cast<uint32_t *>(l1)[nnz_idx[i]]);
+
+		for (int j = 0; j < L2_SIZE; j += BYTES_PER_VEC / 4) {
+			ivec weight = simd::load_ivec((ivec *)net.l1_weights[nbucket][nnz_idx[i]][j]);
+#if defined(__AVX512VNNI__)
+			ivec sum = simd::load_ivec((ivec *)&l2i[j]);
+
+			sum = simd::accdp_u8i8_i32(val, weight, sum);
+#else
+			ivec sum = zero;
+
+			sum = simd::accdp_u8i8_i16(val, weight, sum);
+			sum = simd::hadd_i16_i32(sum);
+			sum = simd::add_i32(sum, simd::load_ivec((ivec *)&l2i[j]));
+#endif
+			simd::store_ivec((ivec *)&l2i[j], sum);
+		}
+	}
+
+	// for (int i = 0; i < L2_SIZE; i += L1_UNROLL) {
+	// 	ivec sums[L1_UNROLL];
+	// 	for (int j = 0; j < L1_UNROLL; j++)
+	// 		sums[j] = zero;
+
+	// 	for (int j = 0; j < L1_SIZE; j += BYTES_PER_VEC) {
+	// 		ivec val = simd::load_ivec((ivec *)&l1[j]);
+
+	// 		for (int k = 0; k < L1_UNROLL; k++) {
+	// 			ivec weight = simd::load_ivec((ivec *)&net.l1_weights[nbucket][i + k][j]);
+	// 			sums[k] = simd::accdp_u8i8_i16(val, weight, sums[k]);
+	// 		}
+	// 	}
+
+	// 	for (int j = 0; j < L1_UNROLL; j++)
+	// 		l2i[i + j] = simd::reduce_add_epi16(sums[j]);
+	// }
 
 	// Convert l2 into a proper float array
 	for (int i = 0; i < L2_SIZE; i += FLOATS_PER_VEC) {

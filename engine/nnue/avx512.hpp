@@ -1,7 +1,5 @@
 #pragma once
 
-#if defined(__AVX512BW__)
-
 #include "simd.hpp"
 
 ivec simd::setzero_ivec() {
@@ -14,6 +12,10 @@ fvec simd::setzero_fvec() {
 
 ivec simd::broadcast_i16(int16_t x) {
 	return _mm512_set1_epi16(x);
+}
+
+ivec simd::broadcast_i32(int32_t x) {
+	return _mm512_set1_epi32(x);
 }
 
 fvec simd::broadcast_f32(float x) {
@@ -45,14 +47,16 @@ ivec simd::shift_mulhi(ivec a, ivec b) {
 	return _mm512_mulhrs_epi16(a, b);
 }
 
-ivec simd::accdp_u8i8_i16(ivec a, ivec b, ivec c) {
 #if defined(__AVX512VNNI__)
+ivec simd::accdp_u8i8_i32(ivec a, ivec b, ivec c) {
 	return _mm512_dpbusd_epi32(c, a, b);
+}
 #else
+ivec simd::accdp_u8i8_i16(ivec a, ivec b, ivec c) {
 	ivec sum = _mm512_maddubs_epi16(a, b);
 	return _mm512_add_epi16(sum, c);
-#endif
 }
+#endif
 
 fvec simd::cvt_i32_f32(ivec v) {
 	return _mm512_cvtepi32_ps(v);
@@ -68,6 +72,14 @@ fvec simd::mul_f32(fvec a, fvec b) {
 
 fvec simd::add_f32(fvec a, fvec b) {
 	return _mm512_add_ps(a, b);
+}
+
+ivec simd::add_i32(ivec a, ivec b) {
+	return _mm512_add_epi32(a, b);
+}
+
+void simd::store_ivec(ivec *p, ivec v) {
+	_mm512_storeu_si512(p, v);
 }
 
 void simd::store_f32(float *p, fvec v) {
@@ -87,15 +99,16 @@ float simd::reduce_add_ps(fvec v) {
 	return _mm_cvtss_f32(sum);
 }
 
-int32_t simd::reduce_add_epi16(ivec v) {
-#if defined(__AVX512VNNI__)
-	__m512i wide = v;
-#else
+#if !defined(__AVX512VNNI__)
+ivec simd::hadd_i16_i32(ivec v) {
 	const __m512i ones = _mm512_set1_epi16(1);
-	__m512i wide = _mm512_madd_epi16(v, ones);
-#endif
-
-	return _mm512_reduce_add_epi32(wide);
+	return _mm512_madd_epi16(v, ones);
 }
-
 #endif
+
+uint16_t simd::nz_mask(uint8_t *p) {
+	const __m512i zero = _mm512_setzero_si512();
+
+	__m512i v = _mm512_loadu_si512((__m512i *)p);
+	return (uint16_t)_mm512_cmpneq_epu32_mask(v, zero);
+}
