@@ -431,7 +431,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	Value tteval = -VALUE_INFINITE;
 	bool ttcapt = false;
 	if (tentry && is_valid_score(tentry->eval)) tteval = tt_to_score(tentry->eval, ply);
-	if (!pv && tentry && is_valid_score(tteval) && tentry->depth >= depth && ti.line[ply].excl == NullMove) {
+	if (!pv && tentry && is_valid_score(tteval) && tentry->depth >= depth && !excluded && (tteval <= alpha || cutnode)) {
 		// Check for cutoffs
 		if (tentry->bound() == EXACT) {
 			return tteval;
