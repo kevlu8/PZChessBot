@@ -244,7 +244,7 @@ void run_uci() {
 	pool.wait_finished();
 }
 
-__attribute__((weak)) int main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
 	print_config();
 	if (argc == 2 && std::string(argv[1]) == "bench") {
 		const std::string bench_positions[] = {
