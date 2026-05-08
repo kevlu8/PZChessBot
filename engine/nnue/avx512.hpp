@@ -79,7 +79,12 @@ void simd::store_u16_u8(uint8_t *p, ivec v) {
 }
 
 float simd::reduce_add_ps(fvec v) {
-	return _mm512_reduce_add_ps(v);
+	__m256 tmp = _mm256_add_ps(_mm512_castps512_ps256(v), _mm512_extractf32x8_ps(v, 1));
+	__m128 sum = _mm_add_ps(_mm256_castps256_ps128(tmp), _mm256_extractf128_ps(tmp, 1));
+	sum = _mm_add_ps(sum, _mm_movehdup_ps(sum));
+	sum = _mm_add_ps(sum, _mm_movehl_ps(sum, sum));
+
+	return _mm_cvtss_f32(sum);
 }
 
 int32_t simd::reduce_add_epi16(ivec v) {
