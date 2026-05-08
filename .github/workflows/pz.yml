@@ -30,7 +30,7 @@ jobs:
     - name: Fetch latest NNUE
       run: wget https://github.com/kevlu8/PZChessBot-Networks/releases/latest/download/nnue.bin
     - name: Compile
-      run: make
+      run: make -j4 native
     - name: Check Bench
       run: |
         obtained=$(eval "./pzchessbot bench 2>&1" | tail -n 1 | awk '{print $1}')
