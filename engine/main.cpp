@@ -391,9 +391,9 @@ int main(int argc, char *argv[]) {
 				else if (filter_weird) {
 					int npieces = _mm_popcnt_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
 					auto s_eval = eval(pos, am);
-					if (abs(s_eval) >= 3000) restart = true; // do a fast static eval to quickly filter out crazy positions
+					if (abs(s_eval) >= 2000) restart = true; // do a fast static eval to quickly filter out crazy positions
 					else {
-						pool.search(pos, rp, 1e9, MAX_PLY, 5000, true);
+						pool.search(pos, rp, 1e9, MAX_PLY, 2000, true);
 						auto res = pool.wait_finished();
 						if (abs(res.second) >= 2000) restart = true;
 					}
