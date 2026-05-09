@@ -174,7 +174,7 @@ std::string score_to_uci(Value score) {
  * Checks if a score is valid
  */
 bool is_valid_score(Value score) {
-	return score > -VALUE_INFINITE && score < VALUE_INFINITE;
+	return score > -VALUE_INFINITE && score < VALUE_INFINITE && score != VALUE_NONE;
 }
 
 /**
@@ -243,7 +243,7 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 	Value stand_pat = -VALUE_INFINITE;
 	Value raw_eval = -VALUE_INFINITE;
 	if (!in_check) {
-		stand_pat = tentry ? tentry->s_eval : eval(pos, ti.am) * side;
+		stand_pat = tentry && is_valid_score(tentry->s_eval) ? tentry->s_eval : eval(pos, ti.am) * side;
 		raw_eval = stand_pat;
 		shared_corrhist.apply_correction(pos, &ti.line[ply], ply, stand_pat);
 		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_WIN && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
@@ -481,7 +481,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	Value raw_eval = 0;
 	Value tt_corr_eval = 0;
 	if (!in_check) {
-		cur_eval = tentry ? tentry->s_eval : eval(pos, ti.am) * side;
+		cur_eval = tentry && is_valid_score(tentry->s_eval) ? tentry->s_eval : eval(pos, ti.am) * side;
 		raw_eval = cur_eval;
 		if (!excluded) shared_corrhist.apply_correction(pos, &ti.line[ply], ply, cur_eval);
 		tt_corr_eval = cur_eval;

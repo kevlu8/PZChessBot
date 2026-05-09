@@ -6,9 +6,9 @@ constexpr double as[] = {-30.98361896, 78.24679219, -88.99642086, 138.22393411};
 constexpr double bs[] = {2.60484417, 11.76498263, -15.13585141, 26.19189708};
 
 std::tuple<int, int, int> score_to_wdl(Position &pos, Value score) {
-	if (score >= VALUE_MATE_MAX_PLY)
+	if (score >= VALUE_WIN)
 		return {1000, 0, 0};
-	if (score <= -VALUE_MATE_MAX_PLY)
+	if (score <= -VALUE_WIN)
 		return {0, 0, 1000};
 
 	int mat = 0;

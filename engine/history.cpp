@@ -69,7 +69,7 @@ void Corrhist::update_corrhist(Position &pos, SSEntry *line, int ply, int bonus)
 }
 
 void Corrhist::apply_correction(Position &pos, SSEntry *line, int ply, Value &eval) {
-	if (abs(eval) >= VALUE_MATE_MAX_PLY)
+	if (abs(eval) >= VALUE_WIN)
 		return; // Don't apply correction if we are already at a mate score
 	
 	int corr = 0;
