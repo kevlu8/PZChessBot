@@ -310,7 +310,7 @@ int main(int argc, char *argv[]) {
 			pool.clear_search_vars();
 			pool.search(pos, rp, 1e9, 12, 1e18, 0);
 			pool.wait_finished();
-			tot_nodes += nodes[0];
+			tot_nodes += nodes[0].get();
 		}
 		uint64_t end = clock();
 		std::cout << tot_nodes << " nodes " << int(tot_nodes / ((double)(end - start) / CLOCKS_PER_SEC)) << " nps" << std::endl;

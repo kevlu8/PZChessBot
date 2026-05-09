@@ -50,7 +50,23 @@ extern bool show_wdl;
 extern bool do_softnodes;
 extern bool do_datagen;
 
-extern std::atomic<uint64_t> nodes[MAX_THREADS];
+struct alignas(64) NodeCounter {
+	std::atomic<uint64_t> val = 0;
+
+	void operator++(int) {
+		val.fetch_add(1, std::memory_order_relaxed);
+	}
+
+    void operator=(uint64_t new_val) {
+        val.store(new_val, std::memory_order_relaxed);
+    }
+
+    uint64_t get() const {
+        return val.load(std::memory_order_relaxed);
+    }
+};
+
+extern NodeCounter nodes[MAX_THREADS];
 
 struct ThreadInfo {
 	Position pos;
