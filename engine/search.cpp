@@ -15,7 +15,7 @@ std::stringstream last_line;
 uint16_t num_threads = 1;
 
 std::atomic<uint64_t> nodecnt[64][64] = {{}};
-std::atomic<uint64_t> nodes[MAX_THREADS] = {};
+alignas(64) std::atomic<uint64_t> nodes[MAX_THREADS] = {};
 std::atomic<uint64_t> tbhits = 0;
 
 uint64_t perft(Position &pos, int depth) {
@@ -192,14 +192,15 @@ bool is_valid_score(Value score) {
  * - Late move reduction (instead of reducing depth, we reduce the search window) (not a known technique, maybe worth trying?)
  */
 Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool pv=false) {
-	nodes[ti.id]++;
+	nodes[ti.id].fetch_add(1, std::memory_order_relaxed);
 
 	if (pv) ti.pvlen[ply] = 0;
 
 	if (stop_search) return 0;
 
 	if (ti.is_main) {
-		if (!(nodes[ti.id] & 4095)) {
+		auto cur_nodes = nodes[ti.id].load(std::memory_order_relaxed);
+		if (!(cur_nodes & 4095)) {
 			// The time check is relatively expensive and thus only performed every 4096 nodes
 			auto time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
 			if (time > mxtime) {
@@ -208,10 +209,10 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 			}
 		}
 
-		if (!do_softnodes && nodes[ti.id] > mx_nodes) {
+		if (!do_softnodes && cur_nodes > mx_nodes) {
 			stop_search = true;
 			return 0;
-		} else if (do_softnodes && mx_nodes < 1e15 && nodes[ti.id] > mx_nodes * 50) {
+		} else if (do_softnodes && mx_nodes < 1e15 && cur_nodes > mx_nodes * 50) {
 			stop_search = true;
 			return 0;
 		}
@@ -369,12 +370,13 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		ti.seldepth = std::max(ti.seldepth, ply);
 	}
 
-	nodes[ti.id]++;
+	nodes[ti.id].fetch_add(1, std::memory_order_relaxed);
 
 	if (stop_search) return 0;
 
 	if (ti.is_main) {
-		if (!(nodes[ti.id] & 4095)) {
+		auto cur_nodes = nodes[ti.id].load(std::memory_order_relaxed);
+		if (!(cur_nodes & 4095)) {
 			// The time check is relatively expensive and thus only performed every 4096 nodes
 			auto time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
 			if (time > mxtime) {
@@ -383,10 +385,10 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			}
 		}
 
-		if (!do_softnodes && nodes[ti.id] > mx_nodes) {
+		if (!do_softnodes && cur_nodes > mx_nodes) {
 			stop_search = true;
 			return 0;
-		} else if (do_softnodes && mx_nodes < 1e15 && nodes[ti.id] > mx_nodes * 50) {
+		} else if (do_softnodes && mx_nodes < 1e15 && cur_nodes > mx_nodes * 50) {
 			stop_search = true;
 			return 0;
 		}
@@ -654,7 +656,8 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	Move move = NullMove;
 	int i = 0;
 
-	uint64_t prev_nodes = nodes[ti.id];
+	uint64_t prev_nodes = 0;
+	if (root) prev_nodes = nodes[ti.id].load(std::memory_order_relaxed);
 
 	ti.line[ply+1].cutoffcnt = 0;
 
@@ -878,8 +881,9 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		ti.line[ply].corr_hist = nullptr;
 
 		if (root) {
-			nodecnt[move.src()][move.dst()] += nodes[ti.id] - prev_nodes;
-			prev_nodes = nodes[ti.id];
+			auto cur_nodes = nodes[ti.id].load(std::memory_order_relaxed);
+			nodecnt[move.src()][move.dst()].fetch_add(cur_nodes - prev_nodes, std::memory_order_relaxed);
+			prev_nodes = cur_nodes;
 		}
 
 		if (stop_search)
@@ -1044,7 +1048,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			uint64_t bm_nodes = nodecnt[best_move.src()][best_move.dst()];
 			uint64_t tot_nodes = 0;
 			for (int t = 0; t < num_threads; t++) {
-				tot_nodes += nodes[t]; // ig this is dangerous but whatever
+				tot_nodes += nodes[t].load(std::memory_order_relaxed); // ig this is dangerous but whatever
 			}
 
 			// UCI output from main thread only
