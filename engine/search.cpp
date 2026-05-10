@@ -324,6 +324,8 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 		ti.line[ply].cont_hist = nullptr;
 		ti.line[ply].corr_hist = nullptr;
 
+		if (stop_search) return 0;
+
 		if (score > best) {
 			if (score > alpha) {
 				ttf = EXACT;
@@ -625,6 +627,8 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			ti.line[ply].cont_hist = nullptr;
 			ti.line[ply].corr_hist = nullptr;
 
+			if (stop_search) return 0;
+
 			if (score >= pc_beta) {
 				ttable.store(pos.zobrist, score_to_tt(score, ply), raw_eval, pc_depth + 1, LOWER_BOUND, false, pc_move);
 				return score;
@@ -880,14 +884,13 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		ti.line[ply].cont_hist = nullptr;
 		ti.line[ply].corr_hist = nullptr;
 
+		if (stop_search) return 0;
+
 		if (root) {
 			auto cur_nodes = nodes[ti.id].get();
 			nodecnt[move.src()][move.dst()].fetch_add(cur_nodes - prev_nodes, std::memory_order_relaxed);
 			prev_nodes = cur_nodes;
 		}
-
-		if (stop_search)
-			break;
 
 		if (score <= alpha) {
 			if (capt)
@@ -1008,7 +1011,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 		int asp_depth = d;
 
 		// Gradually expand the window if we fail high or low
-		while ((result >= beta || result <= alpha)) {
+		while ((result >= beta || result <= alpha) && !stop_search) {
 			if (result >= beta) {
 				// Fail high - expand upper bound
 				alpha = (alpha + beta) / 2;
@@ -1027,7 +1030,6 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			beta = std::clamp(beta, -VALUE_INFINITE, (int)VALUE_INFINITE);
 			window_sz *= 2;
 			result = negamax(pos, ti, asp_depth, alpha, beta, pos.side ? -1 : 1, 1, false, 0, true);
-			if (stop_search) break;
 		}
 		if (stop_search) break;
 		eval = result;
