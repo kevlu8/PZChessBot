@@ -67,6 +67,7 @@ struct alignas(64) NodeCounter {
 };
 
 extern NodeCounter nodes[MAX_THREADS];
+extern std::unordered_set<uint16_t> tb_moves;
 
 struct ThreadInfo {
 	Position pos;

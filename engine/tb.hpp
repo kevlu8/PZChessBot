@@ -46,10 +46,8 @@ struct TBManager {
 	/**
 	 * Probes the tablebase for a given position and returns the viable moves
 	 * (i.e. the ones that are not different than the optimal result).
-	 * 
-	 * Not yet implemented.
 	 */
-	// std::unordered_set<Move> probe_moves(Position &pos);
+	std::unordered_set<uint16_t> probe_moves(Position &pos, bool rep = false);
 };
 
 extern TBManager tbman;

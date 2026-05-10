@@ -18,6 +18,8 @@ std::atomic<uint64_t> nodecnt[64][64] = {{}};
 NodeCounter nodes[MAX_THREADS];
 std::atomic<uint64_t> tbhits = 0;
 
+std::unordered_set<uint16_t> tb_moves;
+
 uint64_t perft(Position &pos, int depth) {
 	if (depth == 0)
 		return 1;
@@ -668,6 +670,9 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	while ((move = mp.next()) != NullMove) {
 		if (move == ti.line[ply].excl || !pos.is_legal(move))
 			continue;
+
+		if (root && !tb_moves.empty() && !tb_moves.count(move.data))
+			continue; // If the current move isn't included in the viable TB moves, skip
 
 		bool capt = pos.is_capture(move);
 		bool promo = (move.type() == PROMOTION);

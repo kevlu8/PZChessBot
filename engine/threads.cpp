@@ -1,5 +1,7 @@
 #include "threads.hpp"
 
+#include <cassert>
+
 void Pool::resize(size_t num) {
 	if (num == num_threads)
 		return;
@@ -57,6 +59,24 @@ void Pool::search(Position &pos, RepetitionHandler &rp, int64_t time, int depth,
 		nodes[t] = 0;
 		ti.id = t;
 		ti.is_main = (t == 0);
+	}
+
+	bool rep = false;
+	assert(rp.hash_hist.empty() || rp.hash_hist[rp.hash_hist.size() - 1] == pos.zobrist);
+	for (int i = rp.hash_hist.size() - 2; i >= 0; i--) {
+		if (rp.hash_hist[i] == pos.zobrist) {
+			rep = true;
+			break;
+		}
+	}
+	tb_moves = tbman.probe_moves(pos, rep);
+
+	if (!tb_moves.empty()) {
+		std::cerr << "Tablebase hit! Viable moves: ";
+		for (auto move : tb_moves) {
+			std::cerr << Move(move).to_string() << " ";
+		}
+		std::cerr << std::endl;
 	}
 
 	start_barrier->arrive_and_wait();
