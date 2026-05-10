@@ -76,6 +76,7 @@ struct ThreadInfo {
     int id = 0;
 	bool is_main = false;
     alignas(64) History thread_hist;
+    alignas(64) Corrhist thread_corrhist;
 	SSEntry line[MAX_PLY + 5] = {};
 	Move pvtable[MAX_PLY + 5][MAX_PLY + 5];
 	int pvlen[MAX_PLY + 5] = {};

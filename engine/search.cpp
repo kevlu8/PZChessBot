@@ -245,7 +245,7 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 	if (!in_check) {
 		stand_pat = tentry && is_valid_score(tentry->s_eval) ? tentry->s_eval : eval(pos, ti.am) * side;
 		raw_eval = stand_pat;
-		shared_corrhist.apply_correction(pos, &ti.line[ply], ply, stand_pat);
+		ti.thread_corrhist.apply_correction(pos, &ti.line[ply], ply, stand_pat);
 		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_WIN && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
 			stand_pat = tteval;
 		if (!tentry) ttable.store(pos.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
@@ -305,7 +305,7 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 		ti.line[ply].captured = (PieceType)(pos.mailbox[move.dst()] & 7);
 		ti.line[ply].piece = (PieceType)(pos.mailbox[move.src()] & 7);
 		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
-		ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
+		ti.line[ply].corr_hist = &ti.thread_corrhist.corrhist_cont[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
 
 		Position pos_after = pos;
 		pos_after.make_move(move);
@@ -485,7 +485,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	if (!in_check) {
 		cur_eval = tentry && is_valid_score(tentry->s_eval) ? tentry->s_eval : eval(pos, ti.am) * side;
 		raw_eval = cur_eval;
-		if (!excluded) shared_corrhist.apply_correction(pos, &ti.line[ply], ply, cur_eval);
+		if (!excluded) ti.thread_corrhist.apply_correction(pos, &ti.line[ply], ply, cur_eval);
 		tt_corr_eval = cur_eval;
 		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_WIN && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
 			tt_corr_eval = tteval;
@@ -532,7 +532,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		 * are probably Zugzwangs (e.g. endgames).
 		 */
 		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[pos.side][0][0];
-		ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[pos.side][0][0];
+		ti.line[ply].corr_hist = &ti.thread_corrhist.corrhist_cont[pos.side][0][0];
 
 		Position pos_after = pos;
 		pos_after.make_move(NullMove);
@@ -605,7 +605,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			ti.line[ply].captured = (PieceType)(pos.mailbox[pc_move.dst()] & 7);
 			ti.line[ply].piece = (PieceType)(pos.mailbox[pc_move.src()] & 7);
 			ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[pos.side][pos.mailbox[pc_move.src()] & 7][pc_move.dst()];
-			ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[pos.side][pos.mailbox[pc_move.src()] & 7][pc_move.dst()];
+			ti.line[ply].corr_hist = &ti.thread_corrhist.corrhist_cont[pos.side][pos.mailbox[pc_move.src()] & 7][pc_move.dst()];
 
 			Position pos_after = pos;
 			pos_after.make_move(pc_move);
@@ -794,7 +794,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		ti.line[ply].captured = (PieceType)(pos.mailbox[move.dst()] & 7);
 		ti.line[ply].piece = (PieceType)(pos.mailbox[move.src()] & 7);
 		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
-		ti.line[ply].corr_hist = &shared_corrhist.corrhist_cont[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
+		ti.line[ply].corr_hist = &ti.thread_corrhist.corrhist_cont[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
 
 		Position pos_after = pos;
 		pos_after.make_move(move);
@@ -961,7 +961,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		&& !(flag == UPPER_BOUND && best >= cur_eval) && !(flag == LOWER_BOUND && best <= cur_eval)) {
 		// Best move is a quiet move, update CorrHist
 		int bonus = (best - cur_eval) * depth / 8;
-		shared_corrhist.update_corrhist(pos, &ti.line[ply], ply, bonus);
+		ti.thread_corrhist.update_corrhist(pos, &ti.line[ply], ply, bonus);
 	}
 
 	if (!excluded) {
@@ -1142,6 +1142,7 @@ void prepare_search(int64_t time, int64_t maxnodes, bool quiet, uint16_t num) {
 
 void clear_search_vars(ThreadInfo &ti) {
 	memset(&ti.thread_hist, 0, sizeof(History));
+	memset(&ti.thread_corrhist, 0, sizeof(Corrhist));
 	for (int i = 0; i < MAX_PLY; i++) {
 		ti.line[i] = SSEntry();
 	}
