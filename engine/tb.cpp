@@ -31,7 +31,7 @@ std::optional<int> TBManager::probe_pos(Position &pos) {
 
 std::unordered_set<uint16_t> TBManager::probe_moves(Position &pos, bool rep) {
 	std::unordered_set<uint16_t> viable_moves;
-	if (!initialized || pos.halfmove != 0 || pos.castling) {
+	if (!initialized || pos.castling) {
 		return viable_moves;
 	}
 
@@ -65,25 +65,12 @@ std::unordered_set<uint16_t> TBManager::probe_moves(Position &pos, bool rep) {
 			auto move = moves.moves[i].move;
 			
 			Move pz_move = Move(PYRRHIC_MOVE_FROM(move), PYRRHIC_MOVE_TO(move));
-			if (TB_RESULT_IS_ENPASS(move)) {
-				pz_move.data |= (2 << 14); // set en passant flag
-				assert(pz_move.type() == EN_PASSANT);
-			}
-			if (TB_RESULT_IS_QPROMO(move)) {
-				pz_move.data |= (1 << 14) | ((QUEEN - KNIGHT) << 12);
-				assert(pz_move.type() == PROMOTION && pz_move.promotion() == QUEEN);
-			} else if (TB_RESULT_IS_RPROMO(move)) {
-				pz_move.data |= (1 << 14) | ((ROOK - KNIGHT) << 12);
-				assert(pz_move.type() == PROMOTION && pz_move.promotion() == ROOK);
-			} else if (TB_RESULT_IS_BPROMO(move)) {
-				pz_move.data |= (1 << 14) | ((BISHOP - KNIGHT) << 12);
-				assert(pz_move.type() == PROMOTION && pz_move.promotion() == BISHOP);
-			} else if (TB_RESULT_IS_NPROMO(move)) {
-				pz_move.data |= (1 << 14) | ((KNIGHT - KNIGHT) << 12);
-				assert(pz_move.type() == PROMOTION && pz_move.promotion() == KNIGHT);
-			}
+			if (TB_RESULT_IS_ENPASS(move)) pz_move.data |= (2 << 14);
+			else if (TB_RESULT_IS_QPROMO(move)) pz_move.data |= (1 << 14) | ((QUEEN - KNIGHT) << 12);
+			else if (TB_RESULT_IS_RPROMO(move)) pz_move.data |= (1 << 14) | ((ROOK - KNIGHT) << 12);
+			else if (TB_RESULT_IS_BPROMO(move)) pz_move.data |= (1 << 14) | ((BISHOP - KNIGHT) << 12);
+			else if (TB_RESULT_IS_NPROMO(move)) pz_move.data |= (1 << 14) | ((KNIGHT - KNIGHT) << 12);
 
-			assert(pos.is_legal(pz_move));
 			viable_moves.insert(pz_move.data);
 		}
 	}
