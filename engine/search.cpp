@@ -200,8 +200,8 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 
 	if (ti.is_main) {
 		auto cur_nodes = nodes[ti.id].get();
-		if (!(cur_nodes & 4095)) {
-			// The time check is relatively expensive and thus only performed every 4096 nodes
+		if (!(cur_nodes & 1023)) {
+			// The time check is relatively expensive and thus only performed every 1024 nodes
 			auto time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
 			if (time > mxtime) {
 				stop_search = true;
@@ -378,8 +378,8 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 
 	if (ti.is_main) {
 		auto cur_nodes = nodes[ti.id].get();
-		if (!(cur_nodes & 4095)) {
-			// The time check is relatively expensive and thus only performed every 4096 nodes
+		if (!(cur_nodes & 1023)) {
+			// The time check is relatively expensive and thus only performed every 1024 nodes
 			auto time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
 			if (time > mxtime) {
 				stop_search = true;
