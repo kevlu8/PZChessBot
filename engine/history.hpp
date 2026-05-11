@@ -82,5 +82,3 @@ struct Corrhist {
 	void update_corrhist(Position &pos, SSEntry *line, int ply, int bonus);
 	void apply_correction(Position &pos, SSEntry *line, int ply, Value &eval);
 };
-
-extern Corrhist shared_corrhist;

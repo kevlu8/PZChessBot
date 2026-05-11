@@ -121,7 +121,6 @@ void run_uci() {
 			rp.clear();
 			rp.push_hash(pos.zobrist_without_ep());
 			ttable.resize(TT_SIZE);
-			shared_corrhist = Corrhist();
 			pool.clear_search_vars();
 		} else if (command.substr(0, 8) == "position") {
 			// either `position startpos` or `position fen ...`
