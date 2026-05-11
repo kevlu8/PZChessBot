@@ -459,7 +459,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	if (!root && !excluded && tbman.initialized && depth >= tbman.min_depth) {
 		auto tb_res = tbman.probe_pos(pos);
 		if (tb_res.has_value()) {
-			tbhits++;
+			tbhits.fetch_add(1, std::memory_order_relaxed);
 			Value tb_score = 0;
 			if (tb_res == 1) tb_score = VALUE_TB_WIN - ply;
 			else if (tb_res == -1) tb_score = -VALUE_TB_WIN + ply;
@@ -1069,7 +1069,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			// Hashfull is expensive to compute, so only compute it after a certain amount of time has passed
 			if (time_elapsed >= 500) last_line << " hashfull " << (int)(get_ttable_sz() * 1000);
 
-			last_line << " tbhits " << tbhits << " pv";
+			last_line << " tbhits " << tbhits.load(std::memory_order_relaxed) << " pv";
 
 			for (int ply = 0; ply < ti.pvlen[0]; ply++) {
 				last_line << " " << ti.pvtable[0][ply].to_string();
@@ -1137,7 +1137,7 @@ void prepare_search(int64_t time, int64_t maxnodes, bool quiet, uint16_t num) {
 	stop_search = false;
 	minimal = quiet;
 	num_threads = num;
-	tbhits = 0;
+	tbhits.store(0, std::memory_order_relaxed);
 }
 
 void clear_search_vars(ThreadInfo &ti) {
