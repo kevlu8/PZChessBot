@@ -3,6 +3,22 @@
 
 #include "incbin.h"
 
+uint16_t NNZ_TABLE[0x100][8];
+uint8_t NNZ_SIZES[0x100];
+
+__attribute__((constructor)) void init_nnz() {
+	for (unsigned i = 0; i < 0x100; i++) {
+		uint32_t x = i;
+		int cnt = 0;
+		while (x) {
+			unsigned idx = std::countr_zero(x);
+			NNZ_TABLE[i][cnt++] = idx;
+			x = __blsr_u32(x);
+		}
+		NNZ_SIZES[i] = cnt;
+	}
+}
+
 extern "C" {
 	INCBIN(network_weights, NNUE_PATH);
 }
@@ -73,7 +89,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 	alignas(64) float l2[L2_SIZE];
 	alignas(64) float l3[L3_SIZE];
 
-	uint32_t nnz_idx[L1_SIZE / 4];
+	uint16_t nnz_idx[L1_SIZE / 4];
 	int nnz_cnt = 0;
 
 	// Pairwise mul
@@ -97,12 +113,23 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 	}
 
 	// NNZ bookkeeping
-	for (int i = 0; i < L1_SIZE; i += BYTES_PER_VEC) {
-		uint32_t msk = simd::nz_mask(&l1[i]);
-		while (msk) {
-			int idx = std::countr_zero(msk);
-			nnz_idx[nnz_cnt++] = i / 4 + idx;
-			msk = __blsr_u32(msk);
+	for (unsigned i = 0; i < L1_SIZE; i += BYTES_PER_VEC) {
+		uint16_t msk = simd::nz_mask(&l1[i]);
+
+		uint8_t lo = msk & 0xff;
+
+		__m128i tmp = _mm_broadcastw_epi16(_mm_set1_epi16(i / 4 + 0x0));
+		tmp = _mm_add_epi16(tmp, _mm_loadu_si128((__m128i *)NNZ_TABLE[lo]));
+		_mm_storeu_si128((__m128i *)&nnz_idx[nnz_cnt], tmp);
+		nnz_cnt += NNZ_SIZES[lo];
+
+		if (BYTES_PER_VEC > 8 * 4) {
+			uint8_t hi = msk >> 8;
+
+			__m128i tmp = _mm_broadcastw_epi16(_mm_set1_epi16(i / 4 + 0x8));
+			tmp = _mm_add_epi16(tmp, _mm_loadu_si128((__m128i *)NNZ_TABLE[hi]));
+			_mm_storeu_si128((__m128i *)&nnz_idx[nnz_cnt], tmp);
+			nnz_cnt += NNZ_SIZES[hi];
 		}
 	}
 
