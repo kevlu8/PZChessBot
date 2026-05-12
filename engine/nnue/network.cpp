@@ -113,25 +113,67 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 	}
 
 	// NNZ bookkeeping
-	for (unsigned i = 0; i < L1_SIZE; i += BYTES_PER_VEC) {
-		uint16_t msk = simd::nz_mask(&l1[i]);
+#if defined(__AVX512VBMI__)
+	{
+		// clang-format off
+		__m512i off = _mm512_set_epi16(
+			31, 30, 29, 28, 27, 26, 25, 24,
+			23, 22, 21, 20, 19, 18, 17, 16,
+			15, 14, 13, 12, 11, 10,  9,  8,
+			 7,  6,  5,  4,  3,  2,  1,  0
+		);
+		// clang-format on
+		for (unsigned i = 0; i < L1_SIZE; i += BYTES_PER_VEC * 2) {
+			uint16_t lo = simd::nz_mask(&l1[i + 0x00]);
+			uint16_t hi = simd::nz_mask(&l1[i + 0x40]);
 
-		uint8_t lo = msk & 0xff;
+			uint32_t msk = _mm512_kunpackw(hi, lo);
+			__m512i tmp = _mm512_maskz_compress_epi16(msk, off);
 
-		__m128i tmp = _mm_broadcastw_epi16(_mm_set1_epi16(i / 4 + 0x0));
-		tmp = _mm_add_epi16(tmp, _mm_loadu_si128((__m128i *)NNZ_TABLE[lo]));
-		_mm_storeu_si128((__m128i *)&nnz_idx[nnz_cnt], tmp);
-		nnz_cnt += NNZ_SIZES[lo];
+			_mm512_storeu_epi16(&nnz_idx[nnz_cnt], tmp);
+			nnz_cnt += std::popcount(msk);
 
-		if (BYTES_PER_VEC > 8 * 4) {
-			uint8_t hi = msk >> 8;
-
-			__m128i tmp = _mm_broadcastw_epi16(_mm_set1_epi16(i / 4 + 0x8));
-			tmp = _mm_add_epi16(tmp, _mm_loadu_si128((__m128i *)NNZ_TABLE[hi]));
-			_mm_storeu_si128((__m128i *)&nnz_idx[nnz_cnt], tmp);
-			nnz_cnt += NNZ_SIZES[hi];
+			off = _mm512_add_epi16(off, _mm512_set1_epi16(32));
 		}
 	}
+#elif defined(__AVX512BW__)
+	{
+		__m256i off = _mm256_setzero_si256();
+		for (unsigned i = 0; i < L1_SIZE; i += BYTES_PER_VEC) {
+			uint16_t msk = simd::nz_mask(&l1[i]);
+
+			uint8_t lo = msk & 0xff;
+			uint8_t hi = msk >> 8;
+
+			__m256i tmp = _mm256_loadu_si256((__m256i *)NNZ_TABLE[lo]);
+			tmp = _mm256_add_epi16(tmp, off);
+			_mm256_storeu_si256((__m256i *)&nnz_idx[nnz_cnt], tmp);
+			nnz_cnt += NNZ_SIZES[lo];
+			off = _mm256_add_epi16(off, _mm256_set1_epi16(8));
+
+			tmp = _mm256_loadu_si256((__m256i *)NNZ_TABLE[hi]);
+			tmp = _mm256_add_epi16(tmp, off);
+			_mm256_storeu_si256((__m256i *)&nnz_idx[nnz_cnt], tmp);
+			nnz_cnt += NNZ_SIZES[hi];
+			off = _mm256_add_epi16(off, _mm256_set1_epi16(8));
+		}
+	}
+#else
+	{
+		__m128i off = _mm_setzero_si128();
+		for (unsigned i = 0; i < L1_SIZE; i += BYTES_PER_VEC) {
+			uint16_t msk = simd::nz_mask(&l1[i]);
+
+			__m128i tmp = _mm_loadu_si128((__m128i *)NNZ_TABLE[msk]);
+			tmp = _mm_add_epi16(tmp, off);
+
+			_mm_storeu_si128((__m128i *)&nnz_idx[nnz_cnt], tmp);
+			nnz_cnt += NNZ_SIZES[msk];
+
+			off = _mm_add_epi16(off, _mm_set1_epi16(8));
+		}
+	}
+#endif
 
 	for (int j = 0; j < L2_SIZE; j += FLOATS_PER_VEC)
 		simd::store_ivec((ivec *)&l2i[j], zero);
