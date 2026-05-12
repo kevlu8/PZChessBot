@@ -3,11 +3,11 @@
 
 #include "incbin.h"
 
-uint16_t NNZ_TABLE[0x100][8];
-uint8_t NNZ_SIZES[0x100];
+uint16_t NNZ_TABLE[256][8];
+uint8_t NNZ_SIZES[256];
 
 __attribute__((constructor)) void init_nnz() {
-	for (unsigned i = 0; i < 0x100; i++) {
+	for (unsigned i = 0; i < 256; i++) {
 		uint32_t x = i;
 		int cnt = 0;
 		while (x) {
