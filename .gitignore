@@ -67,3 +67,4 @@ config.json
 pz-base
 pz-dev
 *.gcda
+!logo.png

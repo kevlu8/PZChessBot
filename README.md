@@ -2,6 +2,8 @@
 
 ![donate btc](https://img.shields.io/badge/donate%20btc-31pma4U314hJHSxXBECWxYFPBgL7n9BoCC-blue)
 
+<img src="logo.png" alt="PZChessBot Logo" width="1024"/>
+
 A chess engine created by two high school students, started when we were in middle school!
 
 [Play against PZChessBot!](https://lichess.org/@/PZChessBot)
