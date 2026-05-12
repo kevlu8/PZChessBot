@@ -68,6 +68,7 @@ void run_uci() {
 				TT_SIZE = MAX_TT;
 				while (TT_SIZE > optionint) TT_SIZE /= 2;
 				TT_SIZE *= 1024 * 1024 / sizeof(TTable::TTBucket);
+				ttable.resize(TT_SIZE);
 			} else if (optionname == "Quiet") {
 				quiet = optionvalue == "true";
 			} else if (optionname == "Threads") {
