@@ -36,7 +36,7 @@ Value eval(Position &pos, AccumulatorManager &am) {
 						+ RookValue * _mm_popcnt_u64(pos.piece_boards[ROOK])
 						+ QueenValue * _mm_popcnt_u64(pos.piece_boards[QUEEN]);
 	
-	return score * (26500 + mat_phase) / 32768;
+	return score * (26500 + mat_phase) / 32768 * (200 - pos.halfmove) / 200;
 }
 
 std::array<Value, 8> debug_eval(Position &pos) {
