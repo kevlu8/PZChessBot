@@ -24,8 +24,10 @@ struct SSEntry {
 	Move killer = NullMove;
 	PieceType piece = NO_PIECETYPE, captured = NO_PIECETYPE;
 	int cutoffcnt = 0;
+	Bitboard stm_threats, ntm_threats;
+	bool quiet;
 
-	SSEntry() : move(NullMove), eval(VALUE_NONE), excl(NullMove), cont_hist(nullptr), corr_hist(nullptr), cutoffcnt(0) {}
+	SSEntry() : move(NullMove), eval(VALUE_NONE), excl(NullMove), cont_hist(nullptr), corr_hist(nullptr), cutoffcnt(0), stm_threats(0), ntm_threats(0), quiet(false) {}
 };
 
 struct History {

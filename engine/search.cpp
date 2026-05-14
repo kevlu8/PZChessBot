@@ -178,6 +178,14 @@ bool is_valid_score(Value score) {
 }
 
 /**
+ * Converts a depth score to its corresponding history bonus
+ */
+int hist_bonus(int depth) {
+	const int bonus = std::min(1896, hist_quad() * depth * depth + hist_lin() * depth - hist_const());
+	return bonus;
+}
+
+/**
  * Perform the quiescence search
  * 
  * Quiescence search is a technique to avoid the horizon effect, where the evaluation function
@@ -302,6 +310,9 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 		}
 
 		ti.line[ply].move = move;
+		ti.line[ply].quiet = !pos.is_capture(move) && move.type() != PROMOTION;
+		ti.line[ply].stm_threats = pos.side_control[pos.side];
+		ti.line[ply].ntm_threats = pos.side_control[!pos.side];
 		ti.line[ply].captured = (PieceType)(pos.mailbox[move.dst()] & 7);
 		ti.line[ply].piece = (PieceType)(pos.mailbox[move.src()] & 7);
 		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
@@ -319,6 +330,9 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 		rp.pop_hash();
 		
 		ti.line[ply].move = NullMove;
+		ti.line[ply].quiet = false;
+		ti.line[ply].stm_threats = 0;
+		ti.line[ply].ntm_threats = 0;
 		ti.line[ply].captured = NO_PIECETYPE;
 		ti.line[ply].piece = NO_PIECETYPE;
 		ti.line[ply].cont_hist = nullptr;
@@ -602,6 +616,9 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 				continue;
 
 			ti.line[ply].move = pc_move;
+			ti.line[ply].quiet = !pos.is_capture(pc_move) && pc_move.type() != PROMOTION;
+			ti.line[ply].stm_threats = pos.side_control[pos.side];
+			ti.line[ply].ntm_threats = pos.side_control[!pos.side];
 			ti.line[ply].captured = (PieceType)(pos.mailbox[pc_move.dst()] & 7);
 			ti.line[ply].piece = (PieceType)(pos.mailbox[pc_move.src()] & 7);
 			ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[pos.side][pos.mailbox[pc_move.src()] & 7][pc_move.dst()];
@@ -622,6 +639,9 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			rp.pop_hash();
 
 			ti.line[ply].move = NullMove;
+			ti.line[ply].quiet = false;
+			ti.line[ply].stm_threats = 0;
+			ti.line[ply].ntm_threats = 0;
 			ti.line[ply].captured = NO_PIECETYPE;
 			ti.line[ply].piece = NO_PIECETYPE;
 			ti.line[ply].cont_hist = nullptr;
@@ -791,6 +811,9 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		}
 
 		ti.line[ply].move = move;
+		ti.line[ply].quiet = !capt && !promo;
+		ti.line[ply].stm_threats = pos.side_control[pos.side];
+		ti.line[ply].ntm_threats = pos.side_control[!pos.side];
 		ti.line[ply].captured = (PieceType)(pos.mailbox[move.dst()] & 7);
 		ti.line[ply].piece = (PieceType)(pos.mailbox[move.src()] & 7);
 		ti.line[ply].cont_hist = &ti.thread_hist.cont_hist[pos.side][pos.mailbox[move.src()] & 7][move.dst()];
@@ -879,6 +902,9 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		rp.pop_hash();
 
 		ti.line[ply].move = NullMove;
+		ti.line[ply].quiet = false;
+		ti.line[ply].stm_threats = 0;
+		ti.line[ply].ntm_threats = 0;
 		ti.line[ply].captured = NO_PIECETYPE;
 		ti.line[ply].piece = NO_PIECETYPE;
 		ti.line[ply].cont_hist = nullptr;
@@ -927,7 +953,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 				ti.line[ply].killer = move; // Update killer move
 			}
 			int hist_depth = depth + (score >= beta + hist_large_margin());
-			const int bonus = std::min(1896, hist_quad() * hist_depth * hist_depth + hist_lin() * hist_depth - hist_const());
+			const int bonus = hist_bonus(hist_depth);
 			if (!capt) { // Not a capture
 				ti.thread_hist.update_history(pos, move, ply, &ti.line[ply], bonus);
 				for (auto &qmove : quiets) {
@@ -953,6 +979,13 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		if (excluded) return alpha;
 		else if (in_check) return -VALUE_MATE + ply;
 		else return 0;
+	}
+
+	if (!root && best_move == NullMove && ti.line[ply-1].move != NullMove && ti.line[ply-1].quiet) {
+		const int bonus = std::min(1024, pcm_lin() * depth + pcm_const());
+		Move &mv = ti.line[ply-1].move;
+		auto &entry = ti.thread_hist.history[!pos.side][mv.src()][mv.dst()][(bool)(ti.line[ply-1].stm_threats & square_bits(mv.src()))][(bool)(ti.line[ply-1].ntm_threats & square_bits(mv.dst()))];
+		entry += bonus - entry * bonus / MAX_HISTORY;
 	}
 
 	bool best_iscapture = pos.is_capture(best_move);

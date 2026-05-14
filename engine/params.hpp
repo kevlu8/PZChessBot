@@ -73,6 +73,8 @@ TUNE(hist_large_margin, 96, 0, 256, 16);
 TUNE(hist_quad, 3, 0, 6, 1);
 TUNE(hist_lin, 131, 64, 256, 15);
 TUNE(hist_const, 144, 0, 256, 16);
+TUNE(pcm_lin, 100, 20, 200, 10);
+TUNE(pcm_const, 50, 0, 100, 10);
 TUNE(asp_window, 14, 1, 30, 4);
 TUNE(bm_base, 180, 80, 250, 15);
 TUNE(bm_mul, 20, 10, 80, 10);
