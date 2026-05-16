@@ -18,7 +18,7 @@ std::optional<int> TBManager::probe_pos(Position &pos) {
 		pos.piece_boards[KNIGHT], pos.piece_boards[PAWN], ep_sq, turn);
 
 	if (res == TB_RESULT_FAILED) {
-		std::cerr << "Je sais pas ce qui s'est passé mais je sais que t'es un fils de pute" << std::endl;
+		// Probably due to an incomplete set of Syzygy bases
 		return std::nullopt;
 	}
 
