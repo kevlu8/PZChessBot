@@ -16,8 +16,24 @@ void Network::load() {
 	memcpy(accumulator_biases, ptr, sizeof(accumulator_biases));
 	ptr += sizeof(accumulator_biases);
 
+#if defined(__AVX2__) || defined(__AVX512BW__)
+	const int BLK_SIZE = BYTES_PER_VEC;
+	for (int i = 0; i < NBUCKETS; i++) {
+		for (int j = 0; j < L2_SIZE; j++) {
+			for (int k = 0; k < L1_SIZE; k += 8) {
+				int idx = k % BLK_SIZE;
+				int blk = k - idx;
+				int off = idx * 2 % BLK_SIZE + (idx >= BLK_SIZE / 2) * 8;
+
+				memcpy(&l1_weights[i][j][blk + off], ptr, 8);
+				ptr += 8;
+			}
+		}
+	}
+#else
 	memcpy(l1_weights, ptr, sizeof(l1_weights));
 	ptr += sizeof(l1_weights);
+#endif
 
 	memcpy(l1_biases, ptr, sizeof(l1_biases));
 	ptr += sizeof(l1_biases);
@@ -66,23 +82,34 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 	alignas(64) float l3[L3_SIZE];
 
 	// Pairwise mul
-	for (int i = 0; i < L1_SIZE / 2; i += SHORTS_PER_VEC) {
-		ivec stm_val1 = simd::load_ivec((ivec *)&stm.val[i]);
-		ivec stm_val2 = simd::load_ivec((ivec *)&stm.val[i + L1_SIZE / 2]);
-		ivec ntm_val1 = simd::load_ivec((ivec *)&ntm.val[i]);
-		ivec ntm_val2 = simd::load_ivec((ivec *)&ntm.val[i + L1_SIZE / 2]);
+	for (int i = 0; i < L1_SIZE / 2; i += SHORTS_PER_VEC * 2) {
+		ivec stm_vallo1 = simd::load_ivec((ivec *)&stm.val[i]);
+		ivec stm_vallo2 = simd::load_ivec((ivec *)&stm.val[i + L1_SIZE / 2]);
+		ivec stm_valhi1 = simd::load_ivec((ivec *)&stm.val[i + SHORTS_PER_VEC]);
+		ivec stm_valhi2 = simd::load_ivec((ivec *)&stm.val[i + L1_SIZE / 2 + SHORTS_PER_VEC]);
 
-		stm_val1 = simd::clamp_i16(stm_val1, zero, clip);
-		stm_val2 = simd::clamp_i16(stm_val2, zero, clip);
+		ivec ntm_vallo1 = simd::load_ivec((ivec *)&ntm.val[i]);
+		ivec ntm_vallo2 = simd::load_ivec((ivec *)&ntm.val[i + L1_SIZE / 2]);
+		ivec ntm_valhi1 = simd::load_ivec((ivec *)&ntm.val[i + SHORTS_PER_VEC]);
+		ivec ntm_valhi2 = simd::load_ivec((ivec *)&ntm.val[i + L1_SIZE / 2 + SHORTS_PER_VEC]);
 
-		ntm_val1 = simd::clamp_i16(ntm_val1, zero, clip);
-		ntm_val2 = simd::clamp_i16(ntm_val2, zero, clip);
+		stm_vallo1 = simd::clamp_i16(stm_vallo1, zero, clip);
+		stm_vallo2 = simd::clamp_i16(stm_vallo2, zero, clip);
+		stm_valhi1 = simd::clamp_i16(stm_valhi1, zero, clip);
+		stm_valhi2 = simd::clamp_i16(stm_valhi2, zero, clip);
 
-		ivec stm_pair = simd::shift_mulhi(stm_val1, stm_val2);
-		ivec ntm_pair = simd::shift_mulhi(ntm_val1, ntm_val2);
+		ntm_vallo1 = simd::clamp_i16(ntm_vallo1, zero, clip);
+		ntm_vallo2 = simd::clamp_i16(ntm_vallo2, zero, clip);
+		ntm_valhi1 = simd::clamp_i16(ntm_valhi1, zero, clip);
+		ntm_valhi2 = simd::clamp_i16(ntm_valhi2, zero, clip);
 
-		simd::store_u16_u8(&l1[i], stm_pair);
-		simd::store_u16_u8(&l1[i + L1_SIZE / 2], ntm_pair);
+		ivec stm_pairlo = simd::shift_mulhi(stm_vallo1, stm_vallo2);
+		ivec stm_pairhi = simd::shift_mulhi(stm_valhi1, stm_valhi2);
+		ivec ntm_pairlo = simd::shift_mulhi(ntm_vallo1, ntm_vallo2);
+		ivec ntm_pairhi = simd::shift_mulhi(ntm_valhi1, ntm_valhi2);
+
+		simd::store_u16_u8(&l1[i], stm_pairlo, stm_pairhi);
+		simd::store_u16_u8(&l1[i + L1_SIZE / 2], ntm_pairlo, ntm_pairhi);
 	}
 
 	for (int i = 0; i < L2_SIZE; i += L1_UNROLL) {
