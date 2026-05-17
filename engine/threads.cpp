@@ -29,6 +29,15 @@ void Pool::resize(size_t num) {
 }
 
 void Pool::thread_loop(size_t i) {
+#ifdef __linux__
+#warning "Thread pinning for linux is on"
+	// Pin thread to core
+	cpu_set_t cpuset;
+	CPU_ZERO(&cpuset);
+	CPU_SET(i, &cpuset);
+	pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+#endif
+
 	while (true) {
 		start_barrier->arrive_and_wait();
 		if (stop)
