@@ -9,6 +9,11 @@ struct AccumulatorManager {
 		int winbucket, binbucket;
 		Accumulator w_acc, b_acc;
 		bool correct = false;
+		int numa_node = 0;
+
+		AccumulatorPair() : winbucket(0), binbucket(0) {
+			numa_node = numa_node_of_cpu(sched_getcpu());
+		}
 
 		void update_add(Square sq, PieceType pt, bool side, int wbucket, int bbucket);
 		void update_sub(Square sq, PieceType pt, bool side, int wbucket, int bbucket);
@@ -33,8 +38,9 @@ struct AccumulatorManager {
 
 			for (int i = 0; i < NINPUTS * 2; i++) {
 				for (int j = 0; j < L1_SIZE; j++) {
-					accs[i].w_acc.val[j] = nnue_network.accumulator_biases[j];
-					accs[i].b_acc.val[j] = nnue_network.accumulator_biases[j];
+					// We can be sloppy here because this only happens on initialization
+					accs[i].w_acc.val[j] = nnue_networks[0]->accumulator_biases[j];
+					accs[i].b_acc.val[j] = nnue_networks[0]->accumulator_biases[j];
 				}
 			}
 		}
@@ -44,9 +50,11 @@ struct AccumulatorManager {
 	int idx = 0;
 	Update updates[MAX_PLY + 5]; // Stores the changed indices for each move - updates[i] stores the changes from accs[i-1] to accs[i]
 	Cache finny;
+	int numa_node = 0;
 
 	AccumulatorManager(Position &pos) {
 		full_refresh(pos, 0);
+		numa_node = numa_node_of_cpu(sched_getcpu());
 	}
 
 	AccumulatorPair &current() {

@@ -24,10 +24,10 @@ constexpr int IBUCKET_LAYOUT[] = {
 };
 
 struct Accumulator {
-	alignas(32) int16_t val[L1_SIZE] = {};
+	alignas(64) int16_t val[L1_SIZE] = {};
 };
 
-struct alignas(32) Network {
+struct alignas(64) Network {
 	int16_t accumulator_weights[INPUT_SIZE * NINPUTS][L1_SIZE];
 	int16_t accumulator_biases[L1_SIZE];
 
@@ -45,6 +45,6 @@ struct alignas(32) Network {
 
 int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nbucket);
 
-int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket);
+int32_t nnue_eval(const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket, int node = 0);
 
-extern Network nnue_network;
+extern Network *nnue_networks[8];

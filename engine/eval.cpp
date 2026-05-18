@@ -1,10 +1,36 @@
 #include "eval.hpp"
 
-// Accumulator w_acc, b_acc;
-Network nnue_network;
+Network *nnue_networks[8];
 
 __attribute__((constructor)) void init_network() {
-	nnue_network.load();
+	// nnue_networks[0] = (Network *)numa_alloc_onnode(sizeof(Network), 0);
+	// if (nnue_networks[0] == nullptr) {
+	// 	std::cerr << "Mais qu'est-ce qui se passe?" << std::endl;
+	// 	exit(1);
+	// }
+	// nnue_networks[0]->load();
+	// if (numa_available() < 0) {
+	// 	std::cout << "No NUMA detected - this is fine if you have one CPU." << std::endl;
+	// 	return;
+	// } else {
+	// 	// If we have multiple NUMA nodes, load the second network on the second NUMA node
+	// 	int tot_nodes = numa_max_node() + 1;
+	// 	if (tot_nodes > 8) {
+	// 		std::cerr << "More than 8 NUMA nodes detected. Performance may be impacted." << std::endl;
+	// 		tot_nodes = 8;
+	// 	}
+	// 	for (int i = 1; i < tot_nodes; i++) {
+	// 		nnue_networks[i] = (Network *)numa_alloc_onnode(sizeof(Network), i);
+	// 		if (nnue_networks[i] == nullptr) {
+	// 			std::cerr << "Pourquoi ton ordinateur veut pas fonctionner?" << std::endl;
+	// 			nnue_networks[i] = nnue_networks[0];
+	// 		} else {
+	// 			nnue_networks[i]->load();
+	// 		}
+	// 	}
+	// }
+	nnue_networks[0] = new Network();
+	nnue_networks[0]->load();
 }
 
 Value simple_eval(Position &pos) {
@@ -25,9 +51,9 @@ Value eval(Position &pos, AccumulatorManager &am) {
 	int nbucket = (npieces - 2) / 4;
 
 	if (pos.side == WHITE) {
-		score = nnue_eval(nnue_network, am.current().w_acc, am.current().b_acc, nbucket);
+		score = nnue_eval(am.current().w_acc, am.current().b_acc, nbucket);
 	} else {
-		score = -nnue_eval(nnue_network, am.current().b_acc, am.current().w_acc, nbucket);
+		score = -nnue_eval(am.current().b_acc, am.current().w_acc, nbucket);
 	}
 	
 	const int mat_phase = PawnValue * _mm_popcnt_u64(pos.piece_boards[PAWN])
@@ -64,11 +90,11 @@ std::array<Value, 8> debug_eval(Position &pos) {
 	std::array<Value, 8> score = {};
 	if (pos.side == WHITE) {
 		for (int i = 0; i < 8; i++) {
-			score[i] = nnue_eval(nnue_network, am.current().w_acc, am.current().b_acc, i);
+			score[i] = nnue_eval(am.current().w_acc, am.current().b_acc, i);
 		}
 	} else {
 		for (int i = 0; i < 8; i++) {
-			score[i] = -nnue_eval(nnue_network, am.current().b_acc, am.current().w_acc, i);
+			score[i] = -nnue_eval(am.current().b_acc, am.current().w_acc, i);
 		}
 	}
 

@@ -15,6 +15,7 @@ WINCXX   := x86_64-w64-mingw32-g++
 BASEFLAGS   := -std=c++20 -DNNUE_PATH=\"$(EVALFILE)\" -m64 -DVERSION=\"$(VERSION)\"
 OPTFLAGS    := -O3 -flto=auto
 DEBUGFLAGS  := -g -march=x86-64-v3 -fsanitize=address,undefined
+LIBS        := -lnuma
 
 # Sources & objects
 SRCS  := $(wildcard engine/*.cpp engine/nnue/*.cpp Pyrrhic/tbprobe.cpp)
@@ -54,7 +55,7 @@ pzchessbot-win-avx512: $(SRCS) $(HDRS)
 
 # Link final binary
 $(EXE): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LIBS)
 	@echo "Build complete. Run with ./$(EXE)"
 
 # Compile objects with dependency generation

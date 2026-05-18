@@ -6,7 +6,7 @@
 #include "boardstate.hpp"
 #include "nnue/accumulator.hpp"
 
-extern Network nnue_network;
+extern Network *nnue_networks[8];
 
 Value simple_eval(Position &);
 

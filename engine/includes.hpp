@@ -17,6 +17,12 @@
 #include <unordered_set>
 #include <utility>
 
+#ifdef __linux__
+#include <numa.h>
+#else
+#warning "You are compiling without NUMA support. If you have one CPU, this is fine. If you have multiple CPUs, performance may be impacted."
+#endif
+
 #include "pzstl/vector.hpp"
 #include "debug.hpp"
 

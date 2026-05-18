@@ -53,7 +53,7 @@ int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nb
 	return nbucket * INPUT_SIZE + side * 64 * 6 + pt * 64 + sq;
 }
 
-int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket) {
+int32_t nnue_eval(const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket, int node) {
 	const ivec zero = simd::setzero_ivec();
 	const ivec clip = simd::broadcast_i16(QA);
 	const fvec f_zero = simd::setzero_fvec();
@@ -94,7 +94,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 			ivec val = simd::load_ivec((ivec *)&l1[j]);
 
 			for (int k = 0; k < L1_UNROLL; k++) {
-				ivec weight = simd::load_ivec((ivec *)&net.l1_weights[nbucket][i + k][j]);
+				ivec weight = simd::load_ivec((ivec *)&nnue_networks[node]->l1_weights[nbucket][i + k][j]);
 				sums[k] = simd::accdp_u8i8_i16(val, weight, sums[k]);
 			}
 		}
@@ -108,7 +108,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		ivec i_val = simd::load_ivec((ivec *)&l2i[i]);
 		fvec val = simd::cvt_i32_f32(i_val);
 
-		fvec bias = simd::load_fvec(&net.l1_biases[nbucket][i]);
+		fvec bias = simd::load_fvec(&nnue_networks[node]->l1_biases[nbucket][i]);
 
 		val = simd::fma_f32(val, div, bias);
 
@@ -122,13 +122,13 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 	for (int i = 0; i < L3_SIZE; i += FLOATS_PER_VEC * L2_UNROLL) {
 		fvec sums[L2_UNROLL];
 		for (int j = 0; j < L2_UNROLL; j++)
-			sums[j] = simd::load_fvec(&net.l2_biases[nbucket][i + j * FLOATS_PER_VEC]);
+			sums[j] = simd::load_fvec(&nnue_networks[node]->l2_biases[nbucket][i + j * FLOATS_PER_VEC]);
 
 		for (int j = 0; j < L2_SIZE; j++) {
 			fvec val = simd::broadcast_f32(l2[j]);
 
 			for (int k = 0; k < L2_UNROLL; k++) {
-				fvec weight = simd::load_fvec(&net.l2_weights[nbucket][j][i + k * FLOATS_PER_VEC]);
+				fvec weight = simd::load_fvec(&nnue_networks[node]->l2_weights[nbucket][j][i + k * FLOATS_PER_VEC]);
 				sums[k] = simd::fma_f32(val, weight, sums[k]);
 			}
 		}
@@ -146,7 +146,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 
 		val = simd::clamp_f32(val, f_zero, f_clip);
 
-		fvec weight = simd::load_fvec(&net.output_weights[nbucket][i]);
+		fvec weight = simd::load_fvec(&nnue_networks[node]->output_weights[nbucket][i]);
 
 		int idx = i / FLOATS_PER_VEC % L3_UNROLL;
 		sums[idx] = simd::fma_f32(simd::mul_f32(val, val), weight, sums[idx]);
@@ -159,7 +159,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 			sums[i] = simd::add_f32(sums[i], sums[i + num]);
 	}
 
-	float score = simd::reduce_add_ps(sums[0]) + net.output_biases[nbucket];
+	float score = simd::reduce_add_ps(sums[0]) + nnue_networks[node]->output_biases[nbucket];
 
 	return score * SCALE;
 }
