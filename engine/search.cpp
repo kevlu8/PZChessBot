@@ -513,7 +513,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		 * 
 		 * We need to make sure that we aren't in check (since we might get mated)
 		 */
-		int margin = (rfp_threshold() - improving * rfp_improving()) * depth + rfp_quad() * depth * depth - rfp_cutnode() * cutnode;
+		int margin = (rfp_threshold() - improving * rfp_improving()) * depth + rfp_quad() * depth * depth - rfp_cutnode() * cutnode + corr_val * rfp_corr() / 1024;
 		if (tt_corr_eval >= beta + margin)
 			return ((int)tt_corr_eval + beta) / 2;
 	}
