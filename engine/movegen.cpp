@@ -871,6 +871,8 @@ bool Position::see(Move move, int threshold) {
 	PieceType atkr = PieceType(mailbox[src] & 7);
 	PieceType victim = PieceType(mailbox[dst] & 7);
 
+	if (move.type() == CASTLING) return true; // castling can't possibly lead to losing material
+
 	int score = gain_(*this, move) - threshold;
 	if (score < 0) return false; // If immediately evaluating the capture is not good enough
 	PieceType next = move.type() == PROMOTION ? PieceType(move.promotion() + KNIGHT) : atkr;
