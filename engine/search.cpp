@@ -482,10 +482,12 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	Value cur_eval = 0;
 	Value raw_eval = 0;
 	Value tt_corr_eval = 0;
+	Value corr_val = 0;
 	if (!in_check) {
 		cur_eval = tentry && is_valid_score(tentry->s_eval) ? tentry->s_eval : eval(pos, ti.am) * side;
 		raw_eval = cur_eval;
 		if (!excluded) ti.thread_corrhist.apply_correction(pos, &ti.line[ply], ply, cur_eval);
+		corr_val = abs(cur_eval - raw_eval);
 		tt_corr_eval = cur_eval;
 		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_WIN && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
 			tt_corr_eval = tteval;
@@ -511,7 +513,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		 * 
 		 * We need to make sure that we aren't in check (since we might get mated)
 		 */
-		int margin = (rfp_threshold() - improving * rfp_improving()) * depth + rfp_quad() * depth * depth - rfp_cutnode() * cutnode;
+		int margin = (rfp_threshold() - improving * rfp_improving()) * depth + rfp_quad() * depth * depth - rfp_cutnode() * cutnode + corr_val * rfp_corr() / 1024;
 		if (tt_corr_eval >= beta + margin)
 			return ((int)tt_corr_eval + beta) / 2;
 	}

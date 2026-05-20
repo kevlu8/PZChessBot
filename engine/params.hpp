@@ -41,6 +41,7 @@ TUNE(rfp_threshold, 63, 20, 110, 10);
 TUNE(rfp_improving, 31, 10, 50, 8);
 TUNE(rfp_quad, 5, 1, 8, 1);
 TUNE(rfp_cutnode, 15, 5, 30, 5);
+TUNE(rfp_corr, 100, 20, 250, 20);
 TUNE(nmp_margin, 214, 50, 400, 25);
 TUNE(nmp_depth, 13, 0, 40, 5);
 TUNE(razor_margin, 227, 150, 400, 20);
