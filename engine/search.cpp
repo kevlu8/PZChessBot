@@ -674,7 +674,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		
 		int extension = 0;
 
-		if (!root && !excluded && depth >= 8 && tentry && is_valid_score(tteval) && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
+		if (!root && !excluded && depth >= 7 + ttpv && tentry && is_valid_score(tteval) && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
 			/**
 			 * Singular extensions
 			 * 
