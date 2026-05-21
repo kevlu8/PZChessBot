@@ -67,6 +67,7 @@ TUNE(lmr_killer, 835, 0, 2048, 128);
 TUNE(lmr_hist, 12, 1, 16, 2);
 TUNE(lmr_ttcapt, 914, 0, 2048, 128);
 TUNE(lmr_ttpv_alpha, -34, -1024, 1024, 256);
+TUNE(lmr_corr, 400, 0, 1024, 128);
 TUNE(dodeeper_margin, 109, 20, 200, 10);
 TUNE(doshallower_margin, -3, -64, 64, 8);
 TUNE(hist_large_margin, 96, 0, 256, 16);

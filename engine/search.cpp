@@ -482,10 +482,12 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	Value cur_eval = 0;
 	Value raw_eval = 0;
 	Value tt_corr_eval = 0;
+	Value corr_val = 0;
 	if (!in_check) {
 		cur_eval = tentry && is_valid_score(tentry->s_eval) ? tentry->s_eval : eval(pos, ti.am) * side;
 		raw_eval = cur_eval;
 		if (!excluded) ti.thread_corrhist.apply_correction(pos, &ti.line[ply], ply, cur_eval);
+		corr_val = abs(cur_eval - raw_eval);
 		tt_corr_eval = cur_eval;
 		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_WIN && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
 			tt_corr_eval = tteval;
@@ -846,6 +848,8 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			
 			if (ttpv && is_valid_score(tteval) && tteval <= alpha)
 				r += lmr_ttpv_alpha();
+
+			r -= corr_val * lmr_corr() / 128;
 
 			if (!capt && !promo)
 				r -= hist / 10;
