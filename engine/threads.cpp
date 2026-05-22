@@ -59,6 +59,15 @@ void Pool::search(Position &pos, RepetitionHandler &rp, int64_t time, int depth,
 		ti.is_main = (t == 0);
 	}
 
+	bool rep = false;
+	for (int i = rp.hash_hist.size() - 2; i >= 0; i--) {
+		if (rp.hash_hist[i] == pos.zobrist_without_ep()) {
+			rep = true;
+			break;
+		}
+	}
+	tb_moves = tbman.probe_moves(pos, rep);
+
 	start_barrier->arrive_and_wait();
 	ready_barrier->arrive_and_wait();
 }
