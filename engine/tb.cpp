@@ -47,7 +47,6 @@ std::unordered_set<uint16_t> TBManager::probe_moves(Position &pos, bool rep) {
 		pos.piece_boards[KNIGHT], pos.piece_boards[PAWN], pos.halfmove, ep_sq, turn, rep, &moves);
 	
 	if (res == 0) {
-		std::cerr << "Câlisse de tabarnak, tu te fous de moi ou quoi ?" << std::endl;
 		return viable_moves;
 	}
 
