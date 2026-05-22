@@ -1,7 +1,5 @@
 #include "tb.hpp"
 
-#include <cassert>
-
 std::optional<int> TBManager::probe_pos(Position &pos) {
 	if (!initialized || pos.halfmove != 0 || pos.castling) {
 		return std::nullopt;
