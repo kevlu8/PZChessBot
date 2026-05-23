@@ -16,7 +16,7 @@ private:
 	Position pos;
 	ThreadInfo *tis;
 
-	std::unique_ptr<std::barrier<>> start_barrier, ready_barrier;
+	std::unique_ptr<std::barrier<>> start_barrier, ready_barrier, init_barrier;
 	std::shared_mutex mtx;
 	bool stop;
 
@@ -27,20 +27,22 @@ private:
 public:
 	Pool() : num_threads(1), stop(false) {
 		tis = (ThreadInfo *)large_alloc(num_threads * sizeof(ThreadInfo));
-		new (tis) ThreadInfo();
 		start_barrier = std::make_unique<std::barrier<>>(2);
 		ready_barrier = std::make_unique<std::barrier<>>(2);
+		init_barrier = std::make_unique<std::barrier<>>(2);
 		threads.emplace_back(&Pool::thread_loop, this, 0);
+		init_barrier->arrive_and_wait();
 	}
 
 	Pool(size_t num_threads) : num_threads(num_threads), stop(false) {
 		tis = (ThreadInfo *)large_alloc(num_threads * sizeof(ThreadInfo));
 		start_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
 		ready_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
+		init_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
 		for (size_t i = 0; i < num_threads; ++i) {
-			new (&tis[i]) ThreadInfo();
 			threads.emplace_back(&Pool::thread_loop, this, i);
 		}
+		init_barrier->arrive_and_wait();
 	}
 
 	void resize(size_t num);
