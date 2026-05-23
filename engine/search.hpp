@@ -69,7 +69,7 @@ struct alignas(64) NodeCounter {
 extern NodeCounter nodes[MAX_THREADS];
 extern std::unordered_set<uint16_t> tb_moves;
 
-struct ThreadInfo {
+struct alignas(4096) ThreadInfo {
 	Position pos;
     RepetitionHandler rp;
 	int maxdepth = 0, seldepth = 0;

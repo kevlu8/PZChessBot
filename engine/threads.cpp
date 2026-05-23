@@ -23,12 +23,12 @@ void Pool::resize(size_t num) {
 	start_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
 	ready_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
 	for (size_t i = 0; i < num_threads; ++i) {
-		new (&tis[i]) ThreadInfo();
 		threads.emplace_back(&Pool::thread_loop, this, i);
 	}
 }
 
 void Pool::thread_loop(size_t i) {
+	new (&tis[i]) ThreadInfo(); // construct in thread loop for better NUMA locality
 	while (true) {
 		start_barrier->arrive_and_wait();
 		if (stop)
