@@ -27,7 +27,6 @@ private:
 public:
 	Pool() : num_threads(1), stop(false) {
 		tis = (ThreadInfo *)large_alloc(num_threads * sizeof(ThreadInfo));
-		new (tis) ThreadInfo();
 		start_barrier = std::make_unique<std::barrier<>>(2);
 		ready_barrier = std::make_unique<std::barrier<>>(2);
 		threads.emplace_back(&Pool::thread_loop, this, 0);
@@ -38,7 +37,6 @@ public:
 		start_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
 		ready_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
 		for (size_t i = 0; i < num_threads; ++i) {
-			new (&tis[i]) ThreadInfo();
 			threads.emplace_back(&Pool::thread_loop, this, i);
 		}
 	}
