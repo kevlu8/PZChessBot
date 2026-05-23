@@ -11,9 +11,10 @@ VERSION			:= v$(GIT_DATE)-$(GIT_SHORT_HASH)-dev
 CXX	?= g++
 
 # Flags
-BASEFLAGS	:= -std=c++20 -DNNUE_PATH=\"$(EVALFILE)\" -DVERSION=\"$(VERSION)\"
-OPTFLAGS	:= -O3 -flto=auto
-DEBUGFLAGS	:= -g -m64 -march=x86-64-v3 -fsanitize=address,undefined
+BASEFLAGS   := -std=c++20 -DNNUE_PATH=\"$(EVALFILE)\" -DVERSION=\"$(VERSION)\"
+OPTFLAGS    := -O3 -flto=auto
+DEBUGFLAGS  := -g -march=x86-64-v3 -fsanitize=address,undefined
+LDFLAGS		:= -lnuma
 
 # Sources & objects
 SRCS	:= $(shell find engine -name "*.cpp") Pyrrhic/tbprobe.cpp
@@ -50,7 +51,7 @@ debug: $(EXE)
 
 # Link final binary
 $(EXE): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 	@echo "Build complete. Run with ./$(EXE)"
 
 # Compile objects with dependency generation

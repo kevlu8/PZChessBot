@@ -18,6 +18,10 @@
 
 #include "threads.hpp"
 
+#ifdef __linux__
+#include <numa.h>
+#endif
+
 void Pool::resize(size_t num) {
 	if (num == num_threads)
 		return;
@@ -48,6 +52,11 @@ void Pool::resize(size_t num) {
 }
 
 void Pool::thread_loop(size_t i) {
+#ifdef __linux__
+	int node = i % numa_num_configured_nodes();
+	numa_run_on_node(node);
+	sched_yield();
+#endif
 	new (&tis[i]) ThreadInfo(); // construct in thread loop for better NUMA locality
 	init_barrier->arrive_and_wait();
 	while (true) {
