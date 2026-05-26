@@ -22,7 +22,11 @@ static void *large_alloc(size_t size) {
 	if (ptr == MAP_FAILED) {
 		std::__throw_runtime_error(strerror(errno));
 	}
+#ifdef MADV_COLLAPSE
 	madvise(ptr, size, MADV_COLLAPSE);
+#else
+	madvise(ptr, size, MADV_HUGEPAGE);
+#endif
 	return ptr;
 #endif
 }
