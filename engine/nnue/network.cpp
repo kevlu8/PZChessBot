@@ -11,7 +11,7 @@ __attribute__((constructor)) void init_nnz() {
 		uint32_t x = i;
 		int cnt = 0;
 		while (x) {
-			unsigned idx = std::countr_zero(x);
+			unsigned idx = __tzcnt_u32(x);
 			NNZ_TABLE[i][cnt++] = idx;
 			x = __blsr_u32(x);
 		}
@@ -131,7 +131,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 			__m512i tmp = _mm512_maskz_compress_epi16(msk, off);
 
 			_mm512_storeu_epi16(&nnz_idx[nnz_cnt], tmp);
-			nnz_cnt += std::popcount(msk);
+			nnz_cnt += _mm_popcnt_u32(msk);
 
 			off = _mm512_add_epi16(off, _mm512_set1_epi16(32));
 		}
