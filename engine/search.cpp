@@ -222,6 +222,11 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 
 	RepetitionHandler &rp = ti.rp;
 
+	// Threefold or 50 move rule
+	if (rp.threefold(ply, pos.zobrist_without_ep()) || pos.halfmove >= 100 || pos.insufficient_material()) {
+		return 0;
+	}
+
 	if (ply >= MAX_PLY)
 		return eval(pos, ti.am) * side; // Just in case
 
