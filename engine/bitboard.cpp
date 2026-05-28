@@ -161,13 +161,13 @@ void Position::load_fen(std::string fen) {
 	// Load castling rights
 	Bitboard rooks = piece_boards[ROOK];
 	if (fen[inputIdx] != '-') {
-		char king_file = (_tzcnt_u64(piece_boards[KING] & piece_boards[OCC(WHITE)])) + 'A';
+		char king_file = (__builtin_ctzll(piece_boards[KING] & piece_boards[OCC(WHITE)])) + 'A';
 		if (fen[inputIdx] == 'K') {
 			castling |= WHITE_OO;
 			inputIdx++;
 			Square king_square = make_square(File(king_file - 'A'), RANK_1);
 			Bitboard mask = ~(square_bits(king_square) - 1);
-			rook_pos[0] = Square(_tzcnt_u64(rooks & mask & piece_boards[OCC(WHITE)]));
+			rook_pos[0] = Square(__builtin_ctzll(rooks & mask & piece_boards[OCC(WHITE)]));
 		} else if (fen[inputIdx] <= 'H' && fen[inputIdx] > king_file) {
 			dfrc_uci = true;
 			castling |= WHITE_OO;
@@ -180,7 +180,7 @@ void Position::load_fen(std::string fen) {
 			inputIdx++;
 			Square king_square = make_square(File(king_file - 'A'), RANK_1);
 			Bitboard mask = (square_bits(king_square) - 1);
-			rook_pos[1] = Square(_tzcnt_u64(rooks & mask & piece_boards[OCC(WHITE)]));
+			rook_pos[1] = Square(__builtin_ctzll(rooks & mask & piece_boards[OCC(WHITE)]));
 		} else if (fen[inputIdx] >= 'A' && fen[inputIdx] < king_file) {
 			dfrc_uci = true;
 			castling |= WHITE_OOO;
@@ -188,13 +188,13 @@ void Position::load_fen(std::string fen) {
 			rook_pos[1] = make_square(File(fen[inputIdx - 1] - 'A'), RANK_1);
 		}
 
-		king_file = (_tzcnt_u64(piece_boards[KING] & piece_boards[OCC(BLACK)]) & 7) + 'a';
+		king_file = (__builtin_ctzll(piece_boards[KING] & piece_boards[OCC(BLACK)]) & 7) + 'a';
 		if (fen[inputIdx] == 'k') {
 			castling |= BLACK_OO;
 			inputIdx++;
 			Square king_square = make_square(File(king_file - 'a'), RANK_8);
 			Bitboard mask = ~(square_bits(king_square) - 1);
-			rook_pos[2] = Square(_tzcnt_u64(rooks & mask & piece_boards[OCC(BLACK)]));
+			rook_pos[2] = Square(__builtin_ctzll(rooks & mask & piece_boards[OCC(BLACK)]));
 		} else if (fen[inputIdx] <= 'h' && fen[inputIdx] > king_file) {
 			dfrc_uci = true;
 			castling |= BLACK_OO;
@@ -207,7 +207,7 @@ void Position::load_fen(std::string fen) {
 			inputIdx++;
 			Square king_square = make_square(File(king_file - 'a'), RANK_8);
 			Bitboard mask = (square_bits(king_square) - 1);
-			rook_pos[3] = Square(63 - _lzcnt_u64(rooks & mask & piece_boards[OCC(BLACK)]));
+			rook_pos[3] = Square(63 - __builtin_clzll(rooks & mask & piece_boards[OCC(BLACK)]));
 		} else if (fen[inputIdx] >= 'a' && fen[inputIdx] < king_file) {
 			dfrc_uci = true;
 			castling |= BLACK_OOO;
@@ -750,8 +750,8 @@ bool Position::insufficient_material() const {
 	if (all_pieces != 0) return false; // pawn/rook/queen -> mate is possible
 
 	// We only have bishops/knights left
-	int nknights = _mm_popcnt_u64(piece_boards[KNIGHT]);
-	int nbishops = _mm_popcnt_u64(piece_boards[BISHOP]);
+	int nknights = __builtin_popcountll(piece_boards[KNIGHT]);
+	int nbishops = __builtin_popcountll(piece_boards[BISHOP]);
 
 	return nknights + nbishops <= 1;
 }

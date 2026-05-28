@@ -25,8 +25,8 @@ void AccumulatorManager::full_refresh(Position &pos, int index) {
 		accs[index].b_acc.val[i] = nnue_network.accumulator_biases[i];
 	}
 
-	Square wkingsq = (Square)_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)]);
-	Square bkingsq = (Square)_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]);
+	Square wkingsq = (Square)__builtin_ctzll(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)]);
+	Square bkingsq = (Square)__builtin_ctzll(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]);
 	int winbucket = IBUCKET_LAYOUT[wkingsq];
 	int binbucket = IBUCKET_LAYOUT[bkingsq ^ 56];
 	accs[index].winbucket = winbucket;
@@ -47,8 +47,8 @@ void AccumulatorManager::full_refresh(Position &pos, int index) {
 }
 
 void AccumulatorManager::refresh_finny(Position &pos, int index) {
-	int winbucket = IBUCKET_LAYOUT[_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)])];
-	int binbucket = IBUCKET_LAYOUT[_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]) ^ 56];
+	int winbucket = IBUCKET_LAYOUT[__builtin_ctzll(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)])];
+	int binbucket = IBUCKET_LAYOUT[__builtin_ctzll(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]) ^ 56];
 	accs[index].winbucket = winbucket;
 	accs[index].binbucket = binbucket;
 
@@ -203,8 +203,8 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 		}
 	}
 
-	int winbucket = IBUCKET_LAYOUT[_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)])];
-	int binbucket = IBUCKET_LAYOUT[_tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]) ^ 56];
+	int winbucket = IBUCKET_LAYOUT[__builtin_ctzll(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)])];
+	int binbucket = IBUCKET_LAYOUT[__builtin_ctzll(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]) ^ 56];
 	acc.winbucket = winbucket;
 	acc.binbucket = binbucket;
 

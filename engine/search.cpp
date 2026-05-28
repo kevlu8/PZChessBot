@@ -319,7 +319,7 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 		rp.push_hash(pos_after.zobrist_without_ep());
 		ti.am.make_move(pos, move, pos_after);
 		
-		_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
+		__builtin_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], 0, 3);
 		Value score = -quiesce(pos_after, ti, -beta, -alpha, -side, ply + 1, pv);
 
 		ti.am.pop_move();
@@ -526,8 +526,8 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	}
 
 	// Null-move pruning
-	int npieces = _mm_popcnt_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
-	int npawns_and_kings = _mm_popcnt_u64(pos.piece_boards[PAWN] | pos.piece_boards[KING]);
+	int npieces = __builtin_popcountll(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
+	int npawns_and_kings = __builtin_popcountll(pos.piece_boards[PAWN] | pos.piece_boards[KING]);
 	if (!pv && !in_check && !ti.nmp_disable && npieces != npawns_and_kings && cur_eval >= beta + nmp_margin() - nmp_depth() * depth && depth >= 2 && !excluded) { // Avoid NMP in pawn endgames
 		/**
 		 * This works off the *null-move observation*.
@@ -621,7 +621,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			rp.push_hash(pos_after.zobrist_without_ep());
 			ti.am.make_move(pos, pc_move, pos_after);
 
-			_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
+			__builtin_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], 0, 3);
 			Value score = -quiesce(pos_after, ti, -pc_beta, -pc_beta + 1, -side, ply + 1);
 
 			if (score >= pc_beta)
@@ -813,7 +813,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		rp.push_hash(pos_after.zobrist_without_ep());
 		ti.am.make_move(pos, move, pos_after);
 
-		_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
+		__builtin_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], 0, 3);
 
 		int newdepth = depth - 1 + extension;
 
@@ -1095,9 +1095,9 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			bool best_ispromo = (best_move.type() == PROMOTION);
 			bool in_check = false;
 			if (pos.side == WHITE) {
-				in_check = pos.control(__tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)]), BLACK) > 0;
+				in_check = pos.control(__builtin_ctzll(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)]), BLACK) > 0;
 			} else {
-				in_check = pos.control(__tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]), WHITE) > 0;
+				in_check = pos.control(__builtin_ctzll(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]), WHITE) > 0;
 			}
 
 			double soft = 0.53;

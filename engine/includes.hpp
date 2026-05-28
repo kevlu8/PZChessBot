@@ -7,7 +7,20 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
+inline uint64_t pext(uint64_t val, uint64_t mask) { return _pext_u64(val, mask); }
+#else
+inline uint64_t pext(uint64_t val, uint64_t mask) {
+    uint64_t res = 0;
+    for (uint64_t bb = 1; mask; bb <<= 1, mask &= mask - 1)
+        if (val & mask & -mask) res |= bb;
+    return res;
+}
+#endif
+
+constexpr uint64_t blsr  (uint64_t x) { return x & (x - 1); }
+constexpr uint64_t blsmsk(uint64_t x) { return x ^ (x - 1); }
 #include <iomanip>
 #include <iostream>
 #include <optional>
