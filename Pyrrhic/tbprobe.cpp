@@ -563,7 +563,7 @@ static void init_tb(char *str)
     }
 
   for (int type = 0; type < 3; type++)
-    atomic_init(&be->ready[type], false);
+    be->ready[type].store(false, std::memory_order_relaxed);
 
   if (!be->hasPawns) {
     int j = 0;

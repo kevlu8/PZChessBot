@@ -158,7 +158,7 @@ void run_uci() {
 			std::array<Value, 8> score = debug_eval(pos);
 			pos.print_board();
 			std::cout << "info string fen " << pos.get_fen() << std::endl;
-			int nbucket = (_mm_popcnt_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]) - 2) / 4;
+			int nbucket = (__builtin_popcountll(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]) - 2) / 4;
 			for (int i = 0; i < 8; i++) {
 				std::cout << "info string eval " << i << ": " << score[i];
 				if (i == nbucket) {
@@ -387,9 +387,9 @@ int main(int argc, char *argv[]) {
 			if (in_check || checking_opponent) restart = true;
 			// make sure position is legal and somewhat balanced
 			if (!restart) {
-				if (_mm_popcnt_u64(pos.piece_boards[KING]) != 2) restart = true;
+				if (__builtin_popcountll(pos.piece_boards[KING]) != 2) restart = true;
 				else if (filter_weird) {
-					int npieces = _mm_popcnt_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
+					int npieces = __builtin_popcountll(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
 					auto s_eval = eval(pos, am);
 					if (abs(s_eval) >= 2000) restart = true; // do a fast static eval to quickly filter out crazy positions
 					else {

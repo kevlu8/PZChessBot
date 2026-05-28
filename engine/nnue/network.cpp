@@ -1,6 +1,7 @@
 #include "network.hpp"
 #include "simd.hpp"
 
+#define INCBIN_SILENCE_BITCODE_WARNING
 #include "incbin.h"
 
 extern "C" {

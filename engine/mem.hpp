@@ -23,7 +23,9 @@ static void *large_alloc(size_t size) {
 		std::__throw_runtime_error(strerror(errno));
 	}
 
+#ifdef MADV_HUGEPAGE
 	madvise(ptr, size, MADV_HUGEPAGE);
+#endif
 
 	return ptr;
 #endif

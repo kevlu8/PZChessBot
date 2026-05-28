@@ -5,7 +5,7 @@ std::optional<int> TBManager::probe_pos(Position &pos) {
 		return std::nullopt;
 	}
 
-	int npieces = _mm_popcnt_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
+	int npieces = __builtin_popcountll(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
 	if (npieces > TB_LARGEST || npieces > max_pieces) {
 		return std::nullopt;
 	}
@@ -33,7 +33,7 @@ std::unordered_set<uint16_t> TBManager::probe_moves(Position &pos, bool rep) {
 		return viable_moves;
 	}
 
-	int npieces = _mm_popcnt_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
+	int npieces = __builtin_popcountll(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
 	if (npieces > TB_LARGEST || npieces > max_pieces) {
 		return viable_moves;
 	}

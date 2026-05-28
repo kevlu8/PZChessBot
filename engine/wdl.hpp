@@ -32,6 +32,8 @@ std::tuple<int, int, int> score_to_wdl(Position &pos, Value score) {
 			case QUEEN:
 				mat += 9;
 				break;
+			default:
+				break;
 		}
 	}
 

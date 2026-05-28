@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+
+#if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
 
 #if defined(__AVX512BW__)
@@ -22,6 +24,34 @@ using fvec = __m256;
 #define L1_UNROLL 4
 #define L2_UNROLL 4
 #define L3_UNROLL 2
+
+#endif
+
+#else // non-x86: scalar fallback using 256-bit equivalent structs
+
+#define VEC_SIZE 256
+
+#define L1_UNROLL 4
+#define L2_UNROLL 4
+#define L3_UNROLL 2
+
+struct alignas(32) ivec_t {
+    union {
+        int8_t   i8[32];
+        uint8_t  u8[32];
+        int16_t  i16[16];
+        uint16_t u16[16];
+        int32_t  i32[8];
+        int64_t  i64[4];
+    };
+};
+
+struct alignas(32) fvec_t {
+    float f32[8];
+};
+
+using ivec = ivec_t;
+using fvec = fvec_t;
 
 #endif
 

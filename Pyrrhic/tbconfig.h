@@ -42,13 +42,13 @@
 #include "../engine/movegen.hpp"
 
 inline uint64_t pop_lsb(uint64_t *bb) {
-	uint64_t lsb = _tzcnt_u64(*bb);
+	uint64_t lsb = (uint64_t)__builtin_ctzll(*bb);
 	*bb &= *bb - 1;
 	return lsb;
 }
 
-#define PYRRHIC_POPCOUNT(x)              (_mm_popcnt_u64((uint64_t)(x)))
-#define PYRRHIC_LSB(x)                   (_tzcnt_u64((uint64_t)(x)))
+#define PYRRHIC_POPCOUNT(x)              (__builtin_popcountll((uint64_t)(x)))
+#define PYRRHIC_LSB(x)                   ((uint64_t)__builtin_ctzll((uint64_t)(x)))
 #define PYRRHIC_POPLSB(x)                (pop_lsb(x))
 
 #define PYRRHIC_PAWN_ATTACKS(sq, c)      (pawn_attacks((Square)(sq), !c))
