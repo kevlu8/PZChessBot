@@ -4,6 +4,7 @@
 
 #include "simd.hpp"
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 ivec simd::setzero_ivec() {
@@ -88,7 +89,7 @@ fvec simd::cvt_i32_f32(ivec v) {
 
 fvec simd::fma_f32(fvec a, fvec b, fvec c) {
     fvec r;
-    for (int i = 0; i < 8; i++) r.f32[i] = a.f32[i] * b.f32[i] + c.f32[i];
+    for (int i = 0; i < 8; i++) r.f32[i] = std::fmaf(a.f32[i], b.f32[i], c.f32[i]);
     return r;
 }
 
@@ -117,9 +118,13 @@ void simd::store_u16_u8(uint8_t *p, ivec v) {
 }
 
 float simd::reduce_add_ps(fvec v) {
-    float sum = 0.0f;
-    for (int i = 0; i < 8; i++) sum += v.f32[i];
-    return sum;
+    // Match AVX2 reduction order: _mm256_extractf128 add, movehdup add, movehl add
+    // = ((v[0]+v[4]) + (v[1]+v[5])) + ((v[2]+v[6]) + (v[3]+v[7]))
+    float s0 = v.f32[0] + v.f32[4];
+    float s1 = v.f32[1] + v.f32[5];
+    float s2 = v.f32[2] + v.f32[6];
+    float s3 = v.f32[3] + v.f32[7];
+    return (s0 + s1) + (s2 + s3);
 }
 
 int32_t simd::reduce_add_epi16(ivec v) {
