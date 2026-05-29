@@ -5,13 +5,15 @@
 // Define constants for each target
 #if defined(TARGET_ARM_NEON)
 
-using ivec = uint8x16_t;
+#include <arm_neon.h>
+
+using ivec = int16x8_t;
 using fvec = float32x4_t;
 #define VEC_SIZE 128
 
 #define L1_UNROLL 4
 #define L2_UNROLL 4
-#define L3_UNROLL 2
+#define L3_UNROLL 4
 
 #elif defined(TARGET_X86_AVX512)
 
