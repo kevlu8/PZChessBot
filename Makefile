@@ -1,62 +1,52 @@
 # Project settings
-EXE      ?= pzchessbot
-EVALFILE ?= nnue.bin
+EXE				?= pzchessbot
+EVALFILE		?= nnue.bin
 
-GIT_SHORT_HASH := $(shell git rev-parse --short HEAD)
-GIT_DATE := $(shell git log -1 --format=%cd --date=format:"%Y%m%d")
+GIT_SHORT_HASH	:= $(shell git rev-parse --short HEAD)
+GIT_DATE		:= $(shell git log -1 --format=%cd --date=format:"%Y%m%d")
 
-VERSION := v$(GIT_DATE)-$(GIT_SHORT_HASH)-dev
+VERSION			:= v$(GIT_DATE)-$(GIT_SHORT_HASH)-dev
 
 # Compilers
-CXX      := g++
-WINCXX   := x86_64-w64-mingw32-g++
+CXX	?= g++
 
 # Flags
-BASEFLAGS   := -std=c++20 -DNNUE_PATH=\"$(EVALFILE)\" -m64 -DVERSION=\"$(VERSION)\"
-OPTFLAGS    := -O3 -flto=auto
-DEBUGFLAGS  := -g -march=x86-64-v3 -fsanitize=address,undefined
+BASEFLAGS	:= -std=c++20 -DNNUE_PATH=\"$(EVALFILE)\" -DVERSION=\"$(VERSION)\"
+OPTFLAGS	:= -O3 -flto=auto
+DEBUGFLAGS	:= -g -m64 -march=x86-64-v3 -fsanitize=address,undefined
 
 # Sources & objects
-SRCS  := $(wildcard engine/*.cpp engine/nnue/*.cpp engine/arch/*.cpp Pyrrhic/tbprobe.cpp)
-HDRS  := $(wildcard engine/*.hpp engine/nnue/*.hpp engine/arch/*.hpp Pyrrhic/tbprobe.h)
-OBJS  := $(SRCS:.cpp=.o)
-DEPS  := $(OBJS:.o=.d)
+SRCS	:= $(shell find engine -name "*.cpp") Pyrrhic/tbprobe.cpp
+HDRS	:= $(shell find engine -name "*.hpp") Pyrrhic/tbprobe.h
+OBJS	:= $(SRCS:.cpp=.o)
+DEPS	:= $(OBJS:.o=.d)
 
-.PHONY: all native binaries debug clean pgo pgo-compile
+.PHONY: all no-pext v3 v4 vnni arm native debug clean pgo pgo-compile
 
 # Default: native build
 all: pgo
 
-v3: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v3
+no-pext: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -march=znver2
+no-pext: $(EXE)
+
+v3: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v3
 v3: $(EXE)
 
-v4: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v4
+v4: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v4
 v4: $(EXE)
 
-native: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=native
+vnni: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -march=icelake-server
+vnni: $(EXE)
+
+arm: CXX := aarch64-linux-gnu-g++
+arm: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -mcpu=apple-m3
+arm: $(EXE)
+
+native: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -march=native
 native: $(EXE)
 
-debug: CXXFLAGS = $(BASEFLAGS) $(DEBUGFLAGS)
+debug: CXXFLAGS := $(BASEFLAGS) $(DEBUGFLAGS)
 debug: $(EXE)
-
-# Multi-binary builds
-binaries: pzchessbot-linux-avx2 pzchessbot-win-avx2 pzchessbot-linux-avx512 pzchessbot-win-avx512
-
-pzchessbot-linux-avx2: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v3 -static
-pzchessbot-linux-avx2: $(SRCS) $(HDRS)
-	$(CXX) $(CXXFLAGS) -o $@ $(SRCS)
-
-pzchessbot-win-avx2: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v3 -static
-pzchessbot-win-avx2: $(SRCS) $(HDRS)
-	$(WINCXX) $(CXXFLAGS) -o $@ $(SRCS)
-
-pzchessbot-linux-avx512: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v4 -static
-pzchessbot-linux-avx512: $(SRCS) $(HDRS)
-	$(CXX) $(CXXFLAGS) -o $@ $(SRCS)
-
-pzchessbot-win-avx512: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v4 -static
-pzchessbot-win-avx512: $(SRCS) $(HDRS)
-	$(WINCXX) $(CXXFLAGS) -o $@ $(SRCS)
 
 # Link final binary
 $(EXE): $(OBJS)
@@ -74,7 +64,7 @@ $(EXE): $(OBJS)
 clean:
 	@echo "Cleaning up..."
 	rm -f $(OBJS) $(DEPS)
-	rm -f engine/*.gcda engine/nnue/*.gcda Pyrrhic/*.gcda
+	rm -f engine/*.gcda engine/nnue/*.gcda engine/arch/*.gcda Pyrrhic/*.gcda
 
 pgo-compile: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -fprofile-use -march=native
 pgo-compile: $(EXE)
@@ -83,7 +73,7 @@ pgo: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -fprofile-generate -march=native
 pgo: $(EXE)
 	@echo "Running PGO instrumentation..."
 	./$(EXE) bench
-	rm engine/*.o Pyrrhic/*.o engine/nnue/*.o
+	rm $(OBJS)
 	@echo "Recompiling with PGO optimizations..."
 	$(MAKE) pgo-compile
-	rm -f engine/*.gcda engine/nnue/*.gcda Pyrrhic/*.gcda
+	rm -f engine/*.gcda engine/nnue/*.gcda engine/arch/*.gcda Pyrrhic/*.gcda

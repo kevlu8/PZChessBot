@@ -4,8 +4,6 @@
 
 #if defined(TARGET_X86_AVX512)
 
-#include "amd64.hpp"
-
 namespace simd {
 	ivec setzero_ivec() {
 		return _mm512_setzero_si512();
