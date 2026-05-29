@@ -17,8 +17,8 @@ OPTFLAGS    := -O3 -flto=auto
 DEBUGFLAGS  := -g -march=x86-64-v3 -fsanitize=address,undefined
 
 # Sources & objects
-SRCS  := $(wildcard engine/*.cpp engine/nnue/*.cpp Pyrrhic/tbprobe.cpp)
-HDRS  := $(wildcard engine/*.hpp engine/nnue/*.hpp Pyrrhic/tbprobe.h)
+SRCS  := $(wildcard engine/*.cpp engine/nnue/*.cpp engine/arch/*.cpp Pyrrhic/tbprobe.cpp)
+HDRS  := $(wildcard engine/*.hpp engine/nnue/*.hpp engine/arch/*.hpp Pyrrhic/tbprobe.h)
 OBJS  := $(SRCS:.cpp=.o)
 DEPS  := $(OBJS:.o=.d)
 
@@ -26,6 +26,12 @@ DEPS  := $(OBJS:.o=.d)
 
 # Default: native build
 all: pgo
+
+v3: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v3
+v3: $(EXE)
+
+v4: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v4
+v4: $(EXE)
 
 native: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -march=native
 native: $(EXE)

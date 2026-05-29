@@ -2,7 +2,7 @@
 
 #if defined(__AVX512BW__)
 
-#include "simd.hpp"
+#include "arch.hpp"
 
 ivec simd::setzero_ivec() {
 	return _mm512_setzero_si512();

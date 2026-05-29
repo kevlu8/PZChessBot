@@ -1,6 +1,6 @@
 #pragma once
 
-#include "simd.hpp"
+#include "arch.hpp"
 
 ivec simd::setzero_ivec() {
 	return _mm256_setzero_si256();
