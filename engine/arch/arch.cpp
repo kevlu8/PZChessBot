@@ -2,7 +2,7 @@
 
 #if defined(__ARM_NEON)
 #elif defined(__AVX512BW__)
-	#include "avx512.hpp"
+	#include "amd64/avx512.hpp"
 #elif defined(__AVX2__)
-	#include "avx2.hpp"
+	#include "amd64/avx2.hpp"
 #endif
