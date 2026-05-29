@@ -1,8 +1,8 @@
 #pragma once
 
-#if defined(__AVX512BW__)
-
 #include "arch.hpp"
+
+#if defined(ARCH_X86_AVX512)
 
 ivec simd::setzero_ivec() {
 	return _mm512_setzero_si512();

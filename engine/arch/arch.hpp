@@ -1,9 +1,23 @@
 #pragma once
 
 #include <cstdint>
-#include <immintrin.h>
 
-#if defined(__AVX512BW__)
+// Define constants for each arch
+#if defined(__ARM_NEON)
+
+using ivec = uint8x16_t;
+using fvec = float32x4_t;
+#define VEC_SIZE 128
+
+#define L1_UNROLL 4
+#define L2_UNROLL 4
+#define L3_UNROLL 2
+
+#define ARCH_ARM_NEON
+
+#elif defined(__AVX512BW__)
+
+#include <immintrin.h>
 
 using ivec = __m512i;
 using fvec = __m512;
@@ -13,7 +27,11 @@ using fvec = __m512;
 #define L2_UNROLL 2
 #define L3_UNROLL 1
 
-#else
+#define ARCH_X86_AVX512
+
+#elif defined(__AVX2__)
+
+#include <immintrin.h>
 
 using ivec = __m256i;
 using fvec = __m256;
@@ -23,6 +41,10 @@ using fvec = __m256;
 #define L2_UNROLL 4
 #define L3_UNROLL 2
 
+#define ARCH_X86_AVX2
+
+#else
+#error "Unsupported architecture"
 #endif
 
 #define BYTES_PER_VEC (VEC_SIZE / 8)

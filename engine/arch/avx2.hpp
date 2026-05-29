@@ -2,6 +2,8 @@
 
 #include "arch.hpp"
 
+#if defined(ARCH_X86_AVX2)
+
 ivec simd::setzero_ivec() {
 	return _mm256_setzero_si256();
 }
@@ -94,3 +96,5 @@ int32_t simd::reduce_add_epi16(ivec v) {
 
 	return _mm_cvtsi128_si32(sum);
 }
+
+#endif

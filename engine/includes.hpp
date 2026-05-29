@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
-#include <immintrin.h>
 #include <iomanip>
 #include <iostream>
 #include <optional>
