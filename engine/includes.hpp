@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
-#include <immintrin.h>
 #include <iomanip>
 #include <iostream>
 #include <optional>
@@ -17,8 +16,9 @@
 #include <unordered_set>
 #include <utility>
 
-#include "pzstl/vector.hpp"
+#include "arch/arch.hpp"
 #include "debug.hpp"
+#include "pzstl/vector.hpp"
 
 #ifndef VERSION
 #define VERSION "v7.0"

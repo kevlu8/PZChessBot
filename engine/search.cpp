@@ -1,7 +1,7 @@
 #include "search.hpp"
-#include <utility>
 #include "params.hpp"
 #include "wdl.hpp"
+#include <utility>
 
 #define MOVENUM(x) ((((#x)[1] - '1') << 12) | (((#x)[0] - 'a') << 8) | (((#x)[3] - '1') << 4) | ((#x)[2] - 'a'))
 
@@ -52,8 +52,10 @@ uint16_t reduction[250][MAX_PLY];
 __attribute__((constructor)) void init_lmr() {
 	for (int i = 0; i < 250; i++) {
 		for (int d = 0; d < MAX_PLY; d++) {
-			if (d <= 1 || i <= 1) reduction[i][d] = 1024;
-			else reduction[i][d] = (0.74 + log(i) * log(d) / 2.33) * 1024;
+			if (d <= 1 || i <= 1)
+				reduction[i][d] = 1024;
+			else
+				reduction[i][d] = (0.74 + log(i) * log(d) / 2.33) * 1024;
 		}
 	}
 }
@@ -62,7 +64,7 @@ __attribute__((constructor)) void init_lmr() {
  * MVV_LVA (most valuable victim - least valuable attacker) is a metric for move ordering that helps
  * sort captures and promotions. We basically sort high-value captures first, and low-value captures
  * last.
- * 
+ *
  * Currently only used in quiescence search in favor of MVV+CaptHist in the main search
  */
 Value MVV_LVA[6][6];
@@ -80,16 +82,17 @@ __attribute__((constructor)) void init_mvvlva() {
 
 /**
  * Select the next move from the list of scored moves
- * 
+ *
  * This function uses a basic partial selection-sort-like algorithm to select the move with
  * the highest score. It then swaps the move to the back of the list, reducing the effective
  * time of the list by 1/2.
- * 
+ *
  * This approach is chosen because a lot of the time, we only need the top few moves from the
  * list to produce a cutoff.
  */
 Move next_move(pzstd::vector<std::pair<Move, int>> &scores, int &end) {
-	if (end == 0) return NullMove; // Ran out
+	if (end == 0)
+		return NullMove; // Ran out
 	Move best_move = NullMove;
 	int best_score = -2147483647;
 	int idx = 0;
@@ -106,10 +109,10 @@ Move next_move(pzstd::vector<std::pair<Move, int>> &scores, int &end) {
 
 /**
  * Convert a score to a TTable-storable score
- * 
+ *
  * Because our search function returns mate scores as an absolute mate-in-ply,
  * we need to convert them to a relative mate score for storage in the TTable.
- * 
+ *
  * Note that returning relative mate scores is fundamentally incompatible with the
  * alpha-beta search algorithm, hence why this conversion is necessary.
  */
@@ -138,24 +141,28 @@ Value tt_to_score(Value score, int ply) {
 
 /**
  * Get the usage of the transposition table
- * 
+ *
  * Used for UCI output. This function samples the first 1024 entries of the TTable
  * then counts how many are occupied.
  */
 double get_ttable_sz() {
 	int cnt = 0;
 	for (int i = 0; i < 1024; i++) {
-		if (i >= ttable.TT_SIZE) break;
-		if (ttable.TT[i].entries[0].valid() && ttable.TT[i].entries[0].age() == ttable.age) cnt++;
-		if (ttable.TT[i].entries[1].valid() && ttable.TT[i].entries[1].age() == ttable.age) cnt++;
-		if (ttable.TT[i].entries[2].valid() && ttable.TT[i].entries[2].age() == ttable.age) cnt++;
+		if (i >= ttable.TT_SIZE)
+			break;
+		if (ttable.TT[i].entries[0].valid() && ttable.TT[i].entries[0].age() == ttable.age)
+			cnt++;
+		if (ttable.TT[i].entries[1].valid() && ttable.TT[i].entries[1].age() == ttable.age)
+			cnt++;
+		if (ttable.TT[i].entries[2].valid() && ttable.TT[i].entries[2].age() == ttable.age)
+			cnt++;
 	}
 	return cnt / (3.0 * 1024);
 }
 
 /**
  * Convert a score to UCI format
- * 
+ *
  * UCI format requires mate scores to be represented as "mate N" where N is full-moves to
  * mate. Thus, we need to convert our internal representation to this format.
  */
@@ -167,8 +174,10 @@ std::string score_to_uci(Value score) {
 	} else if (abs(score) >= VALUE_TB_WIN_MAX_PLY) {
 		return "cp " + std::to_string(score);
 	} else {
-		if (!do_datagen) return "cp " + std::to_string(int(score / NNUE_PAWN_VALUE));
-		else return "cp " + std::to_string(score);
+		if (!do_datagen)
+			return "cp " + std::to_string(int(score / NNUE_PAWN_VALUE));
+		else
+			return "cp " + std::to_string(score);
 	}
 }
 
@@ -181,24 +190,26 @@ bool is_valid_score(Value score) {
 
 /**
  * Perform the quiescence search
- * 
+ *
  * Quiescence search is a technique to avoid the horizon effect, where the evaluation function
  * incorrectly evaluates a position because it is not stable (e.g. there is a hanging queen).
  * In this function, we search only captures and promotions, and return the best score.
- * 
+ *
  * We also use stand pat to optimize the search further. If we are satisfied with our position,
  * we can stop searching captures (which may actually worsen our position) and instead directly
  * return our evaluation.
- * 
+ *
  * TODO:
  * - Late move reduction (instead of reducing depth, we reduce the search window) (not a known technique, maybe worth trying?)
  */
-Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool pv=false) {
+Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, int ply, bool pv = false) {
 	nodes[ti.id]++;
 
-	if (pv) ti.pvlen[ply] = 0;
+	if (pv)
+		ti.pvlen[ply] = 0;
 
-	if (stop_search) return 0;
+	if (stop_search)
+		return 0;
 
 	if (ti.is_main) {
 		auto cur_nodes = nodes[ti.id].get();
@@ -233,14 +244,18 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 	// Check for TTable cutoff
 	auto tentry = ttable.probe(pos.zobrist);
 	Value tteval = -VALUE_INFINITE;
-	if (tentry && is_valid_score(tentry->eval)) tteval = tt_to_score(tentry->eval, ply);
+	if (tentry && is_valid_score(tentry->eval))
+		tteval = tt_to_score(tentry->eval, ply);
 	if (!pv && tentry && is_valid_score(tteval)) {
-		if (tentry->bound() == EXACT) return tteval;
+		if (tentry->bound() == EXACT)
+			return tteval;
 		if (tentry->bound() == LOWER_BOUND) {
-			if (tteval >= beta) return tteval;
+			if (tteval >= beta)
+				return tteval;
 		}
 		if (tentry->bound() == UPPER_BOUND) {
-			if (tteval <= alpha) return tteval;
+			if (tteval <= alpha)
+				return tteval;
 		}
 	}
 
@@ -255,7 +270,8 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 		ti.thread_corrhist.apply_correction(pos, &ti.line[ply], ply, stand_pat);
 		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_WIN && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
 			stand_pat = tteval;
-		if (!tentry) ttable.store(pos.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
+		if (!tentry)
+			ttable.store(pos.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
 	}
 
 	// If we are too good, return the score
@@ -281,14 +297,14 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 	while ((move = mp.next()) != NullMove) {
 		if (!pos.is_legal(move))
 			continue;
-		
+
 		mp.skip_quiets(); // in case we were searching evasions, if we reach here that means we have found one. So, we can skip all other quiets.
 
 		if (best > -VALUE_WIN) {
 			if (!pos.see(move, qs_see())) {
 				/**
 				 * QSearch SEE pruning
-				 * 
+				 *
 				 * In the QSearch, we don't care too much about missing tactics. So, we can
 				 * be more aggressive with our pruning. If a capture loses material, we can
 				 * discard it directly.
@@ -297,7 +313,7 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 			} else if (!in_check) {
 				/**
 				 * QS Futility pruning
-				 * 
+				 *
 				 * If we are not in check and our stand pat score is very bad, we skip captures
 				 * that are equal or worse.
 				 */
@@ -318,20 +334,21 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 		pos_after.make_move(move);
 		rp.push_hash(pos_after.zobrist_without_ep());
 		ti.am.make_move(pos, move, pos_after);
-		
-		_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
+
+		arch::prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)]);
 		Value score = -quiesce(pos_after, ti, -beta, -alpha, -side, ply + 1, pv);
 
 		ti.am.pop_move();
 		rp.pop_hash();
-		
+
 		ti.line[ply].move = NullMove;
 		ti.line[ply].captured = NO_PIECETYPE;
 		ti.line[ply].piece = NO_PIECETYPE;
 		ti.line[ply].cont_hist = nullptr;
 		ti.line[ply].corr_hist = nullptr;
 
-		if (stop_search) return 0;
+		if (stop_search)
+			return 0;
 
 		if (score > best) {
 			if (score > alpha) {
@@ -340,9 +357,9 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 
 				if (score < beta) {
 					ti.pvtable[ply][0] = move;
-					ti.pvlen[ply] = ti.pvlen[ply+1]+1;
-					for (int j = 0; j < ti.pvlen[ply+1]; j++) {
-						ti.pvtable[ply][j+1] = ti.pvtable[ply+1][j];
+					ti.pvlen[ply] = ti.pvlen[ply + 1] + 1;
+					for (int j = 0; j < ti.pvlen[ply + 1]; j++) {
+						ti.pvtable[ply][j + 1] = ti.pvtable[ply + 1][j];
 					}
 				}
 			}
@@ -381,7 +398,8 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 
 	nodes[ti.id]++;
 
-	if (stop_search) return 0;
+	if (stop_search)
+		return 0;
 
 	if (ti.is_main) {
 		auto cur_nodes = nodes[ti.id].get();
@@ -405,7 +423,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 
 	/**
 	 * Mate-distance pruning
-	 * 
+	 *
 	 * If we are at `ply` plies away from the root and we know we already have a mate-in-N
 	 * such that N <= ply, we can stop searching this branch since it's longer than our
 	 * current best mate.
@@ -431,17 +449,18 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 
 	/**
 	 * TTable Cutoffs
-	 * 
+	 *
 	 * If we have already searched this position at a sufficient depth and with the right
 	 * bounds, we can use the stored evaluation to directly cut off our search.
-	 * 
+	 *
 	 * Note that we cannot do this in singular search (`ti.line[ply].excl != NullMove`)
 	 * because the singular search excludes a move that may be the best move in the position.
 	 */
 	auto tentry = ttable.probe(pos.zobrist);
 	Value tteval = -VALUE_INFINITE;
 	bool ttcapt = false;
-	if (tentry && is_valid_score(tentry->eval)) tteval = tt_to_score(tentry->eval, ply);
+	if (tentry && is_valid_score(tentry->eval))
+		tteval = tt_to_score(tentry->eval, ply);
 	if (!pv && tentry && is_valid_score(tteval) && tentry->depth >= depth && !excluded && (tteval <= alpha || cutnode)) {
 		// Check for cutoffs
 		if (tentry->bound() == EXACT) {
@@ -460,7 +479,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 
 	/**
 	 * TB Probing
-	 * 
+	 *
 	 * If tablebases are available, we can look up our position to get a perfect evaluation.
 	 */
 	if (!root && !excluded && tbman.initialized && depth >= tbman.min_depth) {
@@ -468,13 +487,18 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		if (tb_res.has_value()) {
 			tbhits.fetch_add(1, std::memory_order_relaxed);
 			Value tb_score = 0;
-			if (tb_res == 1) tb_score = VALUE_TB_WIN - ply;
-			else if (tb_res == -1) tb_score = -VALUE_TB_WIN + ply;
-			else tb_score = 0;
+			if (tb_res == 1)
+				tb_score = VALUE_TB_WIN - ply;
+			else if (tb_res == -1)
+				tb_score = -VALUE_TB_WIN + ply;
+			else
+				tb_score = 0;
 
 			TTFlag tb_bound = EXACT;
-			if (tb_res == 1) tb_bound = LOWER_BOUND;
-			else if (tb_res == -1) tb_bound = UPPER_BOUND;
+			if (tb_res == 1)
+				tb_bound = LOWER_BOUND;
+			else if (tb_res == -1)
+				tb_bound = UPPER_BOUND;
 
 			if (tb_bound == EXACT || (tb_bound == LOWER_BOUND && tb_score >= beta) || (tb_bound == UPPER_BOUND && tb_score <= alpha)) {
 				ttable.store(pos.zobrist, score_to_tt(tb_score, ply), VALUE_NONE, depth, tb_bound, ttpv, NullMove);
@@ -493,31 +517,34 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	if (!in_check) {
 		cur_eval = tentry && is_valid_score(tentry->s_eval) ? tentry->s_eval : eval(pos, ti.am) * side;
 		raw_eval = cur_eval;
-		if (!excluded) ti.thread_corrhist.apply_correction(pos, &ti.line[ply], ply, cur_eval);
+		if (!excluded)
+			ti.thread_corrhist.apply_correction(pos, &ti.line[ply], ply, cur_eval);
 		corr_val = abs(cur_eval - raw_eval);
 		tt_corr_eval = cur_eval;
 		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_WIN && tentry->bound() != (tteval > cur_eval ? UPPER_BOUND : LOWER_BOUND))
 			tt_corr_eval = tteval;
-		else if (!tentry) ttable.store(pos.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
+		else if (!tentry)
+			ttable.store(pos.zobrist, -VALUE_INFINITE, raw_eval, 0, NONE, false, NullMove);
 	}
 
 	ti.line[ply].eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
 
 	/**
 	 * Improving flag
-	 * 
+	 *
 	 * If our position has gotten better since the last time it was our turn, we say that we are *improving*.
 	 * We can use this information to modify some of our pruning techniques.
 	 */
 	bool improving = false;
-	if (!in_check && ply >= 2 && ti.line[ply-2].eval != VALUE_NONE && cur_eval > ti.line[ply-2].eval) improving = true;
+	if (!in_check && ply >= 2 && ti.line[ply - 2].eval != VALUE_NONE && cur_eval > ti.line[ply - 2].eval)
+		improving = true;
 
 	// Reverse futility pruning
 	if (!in_check && !ttpv && depth <= 8 && !excluded) {
 		/**
 		 * The idea is that if we are winning by such a large margin that we can afford to lose
 		 * RFP_THRESHOLD * depth eval units per ply, we can return the current eval.
-		 * 
+		 *
 		 * We need to make sure that we aren't in check (since we might get mated)
 		 */
 		int margin = (rfp_threshold() - improving * rfp_improving()) * depth + rfp_quad() * depth * depth - rfp_cutnode() * cutnode + corr_val * rfp_corr() / 1024;
@@ -526,16 +553,16 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	}
 
 	// Null-move pruning
-	int npieces = _mm_popcnt_u64(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
-	int npawns_and_kings = _mm_popcnt_u64(pos.piece_boards[PAWN] | pos.piece_boards[KING]);
+	int npieces = arch::popcnt(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
+	int npawns_and_kings = arch::popcnt(pos.piece_boards[PAWN] | pos.piece_boards[KING]);
 	if (!pv && !in_check && !ti.nmp_disable && npieces != npawns_and_kings && cur_eval >= beta + nmp_margin() - nmp_depth() * depth && depth >= 2 && !excluded) { // Avoid NMP in pawn endgames
 		/**
 		 * This works off the *null-move observation*.
-		 * 
+		 *
 		 * The general idea is that a null move will almost always be worse than the best move
 		 * in a given position. So, if we can play a suboptimal move (in this case the null move)
 		 * and still be winning, we were probably winning in the first place.
-		 * 
+		 *
 		 * The only issue with this approach is that it will fail in Zugzwang positions. There's
 		 * really no good way of preventing this except for disabling NMP in positions where there
 		 * are probably Zugzwangs (e.g. endgames).
@@ -549,7 +576,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 
 		// Perform a reduced-depth search
 		Value r = NMP_R_VALUE + depth / 3;
-		Value null_score = -negamax(pos_after, ti, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply+1);
+		Value null_score = -negamax(pos_after, ti, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply + 1);
 
 		rp.pop_hash();
 		ti.line[ply].cont_hist = nullptr;
@@ -562,7 +589,8 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			 * reduced depth and NMP disabled. If that search also fails high, we can be more certain that the position
 			 * is actually winning.
 			 */
-			if (abs(null_score) >= VALUE_WIN) null_score = beta; // Prevent false mates
+			if (abs(null_score) >= VALUE_WIN)
+				null_score = beta; // Prevent false mates
 
 			if (depth <= 12)
 				return null_score; // Direct cutoff for low depths
@@ -590,14 +618,14 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	if (!pv && !in_check && depth >= 7 && !excluded && abs(beta) < VALUE_WIN && !(tentry && is_valid_score(tteval) && tteval < beta + probcut_margin())) {
 		/**
 		 * ProbCut
-		 * 
+		 *
 		 * Before running search, we generate moves that we think are good and
 		 * search them with a reduced depth and a higher beta. If one of them fails
 		 * high, we assume that the node will fail high at full depth as well.
-		 * 
+		 *
 		 * Note that if we have strong evidence that ProbCut will fail (e.g. from the TT),
 		 * we skip ProbCut to save time.
-		 * 
+		 *
 		 * In the body of the ProbCut loop, we first run a QSearch to figure out whether
 		 * or not the move could cut. If the QSearch doesn't fail high, we skip the move
 		 * in order to save effort.
@@ -621,7 +649,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			rp.push_hash(pos_after.zobrist_without_ep());
 			ti.am.make_move(pos, pc_move, pos_after);
 
-			_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
+			arch::prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)]);
 			Value score = -quiesce(pos_after, ti, -pc_beta, -pc_beta + 1, -side, ply + 1);
 
 			if (score >= pc_beta)
@@ -636,7 +664,8 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			ti.line[ply].cont_hist = nullptr;
 			ti.line[ply].corr_hist = nullptr;
 
-			if (stop_search) return 0;
+			if (stop_search)
+				return 0;
 
 			if (score >= pc_beta) {
 				ttable.store(pos.zobrist, score_to_tt(score, ply), raw_eval, pc_depth + 1, LOWER_BOUND, false, pc_move);
@@ -670,9 +699,10 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	int i = 0;
 
 	uint64_t prev_nodes = 0;
-	if (root) prev_nodes = nodes[ti.id].get();
+	if (root)
+		prev_nodes = nodes[ti.id].get();
 
-	ti.line[ply+1].cutoffcnt = 0;
+	ti.line[ply + 1].cutoffcnt = 0;
 
 	while ((move = mp.next()) != NullMove) {
 		if (move == ti.line[ply].excl || !pos.is_legal(move))
@@ -683,24 +713,24 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 
 		bool capt = pos.is_capture(move);
 		bool promo = (move.type() == PROMOTION);
-		
+
 		int extension = 0;
 
 		if (!root && !excluded && depth >= 7 + ttpv && tentry && is_valid_score(tteval) && move == tentry->best_move && tentry->depth >= depth - 3 && tentry->bound() != UPPER_BOUND) {
 			/**
 			 * Singular extensions
-			 * 
+			 *
 			 * If we are in a node where one move is significantly better than all other moves, we can
 			 * extend that move (i.e. search it deeper) because it is probably very important.
-			 * 
+			 *
 			 * We do this by excluding the move we believe is superior, then running a reduced-depth search
 			 * to verify if the position indeed is far worse without that move. If it is, we extend the move.
-			 * 
+			 *
 			 * We can also extend more if the position without the move is *very* bad.
 			 */
 			ti.line[ply].excl = move;
 			Value singular_beta = tteval - 6 * depth / 4;
-			Value singular_score = negamax(pos, ti, (depth-1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
+			Value singular_score = negamax(pos, ti, (depth - 1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
 			ti.line[ply].excl = NullMove; // Reset exclusion move
 
 			if (singular_score < singular_beta) {
@@ -709,14 +739,14 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 				int dext_margin = dext_base() + dext_capt() * capt + dext_pv() * pv + dext_improving() * improving;
 				if (singular_score <= singular_beta - dext_margin)
 					extension++;
-				
+
 				int text_margin = text_base() + text_capt() * capt;
 				if (!pv && singular_score <= singular_beta - text_margin)
 					extension++;
 			} else if (singular_score >= beta)
 				/**
 				 * Multicut
-				 * 
+				 *
 				 * If the search even without the expected best move still fails
 				 * high, we can almost certainly conclude that there are multiple
 				 * moves that are very good and that it will cut off.
@@ -725,9 +755,9 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			else if (tteval >= beta) {
 				/**
 				 * Negative extensions
-				 * 
+				 *
 				 * singular_beta <= singular_score < beta && tteval >= beta
-				 * 
+				 *
 				 * The TT suggested the evaluation is actually good enough to cause a beta cutoff,
 				 * but even after banning the move the position is still good. We can deprioritize
 				 * the TT move slightly, in favor of hopefully finding a better move.
@@ -736,7 +766,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			} else if (cutnode) {
 				/**
 				 * singular_beta <= singular_score < beta && tteval < beta && cutnode
-				 * 
+				 *
 				 * The TT suggests a non-cutoff, but we expect a cutoff to occur. We also know that
 				 * the move isn't singular, so we can reduce the depth slightly in favor of other moves.
 				 */
@@ -745,7 +775,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		} else if (!root && !excluded && cutnode && depth >= 10 && tentry && is_valid_score(tteval) && tteval >= beta && tentry->bound() != UPPER_BOUND) {
 			/**
 			 * Other cutnode negative extensions
-			 * 
+			 *
 			 * One of the singular extension conditions was not met, meaning that most likely there is no
 			 * TT move or the TT depth is too low. If we are expect a cutoff and the TT supports this
 			 * (even with low depth), reduce the depth of all moves to favour a cutoff.
@@ -759,7 +789,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			if (i >= (3 + depth * depth) / (2 - improving)) {
 				/**
 				 * Late Move Pruning
-				 * 
+				 *
 				 * Moves that are ordered far near the back probably aren't very good, so we can
 				 * directly skip them.
 				 */
@@ -770,7 +800,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			if (!in_check && !capt && !promo && lmrdepth <= 5 && futility <= alpha) {
 				/**
 				 * Futility pruning
-				 * 
+				 *
 				 * If we are losing by a lot, and this move is unlikely to improve our position,
 				 * skip searching it along with all quiet moves.
 				 */
@@ -781,7 +811,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			if (!in_check && !capt && !promo && depth <= 5) {
 				/**
 				 * History pruning
-				 * 
+				 *
 				 * Skip moves with very bad history scores
 				 * Depth condition is necessary to avoid overflow
 				 */
@@ -792,7 +822,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			{
 				/**
 				 * PVS SEE Pruning
-				 * 
+				 *
 				 * Skip searching moves with bad SEE scores
 				 */
 				const int see_threshold = capt ? -see_quad() * depth * depth : -see_lin() * depth;
@@ -813,18 +843,18 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		rp.push_hash(pos_after.zobrist_without_ep());
 		ti.am.make_move(pos, move, pos_after);
 
-		_mm_prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)], _MM_HINT_T0);
+		arch::prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)]);
 
 		int newdepth = depth - 1 + extension;
 
 		/**
 		 * PV Search (principal variation)
-		 * 
+		 *
 		 * Assuming our move ordering is good, there probably won't be any moves past
 		 * the first one that are better than that first move. So, we run a reduced-depth
 		 * null-window search on later moves (a much shorter search) to ensure that they
-		 * are bad moves. 
-		 * 
+		 * are bad moves.
+		 *
 		 * However, if the move turns out to be better than expected, we run a full-window
 		 * full-depth re-search. This, however, doesn't happen often enough to slow down
 		 * the search.
@@ -835,13 +865,14 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 
 			int r = reduction[i][depth];
 
-			if (capt) r /= 2;
+			if (capt)
+				r /= 2;
 
 			// Base reduction
 			r -= lmr_base();
 
 			r -= lmr_pv() * pv; // Reduce less in PV nodes
-			r += lmr_cutoffcnt() * (ti.line[ply+1].cutoffcnt > 3);
+			r += lmr_cutoffcnt() * (ti.line[ply + 1].cutoffcnt > 3);
 			r -= lmr_ttpv() * ttpv;
 
 			if (move == ti.line[ply].killer) {
@@ -855,7 +886,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			}
 
 			r += lmr_ttcapt() * ttcapt;
-			
+
 			if (ttpv && is_valid_score(tteval) && tteval <= alpha)
 				r += lmr_ttpv_alpha();
 
@@ -866,7 +897,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 
 			int searched_depth = std::clamp(newdepth - r / 1024, 1, newdepth + 1);
 
-			score = -negamax(pos_after, ti, searched_depth, -alpha - 1, -alpha, -side, 0, true, ply+1);
+			score = -negamax(pos_after, ti, searched_depth, -alpha - 1, -alpha, -side, 0, true, ply + 1);
 			if (score > alpha) {
 				// LMR search failed, re-search full depth
 				bool do_deeper = score > beta + dodeeper_margin();
@@ -875,18 +906,18 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 				newdepth -= do_shallower;
 
 				if (searched_depth < newdepth) {
-					score = -negamax(pos_after, ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
+					score = -negamax(pos_after, ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply + 1);
 				}
 			}
 		} else if (!pv || i > 0) {
 			// Case 2: Early moves in nodes
-			score = -negamax(pos_after, ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply+1);
+			score = -negamax(pos_after, ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply + 1);
 		}
 		if (pv && (i == 0 || score > alpha)) {
 			// Case 3: First PV node move or re-search
 			if (tentry && move == tentry->best_move && tentry->depth > 1)
 				newdepth = std::max((int)newdepth, 1); // Make sure we don't enter QS if we have an available TT move
-			score = -negamax(pos_after, ti, newdepth, -beta, -alpha, -side, 1, false, ply+1);
+			score = -negamax(pos_after, ti, newdepth, -beta, -alpha, -side, 1, false, ply + 1);
 		}
 
 		ti.am.pop_move();
@@ -898,7 +929,8 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		ti.line[ply].cont_hist = nullptr;
 		ti.line[ply].corr_hist = nullptr;
 
-		if (stop_search) return 0;
+		if (stop_search)
+			return 0;
 
 		if (root) {
 			auto cur_nodes = nodes[ti.id].get();
@@ -921,9 +953,9 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 				flag = EXACT;
 				if (score < beta) {
 					ti.pvtable[ply][0] = move;
-					ti.pvlen[ply] = ti.pvlen[ply+1]+1;
-					for (int j = 0; j < ti.pvlen[ply+1]; j++) {
-						ti.pvtable[ply][j+1] = ti.pvtable[ply+1][j];
+					ti.pvlen[ply] = ti.pvlen[ply + 1] + 1;
+					for (int j = 0; j < ti.pvlen[ply + 1]; j++) {
+						ti.pvtable[ply][j + 1] = ti.pvtable[ply + 1][j];
 					}
 				}
 			}
@@ -964,22 +996,25 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	// e.g. 8/8/8/8/ppp1p3/krp1p2K/nbp1p3/nqrbN3 b - - 1 6
 	if (best == -VALUE_MATE || best == -VALUE_INFINITE) {
 		// If our engine thinks we are mated but we are not in check, we are stalemated
-		if (excluded) return alpha;
-		else if (in_check) return -VALUE_MATE + ply;
-		else return 0;
+		if (excluded)
+			return alpha;
+		else if (in_check)
+			return -VALUE_MATE + ply;
+		else
+			return 0;
 	}
 
 	bool best_iscapture = pos.is_capture(best_move);
 	bool best_ispromo = (best_move.type() == PROMOTION);
-	if (!excluded && !in_check && !(best_move != NullMove && (best_iscapture || best_ispromo))
-		&& !(flag == UPPER_BOUND && best >= cur_eval) && !(flag == LOWER_BOUND && best <= cur_eval)) {
+	if (!excluded && !in_check && !(best_move != NullMove && (best_iscapture || best_ispromo)) && !(flag == UPPER_BOUND && best >= cur_eval) && !(flag == LOWER_BOUND && best <= cur_eval)) {
 		// Best move is a quiet move, update CorrHist
 		int bonus = (best - cur_eval) * depth / 8;
 		ti.thread_corrhist.update_corrhist(pos, &ti.line[ply], ply, bonus);
 	}
 
 	if (!excluded) {
-		Move tt_move = best_move != NullMove ? best_move : tentry ? tentry->best_move : NullMove;
+		Move tt_move = best_move != NullMove ? best_move : tentry ? tentry->best_move
+																  : NullMove;
 		ttable.store(pos.zobrist, score_to_tt(best, ply), raw_eval, depth, flag, ttpv, tt_move);
 	}
 
@@ -1012,8 +1047,8 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 		if (eval != -VALUE_INFINITE && d >= 4) {
 			/**
 			 * Aspiration windows work by searching a small window around the expected value
-			 * of the position. By having a smaller window, our search runs faster. 
-			 * 
+			 * of the position. By having a smaller window, our search runs faster.
+			 *
 			 * If we fail either high or low out of this window, we gradually expand the
 			 * window size, eventually getting to a full-width search.
 			 */
@@ -1033,7 +1068,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 				asp_depth = std::max(asp_depth - 1, d - 3);
 			}
 			if (result <= alpha) {
-				// Fail low - expand lower bound  
+				// Fail low - expand lower bound
 				alpha = eval - window_sz * 2;
 			}
 			if (window_sz >= VALUE_INFINITE / 4) { // give up, just use full window
@@ -1045,7 +1080,8 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			window_sz *= 2;
 			result = negamax(pos, ti, asp_depth, alpha, beta, pos.side ? -1 : 1, 1, false, 0, true);
 		}
-		if (stop_search) break;
+		if (stop_search)
+			break;
 		eval = result;
 		Move mv = ti.pvtable[0][0];
 
@@ -1056,7 +1092,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 		}
 
 		best_move = mv;
-		
+
 		if (ti.is_main) {
 			// We must calculate best move nodes and total nodes at around the same time
 			// so that node counts don't change in between due to race conditions
@@ -1081,23 +1117,25 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			last_line << " time " << time_elapsed << " nodes " << tot_nodes << " nps " << (time_elapsed ? (tot_nodes * 1000 / time_elapsed) : tot_nodes);
 
 			// Hashfull is expensive to compute, so only compute it after a certain amount of time has passed
-			if (time_elapsed >= 500) last_line << " hashfull " << (int)(get_ttable_sz() * 1000);
+			if (time_elapsed >= 500)
+				last_line << " hashfull " << (int)(get_ttable_sz() * 1000);
 
 			last_line << " tbhits " << tbhits.load(std::memory_order_relaxed) << " pv";
 
 			for (int ply = 0; ply < ti.pvlen[0]; ply++) {
 				last_line << " " << ti.pvtable[0][ply].to_string();
 			}
-			if (!minimal) std::cout << last_line.str() << std::endl;
+			if (!minimal)
+				std::cout << last_line.str() << std::endl;
 
 			// only do time management on main thread
 			bool best_iscapt = pos.is_capture(best_move);
 			bool best_ispromo = (best_move.type() == PROMOTION);
 			bool in_check = false;
 			if (pos.side == WHITE) {
-				in_check = pos.control(__tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)]), BLACK) > 0;
+				in_check = pos.control(arch::tzcnt(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)]), BLACK) > 0;
 			} else {
-				in_check = pos.control(__tzcnt_u64(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]), WHITE) > 0;
+				in_check = pos.control(arch::tzcnt(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]), WHITE) > 0;
 			}
 
 			double soft = 0.53;
@@ -1135,7 +1173,8 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 
 	if (ti.is_main) {
 		stop_search = true;
-		if (minimal) std::cout << last_line.str() << std::endl;
+		if (minimal)
+			std::cout << last_line.str() << std::endl;
 		std::cout << "bestmove " << best_move.to_string() << std::endl;
 	}
 }
