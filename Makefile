@@ -64,7 +64,7 @@ $(EXE): $(OBJS)
 clean:
 	@echo "Cleaning up..."
 	rm -f $(OBJS) $(DEPS)
-	rm -f engine/*.gcda engine/nnue/*.gcda engine/arch/*.gcda Pyrrhic/*.gcda
+	rm -f $(shell find engine -name "*.gcda") Pyrrhic/*.gcda
 
 pgo-compile: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -fprofile-use -march=native
 pgo-compile: $(EXE)
@@ -76,4 +76,4 @@ pgo: $(EXE)
 	rm $(OBJS)
 	@echo "Recompiling with PGO optimizations..."
 	$(MAKE) pgo-compile
-	rm -f engine/*.gcda engine/nnue/*.gcda engine/arch/*.gcda Pyrrhic/*.gcda
+	rm -f $(shell find engine -name "*.gcda") Pyrrhic/*.gcda

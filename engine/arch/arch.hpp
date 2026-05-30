@@ -16,9 +16,9 @@
 #include "simd/simd.hpp"
 
 // Determine pext usage
-#if defined(__BMI2__) && !defined(__znver1__) && !defined(__znver2__)
+// #if defined(__BMI2__) && !defined(__znver1__) && !defined(__znver2__)
 #define USE_PEXT
-#endif
+// #endif
 
 namespace arch {
 	// Count the Number of Trailing Zero Bits
@@ -37,10 +37,10 @@ namespace arch {
 	// Get Mask Up to Lowest Set Bit
 	uint64_t blsmsk(uint64_t x);
 
-	// #if defined(USE_PEXT)
+#if defined(USE_PEXT)
 	// Parallel extract of bits from `x` using mask in `y`
 	uint64_t pext(uint64_t x, uint64_t y);
-	// #endif
+#endif
 
 	// Move data closer to the processor using T0 hint
 	void prefetch(void *p);
