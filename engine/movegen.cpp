@@ -2,7 +2,7 @@
 
 struct MagicEntry {
 	Bitboard mask;
-	uint32_t offset;
+	Bitboard *ptr;
 };
 
 Bitboard knight_movetable[64];
@@ -21,11 +21,11 @@ MagicEntry bishop_magics[64];
 
 void gen_rook_moves(int sq, Bitboard piece) {
 	Bitboard board = 0;
-	int idx = 0;
 	Bitboard rank = 0x00000000000000ff;
 	Bitboard file = 0x0101010101010101;
+	Bitboard *ptr = rook_movetable;
 	if (sq != 0)
-		idx = rook_magics[sq].offset;
+		ptr = rook_magics[sq].ptr;
 
 	Bitboard rankray = rank << (sq & 0b111000);
 	Bitboard fileray = file << (sq & 0b111);
@@ -48,13 +48,13 @@ void gen_rook_moves(int sq, Bitboard piece) {
 		moves |= east & arch::blsmsk(east & board);
 		moves |= north & arch::blsmsk(north & board);
 
-		rook_movetable[idx] = moves;
+		*ptr = moves;
 		// Prepare next board (this works i promise)
 		board = (board - rook_magics[sq].mask) & rook_magics[sq].mask;
-		idx++;
+		ptr++;
 	} while (board);
 	if (sq != 63)
-		rook_magics[sq + 1].offset = idx;
+		rook_magics[sq + 1].ptr = ptr;
 
 	// Generate blocker masks for all moves
 	board = square_bits((Square)sq);
@@ -74,9 +74,11 @@ void gen_rook_moves(int sq, Bitboard piece) {
 
 void gen_bishop_moves(int sq, Bitboard piece) {
 	Bitboard board = 0;
-	int idx = 0;
 	Bitboard diag = 0x8040201008040201;
 	Bitboard anti_diag = 0x0102040810204080;
+	Bitboard *ptr = bishop_movetable;
+	if (sq != 0)
+		ptr = bishop_magics[sq].ptr;
 
 	int shift = (sq & 0b111) - (sq >> 3);
 	Bitboard diagray;
@@ -94,8 +96,6 @@ void gen_bishop_moves(int sq, Bitboard piece) {
 	Bitboard se = antiray & (piece - 1);
 	Bitboard ne = diagray ^ sw ^ piece;
 	Bitboard nw = antiray ^ se ^ piece;
-	if (sq != 0)
-		idx = bishop_magics[sq].offset;
 	do {
 		// Generate moves for this board (bitwise magic don't ask)
 		Bitboard moves = 0;
@@ -110,13 +110,13 @@ void gen_bishop_moves(int sq, Bitboard piece) {
 		moves |= ne & arch::blsmsk(ne & board);
 		moves |= nw & arch::blsmsk(nw & board);
 
-		bishop_movetable[idx] = moves;
+		*ptr = moves;
 		// Prepare next board (this works i promise)
 		board = (board - bishop_magics[sq].mask) & bishop_magics[sq].mask;
-		idx++;
+		ptr++;
 	} while (board);
 	if (sq != 63)
-		bishop_magics[sq + 1].offset = idx;
+		bishop_magics[sq + 1].ptr = ptr;
 
 	// Generate blocker masks for all moves
 	board = square_bits((Square)sq);
@@ -141,6 +141,10 @@ __attribute__((constructor)) void init_movetables() {
 	memset(bishop_blockers, 0xff, sizeof(bishop_blockers));
 	memset(rook_blockers_pure, 0, sizeof(rook_blockers_pure));
 	memset(bishop_blockers_pure, 0, sizeof(bishop_blockers_pure));
+
+	// Init A1 magics
+	rook_magics[0].ptr = rook_movetable;
+	bishop_magics[0].ptr = bishop_movetable;
 
 	// Initialize elementary bitboards
 	Bitboard rank = 0x00000000000000ff;
@@ -384,8 +388,8 @@ void bishop_moves(const Position &pos, pzstd::vector<Move> &moves) {
 	Bitboard pieces = (pos.piece_boards[BISHOP] | pos.piece_boards[QUEEN]) & pos.piece_boards[OCC(pos.side)];
 	while (pieces) {
 		int sq = arch::tzcnt(pieces);
-		uint32_t idx = bishop_magics[sq].offset + arch::pext(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)], bishop_magics[sq].mask);
-		Bitboard dsts = bishop_movetable[idx] & ~pos.piece_boards[OCC(pos.side)];
+		uint32_t idx = arch::pext(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)], bishop_magics[sq].mask);
+		Bitboard dsts = bishop_magics[sq].ptr[idx] & ~pos.piece_boards[OCC(pos.side)];
 		while (dsts) {
 			int dst = arch::tzcnt(dsts);
 			moves.push_back(Move(sq, dst));
@@ -399,8 +403,8 @@ void rook_moves(const Position &pos, pzstd::vector<Move> &moves) {
 	Bitboard pieces = (pos.piece_boards[ROOK] | pos.piece_boards[QUEEN]) & pos.piece_boards[OCC(pos.side)];
 	while (pieces) {
 		int sq = arch::tzcnt(pieces);
-		uint32_t idx = rook_magics[sq].offset + arch::pext(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)], rook_magics[sq].mask);
-		Bitboard dsts = rook_movetable[idx] & ~pos.piece_boards[OCC(pos.side)];
+		uint32_t idx = arch::pext(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)], rook_magics[sq].mask);
+		Bitboard dsts = rook_magics[sq].ptr[idx] & ~pos.piece_boards[OCC(pos.side)];
 		while (dsts) {
 			int dst = arch::tzcnt(dsts);
 			moves.push_back(Move(sq, dst));
@@ -571,8 +575,8 @@ void bishop_captures(const Position &pos, pzstd::vector<Move> &moves) {
 	Bitboard pieces = (pos.piece_boards[BISHOP] | pos.piece_boards[QUEEN]) & pos.piece_boards[OCC(pos.side)];
 	while (pieces) {
 		int sq = arch::tzcnt(pieces);
-		uint32_t idx = bishop_magics[sq].offset + arch::pext(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)], bishop_magics[sq].mask);
-		Bitboard dsts = bishop_movetable[idx] & pos.piece_boards[OPPOCC(pos.side)];
+		uint32_t idx = arch::pext(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)], bishop_magics[sq].mask);
+		Bitboard dsts = bishop_magics[sq].ptr[idx] & pos.piece_boards[OPPOCC(pos.side)];
 		while (dsts) {
 			int dst = arch::tzcnt(dsts);
 			moves.push_back(Move(sq, dst));
@@ -586,8 +590,8 @@ void rook_captures(const Position &pos, pzstd::vector<Move> &moves) {
 	Bitboard pieces = (pos.piece_boards[ROOK] | pos.piece_boards[QUEEN]) & pos.piece_boards[OCC(pos.side)];
 	while (pieces) {
 		int sq = arch::tzcnt(pieces);
-		uint32_t idx = rook_magics[sq].offset + arch::pext(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)], rook_magics[sq].mask);
-		Bitboard dsts = rook_movetable[idx] & pos.piece_boards[OPPOCC(pos.side)];
+		uint32_t idx = arch::pext(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)], rook_magics[sq].mask);
+		Bitboard dsts = rook_magics[sq].ptr[idx] & pos.piece_boards[OPPOCC(pos.side)];
 		while (dsts) {
 			int dst = arch::tzcnt(dsts);
 			moves.push_back(Move(sq, dst));
@@ -619,20 +623,20 @@ void Position::captures(pzstd::vector<Move> &moves) const {
 }
 
 Bitboard rook_attacks(Square sq, Bitboard occ) {
-	uint32_t idx = rook_magics[sq].offset + arch::pext(occ, rook_magics[sq].mask);
-	return rook_movetable[idx];
+	uint32_t idx = arch::pext(occ, rook_magics[sq].mask);
+	return rook_magics[sq].ptr[idx];
 }
 
 Bitboard bishop_attacks(Square sq, Bitboard occ) {
-	uint32_t idx = bishop_magics[sq].offset + arch::pext(occ, bishop_magics[sq].mask);
-	return bishop_movetable[idx];
+	uint32_t idx = arch::pext(occ, bishop_magics[sq].mask);
+	return bishop_magics[sq].ptr[idx];
 }
 
 Bitboard queen_attacks(Square sq, Bitboard occ) {
-	uint32_t idx = rook_magics[sq].offset + arch::pext(occ, rook_magics[sq].mask);
-	Bitboard rook = rook_movetable[idx];
-	idx = bishop_magics[sq].offset + arch::pext(occ, bishop_magics[sq].mask);
-	Bitboard bishop = bishop_movetable[idx];
+	uint32_t idx = arch::pext(occ, rook_magics[sq].mask);
+	Bitboard rook = rook_magics[sq].ptr[idx];
+	idx = arch::pext(occ, bishop_magics[sq].mask);
+	Bitboard bishop = bishop_magics[sq].ptr[idx];
 	return rook | bishop;
 }
 
