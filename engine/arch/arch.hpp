@@ -16,9 +16,9 @@
 #include "simd/simd.hpp"
 
 // Determine pext usage
-#if defined(__BMI2__) && !defined(__znver1__) && !defined(__znver2__)
+// #if defined(__BMI2__) && !defined(__znver1__) && !defined(__znver2__)
 #define USE_PEXT
-#endif
+// #endif
 
 namespace arch {
 	// Count the Number of Trailing Zero Bits
