@@ -12,27 +12,35 @@
 
 static void *large_alloc(size_t size) {
 #if defined(_WIN32)
-	void *ptr = VirtualAlloc(nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	void *ptr = VirtualAlloc(nullptr, size, MEM_RESERVE | MEM_LARGE_PAGES, PAGE_READWRITE);
 	if (ptr == nullptr) {
 		std::__throw_runtime_error(std::strerror(GetLastError()));
 	}
-	return ptr;
-#else
+#elif defined(__APPLE__)
+	void *ptr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+	if (ptr == MAP_FAILED) {
+		std::__throw_runtime_error(strerror(errno));
+	}
+#elif defined(__linux__)
 	void *ptr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
 	if (ptr == MAP_FAILED) {
 		std::__throw_runtime_error(strerror(errno));
 	}
 
 	madvise(ptr, size, MADV_HUGEPAGE);
+#else
+#error Unsupported OS/kernel
+#endif
 
 	return ptr;
-#endif
 }
 
 static void large_free(void *ptr, size_t size) {
 #if defined(_WIN32)
 	VirtualFree(ptr, 0, MEM_RELEASE);
-#else
+#elif defined(__APPLE__) || defined(__linux__)
 	munmap(ptr, size);
+#else
+#error Unsupported OS/kernel
 #endif
 }

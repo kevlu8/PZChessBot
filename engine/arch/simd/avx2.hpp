@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../arch.hpp"
+#include "simd.hpp"
 
 #if defined(TARGET_X86_AVX2)
 

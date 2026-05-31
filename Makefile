@@ -39,7 +39,7 @@ vnni: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -march=icelake-server
 vnni: $(EXE)
 
 arm: CXX := aarch64-linux-gnu-g++
-arm: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -mcpu=apple-m3
+arm: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -static
 arm: $(EXE)
 
 native: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -march=native
