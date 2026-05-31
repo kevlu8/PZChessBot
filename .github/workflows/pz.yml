@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -37,7 +37,10 @@ jobs:
       run: make -j4 native
     - name: Check Bench
       run: |
-        obtained=$(eval "./pzchessbot bench 2>&1" | tail -n 1 | awk '{print $1}')
+        out=$(eval "./pzchessbot bench 2>&1" | tail -n 1)
+		obtained=$(eval "echo $out" | awk '{print $1}')
+		speed=$(eval "echo $out" | awk '{print $3}')
+		echo -n "speed $speed "
         if [ "${{ env.benchref }}" != "$obtained" ]; then
           echo "signature mismatch: reference ${{ env.benchref }} obtained: $obtained."
           exit 1
