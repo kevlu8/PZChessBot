@@ -40,7 +40,7 @@ jobs:
         out=$(eval "./pzchessbot bench 2>&1" | tail -n 1)
         obtained=$(eval "echo $out" | awk '{print $1}')
         speed=$(eval "echo $out" | awk '{print $3}')
-        echo -n "speed $speed "
+        echo "speed $speed"
         if [ "${{ env.benchref }}" != "$obtained" ]; then
           echo "signature mismatch: reference ${{ env.benchref }} obtained: $obtained."
           exit 1

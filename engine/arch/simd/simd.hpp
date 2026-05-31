@@ -40,7 +40,7 @@ using fvec = __m256;
 #define L3_UNROLL 2
 
 #else
-#error "Unsupported architecture"
+#error Unsupported architecture
 #endif
 
 #define BYTES_PER_VEC (VEC_SIZE / 8)

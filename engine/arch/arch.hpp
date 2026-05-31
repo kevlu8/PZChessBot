@@ -10,7 +10,7 @@
 #elif defined(__AVX2__)
 #define TARGET_X86_AVX2
 #else
-#error "Unsupported architecture"
+#error Unsupported architecture
 #endif
 
 #include "simd/simd.hpp"
