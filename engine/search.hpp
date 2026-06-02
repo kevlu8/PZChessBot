@@ -79,13 +79,14 @@ struct alignas(4096) ThreadInfo {
 	alignas(64) int pvlen[MAX_PLY + 5] = {};
 	alignas(64) AccumulatorManager am;
 
-	alignas(64) int maxdepth = 0, seldepth = 0;
+	const Network &net;
+	int maxdepth = 0, seldepth = 0;
 	int id = 0;
 	Value eval = 0;
 	bool is_main = false;
 	bool nmp_disable = false;
 
-	ThreadInfo() : am(pos) {}
+	ThreadInfo(const Network &net) : am(pos), net(net) {}
 };
 
 void prepare_search(int64_t time, int64_t maxnodes, bool quiet, uint16_t num_threads);

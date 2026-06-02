@@ -109,7 +109,7 @@ void run_uci() {
 			} else if (optionname == "SyzygyProbeDepth") {
 				int probe_depth = std::stoi(optionvalue);
 				tbman.min_depth = probe_depth;
-		 	} else if (optionname == "SyzygyProbeLimit") {
+			} else if (optionname == "SyzygyProbeLimit") {
 				int piece_limit = std::stoi(optionvalue);
 				tbman.max_pieces = piece_limit;
 			} else {
@@ -384,19 +384,22 @@ int main(int argc, char *argv[]) {
 			am.full_refresh(pos, 0);
 			bool in_check = pos.checkers[pos.side];
 			bool checking_opponent = pos.checkers[!pos.side];
-			if (in_check || checking_opponent) restart = true;
+			if (in_check || checking_opponent)
+				restart = true;
 			// make sure position is legal and somewhat balanced
 			if (!restart) {
 				if (arch::popcnt(pos.piece_boards[KING]) != 2)
 					restart = true;
 				else if (filter_weird) {
 					int npieces = arch::popcnt(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
-					auto s_eval = eval(pos, am);
-					if (abs(s_eval) >= 2000) restart = true; // do a fast static eval to quickly filter out crazy positions
+					auto s_eval = eval(pos, am, nnue_network);
+					if (abs(s_eval) >= 2000)
+						restart = true; // do a fast static eval to quickly filter out crazy positions
 					else {
 						pool.search(pos, rp, 1e9, MAX_PLY, 2000, true);
 						auto res = pool.wait_finished();
-						if (abs(res.second) >= 2000) restart = true;
+						if (abs(res.second) >= 2000)
+							restart = true;
 					}
 				}
 			}
@@ -414,12 +417,12 @@ int main(int argc, char *argv[]) {
 		Position pos = Position();
 		AccumulatorManager am(pos);
 		int tot = 0;
-		Value startpos_score = eval(pos, am);
+		Value startpos_score = eval(pos, am, nnue_network);
 		for (int i = 0; i < 8; i++) {
 			pos.reset_startpos();
 			pos.mailbox[SQ_A2 + i] = NO_PIECE;
 			am.full_refresh(pos, 0);
-			Value score = eval(pos, am);
+			Value score = eval(pos, am, nnue_network);
 			int diff = startpos_score - score;
 			tot += diff;
 		}
@@ -445,7 +448,7 @@ int main(int argc, char *argv[]) {
 			std::string fen = line.substr(0, line.find(' '));
 			pos.reset(fen);
 			am.full_refresh(pos, 0);
-			Value score = abs(eval(pos, am));
+			Value score = abs(eval(pos, am, nnue_network));
 			tot_eval += score;
 			npositions++;
 		}
