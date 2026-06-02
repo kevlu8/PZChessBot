@@ -68,6 +68,7 @@ clean:
 
 pgo-compile: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -fprofile-use -march=native
 pgo-compile: $(EXE)
+	rm -f $(shell find engine -name "*.gcda") Pyrrhic/*.gcda
 
 pgo: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -fprofile-generate -march=native
 pgo: $(EXE)
@@ -76,4 +77,3 @@ pgo: $(EXE)
 	rm $(OBJS)
 	@echo "Recompiling with PGO optimizations..."
 	$(MAKE) pgo-compile
-	rm -f $(shell find engine -name "*.gcda") Pyrrhic/*.gcda
