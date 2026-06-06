@@ -239,7 +239,7 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 	}
 
 	if (ply >= MAX_PLY)
-		return eval(pos, ti.am, ti.net) * side; // Just in case
+		return eval(pos, ti.am) * side; // Just in case
 
 	// Check for TTable cutoff
 	auto tentry = ttable.probe(pos.zobrist);
@@ -265,7 +265,7 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 	Value stand_pat = -VALUE_INFINITE;
 	Value raw_eval = -VALUE_INFINITE;
 	if (!in_check) {
-		stand_pat = tentry && is_valid_score(tentry->s_eval) ? tentry->s_eval : eval(pos, ti.am, ti.net) * side;
+		stand_pat = tentry && is_valid_score(tentry->s_eval) ? tentry->s_eval : eval(pos, ti.am) * side;
 		raw_eval = stand_pat;
 		ti.thread_corrhist.apply_correction(pos, &ti.line[ply], ply, stand_pat);
 		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_WIN && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
@@ -389,7 +389,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	RepetitionHandler &rp = ti.rp;
 
 	if (ply >= MAX_PLY)
-		return eval(pos, ti.am, ti.net) * side;
+		return eval(pos, ti.am) * side;
 
 	if (pv) {
 		ti.pvlen[ply] = 0;
@@ -515,7 +515,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	Value tt_corr_eval = 0;
 	Value corr_val = 0;
 	if (!in_check) {
-		cur_eval = tentry && is_valid_score(tentry->s_eval) ? tentry->s_eval : eval(pos, ti.am, ti.net) * side;
+		cur_eval = tentry && is_valid_score(tentry->s_eval) ? tentry->s_eval : eval(pos, ti.am) * side;
 		raw_eval = cur_eval;
 		if (!excluded)
 			ti.thread_corrhist.apply_correction(pos, &ti.line[ply], ply, cur_eval);
@@ -1035,7 +1035,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 
 	depth = std::min(depth, MAX_PLY - 1);
 
-	Value static_eval = eval(pos, ti.am, ti.net) * (pos.side ? -1 : 1);
+	Value static_eval = eval(pos, ti.am) * (pos.side ? -1 : 1);
 	int consec_move = 0;
 
 	Move best_move = NullMove;

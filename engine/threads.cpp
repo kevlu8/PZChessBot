@@ -32,7 +32,7 @@ void Pool::resize(size_t num) {
 }
 
 void Pool::thread_loop(size_t i) {
-	new (&tis[i]) ThreadInfo(nnue_network); // construct in thread loop for better NUMA locality
+	new (&tis[i]) ThreadInfo(nnue_networks[0]); // construct in thread loop for better NUMA locality
 	init_barrier->arrive_and_wait();
 	while (true) {
 		start_barrier->arrive_and_wait();
@@ -57,7 +57,7 @@ void Pool::search(Position &pos, RepetitionHandler &rp, int64_t time, int depth,
 	for (int t = 0; t < num_threads; t++) {
 		ThreadInfo &ti = tis[t];
 		ti.rp = rp;
-		ti.am = AccumulatorManager(pos);
+		ti.am.full_refresh(pos, 0);
 		ti.seldepth = 0;
 		nodes[t] = 0;
 		ti.id = t;

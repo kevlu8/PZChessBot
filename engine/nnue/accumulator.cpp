@@ -1,28 +1,19 @@
 #include "accumulator.hpp"
 
-void AccumulatorManager::AccumulatorPair::update_add(Square sq, PieceType pt, bool side, int wbucket, int bbucket) {
+void AccumulatorManager::AccumulatorPair::update_add(const Network &net, Square sq, PieceType pt, bool side, int wbucket, int bbucket) {
 	uint16_t w_index = calculate_index(sq, pt, side, 0, wbucket);
 	uint16_t b_index = calculate_index(sq, pt, side, 1, bbucket);
 	for (int i = 0; i < L1_SIZE; i++) {
-		w_acc.val[i] += nnue_network.accumulator_weights[w_index][i];
-		b_acc.val[i] += nnue_network.accumulator_weights[b_index][i];
-	}
-}
-
-void AccumulatorManager::AccumulatorPair::update_sub(Square sq, PieceType pt, bool side, int wbucket, int bbucket) {
-	uint16_t w_index = calculate_index(sq, pt, side, 0, wbucket);
-	uint16_t b_index = calculate_index(sq, pt, side, 1, bbucket);
-	for (int i = 0; i < L1_SIZE; i++) {
-		w_acc.val[i] -= nnue_network.accumulator_weights[w_index][i];
-		b_acc.val[i] -= nnue_network.accumulator_weights[b_index][i];
+		w_acc.val[i] += net.accumulator_weights[w_index][i];
+		b_acc.val[i] += net.accumulator_weights[b_index][i];
 	}
 }
 
 void AccumulatorManager::full_refresh(Position &pos, int index) {
 	// Init the first accumulator so we have a basepoint
 	for (int i = 0; i < L1_SIZE; i++) {
-		accs[index].w_acc.val[i] = nnue_network.accumulator_biases[i];
-		accs[index].b_acc.val[i] = nnue_network.accumulator_biases[i];
+		accs[index].w_acc.val[i] = net.accumulator_biases[i];
+		accs[index].b_acc.val[i] = net.accumulator_biases[i];
 	}
 
 	Square wkingsq = (Square)arch::tzcnt(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)]);
@@ -39,7 +30,7 @@ void AccumulatorManager::full_refresh(Position &pos, int index) {
 
 		if (piece != NO_PIECE) {
 			// Add to accumulator
-			accs[index].update_add((Square)i, pt, side, winbucket, binbucket);
+			accs[index].update_add(net, (Square)i, pt, side, winbucket, binbucket);
 		}
 	}
 
@@ -76,7 +67,7 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 				// Add to accumulator
 				int index = calculate_index((Square)i, pt, side, 0, winbucket);
 				for (int k = 0; k < L1_SIZE; k++) {
-					w_acc.val[k] += nnue_network.accumulator_weights[index][k];
+					w_acc.val[k] += net.accumulator_weights[index][k];
 				}
 			}
 
@@ -84,7 +75,7 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 				// Remove from accumulator
 				int index = calculate_index((Square)i, prev_w_pt, prev_w_side, 0, winbucket);
 				for (int k = 0; k < L1_SIZE; k++) {
-					w_acc.val[k] -= nnue_network.accumulator_weights[index][k];
+					w_acc.val[k] -= net.accumulator_weights[index][k];
 				}
 			}
 		}
@@ -98,7 +89,7 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 				// Add to accumulator
 				int index = calculate_index((Square)i, pt, side, 1, binbucket);
 				for (int k = 0; k < L1_SIZE; k++) {
-					b_acc.val[k] += nnue_network.accumulator_weights[index][k];
+					b_acc.val[k] += net.accumulator_weights[index][k];
 				}
 			}
 
@@ -106,7 +97,7 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 				// Remove from accumulator
 				int index = calculate_index((Square)i, prev_b_pt, prev_b_side, 1, binbucket);
 				for (int k = 0; k < L1_SIZE; k++) {
-					b_acc.val[k] -= nnue_network.accumulator_weights[index][k];
+					b_acc.val[k] -= net.accumulator_weights[index][k];
 				}
 			}
 		}
@@ -159,20 +150,20 @@ void AccumulatorManager::apply_lazy(Position &pos) {
 		if (u.deltas == 2) {
 			// -+
 			for (int k = 0; k < L1_SIZE; k++) {
-				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - nnue_network.accumulator_weights[u.w_deltas[0]][k] + nnue_network.accumulator_weights[u.w_deltas[1]][k];
-				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - nnue_network.accumulator_weights[u.b_deltas[0]][k] + nnue_network.accumulator_weights[u.b_deltas[1]][k];
+				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - net.accumulator_weights[u.w_deltas[0]][k] + net.accumulator_weights[u.w_deltas[1]][k];
+				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - net.accumulator_weights[u.b_deltas[0]][k] + net.accumulator_weights[u.b_deltas[1]][k];
 			}
 		} else if (u.deltas == 3) {
 			// --+
 			for (int k = 0; k < L1_SIZE; k++) {
-				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - nnue_network.accumulator_weights[u.w_deltas[0]][k] - nnue_network.accumulator_weights[u.w_deltas[1]][k] + nnue_network.accumulator_weights[u.w_deltas[2]][k];
-				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - nnue_network.accumulator_weights[u.b_deltas[0]][k] - nnue_network.accumulator_weights[u.b_deltas[1]][k] + nnue_network.accumulator_weights[u.b_deltas[2]][k];
+				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - net.accumulator_weights[u.w_deltas[0]][k] - net.accumulator_weights[u.w_deltas[1]][k] + net.accumulator_weights[u.w_deltas[2]][k];
+				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - net.accumulator_weights[u.b_deltas[0]][k] - net.accumulator_weights[u.b_deltas[1]][k] + net.accumulator_weights[u.b_deltas[2]][k];
 			}
 		} else if (u.deltas == 4) {
 			// --++
 			for (int k = 0; k < L1_SIZE; k++) {
-				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - nnue_network.accumulator_weights[u.w_deltas[0]][k] - nnue_network.accumulator_weights[u.w_deltas[1]][k] + nnue_network.accumulator_weights[u.w_deltas[2]][k] + nnue_network.accumulator_weights[u.w_deltas[3]][k];
-				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - nnue_network.accumulator_weights[u.b_deltas[0]][k] - nnue_network.accumulator_weights[u.b_deltas[1]][k] + nnue_network.accumulator_weights[u.b_deltas[2]][k] + nnue_network.accumulator_weights[u.b_deltas[3]][k];
+				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - net.accumulator_weights[u.w_deltas[0]][k] - net.accumulator_weights[u.w_deltas[1]][k] + net.accumulator_weights[u.w_deltas[2]][k] + net.accumulator_weights[u.w_deltas[3]][k];
+				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - net.accumulator_weights[u.b_deltas[0]][k] - net.accumulator_weights[u.b_deltas[1]][k] + net.accumulator_weights[u.b_deltas[2]][k] + net.accumulator_weights[u.b_deltas[3]][k];
 			}
 		}
 		accs[i].correct = true;

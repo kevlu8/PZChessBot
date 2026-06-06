@@ -342,7 +342,7 @@ int main(int argc, char *argv[]) {
 		Pool pool;
 		Position pos = Position();
 		RepetitionHandler rp;
-		AccumulatorManager am(pos);
+		AccumulatorManager am(pos, nnue_networks[0]);
 		rp.push_hash(pos.zobrist_without_ep());
 		std::mt19937_64 rng(s);
 		std::ifstream bookfile(book == "None" ? "" : book);
@@ -392,7 +392,7 @@ int main(int argc, char *argv[]) {
 					restart = true;
 				else if (filter_weird) {
 					int npieces = arch::popcnt(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
-					auto s_eval = eval(pos, am, nnue_network);
+					auto s_eval = eval(pos, am);
 					if (abs(s_eval) >= 2000)
 						restart = true; // do a fast static eval to quickly filter out crazy positions
 					else {
@@ -415,14 +415,14 @@ int main(int argc, char *argv[]) {
 		// calculate pawn value
 		Pool pool;
 		Position pos = Position();
-		AccumulatorManager am(pos);
+		AccumulatorManager am(pos, nnue_networks[0]);
 		int tot = 0;
-		Value startpos_score = eval(pos, am, nnue_network);
+		Value startpos_score = eval(pos, am);
 		for (int i = 0; i < 8; i++) {
 			pos.reset_startpos();
 			pos.mailbox[SQ_A2 + i] = NO_PIECE;
 			am.full_refresh(pos, 0);
-			Value score = eval(pos, am, nnue_network);
+			Value score = eval(pos, am);
 			int diff = startpos_score - score;
 			tot += diff;
 		}
@@ -443,12 +443,12 @@ int main(int argc, char *argv[]) {
 			std::cerr << "Could not open book file" << std::endl;
 			return 1;
 		}
-		AccumulatorManager am(pos);
+		AccumulatorManager am(pos, nnue_networks[0]);
 		while (getline(bookfile, line)) {
 			std::string fen = line.substr(0, line.find(' '));
 			pos.reset(fen);
 			am.full_refresh(pos, 0);
-			Value score = abs(eval(pos, am, nnue_network));
+			Value score = abs(eval(pos, am));
 			tot_eval += score;
 			npositions++;
 		}
