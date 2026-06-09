@@ -165,9 +165,13 @@ void Position::load_fen(std::string fen) {
 		if (fen[inputIdx] == 'K') {
 			castling |= WHITE_OO;
 			inputIdx++;
-			Square king_square = make_square(File(king_file - 'A'), RANK_1);
-			Bitboard mask = ~(square_bits(king_square) - 1);
-			rook_pos[0] = Square(arch::tzcnt(rooks & mask & piece_boards[OCC(WHITE)]));
+			if (dfrc_uci) {
+				Square king_square = make_square(File(king_file - 'A'), RANK_1);
+				Bitboard mask = ~(square_bits(king_square) - 1);
+				rook_pos[0] = Square(arch::tzcnt(rooks & mask & piece_boards[OCC(WHITE)]));
+			} else {
+				rook_pos[0] = SQ_H1;
+			}
 		} else if (fen[inputIdx] <= 'H' && fen[inputIdx] > king_file) {
 			dfrc_uci = true;
 			castling |= WHITE_OO;
@@ -178,9 +182,13 @@ void Position::load_fen(std::string fen) {
 		if (fen[inputIdx] == 'Q') {
 			castling |= WHITE_OOO;
 			inputIdx++;
-			Square king_square = make_square(File(king_file - 'A'), RANK_1);
-			Bitboard mask = (square_bits(king_square) - 1);
-			rook_pos[1] = Square(arch::tzcnt(rooks & mask & piece_boards[OCC(WHITE)]));
+			if (dfrc_uci) {
+				Square king_square = make_square(File(king_file - 'A'), RANK_1);
+				Bitboard mask = (square_bits(king_square) - 1);
+				rook_pos[1] = Square(arch::tzcnt(rooks & mask & piece_boards[OCC(WHITE)]));
+			} else {
+				rook_pos[1] = SQ_A1;
+			}
 		} else if (fen[inputIdx] >= 'A' && fen[inputIdx] < king_file) {
 			dfrc_uci = true;
 			castling |= WHITE_OOO;
@@ -192,9 +200,13 @@ void Position::load_fen(std::string fen) {
 		if (fen[inputIdx] == 'k') {
 			castling |= BLACK_OO;
 			inputIdx++;
-			Square king_square = make_square(File(king_file - 'a'), RANK_8);
-			Bitboard mask = ~(square_bits(king_square) - 1);
-			rook_pos[2] = Square(arch::tzcnt(rooks & mask & piece_boards[OCC(BLACK)]));
+			if (dfrc_uci) {
+				Square king_square = make_square(File(king_file - 'a'), RANK_8);
+				Bitboard mask = ~(square_bits(king_square) - 1);
+				rook_pos[2] = Square(arch::tzcnt(rooks & mask & piece_boards[OCC(BLACK)]));
+			} else {
+				rook_pos[2] = SQ_H8;
+			}
 		} else if (fen[inputIdx] <= 'h' && fen[inputIdx] > king_file) {
 			dfrc_uci = true;
 			castling |= BLACK_OO;
@@ -205,9 +217,13 @@ void Position::load_fen(std::string fen) {
 		if (fen[inputIdx] == 'q') {
 			castling |= BLACK_OOO;
 			inputIdx++;
-			Square king_square = make_square(File(king_file - 'a'), RANK_8);
-			Bitboard mask = (square_bits(king_square) - 1);
-			rook_pos[3] = Square(63 - arch::lzcnt(rooks & mask & piece_boards[OCC(BLACK)]));
+			if (dfrc_uci) {
+				Square king_square = make_square(File(king_file - 'a'), RANK_8);
+				Bitboard mask = (square_bits(king_square) - 1);
+				rook_pos[3] = Square(63 - arch::lzcnt(rooks & mask & piece_boards[OCC(BLACK)]));
+			} else {
+				rook_pos[3] = SQ_A8;
+			}
 		} else if (fen[inputIdx] >= 'a' && fen[inputIdx] < king_file) {
 			dfrc_uci = true;
 			castling |= BLACK_OOO;
