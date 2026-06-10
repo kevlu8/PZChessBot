@@ -86,7 +86,7 @@ PZChessBot is a basic negamax engine.
 ### Evaluation
 
 - NNUE-type evaluation with horizontal mirroring
-- Runs a (768x8hm->1024)x2pw->(16->32->1)x8 model
+- Runs a (768x10hm->1280)x2pw->(16->32->1)x8 model
 - Trained from zero-knowledge using self-play games
 
 ### Special Thanks
