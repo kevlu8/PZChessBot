@@ -165,7 +165,8 @@ void Position::load_fen(std::string fen) {
 		if (fen[inputIdx] == 'K') {
 			castling |= WHITE_OO;
 			inputIdx++;
-			if (dfrc_uci) {
+			if (dfrc_uci || mailbox[SQ_H1] != WHITE_ROOK) {
+				dfrc_uci = true;
 				Square king_square = make_square(File(king_file - 'A'), RANK_1);
 				Bitboard mask = ~(square_bits(king_square) - 1);
 				rook_pos[0] = Square(arch::tzcnt(rooks & mask & piece_boards[OCC(WHITE)]));
@@ -182,7 +183,8 @@ void Position::load_fen(std::string fen) {
 		if (fen[inputIdx] == 'Q') {
 			castling |= WHITE_OOO;
 			inputIdx++;
-			if (dfrc_uci) {
+			if (dfrc_uci || mailbox[SQ_A1] != WHITE_ROOK) {
+				dfrc_uci = true;
 				Square king_square = make_square(File(king_file - 'A'), RANK_1);
 				Bitboard mask = (square_bits(king_square) - 1);
 				rook_pos[1] = Square(arch::tzcnt(rooks & mask & piece_boards[OCC(WHITE)]));
@@ -200,7 +202,8 @@ void Position::load_fen(std::string fen) {
 		if (fen[inputIdx] == 'k') {
 			castling |= BLACK_OO;
 			inputIdx++;
-			if (dfrc_uci) {
+			if (dfrc_uci || mailbox[SQ_H8] != BLACK_ROOK) {
+				dfrc_uci = true;
 				Square king_square = make_square(File(king_file - 'a'), RANK_8);
 				Bitboard mask = ~(square_bits(king_square) - 1);
 				rook_pos[2] = Square(arch::tzcnt(rooks & mask & piece_boards[OCC(BLACK)]));
@@ -217,7 +220,8 @@ void Position::load_fen(std::string fen) {
 		if (fen[inputIdx] == 'q') {
 			castling |= BLACK_OOO;
 			inputIdx++;
-			if (dfrc_uci) {
+			if (dfrc_uci || mailbox[SQ_A8] != BLACK_ROOK) {
+				dfrc_uci = true;
 				Square king_square = make_square(File(king_file - 'a'), RANK_8);
 				Bitboard mask = (square_bits(king_square) - 1);
 				rook_pos[3] = Square(63 - arch::lzcnt(rooks & mask & piece_boards[OCC(BLACK)]));
