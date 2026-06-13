@@ -31,6 +31,11 @@ int History::get_capthist(Position &pos, Move move) {
 void History::update_history(Position &pos, Move &move, int ply, SSEntry *line, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
 	history[pos.side][move.src()][move.dst()][pos.control(move.src(), !pos.side)][pos.control(move.dst(), !pos.side)] += cbonus - history[pos.side][move.src()][move.dst()][pos.control(move.src(), !pos.side)][pos.control(move.dst(), !pos.side)] * abs(bonus) / MAX_HISTORY;
+	update_conthist(pos, move, ply, line, bonus);
+}
+
+void History::update_conthist(Position &pos, Move move, int ply, SSEntry *line, Value bonus) {
+	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
 	int conthist = get_conthist(pos, move, ply, line);
 	if (ply >= 1 && (line - 1)->cont_hist)
 		(line - 1)->cont_hist->hist[pos.side][pos.mailbox[move.src()] & 7][move.dst()] += cbonus - conthist * abs(bonus) / MAX_HISTORY;

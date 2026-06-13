@@ -140,6 +140,13 @@ Value tt_to_score(Value score, int ply) {
 }
 
 /**
+ * Get the history score bonus for a given depth
+ */
+Value hist_bonus(int depth) {
+	return std::min(1896, hist_quad() * depth * depth + hist_lin() * depth - hist_const());
+}
+
+/**
  * Get the usage of the transposition table
  *
  * Used for UCI output. This function samples the first 1024 entries of the TTable
@@ -907,6 +914,11 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 
 				if (searched_depth < newdepth) {
 					score = -negamax(pos_after, ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply + 1);
+
+					if (!capt && !promo && (score <= alpha || score >= beta) && !stop_search) {
+						const int bonus = score >= beta ? hist_bonus(newdepth) : -hist_bonus(newdepth);
+						ti.thread_hist.update_conthist(pos, move, ply, &ti.line[ply], bonus);
+					}
 				}
 			}
 		} else if (!pv || i > 0) {
@@ -973,7 +985,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 				ti.line[ply].killer = move; // Update killer move
 			}
 			int hist_depth = depth + (score >= beta + hist_large_margin());
-			const int bonus = std::min(1896, hist_quad() * hist_depth * hist_depth + hist_lin() * hist_depth - hist_const());
+			const int bonus = hist_bonus(hist_depth);
 			if (!capt) { // Not a capture
 				ti.thread_hist.update_history(pos, move, ply, &ti.line[ply], bonus);
 				for (auto &qmove : quiets) {
