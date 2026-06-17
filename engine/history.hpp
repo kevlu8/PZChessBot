@@ -25,6 +25,7 @@
 // Correction history table size
 #define CORRHIST_SZ 16384
 #define THREAT_PRIME_MOD 16381
+#define PAWNHIST_SZ 1024
 
 struct ContHistEntry {
 	Value hist[2][7][64]; // [side][piecetype][to]
@@ -48,12 +49,26 @@ struct SSEntry {
 
 struct History {
 	/**
-	 * The history heuristic is a move ordering heuristic that helps sort quiet moves.
+	 * The butterfly history heuristic is a move ordering heuristic that helps sort quiet moves.
 	 * It works by storing its effectiveness in the past through beta cutoffs.
 	 * We store a history table for each side indexed by [src][dst].
+	 * We also store the threat information for each square, helping us identify moves better.
 	 */
 	Value history[2][64][64][2][2]; // [side][src][dst][src_threatened][dst_threatened]
+
+	/**
+	 * Continuation history is a history heuristic that tracks the effectiveness of quiet moves
+	 * in relation to previous move(s). This allows us to encode sequences of moves better
+	 * and judge the quality of moves based on their context.
+	 */
 	ContHistEntry cont_hist[2][7][64]; // [side][piece][to]
+
+	/**
+	 * Pawn history is a heuristic that tracks the effectiveness of moves based on the
+	 * hash of the pawn structure. In theory, positions with similar pawn structures will
+	 * have similar strategic characteristics.
+	 */
+	Value pawnhist[2][PAWNHIST_SZ][6][64]; // [side][pawn hash][piece type][dst]
 
 	/**
 	 * Capture history is a heuristic similar to the history heuristic, but it's used for
@@ -64,6 +79,7 @@ struct History {
 	History() {
 		memset(history, 0, sizeof(history));
 		memset(cont_hist, 0, sizeof(cont_hist));
+		memset(pawnhist, 0, sizeof(pawnhist));
 		memset(capthist, 0, sizeof(capthist));
 	}
 
