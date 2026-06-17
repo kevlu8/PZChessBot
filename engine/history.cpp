@@ -36,6 +36,7 @@ int History::get_conthist(Position &pos, Move move, int ply, SSEntry *line) {
 
 int History::get_history(Position &pos, Move move, int ply, SSEntry *line) {
 	int score = history[pos.side][move.src()][move.dst()][pos.control(move.src(), !pos.side)][pos.control(move.dst(), !pos.side)];
+	score += pawnhist[pos.side][pos.pawn_hash() % PAWNHIST_SZ][pos.mailbox[move.src()] & 7][move.dst()];
 	score += get_conthist(pos, move, ply, line);
 	return score;
 }
@@ -48,7 +49,14 @@ int History::get_capthist(Position &pos, Move move) {
 // History gravity formula
 void History::update_history(Position &pos, Move &move, int ply, SSEntry *line, Value bonus) {
 	int cbonus = std::clamp(bonus, (Value)(-MAX_HISTORY), MAX_HISTORY);
-	history[pos.side][move.src()][move.dst()][pos.control(move.src(), !pos.side)][pos.control(move.dst(), !pos.side)] += cbonus - history[pos.side][move.src()][move.dst()][pos.control(move.src(), !pos.side)][pos.control(move.dst(), !pos.side)] * abs(bonus) / MAX_HISTORY;
+
+	auto update_entry = [=](Value &entry) {
+		entry += cbonus - entry * abs(cbonus) / MAX_HISTORY;
+	};
+
+	update_entry(history[pos.side][move.src()][move.dst()][pos.control(move.src(), !pos.side)][pos.control(move.dst(), !pos.side)]);
+	update_entry(pawnhist[pos.side][pos.pawn_hash() % PAWNHIST_SZ][pos.mailbox[move.src()] & 7][move.dst()]);
+
 	update_conthist(pos, move, ply, line, bonus);
 }
 
