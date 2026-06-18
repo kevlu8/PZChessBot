@@ -1,0 +1,31 @@
+name: PZ Debug Compilation
+
+on:
+  push:
+    branches: [ "main", "ci" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    # - uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+    - name: Fetch latest NNUE
+      run: wget https://github.com/kevlu8/PZChessBot-Networks/releases/latest/download/nnue.bin
+    - name: Compile debug
+      run: make -j4 debug
+    - name: Check Debug
+      run: |
+        ./pzchessbot bench 6
+        echo "debug OK, ran with no errors"
