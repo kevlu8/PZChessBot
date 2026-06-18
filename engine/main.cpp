@@ -264,7 +264,7 @@ void run_uci() {
 
 int main(int argc, char *argv[]) {
 	print_config();
-	if (std::string(argv[1]) == "bench") {
+	if (argc >= 2 && std::string(argv[1]) == "bench") {
 		const std::string bench_positions[] = {
 			"r3k2r/2pb1ppp/2pp1q2/p7/1nP1B3/1P2P3/P2N1PPP/R2QK2R w KQkq - 0 14",
 			"4rrk1/2p1b1p1/p1p3q1/4p3/2P2n1p/1P1NR2P/PB3PP1/3R1QK1 b - - 2 24",
