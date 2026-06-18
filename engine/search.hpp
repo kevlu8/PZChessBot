@@ -75,13 +75,13 @@ struct alignas(64) NodeCounter {
 		val.fetch_add(1, std::memory_order_relaxed);
 	}
 
-    void operator=(uint64_t new_val) {
-        val.store(new_val, std::memory_order_relaxed);
-    }
+	void operator=(uint64_t new_val) {
+		val.store(new_val, std::memory_order_relaxed);
+	}
 
-    uint64_t get() const {
-        return val.load(std::memory_order_relaxed);
-    }
+	uint64_t get() const {
+		return val.load(std::memory_order_relaxed);
+	}
 };
 
 extern NodeCounter nodes[MAX_THREADS];
@@ -89,20 +89,22 @@ extern std::unordered_set<uint16_t> tb_moves;
 
 struct alignas(4096) ThreadInfo {
 	Position pos;
-    RepetitionHandler rp;
+	SSEntry *ss;
 	int maxdepth = 0, seldepth = 0;
-    Value eval = 0;
-    int id = 0;
+	int id = 0;
+	Value eval = 0;
 	bool is_main = false;
-    alignas(64) History thread_hist;
-    alignas(64) Corrhist thread_corrhist;
-	SSEntry line[MAX_PLY + 5] = {};
+	RepetitionHandler rp;
+	alignas(64) History thread_hist;
+	alignas(64) Corrhist thread_corrhist;
 	Move pvtable[MAX_PLY + 5][MAX_PLY + 5];
 	int pvlen[MAX_PLY + 5] = {};
-    AccumulatorManager am;
-    bool nmp_disable = false;
+	AccumulatorManager am;
+	bool nmp_disable = false;
 
-    ThreadInfo() : am(pos) {}
+	ThreadInfo() : am(pos) {
+		ss = (new SSEntry[MAX_PLY + 16]) + 8;
+	}
 };
 
 void prepare_search(int64_t time, int64_t maxnodes, bool quiet, uint16_t num_threads);
