@@ -105,6 +105,10 @@ struct alignas(4096) ThreadInfo {
 	ThreadInfo() : am(pos) {
 		ss = (new SSEntry[MAX_PLY + 16]) + 8;
 	}
+
+	~ThreadInfo() {
+		delete[] (ss - 8);
+	}
 };
 
 void prepare_search(int64_t time, int64_t maxnodes, bool quiet, uint16_t num_threads);

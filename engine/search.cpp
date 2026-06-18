@@ -65,7 +65,7 @@ uint64_t perft(Position &pos, int depth) {
  *
  * See https://www.chessprogramming.org/Late_Move_Reductions
  */
-uint16_t reduction[250][MAX_PLY];
+uint16_t reduction[250][MAX_PLY+8];
 
 __attribute__((constructor)) void init_lmr() {
 	for (int i = 0; i < 250; i++) {
