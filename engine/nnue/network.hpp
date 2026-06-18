@@ -41,11 +41,11 @@ constexpr int IBUCKET_LAYOUT[] = {
 	18, 18, 18, 18, 19, 19, 19, 19,
 };
 
-struct Accumulator {
-	alignas(32) int16_t val[L1_SIZE] = {};
+struct alignas(64) Accumulator {
+	int16_t val[L1_SIZE] = {};
 };
 
-struct alignas(32) Network {
+struct alignas(0x1000) Network {
 	int16_t accumulator_weights[INPUT_SIZE * NINPUTS][L1_SIZE];
 	int16_t accumulator_biases[L1_SIZE];
 
