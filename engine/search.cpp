@@ -412,7 +412,8 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 	return best;
 }
 
-Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool pv = false, bool cutnode = false, int ply = 0, bool root = false) {
+template<bool pv>
+Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool cutnode = false, int ply = 0, bool root = false) {
 	RepetitionHandler &rp = ti.rp;
 
 	if (ply >= MAX_PLY)
@@ -604,7 +605,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 
 		// Perform a reduced-depth search
 		Value r = NMP_R_VALUE + depth / 3;
-		Value null_score = -negamax(pos_after, ti, depth - r, -beta, -beta + 1, -side, 0, !cutnode, ply + 1);
+		Value null_score = -negamax<false>(pos_after, ti, depth - r, -beta, -beta + 1, -side, !cutnode, ply + 1);
 
 		ti.ss--;
 		rp.pop_hash();
@@ -625,7 +626,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 				return null_score; // Direct cutoff for low depths
 
 			ti.nmp_disable = true;
-			Value score = negamax(pos, ti, depth - r, beta - 1, beta, side, 0, false, ply);
+			Value score = negamax<false>(pos, ti, depth - r, beta - 1, beta, side, false, ply);
 			ti.nmp_disable = false;
 			if (score >= beta)
 				return null_score;
@@ -683,7 +684,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			Value score = -quiesce(pos_after, ti, -pc_beta, -pc_beta + 1, -side, ply + 1);
 
 			if (score >= pc_beta)
-				score = -negamax(pos_after, ti, pc_depth, -pc_beta, -pc_beta + 1, -side, 0, !cutnode, ply + 1);
+				score = -negamax<false>(pos_after, ti, pc_depth, -pc_beta, -pc_beta + 1, -side, !cutnode, ply + 1);
 
 			ti.ss--;
 			ti.am.pop_move();
@@ -761,7 +762,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			 */
 			ti.ss->excl = move;
 			Value singular_beta = tteval - 6 * depth / 4;
-			Value singular_score = negamax(pos, ti, (depth - 1) / 2, singular_beta - 1, singular_beta, side, 0, cutnode, ply);
+			Value singular_score = negamax<false>(pos, ti, (depth - 1) / 2, singular_beta - 1, singular_beta, side, cutnode, ply);
 			ti.ss->excl = NullMove; // Reset exclusion move
 
 			if (singular_score < singular_beta) {
@@ -929,7 +930,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 
 			int searched_depth = std::clamp(newdepth - r / 1024, 1, newdepth + 1);
 
-			score = -negamax(pos_after, ti, searched_depth, -alpha - 1, -alpha, -side, 0, true, ply + 1);
+			score = -negamax<false>(pos_after, ti, searched_depth, -alpha - 1, -alpha, -side, true, ply + 1);
 			if (score > alpha) {
 				// LMR search failed, re-search full depth
 				bool do_deeper = score > beta + dodeeper_margin();
@@ -938,7 +939,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 				newdepth -= do_shallower;
 
 				if (searched_depth < newdepth) {
-					score = -negamax(pos_after, ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply + 1);
+					score = -negamax<false>(pos_after, ti, newdepth, -alpha - 1, -alpha, -side, !cutnode, ply + 1);
 
 					if (!capt && !promo && (score <= alpha || score >= beta) && !stop_search) {
 						const int bonus = score >= beta ? hist_bonus(newdepth) : -hist_bonus(newdepth);
@@ -948,13 +949,13 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			}
 		} else if (!pv || i > 0) {
 			// Case 2: Early moves in nodes
-			score = -negamax(pos_after, ti, newdepth, -alpha - 1, -alpha, -side, 0, !cutnode, ply + 1);
+			score = -negamax<false>(pos_after, ti, newdepth, -alpha - 1, -alpha, -side, !cutnode, ply + 1);
 		}
 		if (pv && (i == 0 || score > alpha)) {
 			// Case 3: First PV node move or re-search
 			if (tentry && move == tentry->best_move && tentry->depth > 1)
 				newdepth = std::max((int)newdepth, 1); // Make sure we don't enter QS if we have an available TT move
-			score = -negamax(pos_after, ti, newdepth, -beta, -alpha, -side, 1, false, ply + 1);
+			score = -negamax<true>(pos_after, ti, newdepth, -beta, -alpha, -side, false, ply + 1);
 		}
 
 		ti.ss--;
@@ -1094,7 +1095,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			beta = eval + window_sz;
 		}
 
-		auto result = negamax(pos, ti, d, alpha, beta, pos.side ? -1 : 1, 1, false, 0, true);
+		auto result = negamax<true>(pos, ti, d, alpha, beta, pos.side ? -1 : 1, false, 0, true);
 		int asp_depth = d;
 
 		// Gradually expand the window if we fail high or low
@@ -1116,7 +1117,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			alpha = std::clamp(alpha, -VALUE_INFINITE, (int)VALUE_INFINITE);
 			beta = std::clamp(beta, -VALUE_INFINITE, (int)VALUE_INFINITE);
 			window_sz *= 2;
-			result = negamax(pos, ti, asp_depth, alpha, beta, pos.side ? -1 : 1, 1, false, 0, true);
+			result = negamax<true>(pos, ti, asp_depth, alpha, beta, pos.side ? -1 : 1, false, 0, true);
 		}
 		if (stop_search)
 			break;
