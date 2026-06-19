@@ -112,12 +112,12 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 
 			for (int k = 0; k < L1_UNROLL; k++) {
 				ivec weight = simd::load_ivec((ivec *)&net.l1_weights[nbucket][i + k][j]);
-				sums[k] = simd::accdp_u8i8_i16(val, weight, sums[k]);
+				sums[k] = simd::accdp_u8i8_i32(val, weight, sums[k]);
 			}
 		}
 
 		for (int j = 0; j < L1_UNROLL; j++)
-			l2i[i + j] = simd::reduce_add_epi16(sums[j]);
+			l2i[i + j] = simd::reduce_add_epi32(sums[j]);
 	}
 
 	// Convert l2 into a proper float array
