@@ -22,7 +22,7 @@
 #include <string>
 #include <list>
 
-// #define TUNING
+#define TUNING
 
 struct TunableParam {
     std::string name;
@@ -93,6 +93,9 @@ TUNE(hist_large_margin, 96, 0, 256, 16);
 TUNE(hist_quad, 3, 0, 6, 1);
 TUNE(hist_lin, 131, 64, 256, 15);
 TUNE(hist_const, 144, 0, 256, 16);
+TUNE(postlmr_quad, 3, 0, 6, 1);
+TUNE(postlmr_lin, 131, 64, 256, 15);
+TUNE(postlmr_const, 144, 0, 256, 16);
 TUNE(asp_window, 14, 1, 30, 4);
 TUNE(bm_base, 180, 80, 250, 15);
 TUNE(bm_mul, 20, 10, 80, 10);
@@ -105,3 +108,6 @@ TUNE(corr_cont2, 143, 64, 256, 16);
 TUNE(corr_threat, 103, 64, 256, 16);
 TUNE(probcut_see, 84, 50, 200, 10);
 TUNE(badnoisy_div, 48, 10, 100, 8);
+
+TUNE(lmr_a, 74, 20, 200, 10);
+TUNE(lmr_b, 233, 100, 400, 20);

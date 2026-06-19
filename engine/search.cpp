@@ -160,8 +160,8 @@ Value tt_to_score(Value score, int ply) {
 /**
  * Get the history score bonus for a given depth
  */
-Value hist_bonus(int depth) {
-	return std::min(1896, hist_quad() * depth * depth + hist_lin() * depth - hist_const());
+Value hist_bonus(int depth, int quad=hist_quad(), int lin=hist_lin(), int const_val=hist_const()) {
+	return std::min(1896, quad * depth * depth + lin * depth - const_val);
 }
 
 /**
@@ -896,7 +896,9 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		if (depth >= 2 && i >= 1 + 2 * root) {
 			// Case 1: Late moves in nodes
 
-			int r = reduction[i][depth];
+			// int r = reduction[i][depth];
+			int r = (lmr_a() / 100.0 + log(depth) * log(i) / (lmr_b() / 100.0)) * 1024;
+			if (depth <= 1 || i <= 1) r = 1024;
 
 			if (capt)
 				r /= 2;
@@ -942,7 +944,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 					score = -negamax<false>(pos_after, ti, newdepth, -alpha - 1, -alpha, -side, !cutnode, ply + 1);
 
 					if (!capt && !promo && (score <= alpha || score >= beta) && !stop_search) {
-						const int bonus = score >= beta ? hist_bonus(newdepth) : -hist_bonus(newdepth);
+						const int bonus = score >= beta ? hist_bonus(newdepth, postlmr_quad(), postlmr_lin(), postlmr_const()) : -hist_bonus(newdepth, postlmr_quad(), postlmr_lin(), postlmr_const());
 						ti.thread_hist.update_conthist(pos, move, ply, ti.ss - 1, bonus);
 					}
 				}
