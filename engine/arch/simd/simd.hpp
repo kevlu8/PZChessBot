@@ -79,7 +79,7 @@ namespace simd {
 	fvec clamp_f32(fvec x, fvec lo, fvec hi);
 
 	ivec shift_mulhi(ivec a, ivec b);
-	ivec accdp_u8i8_i16(ivec a, ivec b, ivec c);
+	ivec accdp_u8i8_i32(ivec a, ivec b, ivec c);
 
 	fvec cvt_i32_f32(ivec v);
 
@@ -91,5 +91,5 @@ namespace simd {
 
 	void store_u16_u8(uint8_t *p, ivec v);
 	float reduce_add_ps(fvec v);
-	int32_t reduce_add_epi16(ivec v);
+	int32_t reduce_add_epi32(ivec v);
 };

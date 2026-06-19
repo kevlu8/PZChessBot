@@ -64,15 +64,19 @@ namespace simd {
 		return vqrdmulhq_s16(a, b);
 	}
 
-	ivec accdp_u8i8_i16(ivec a, ivec b, ivec c) {
+	ivec accdp_u8i8_i32(ivec a, ivec b, ivec c) {
 		int16x8_t a_lo = (int16x8_t)vmovl_u8(vget_low_u8((uint8x16_t)a));
 		int16x8_t a_hi = (int16x8_t)vmovl_u8(vget_high_u8((uint8x16_t)a));
 
 		int16x8_t b_lo = (int16x8_t)vmovl_s8(vget_low_s8((int8x16_t)b));
 		int16x8_t b_hi = (int16x8_t)vmovl_s8(vget_high_s8((int8x16_t)b));
 
-		int16x8_t sum = vpaddq_s16(vmulq_s16(a_lo, b_lo), vmulq_s16(a_hi, b_hi));
-		return vaddq_s16(sum, c);
+		int32x4_t acc = (int32x4_t)c;
+		acc = vmlal_s16(acc, vget_low_s16(a_lo), vget_low_s16(b_lo));
+		acc = vmlal_s16(acc, vget_high_s16(a_lo), vget_high_s16(b_lo));
+		acc = vmlal_s16(acc, vget_low_s16(a_hi), vget_low_s16(b_hi));
+		acc = vmlal_s16(acc, vget_high_s16(a_hi), vget_high_s16(b_hi));
+		return (ivec)acc;
 	}
 
 	fvec cvt_i32_f32(ivec v) {
@@ -108,8 +112,8 @@ namespace simd {
 		return vget_lane_f32(sum, 0);
 	}
 
-	int32_t reduce_add_epi16(ivec v) {
-		return vaddlvq_s16(v);
+	int32_t reduce_add_epi32(ivec v) {
+		return vaddvq_s32((int32x4_t)v);
 	}
 }
 

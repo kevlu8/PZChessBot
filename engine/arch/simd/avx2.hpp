@@ -64,9 +64,10 @@ namespace simd {
 		return _mm256_mulhrs_epi16(a, b);
 	}
 
-	ivec accdp_u8i8_i16(ivec a, ivec b, ivec c) {
+	ivec accdp_u8i8_i32(ivec a, ivec b, ivec c) {
 		ivec sum = _mm256_maddubs_epi16(a, b);
-		return _mm256_add_epi16(sum, c);
+		sum = _mm256_madd_epi16(sum, _mm256_set1_epi16(1));
+		return _mm256_add_epi32(sum, c);
 	}
 
 	fvec cvt_i32_f32(ivec v) {
@@ -104,12 +105,8 @@ namespace simd {
 		return _mm_cvtss_f32(sum);
 	}
 
-	int32_t reduce_add_epi16(ivec v) {
-		const __m256i ones = _mm256_set1_epi16(1);
-
-		__m256i wide = _mm256_madd_epi16(v, ones);
-
-		__m128i sum = _mm_add_epi32(_mm256_castsi256_si128(wide), _mm256_extracti128_si256(wide, 1));
+	int32_t reduce_add_epi32(ivec v) {
+		__m128i sum = _mm_add_epi32(_mm256_castsi256_si128(v), _mm256_extracti128_si256(v, 1));
 		sum = _mm_add_epi32(sum, _mm_shuffle_epi32(sum, _MM_SHUFFLE(1, 0, 3, 2)));
 		sum = _mm_add_epi32(sum, _mm_shuffle_epi32(sum, _MM_SHUFFLE(2, 3, 0, 1)));
 

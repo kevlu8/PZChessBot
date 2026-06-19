@@ -64,12 +64,13 @@ namespace simd {
 		return _mm512_mulhrs_epi16(a, b);
 	}
 
-	ivec accdp_u8i8_i16(ivec a, ivec b, ivec c) {
+	ivec accdp_u8i8_i32(ivec a, ivec b, ivec c) {
 #if defined(__AVX512VNNI__)
 		return _mm512_dpbusd_epi32(c, a, b);
 #else
 		ivec sum = _mm512_maddubs_epi16(a, b);
-		return _mm512_add_epi16(sum, c);
+		sum = _mm512_madd_epi16(sum, _mm512_set1_epi16(1));
+		return _mm512_add_epi32(sum, c);
 #endif
 	}
 
@@ -106,15 +107,8 @@ namespace simd {
 		return _mm_cvtss_f32(sum);
 	}
 
-	int32_t reduce_add_epi16(ivec v) {
-#if defined(__AVX512VNNI__)
-		__m512i wide = v;
-#else
-		const __m512i ones = _mm512_set1_epi16(1);
-		__m512i wide = _mm512_madd_epi16(v, ones);
-#endif
-
-		return _mm512_reduce_add_epi32(wide);
+	int32_t reduce_add_epi32(ivec v) {
+		return _mm512_reduce_add_epi32(v);
 	}
 }
 
