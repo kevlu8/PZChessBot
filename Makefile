@@ -12,7 +12,7 @@ CXX	?= g++
 
 # Flags
 BASEFLAGS	:= -std=c++20 -DNNUE_PATH=\"$(EVALFILE)\" -DVERSION=\"$(VERSION)\"
-OPTFLAGS	:= -O3 -flto=auto
+OPTFLAGS	:= -O3 -flto=auto -fno-omit-frame-pointer
 DEBUGFLAGS	:= -g -m64 -march=x86-64-v3 -fsanitize=address,undefined
 
 # Sources & objects
@@ -68,6 +68,7 @@ clean:
 
 pgo-compile: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -fprofile-use -march=native
 pgo-compile: $(EXE)
+	rm -f $(shell find engine -name "*.gcda") Pyrrhic/*.gcda
 
 pgo: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -fprofile-generate -march=native
 pgo: $(EXE)
@@ -76,4 +77,3 @@ pgo: $(EXE)
 	rm $(OBJS)
 	@echo "Recompiling with PGO optimizations..."
 	$(MAKE) pgo-compile
-	rm -f $(shell find engine -name "*.gcda") Pyrrhic/*.gcda
