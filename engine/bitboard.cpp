@@ -490,7 +490,7 @@ void Position::print_board() const {
 		std::cout << ' ' << (char)('a' + (ep_square & 0b111)) << (char)('1' + (ep_square >> 3)) << ' ';
 	std::cout << (side ? "black" : "white") << '\n';
 
-#ifndef NODEBUG
+#ifdef DEBUG
 	char print[64];
 	// Start at -1 because we increment before processing to guarantee it happens in every case
 	int printIdx = -1;
@@ -580,12 +580,21 @@ void Position::make_move(Move move) {
 	}
 #endif
 
-	// Add move to move history
+	if (move == NullMove) {
+		side = !side;
+		zobrist ^= zobrist_side;
+		if (ep_square != SQ_NONE) {
+			zobrist ^= zobrist_ep[ep_square & 0b111];
+			ep_square = SQ_NONE;
+		}
+		return;
+	}
+
 	Square tmp_ep_square = SQ_NONE;
 	uint8_t prev_castling = castling;
 
 	// Handle captures
-	if (move.data != 0 && is_capture(move)) {
+	if (is_capture(move)) {
 		// Remove whatever piece it was
 		uint8_t piece = mailbox[move.dst()] & 0b111;
 		piece_boards[piece] ^= square_bits(move.dst());
@@ -593,6 +602,7 @@ void Position::make_move(Move move) {
 		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]];
 		piece_hashes[mailbox[move.dst()]] ^= zobrist_square[move.dst()][mailbox[move.dst()]];
 
+		// Remove castling rights
 		if (piece == ROOK) {
 			if (move.dst() == rook_pos[1])
 				castling &= ~WHITE_OOO;
@@ -610,32 +620,8 @@ void Position::make_move(Move move) {
 	if ((mailbox[move.src()] & 0b111) == PAWN)
 		halfmove = -1;
 
-	if (move.data == 0) {
-		// Null move, do nothing, just change sides
-	} else if (move.type() == PROMOTION) {
-		// Remove the pawn on the src and add the piece on the dst
-		zobrist ^= zobrist_square[move.src()][mailbox[move.src()]];
-		piece_hashes[mailbox[move.src()]] ^= zobrist_square[move.src()][mailbox[move.src()]];
-		mailbox[move.src()] = NO_PIECE;
-		mailbox[move.dst()] = Piece(move.promotion() + ((!!side) << 3) + KNIGHT);
-		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-		piece_hashes[mailbox[move.dst()]] ^= zobrist_square[move.dst()][mailbox[move.dst()]];
-		piece_boards[PAWN] ^= square_bits(move.src());
-		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
-		piece_boards[move.promotion() + KNIGHT] ^= square_bits(move.dst());
-	} else if (move.type() == EN_PASSANT) {
-		// Remove the pawn on the src and the taken pawn, then add the pawn on the dst
-		zobrist ^= zobrist_square[move.src()][mailbox[move.src()]] ^ zobrist_square[move.dst()][mailbox[move.src()]];
-		zobrist ^= zobrist_square[(move.src() & 0b111000) | (move.dst() & 0b111)][mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)]]; // Taken pawn
-		piece_hashes[mailbox[move.src()]] ^= zobrist_square[move.src()][mailbox[move.src()]] ^ zobrist_square[move.dst()][mailbox[move.src()]];
-		piece_hashes[mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)]] ^= zobrist_square[(move.src() & 0b111000) | (move.dst() & 0b111)][mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)]];
-		mailbox[move.dst()] = mailbox[move.src()];
-		mailbox[move.src()] = NO_PIECE;
-		mailbox[(move.src() & 0b111000) | (move.dst() & 0b111)] = NO_PIECE;
-		piece_boards[PAWN] ^= square_bits(move.src()) | square_bits(move.dst()) | square_bits(Rank(move.src() >> 3), File(move.dst() & 0b111));
-		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
-		piece_boards[OPPOCC(side)] ^= square_bits(Rank(move.src() >> 3), File(move.dst() & 0b111));
-	} else if (move.type() == CASTLING) {
+	switch (move.type()) {
+	case CASTLING: {
 		// Remove castling rights
 		castling &= ~((WHITE_OO | WHITE_OOO) << (side + side));
 
@@ -659,17 +645,52 @@ void Position::make_move(Move move) {
 		piece_boards[KING] ^= square_bits(king_from) ^ square_bits(king_to);
 		piece_boards[ROOK] ^= square_bits(rook_from) ^ square_bits(rook_to);
 		piece_boards[OCC(side)] ^= (square_bits(king_from) ^ square_bits(king_to)) ^ (square_bits(rook_from) ^ square_bits(rook_to));
-	} else {
-		// Get piece that is moving
+		break;
+	}
+
+	case EN_PASSANT: {
+		// Remove the pawn on the src and the taken pawn, then add the pawn on the dst
+		Square taken_pawn = Square((move.src() & 0b111000) | (move.dst() & 0b000111));
+
+		zobrist ^= zobrist_square[move.src()][mailbox[move.src()]] ^ zobrist_square[move.dst()][mailbox[move.src()]];
+		zobrist ^= zobrist_square[taken_pawn][mailbox[taken_pawn]];
+		piece_hashes[mailbox[move.src()]] ^= zobrist_square[move.src()][mailbox[move.src()]] ^ zobrist_square[move.dst()][mailbox[move.src()]];
+		piece_hashes[mailbox[taken_pawn]] ^= zobrist_square[taken_pawn][mailbox[taken_pawn]];
+		mailbox[move.dst()] = mailbox[move.src()];
+		mailbox[move.src()] = NO_PIECE;
+		mailbox[taken_pawn] = NO_PIECE;
+		piece_boards[PAWN] ^= square_bits(move.src()) | square_bits(move.dst()) | square_bits(taken_pawn);
+		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
+		piece_boards[OPPOCC(side)] ^= square_bits(taken_pawn);
+		break;
+	}
+
+	case PROMOTION: {
+		// Remove the pawn on the src and add the piece on the dst
+		Piece promo_piece = Piece(move.promotion() + KNIGHT);
+
+		zobrist ^= zobrist_square[move.src()][mailbox[move.src()]];
+		piece_hashes[mailbox[move.src()]] ^= zobrist_square[move.src()][mailbox[move.src()]];
+		mailbox[move.src()] = NO_PIECE;
+		mailbox[move.dst()] = Piece(promo_piece + ((!!side) << 3));
+		zobrist ^= zobrist_square[move.dst()][mailbox[move.dst()]];
+		piece_hashes[mailbox[move.dst()]] ^= zobrist_square[move.dst()][mailbox[move.dst()]];
+		piece_boards[PAWN] ^= square_bits(move.src());
+		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
+		piece_boards[promo_piece] ^= square_bits(move.dst());
+		break;
+	}
+
+	case NORMAL: {
 		uint8_t piece = mailbox[move.src()] & 0b111;
-		// Update mailbox repr first
+
 		zobrist ^= zobrist_square[move.src()][mailbox[move.src()]] ^ zobrist_square[move.dst()][mailbox[move.src()]];
 		piece_hashes[mailbox[move.src()]] ^= zobrist_square[move.src()][mailbox[move.src()]] ^ zobrist_square[move.dst()][mailbox[move.src()]];
 		mailbox[move.dst()] = mailbox[move.src()];
 		mailbox[move.src()] = NO_PIECE;
-		// Update piece and occupancy bitboard
 		piece_boards[piece] ^= square_bits(move.src()) | square_bits(move.dst());
 		piece_boards[OCC(side)] ^= square_bits(move.src()) | square_bits(move.dst());
+
 		// Handle castling rights
 		if (piece == KING) {
 			castling &= ~((WHITE_OO | WHITE_OOO) << (side << 1));
@@ -683,12 +704,17 @@ void Position::make_move(Move move) {
 			else if (move.src() == rook_pos[2])
 				castling &= ~BLACK_OO;
 		} else {
-			// Set EP square if applicable
+			// Set EP square if applicable (difference between src and dst is +/- 16)
 			if (piece == PAWN && ((move.src() - move.dst()) & 0b1111) == 0)
 				tmp_ep_square = Square((move.src() + move.dst()) >> 1);
 			else
 				tmp_ep_square = SQ_NONE;
 		}
+		break;
+	}
+
+	default:
+		__builtin_unreachable();
 	}
 
 	// Switch sides
