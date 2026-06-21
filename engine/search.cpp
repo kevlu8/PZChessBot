@@ -160,7 +160,7 @@ Value tt_to_score(Value score, int ply) {
 /**
  * Get the history score bonus for a given depth
  */
-Value hist_bonus(int depth, int quad=hist_quad(), int lin=hist_lin(), int const_val=hist_const()) {
+Value hist_bonus(int depth, int quad, int lin, int const_val) {
 	return std::min(1896, quad * depth * depth + lin * depth - const_val);
 }
 
@@ -1014,7 +1014,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 				ti.ss->killer = move; // Update killer move
 			}
 			int hist_depth = depth + (score >= beta + hist_large_margin());
-			const int bonus = hist_bonus(hist_depth);
+			const int bonus = hist_bonus(hist_depth, hist_quad(), hist_lin(), hist_const());
 			if (!capt) { // Not a capture
 				ti.thread_hist.update_history(pos, move, ply, ti.ss, bonus);
 				for (auto &qmove : quiets) {
