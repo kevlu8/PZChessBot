@@ -412,8 +412,8 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 	return best;
 }
 
-template<bool pv>
-Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool cutnode = false, int ply = 0, bool root = false) {
+template<bool pv, bool root=false>
+Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INFINITE, Value beta = VALUE_INFINITE, int side = 1, bool cutnode = false, int ply = 0) {
 	RepetitionHandler &rp = ti.rp;
 
 	if (ply >= MAX_PLY)
@@ -1046,7 +1046,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 	bool best_iscapture = pos.is_capture(best_move);
 	bool best_ispromo = (best_move.type() == PROMOTION);
 	if (!excluded && !in_check && !(best_move != NullMove && (best_iscapture || best_ispromo)) && !(flag == UPPER_BOUND && best >= cur_eval) && !(flag == LOWER_BOUND && best <= cur_eval)) {
-		// Best move is a quiet move, update CorrHist
+		// Best move is a quiet move, update Corrhist
 		int bonus = (best - cur_eval) * depth / 8;
 		ti.thread_corrhist.update_corrhist(pos, ti.ss, ply, bonus);
 	}
@@ -1095,7 +1095,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			beta = eval + window_sz;
 		}
 
-		auto result = negamax<true>(pos, ti, d, alpha, beta, pos.side ? -1 : 1, false, 0, true);
+		auto result = negamax<true, true>(pos, ti, d, alpha, beta, pos.side ? -1 : 1, false, 0);
 		int asp_depth = d;
 
 		// Gradually expand the window if we fail high or low
@@ -1117,7 +1117,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			alpha = std::clamp(alpha, -VALUE_INFINITE, (int)VALUE_INFINITE);
 			beta = std::clamp(beta, -VALUE_INFINITE, (int)VALUE_INFINITE);
 			window_sz *= 2;
-			result = negamax<true>(pos, ti, asp_depth, alpha, beta, pos.side ? -1 : 1, false, 0, true);
+			result = negamax<true, true>(pos, ti, asp_depth, alpha, beta, pos.side ? -1 : 1, false, 0);
 		}
 		if (stop_search)
 			break;
@@ -1170,12 +1170,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 			// only do time management on main thread
 			bool best_iscapt = pos.is_capture(best_move);
 			bool best_ispromo = (best_move.type() == PROMOTION);
-			bool in_check = false;
-			if (pos.side == WHITE) {
-				in_check = pos.control(arch::tzcnt(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)]), BLACK) > 0;
-			} else {
-				in_check = pos.control(arch::tzcnt(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]), WHITE) > 0;
-			}
+			bool in_check = pos.checkers[pos.side];
 
 			double soft = 0.53;
 			if (d >= 6) {
