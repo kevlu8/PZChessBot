@@ -761,7 +761,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			 * We can also extend more if the position without the move is *very* bad.
 			 */
 			ti.ss->excl = move;
-			Value singular_beta = tteval - 6 * depth / 4;
+			Value singular_beta = tteval - se_base() * depth / 4;
 			Value singular_score = negamax<false>(pos, ti, (depth - 1) / 2, singular_beta - 1, singular_beta, side, cutnode, ply);
 			ti.ss->excl = NullMove; // Reset exclusion move
 
@@ -901,7 +901,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			if (depth <= 1 || i <= 1) r = 1024;
 
 			if (capt)
-				r /= 2;
+				r = r * lmr_capt() / 128;
 
 			// Base reduction
 			r -= lmr_base();
@@ -928,7 +928,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			r -= corr_val * lmr_corr() / 128;
 
 			if (!capt && !promo)
-				r -= hist / 10;
+				r -= hist * lmr_hist() / 128;
 
 			int searched_depth = std::clamp(newdepth - r / 1024, 1, newdepth + 1);
 
