@@ -1179,14 +1179,14 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 				in_check = pos.control(arch::tzcnt(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]), WHITE) > 0;
 			}
 
-			double soft = 0.53;
+			double soft = tm_soft() / 100.0;
 			if (d >= 6) {
 				if (!best_iscapt && !best_ispromo && !in_check) {
 					// adjust soft limit based on complexity
 					Value complexity = abs(eval - static_eval);
-					double factor = std::clamp(complexity / 192.0, 0.0, 1.0);
+					double factor = std::clamp(complexity / ((double)cmplx_div()), 0.0, 1.0);
 					// higher complexity = spend more time, lower complexity = spend less time
-					soft = 0.32 + 0.44 * factor;
+					soft *= (cmplx_base() / 100.0) + (cmplx_mul() / 100.0) * factor;
 				}
 
 				double bm_stability = bm_base() / 100.0 - bm_mul() / 100.0 * consec_move;
@@ -1194,7 +1194,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 				soft *= bm_stability;
 			}
 
-			double node_adjustment = 1.34 - 0.92 * (bm_nodes / (double)tot_nodes);
+			double node_adjustment = node_base() / 100.0 - (node_mul() / 100.0) * (bm_nodes / (double)tot_nodes);
 			soft *= node_adjustment;
 
 			if (abs(eval) >= VALUE_WIN)
