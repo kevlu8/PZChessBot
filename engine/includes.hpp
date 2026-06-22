@@ -42,7 +42,7 @@
 #define VERSION "v7.0"
 #endif
 
-#define NNUE_PAWN_VALUE 2.25
+#define NNUE_PAWN_VALUE 3.30
 
 typedef uint64_t Bitboard;
 

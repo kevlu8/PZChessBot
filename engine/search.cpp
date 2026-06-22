@@ -73,7 +73,7 @@ __attribute__((constructor)) void init_lmr() {
 			if (d <= 1 || i <= 1)
 				reduction[i][d] = 1024;
 			else
-				reduction[i][d] = (0.74 + log(i) * log(d) / 2.33) * 1024;
+				reduction[i][d] = (lmr_a() / 100.0 + log(i) * log(d) / (lmr_b() / 100.0)) * 1024;
 		}
 	}
 }
@@ -896,9 +896,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		if (depth >= 2 && i >= 1 + 2 * root) {
 			// Case 1: Late moves in nodes
 
-			// int r = reduction[i][depth];
-			int r = (lmr_a() / 100.0 + log(depth) * log(i) / (lmr_b() / 100.0)) * 1024;
-			if (depth <= 1 || i <= 1) r = 1024;
+			int r = reduction[i][depth];
 
 			if (capt)
 				r = r * lmr_capt() / 128;
