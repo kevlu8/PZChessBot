@@ -12,12 +12,15 @@ concurrency:
 
 jobs:
   build:
-
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-26-intel, windows-latest, windows-11-arm]
     runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        shell: bash
 
     steps:
     # - uses: actions/checkout@v4
@@ -36,7 +39,7 @@ jobs:
           exit 1
         fi
     - name: Fetch latest NNUE
-      run: wget https://github.com/kevlu8/PZChessBot-Networks/releases/latest/download/nnue.bin
+      run: curl -fsSL -o nnue.bin https://github.com/kevlu8/PZChessBot-Networks/releases/latest/download/nnue.bin
     - name: Compile
       run: make -j4 native
     - name: Check Bench
