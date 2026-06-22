@@ -12,7 +12,7 @@ CXX	?= g++
 
 # Flags
 BASEFLAGS	:= -std=c++20 -DNNUE_PATH=\"$(EVALFILE)\" -DVERSION=\"$(VERSION)\"
-OPTFLAGS	:= -O3 -flto=auto -fno-omit-frame-pointer
+OPTFLAGS	:= -O3 -flto=auto
 DEBUGFLAGS	:= -g -m64 -march=x86-64-v3 -fsanitize=address,undefined
 
 # Sources & objects
