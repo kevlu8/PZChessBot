@@ -26,26 +26,26 @@ DEPS	:= $(OBJS:.o=.d)
 # Default: native build
 all: pgo
 
-no-pext: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -march=znver2
+no-pext: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -march=znver2
 no-pext: $(EXE)
 
-v3: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v3
+v3: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v3
 v3: $(EXE)
 
-v4: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v4
+v4: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v4
 v4: $(EXE)
 
-vnni: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -march=icelake-server
+vnni: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -march=icelake-server
 vnni: $(EXE)
 
 arm: CXX := aarch64-linux-gnu-g++
-arm: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -static
+arm: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -static
 arm: $(EXE)
 
-native: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -march=native
+native: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -march=native
 native: $(EXE)
 
-debug: CXXFLAGS := $(BASEFLAGS) $(DEBUGFLAGS)
+debug: CXXFLAGS += $(BASEFLAGS) $(DEBUGFLAGS)
 debug: $(EXE)
 
 # Link final binary

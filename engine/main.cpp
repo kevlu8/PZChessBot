@@ -365,7 +365,7 @@ int main(int argc, char *argv[]) {
 		Pool pool;
 		Position pos = Position();
 		RepetitionHandler rp;
-		AccumulatorManager am(pos);
+		AccumulatorManager &am = pool.get_ti(0).am;
 		rp.push_hash(pos.zobrist_without_ep());
 		std::mt19937_64 rng(s);
 		std::ifstream bookfile(book == "None" ? "" : book);
@@ -435,7 +435,7 @@ int main(int argc, char *argv[]) {
 		// calculate pawn value
 		Pool pool;
 		Position pos = Position();
-		AccumulatorManager am(pos);
+		AccumulatorManager &am = pool.get_ti(0).am;
 		int tot = 0;
 		Value startpos_score = eval(pos, am);
 		for (int i = 0; i < 8; i++) {
@@ -463,7 +463,7 @@ int main(int argc, char *argv[]) {
 			std::cerr << "Could not open book file" << std::endl;
 			return 1;
 		}
-		AccumulatorManager am(pos);
+		AccumulatorManager &am = pool.get_ti(0).am;
 		while (getline(bookfile, line)) {
 			std::string fen = line.substr(0, line.find(' '));
 			pos.reset(fen);
