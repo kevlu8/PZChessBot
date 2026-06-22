@@ -68,12 +68,9 @@ uint64_t perft(Position &pos, int depth) {
 uint16_t reduction[250][MAX_PLY+8];
 
 __attribute__((constructor)) void init_lmr() {
-	for (int i = 0; i < 250; i++) {
-		for (int d = 0; d < MAX_PLY; d++) {
-			if (d <= 1 || i <= 1)
-				reduction[i][d] = 1024;
-			else
-				reduction[i][d] = (lmr_a() / 100.0 + log(i) * log(d) / (lmr_b() / 100.0)) * 1024;
+	for (int i = 1; i < 250; i++) {
+		for (int d = 1; d <= MAX_PLY; d++) {
+			reduction[i][d] = (lmr_a() / 100.0 + log(i) * log(d) / (lmr_b() / 100.0)) * 1024;
 		}
 	}
 }
