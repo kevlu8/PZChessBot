@@ -70,7 +70,7 @@ TUNE(dext_capt, 10, -100, 100, 10);
 TUNE(dext_pv, 35, -100, 100, 10);
 TUNE(dext_improving, 7, -50, 50, 10);
 TUNE(text_base, 118, 50, 200, 10);
-TUNE(text_capt, -61, -200, 200, 20);
+TUNE(text_capt, 50, 0, 200, 10);
 TUNE(fp_const, 297, 100, 500, 30);
 TUNE(fp_depth, 72, 20, 200, 10);
 TUNE(fp_hist, 32, 10, 64, 5);
