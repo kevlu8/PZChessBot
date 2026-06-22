@@ -73,7 +73,7 @@ __attribute__((constructor)) void init_lmr() {
 			if (d <= 1 || i <= 1)
 				reduction[i][d] = 1024;
 			else
-				reduction[i][d] = (0.74 + log(i) * log(d) / 2.33) * 1024;
+				reduction[i][d] = (lmr_a() / 100.0 + log(i) * log(d) / (lmr_b() / 100.0)) * 1024;
 		}
 	}
 }
@@ -160,8 +160,8 @@ Value tt_to_score(Value score, int ply) {
 /**
  * Get the history score bonus for a given depth
  */
-Value hist_bonus(int depth) {
-	return std::min(1896, hist_quad() * depth * depth + hist_lin() * depth - hist_const());
+Value hist_bonus(int depth, int quad, int lin, int const_val) {
+	return std::min(1896, quad * depth * depth + lin * depth - const_val);
 }
 
 /**
@@ -761,7 +761,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			 * We can also extend more if the position without the move is *very* bad.
 			 */
 			ti.ss->excl = move;
-			Value singular_beta = tteval - 6 * depth / 4;
+			Value singular_beta = tteval - se_base() * depth / 4;
 			Value singular_score = negamax<false>(pos, ti, (depth - 1) / 2, singular_beta - 1, singular_beta, side, cutnode, ply);
 			ti.ss->excl = NullMove; // Reset exclusion move
 
@@ -899,7 +899,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			int r = reduction[i][depth];
 
 			if (capt)
-				r /= 2;
+				r = r * lmr_capt() / 128;
 
 			// Base reduction
 			r -= lmr_base();
@@ -926,7 +926,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			r -= corr_val * lmr_corr() / 128;
 
 			if (!capt && !promo)
-				r -= hist / 10;
+				r -= hist * lmr_hist() / 128;
 
 			int searched_depth = std::clamp(newdepth - r / 1024, 1, newdepth + 1);
 
@@ -942,7 +942,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 					score = -negamax<false>(pos_after, ti, newdepth, -alpha - 1, -alpha, -side, !cutnode, ply + 1);
 
 					if (!capt && !promo && (score <= alpha || score >= beta) && !stop_search) {
-						const int bonus = score >= beta ? hist_bonus(newdepth) : -hist_bonus(newdepth);
+						const int bonus = score >= beta ? hist_bonus(newdepth, postlmr_quad(), postlmr_lin(), postlmr_const()) : -hist_bonus(newdepth, postlmr_quad(), postlmr_lin(), postlmr_const());
 						ti.thread_hist.update_conthist(pos, move, ply, ti.ss - 1, bonus);
 					}
 				}
@@ -1012,7 +1012,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 				ti.ss->killer = move; // Update killer move
 			}
 			int hist_depth = depth + (score >= beta + hist_large_margin());
-			const int bonus = hist_bonus(hist_depth);
+			const int bonus = hist_bonus(hist_depth, hist_quad(), hist_lin(), hist_const());
 			if (!capt) { // Not a capture
 				ti.thread_hist.update_history(pos, move, ply, ti.ss, bonus);
 				for (auto &qmove : quiets) {
@@ -1177,14 +1177,14 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 				in_check = pos.control(arch::tzcnt(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]), WHITE) > 0;
 			}
 
-			double soft = 0.53;
+			double soft = tm_soft() / 100.0;
 			if (d >= 6) {
 				if (!best_iscapt && !best_ispromo && !in_check) {
 					// adjust soft limit based on complexity
 					Value complexity = abs(eval - static_eval);
-					double factor = std::clamp(complexity / 192.0, 0.0, 1.0);
+					double factor = std::clamp(complexity / ((double)cmplx_div()), 0.0, 1.0);
 					// higher complexity = spend more time, lower complexity = spend less time
-					soft = 0.32 + 0.44 * factor;
+					soft *= (cmplx_base() / 100.0) + (cmplx_mul() / 100.0) * factor;
 				}
 
 				double bm_stability = bm_base() / 100.0 - bm_mul() / 100.0 * consec_move;
@@ -1192,7 +1192,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 				soft *= bm_stability;
 			}
 
-			double node_adjustment = 1.34 - 0.92 * (bm_nodes / (double)tot_nodes);
+			double node_adjustment = node_base() / 100.0 - (node_mul() / 100.0) * (bm_nodes / (double)tot_nodes);
 			soft *= node_adjustment;
 
 			if (abs(eval) >= VALUE_WIN)
