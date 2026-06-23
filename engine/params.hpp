@@ -113,9 +113,6 @@ TUNE(lmr_a, 99, 20, 200, 10);
 TUNE(lmr_b, 260, 100, 400, 20);
 
 TUNE(tm_soft, 53, 10, 90, 8);
-TUNE(cmplx_div, 192, 100, 400, 40);
-TUNE(cmplx_base, 64, 20, 120, 10);
-TUNE(cmplx_mul, 88, 40, 160, 10);
 TUNE(bm_base, 180, 80, 250, 15);
 TUNE(bm_mul, 20, 10, 80, 10);
 TUNE(node_base, 134, 100, 200, 10);

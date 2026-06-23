@@ -1176,14 +1176,6 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 
 			double soft = tm_soft() / 100.0;
 			if (d >= 6) {
-				// if (!best_iscapt && !best_ispromo && !in_check) {
-				// 	// adjust soft limit based on complexity
-				// 	Value complexity = abs(eval - static_eval);
-				// 	double factor = std::clamp(complexity / ((double)cmplx_div()), 0.0, 1.0);
-				// 	// higher complexity = spend more time, lower complexity = spend less time
-				// 	soft *= (cmplx_base() / 100.0) + (cmplx_mul() / 100.0) * factor;
-				// }
-
 				double bm_stability = bm_base() / 100.0 - bm_mul() / 100.0 * consec_move;
 				bm_stability = std::clamp(bm_stability, 0.8, 1.8);
 				soft *= bm_stability;
