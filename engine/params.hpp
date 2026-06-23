@@ -112,8 +112,8 @@ TUNE(badnoisy_div, 47, 10, 100, 8);
 TUNE(lmr_a, 99, 20, 200, 10);
 TUNE(lmr_b, 260, 100, 400, 20);
 
-TUNE(tm_soft, 53, 10, 90, 8);
-TUNE(bm_base, 180, 80, 250, 15);
-TUNE(bm_mul, 20, 10, 80, 10);
-TUNE(node_base, 134, 100, 200, 10);
-TUNE(node_mul, 92, 40, 160, 10);
+TUNE(tm_soft, 51, 10, 90, 4);
+TUNE(bm_base, 174, 80, 250, 8);
+TUNE(bm_mul, 22, 10, 80, 5);
+TUNE(node_base, 130, 100, 200, 8);
+TUNE(node_mul, 100, 40, 160, 8);
