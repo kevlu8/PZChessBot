@@ -36,7 +36,7 @@
 
 // Options
 size_t TT_SIZE = DEFAULT_TT_SIZE;
-bool quiet = false, online = false, dfrc_uci = false;
+bool quiet = false, dfrc_uci = false;
 int move_overhead = 0;
 
 void run_uci() {
@@ -253,7 +253,7 @@ void run_uci() {
 			else if (movetime != -1)
 				pool.search(pos, rp, movetime, MAX_PLY, 1e18, quiet);
 			else
-				pool.search(pos, rp, timemgmt(timeleft, inc, online), MAX_PLY, 1e18, quiet);
+				pool.search(pos, rp, timemgmt(timeleft, inc), MAX_PLY, 1e18, quiet);
 		} else if (command == "wait") {
 			pool.wait_finished();
 		}
@@ -476,7 +476,6 @@ int main(int argc, char *argv[]) {
 		std::cout << "info string Average eval over " << npositions << " positions: " << (tot_eval / npositions) << std::endl;
 		return 0;
 	}
-	online = argc >= 2 && std::string(argv[1]) == "--online=1";
 	std::cout << "PZChessBot " << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
 	run_uci();
 }
