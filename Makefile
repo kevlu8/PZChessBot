@@ -14,7 +14,31 @@ CXX	?= g++
 BASEFLAGS   := -std=c++20 -DNNUE_PATH=\"$(EVALFILE)\" -DVERSION=\"$(VERSION)\"
 OPTFLAGS    := -O3 -flto=auto
 DEBUGFLAGS  := -g -march=x86-64-v3 -fsanitize=address,undefined
-LDFLAGS		:= -lnuma
+LDFLAGS		:=
+
+# NUMA handling
+NUMA_NODES := 1
+
+ifeq ($(OS),Windows_NT)
+# no numa support here
+else
+	HAS_LSCPU := $(shell command -v lscpu 2> /dev/null)
+	ifneq ($(HAS_LSCPU),)
+		NUMA_NODES := $(shell lscpu | grep "^NUMA node(s):" | awk '{print $$3}')
+		ifeq ($(NUMA_NODES),)
+			NUMA_NODES := 1
+		endif
+		HAS_NUMA := $(shell $(CXX) -lnuma -shared -o /dev/null -x c /dev/null >/dev/null 2>&1 && echo yes || echo no)
+		ifeq ($(HAS_NUMA),no)
+			NUMA_NODES := 1
+		endif
+	endif
+endif
+
+ifneq ($(NUMA_NODES),1)
+	OPTFLAGS += -DUSE_NUMA
+	LDFLAGS += -lnuma
+endif
 
 # Sources & objects
 SRCS	:= $(shell find engine -name "*.cpp") Pyrrhic/tbprobe.cpp

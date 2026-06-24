@@ -18,7 +18,7 @@
 
 #include "threads.hpp"
 
-#ifdef __linux__
+#ifdef USE_NUMA
 #include <numa.h>
 #endif
 
@@ -52,7 +52,7 @@ void Pool::resize(size_t num) {
 }
 
 void Pool::thread_loop(size_t i) {
-#ifdef __linux__
+#ifdef USE_NUMA
 	int node = i % numa_num_configured_nodes();
 	numa_run_on_node(node);
 	sched_yield();
