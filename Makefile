@@ -91,14 +91,14 @@ clean:
 	rm -f $(OBJS) $(DEPS)
 	rm -f $(shell find engine -name "*.gcda") Pyrrhic/*.gcda
 
-pgo-compile: CXXFLAGS := $(filter-out -fprofile-generate, $(CXXFLAGS)) -fprofile-use
+pgo-compile: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -fprofile-use -march=native
 pgo-compile: $(EXE)
 	rm -f $(shell find engine -name "*.gcda") Pyrrhic/*.gcda
 
 pgo: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -fprofile-generate -march=native
 pgo: $(EXE)
 	@echo "Running PGO instrumentation..."
-	wine Z:/home/wdotmathree/github/PZChessBot/$(EXE) bench
+	./$(EXE) bench
 	rm $(OBJS) $(EXE)
 	@echo "Recompiling with PGO optimizations..."
 	$(MAKE) pgo-compile
