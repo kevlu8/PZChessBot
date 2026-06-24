@@ -66,11 +66,11 @@ clean:
 	rm -f $(OBJS) $(DEPS)
 	rm -f $(shell find engine -name "*.gcda") Pyrrhic/*.gcda
 
-pgo-compile: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -fprofile-use -march=native
+pgo-compile: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -fprofile-use -march=native
 pgo-compile: $(EXE)
 	rm -f $(shell find engine -name "*.gcda") Pyrrhic/*.gcda
 
-pgo: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -fprofile-generate -march=native
+pgo: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -fprofile-generate -march=native
 pgo: $(EXE)
 	@echo "Running PGO instrumentation..."
 	./$(EXE) bench
