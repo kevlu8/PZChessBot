@@ -158,7 +158,7 @@ Value tt_to_score(Value score, int ply) {
  * Get the history score bonus for a given depth
  */
 Value hist_bonus(int depth, int quad, int lin, int const_val) {
-	return std::min(1896, quad * depth * depth + lin * depth - const_val);
+	return std::min(1896, quad * depth * depth / 32 + lin * depth - const_val);
 }
 
 /**
@@ -572,7 +572,7 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 		 *
 		 * We need to make sure that we aren't in check (since we might get mated)
 		 */
-		int margin = (rfp_threshold() - improving * rfp_improving()) * depth + rfp_quad() * depth * depth - rfp_cutnode() * cutnode + corr_val * rfp_corr() / 1024;
+		int margin = (rfp_threshold() - improving * rfp_improving()) * depth + rfp_quad() * depth * depth / 32 - rfp_cutnode() * cutnode + corr_val * rfp_corr() / 1024;
 		if (tt_corr_eval >= beta + margin)
 			return ((int)tt_corr_eval + beta) / 2;
 	}
@@ -758,14 +758,14 @@ Value negamax(Position &pos, ThreadInfo &ti, int depth, Value alpha = -VALUE_INF
 			 * We can also extend more if the position without the move is *very* bad.
 			 */
 			ti.ss->excl = move;
-			Value singular_beta = tteval - se_base() * depth / 4;
+			Value singular_beta = tteval - se_base() * depth / 32;
 			Value singular_score = negamax<false>(pos, ti, (depth - 1) / 2, singular_beta - 1, singular_beta, side, cutnode, ply);
 			ti.ss->excl = NullMove; // Reset exclusion move
 
 			if (singular_score < singular_beta) {
 				extension++;
 
-				int dext_margin = dext_base() + dext_capt() * capt + dext_pv() * pv + dext_improving() * improving;
+				int dext_margin = dext_base() + dext_capt() * capt + dext_pv() * pv;
 				if (singular_score <= singular_beta - dext_margin)
 					extension++;
 
