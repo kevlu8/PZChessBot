@@ -38,9 +38,9 @@
 #include "debug.hpp"
 #include "pzstl/vector.hpp"
 
-#ifndef VERSION
-#define VERSION "v7.0"
-#endif
+// #ifndef VERSION
+#define VERSION "v7.1"
+// #endif
 
 #define NNUE_PAWN_VALUE 3.30
 

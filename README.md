@@ -46,6 +46,7 @@ make -j
 | v6.1             |   ~3630    |    3504    |      3573       |     2950      |
 | v20260313-dev    |   ~3660    |     -      |        -        |     3050      |
 | v7.0             |    3701    |    3573    |      3607       |     3050      |
+| v7.1             |   ~3710    |     -      |        -        |     3050      |
 
 ## Logistics & Features
 
@@ -86,7 +87,7 @@ PZChessBot is a basic negamax engine.
 ### Evaluation
 
 - NNUE-type evaluation with horizontal mirroring
-- Runs a (768x10hm->1280)x2pw->(16->32->1)x8 model
+- Runs a (768x12hm->1280)x2pw->(16->32->1)x8 model
 - Trained from zero-knowledge using self-play games
 
 ### Special Thanks
@@ -96,5 +97,6 @@ PZChessBot is a basic negamax engine.
 - The [ChessProgramming Wiki](https://chessprogramming.org/) for their clear albeit outdated explanations
 - [OpenBench](https://github.com/AndyGrant/OpenBench) for providing an excellent testing GUI
 - [sscg13](https://github.com/sscg13) for having shared an OpenBench instance with me and helping me with a lot of miscellaneous stuff
+- [Jonathan Hallström](https://github.com/JonathanHallstrom) for donating hardware and giving lots of advice
 - [Pyrrhic](https://github.com/AndyGrant/Pyrrhic) for providing tablebase probing code
 - Lastly, YOU for checking out this project!
