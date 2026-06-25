@@ -30,9 +30,11 @@
 
 static void *large_alloc(size_t size) {
 #if defined(_WIN32)
-	void *ptr = VirtualAlloc(nullptr, size, MEM_RESERVE | MEM_LARGE_PAGES, PAGE_READWRITE);
+	void *ptr = VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE | MEM_LARGE_PAGES, PAGE_READWRITE);
 	if (ptr == nullptr) {
-		std::__throw_runtime_error(std::strerror(GetLastError()));
+		ptr = VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+		if (ptr == nullptr)
+			std::__throw_runtime_error(std::to_string(GetLastError()).c_str());
 	}
 #elif defined(__APPLE__)
 	void *ptr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);

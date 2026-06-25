@@ -63,6 +63,8 @@ struct AccumulatorManager {
 	Update updates[MAX_PLY + 5]; // Stores the changed indices for each move - updates[i] stores the changes from accs[i-1] to accs[i]
 	Cache finny;
 
+	AccumulatorManager(const AccumulatorManager &) = delete;
+
 	AccumulatorManager(Position &pos) {
 		full_refresh(pos, 0);
 	}

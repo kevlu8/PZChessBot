@@ -51,26 +51,26 @@ DEPS	:= $(OBJS:.o=.d)
 # Default: native build
 all: pgo
 
-no-pext: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -march=znver2
+no-pext: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -march=znver2
 no-pext: $(EXE)
 
-v3: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v3
+v3: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v3
 v3: $(EXE)
 
-v4: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v4
+v4: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -march=x86-64-v4
 v4: $(EXE)
 
-vnni: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -march=icelake-server
+vnni: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -march=icelake-server
 vnni: $(EXE)
 
 arm: CXX := aarch64-linux-gnu-g++
-arm: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -static
+arm: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -static
 arm: $(EXE)
 
-native: CXXFLAGS := $(BASEFLAGS) $(OPTFLAGS) -march=native
+native: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -march=native
 native: $(EXE)
 
-debug: CXXFLAGS := $(BASEFLAGS) $(DEBUGFLAGS)
+debug: CXXFLAGS += $(BASEFLAGS) $(DEBUGFLAGS)
 debug: $(EXE)
 
 # Link final binary
@@ -91,14 +91,14 @@ clean:
 	rm -f $(OBJS) $(DEPS)
 	rm -f $(shell find engine -name "*.gcda") Pyrrhic/*.gcda
 
-pgo-compile: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -fprofile-use -march=native
+pgo-compile: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -fprofile-use -march=native
 pgo-compile: $(EXE)
+	rm -f $(shell find engine -name "*.gcda") Pyrrhic/*.gcda
 
-pgo: CXXFLAGS = $(BASEFLAGS) $(OPTFLAGS) -fprofile-generate -march=native
+pgo: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -fprofile-generate -march=native
 pgo: $(EXE)
 	@echo "Running PGO instrumentation..."
 	./$(EXE) bench
-	rm $(OBJS)
+	rm $(OBJS) $(EXE)
 	@echo "Recompiling with PGO optimizations..."
 	$(MAKE) pgo-compile
-	rm -f $(shell find engine -name "*.gcda") Pyrrhic/*.gcda

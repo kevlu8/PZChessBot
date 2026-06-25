@@ -35,12 +35,11 @@
 
 // Options
 size_t TT_SIZE = DEFAULT_TT_SIZE;
-bool quiet = false, online = false, dfrc_uci = false;
+bool quiet = false, dfrc_uci = false;
 int move_overhead = 0;
 
-uint64_t timemgmt(int64_t remtime, int64_t inc = 0, bool online = 0) {
+uint64_t timemgmt(int64_t remtime, int64_t inc = 0) {
 	// Return time in ms that we can spend on this move
-	if (online && remtime < 5000) return 100;
 	return std::max(1ll, (long long)(remtime * (tm_rem() / 100.0) + inc * (tm_inc() / 100.0)));
 }
 
@@ -258,7 +257,7 @@ void run_uci() {
 			else if (movetime != -1)
 				pool.search(pos, rp, movetime, MAX_PLY, 1e18, quiet);
 			else
-				pool.search(pos, rp, timemgmt(timeleft, inc, online), MAX_PLY, 1e18, quiet);
+				pool.search(pos, rp, timemgmt(timeleft, inc), MAX_PLY, 1e18, quiet);
 		} else if (command == "wait") {
 			pool.wait_finished();
 		}
@@ -370,7 +369,7 @@ int main(int argc, char *argv[]) {
 		Pool pool;
 		Position pos = Position();
 		RepetitionHandler rp;
-		AccumulatorManager am(pos);
+		AccumulatorManager &am = pool.get_ti(0).am;
 		rp.push_hash(pos.zobrist_without_ep());
 		std::mt19937_64 rng(s);
 		std::ifstream bookfile(book == "None" ? "" : book);
@@ -440,7 +439,7 @@ int main(int argc, char *argv[]) {
 		// calculate pawn value
 		Pool pool;
 		Position pos = Position();
-		AccumulatorManager am(pos);
+		AccumulatorManager &am = pool.get_ti(0).am;
 		int tot = 0;
 		Value startpos_score = eval(pos, am);
 		for (int i = 0; i < 8; i++) {
@@ -468,7 +467,7 @@ int main(int argc, char *argv[]) {
 			std::cerr << "Could not open book file" << std::endl;
 			return 1;
 		}
-		AccumulatorManager am(pos);
+		AccumulatorManager &am = pool.get_ti(0).am;
 		while (getline(bookfile, line)) {
 			std::string fen = line.substr(0, line.find(' '));
 			pos.reset(fen);
@@ -481,7 +480,6 @@ int main(int argc, char *argv[]) {
 		std::cout << "info string Average eval over " << npositions << " positions: " << (tot_eval / npositions) << std::endl;
 		return 0;
 	}
-	online = argc >= 2 && std::string(argv[1]) == "--online=1";
 	std::cout << "PZChessBot " << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
 	run_uci();
 }

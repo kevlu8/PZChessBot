@@ -73,20 +73,22 @@ std::array<Value, 8> debug_eval(Position &pos) {
 	int winbucket = IBUCKET_LAYOUT[wkingsq];
 	int binbucket = IBUCKET_LAYOUT[bkingsq ^ 56];
 
-	AccumulatorManager am(pos);
+	AccumulatorManager *am = new AccumulatorManager(pos);
 
 	int npieces = arch::popcnt(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
 
 	std::array<Value, 8> score = {};
 	if (pos.side == WHITE) {
 		for (int i = 0; i < 8; i++) {
-			score[i] = nnue_eval(nnue_network, am.current().w_acc, am.current().b_acc, i);
+			score[i] = nnue_eval(nnue_network, am->current().w_acc, am->current().b_acc, i);
 		}
 	} else {
 		for (int i = 0; i < 8; i++) {
-			score[i] = -nnue_eval(nnue_network, am.current().b_acc, am.current().w_acc, i);
+			score[i] = -nnue_eval(nnue_network, am->current().b_acc, am->current().w_acc, i);
 		}
 	}
+
+	delete am;
 
 	return score;
 }

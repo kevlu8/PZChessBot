@@ -48,9 +48,18 @@ void print_uci();
 void print_config();
 void handle_set(std::string optionname, std::string optionvalue);
 
+#ifdef TUNING
+
 #define TUNE(name, val, min, max, step) \
     inline TunableParam &name##Param = add_tunable(#name, val, min, max, step); \
     inline int name() { return name##Param.value; }
+
+#else
+
+#define TUNE(name, val, min, max, step) \
+    inline int name() { return val; }
+
+#endif
 
 // Tunables go below
 TUNE(qs_see, -15, -100, 100, 10);
