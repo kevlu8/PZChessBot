@@ -343,6 +343,9 @@ Value quiesce(Position &pos, ThreadInfo &ti, Value alpha, Value beta, int side, 
 					best = std::max(best, futility);
 					continue;
 				}
+			} else if (moves_searched >= 3) {
+				// QS Late Move Pruning
+				break;
 			}
 		}
 
