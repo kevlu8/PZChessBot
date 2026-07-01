@@ -36,7 +36,7 @@ else
 endif
 
 ifneq ($(NUMA_NODES),1)
-	OPTFLAGS += -DUSE_NUMA
+	OPTFLAGS += -DUSE_NUMA -DNUMA_NODES=$(NUMA_NODES)
 	LDFLAGS += -lnuma
 endif
 
