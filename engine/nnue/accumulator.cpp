@@ -172,25 +172,26 @@ void AccumulatorManager::apply_lazy(Position &pos) {
 		return;
 	}
 
+	const int16_t (*__restrict weights)[L1_SIZE] = net->accumulator_weights;
 	for (int i = index + 1; i <= idx; i++) {
 		auto &u = updates[i];
 		if (u.deltas == 2) {
 			// -+
 			for (int k = 0; k < L1_SIZE; k++) {
-				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - net->accumulator_weights[u.w_deltas[0]][k] + net->accumulator_weights[u.w_deltas[1]][k];
-				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - net->accumulator_weights[u.b_deltas[0]][k] + net->accumulator_weights[u.b_deltas[1]][k];
+				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - weights[u.w_deltas[0]][k] + weights[u.w_deltas[1]][k];
+				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - weights[u.b_deltas[0]][k] + weights[u.b_deltas[1]][k];
 			}
 		} else if (u.deltas == 3) {
 			// --+
 			for (int k = 0; k < L1_SIZE; k++) {
-				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - net->accumulator_weights[u.w_deltas[0]][k] - net->accumulator_weights[u.w_deltas[1]][k] + net->accumulator_weights[u.w_deltas[2]][k];
-				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - net->accumulator_weights[u.b_deltas[0]][k] - net->accumulator_weights[u.b_deltas[1]][k] + net->accumulator_weights[u.b_deltas[2]][k];
+				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - weights[u.w_deltas[0]][k] - weights[u.w_deltas[1]][k] + weights[u.w_deltas[2]][k];
+				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - weights[u.b_deltas[0]][k] - weights[u.b_deltas[1]][k] + weights[u.b_deltas[2]][k];
 			}
 		} else if (u.deltas == 4) {
 			// --++
 			for (int k = 0; k < L1_SIZE; k++) {
-				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - net->accumulator_weights[u.w_deltas[0]][k] - net->accumulator_weights[u.w_deltas[1]][k] + net->accumulator_weights[u.w_deltas[2]][k] + net->accumulator_weights[u.w_deltas[3]][k];
-				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - net->accumulator_weights[u.b_deltas[0]][k] - net->accumulator_weights[u.b_deltas[1]][k] + net->accumulator_weights[u.b_deltas[2]][k] + net->accumulator_weights[u.b_deltas[3]][k];
+				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - weights[u.w_deltas[0]][k] - weights[u.w_deltas[1]][k] + weights[u.w_deltas[2]][k] + weights[u.w_deltas[3]][k];
+				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - weights[u.b_deltas[0]][k] - weights[u.b_deltas[1]][k] + weights[u.b_deltas[2]][k] + weights[u.b_deltas[3]][k];
 			}
 		}
 		accs[i].correct = true;
