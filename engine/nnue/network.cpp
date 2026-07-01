@@ -18,10 +18,39 @@
 
 #include "network.hpp"
 
+#include "../mem.hpp"
 #include "incbin.h"
 
+#ifdef USE_NUMA
+#include <numa.h>
+#endif
+
+#ifndef NUMA_NODES
+#define NUMA_NODES 1
+#endif
+
 extern "C" {
-	INCBIN(network_weights, NNUE_PATH);
+INCBIN(network_weights, NNUE_PATH);
+}
+
+static Network *networks[NUMA_NODES];
+
+__attribute__((constructor)) void init_networks() {
+	for (int i = 0; i < NUMA_NODES; i++) {
+#ifdef USE_NUMA
+		Network *net = (Network *)numa_alloc_onnode(sizeof(Network), i);
+#else
+		Network *net = (Network *)large_alloc(sizeof(Network));
+#endif
+		net->load();
+		networks[i] = net;
+	}
+}
+
+Network *get_network(int numa_node) {
+	if (numa_node < 0 || numa_node >= NUMA_NODES)
+		numa_node = 0;
+	return networks[numa_node];
 }
 
 void Network::load() {

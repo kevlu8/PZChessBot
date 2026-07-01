@@ -31,12 +31,12 @@ struct AccumulatorManager {
 		Accumulator w_acc, b_acc;
 		bool correct = false;
 
-		void update_add(Square sq, PieceType pt, bool side, int wbucket, int bbucket);
-		void update_sub(Square sq, PieceType pt, bool side, int wbucket, int bbucket);
-		void update_white_threat_add(int index);
-		void update_black_threat_add(int index);
-		void update_white_threat_sub(int index);
-		void update_black_threat_sub(int index);
+		void update_add(const Network &net, Square sq, PieceType pt, bool side, int wbucket, int bbucket);
+		void update_sub(const Network &net, Square sq, PieceType pt, bool side, int wbucket, int bbucket);
+		void update_white_threat_add(const Network &net, int index);
+		void update_black_threat_add(const Network &net, int index);
+		void update_white_threat_sub(const Network &net, int index);
+		void update_black_threat_sub(const Network &net, int index);
 	};
 
 	struct PSQTUpdate {
@@ -76,18 +76,19 @@ struct AccumulatorManager {
 		AccumulatorPair accs[NINPUTS * 2];
 		Piece mailboxes[NINPUTS * 2][2][64];
 
-		Cache() {
+		Cache(const Network &net) {
 			std::fill(&mailboxes[0][0][0], &mailboxes[0][0][0] + NINPUTS * 2 * 2 * 64, NO_PIECE);
 
 			for (int i = 0; i < NINPUTS * 2; i++) {
 				for (int j = 0; j < L1_SIZE; j++) {
-					accs[i].w_acc.val[j] = nnue_network.accumulator_biases[j];
-					accs[i].b_acc.val[j] = nnue_network.accumulator_biases[j];
+					accs[i].w_acc.val[j] = net.accumulator_biases[j];
+					accs[i].b_acc.val[j] = net.accumulator_biases[j];
 				}
 			}
 		}
 	};
 
+	Network *net;
 	AccumulatorPair accs[MAX_PLY + 5];
 	int idx = 0;
 	PSQTUpdate psqtupdates[MAX_PLY + 5]; // Stores the changed indices for each move - updates[i] stores the changes from accs[i-1] to accs[i]
@@ -95,8 +96,9 @@ struct AccumulatorManager {
 	Cache finny;
 
 	AccumulatorManager(const AccumulatorManager &) = delete;
+	AccumulatorManager(AccumulatorManager &&) = delete;
 
-	AccumulatorManager(Position &pos) {
+	AccumulatorManager(Position &pos, Network *net) : net(net), finny(*net) {
 		full_refresh(pos, 0);
 	}
 
