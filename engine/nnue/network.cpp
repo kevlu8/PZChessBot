@@ -73,11 +73,7 @@ static void *init_shm(int node, uint32_t sum) {
 			if (ftruncate(fd, len) < 0)
 				break;
 
-#if defined(__APPLE__)
-			void *ptr = mmap(nullptr, len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_NORESERVE | MAP_ALIGNED(21), fd, 0);
-#else
 			void *ptr = mmap(nullptr, len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_NORESERVE, fd, 0);
-#endif
 			if (ptr == MAP_FAILED)
 				break;
 
@@ -103,11 +99,7 @@ static void *init_shm(int node, uint32_t sum) {
 			if (flock(fd, LOCK_SH) != 0)
 				break;
 
-#if defined(__APPLE__)
-			void *ptr = mmap(nullptr, len, PROT_READ, MAP_SHARED | MAP_NORESERVE | MAP_ALIGNED(21), fd, 0);
-#else
 			void *ptr = mmap(nullptr, len, PROT_READ, MAP_SHARED | MAP_NORESERVE, fd, 0);
-#endif
 			if (ptr == MAP_FAILED) {
 				flock(fd, LOCK_UN);
 				break;
