@@ -37,7 +37,7 @@ static void *large_alloc(size_t size) {
 			std::__throw_runtime_error(std::to_string(GetLastError()).c_str());
 	}
 #elif defined(__APPLE__)
-	void *ptr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+	void *ptr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE | MAP_ALIGNED(21), -1, 0);
 	if (ptr == MAP_FAILED) {
 		std::__throw_runtime_error(strerror(errno));
 	}
