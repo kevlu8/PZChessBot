@@ -54,9 +54,11 @@ void Pool::resize(size_t num) {
 void Pool::thread_loop(size_t i) {
 	int node = 0;
 #ifdef USE_NUMA
-	node = i % numa_num_configured_nodes();
-	numa_run_on_node(node);
-	sched_yield();
+	if (num_threads >= numa_num_configured_nodes()) {
+		node = i % numa_num_configured_nodes();
+		numa_run_on_node(node);
+		sched_yield();
+	}
 #endif
 	new (&tis[i]) ThreadInfo(get_network(node)); // construct in thread loop for better NUMA locality
 	init_barrier->arrive_and_wait();
