@@ -43,7 +43,7 @@ uint64_t timemgmt(int64_t remtime, int64_t inc = 0) {
 	return std::max(1ll, (long long)(remtime * (tm_rem() / 100.0) + inc * (tm_inc() / 100.0)));
 }
 
-void run_uci() {
+int run_uci() {
 	Pool pool;
 	std::string command;
 	Position pos = Position();
@@ -67,7 +67,7 @@ void run_uci() {
 			print_uci();
 			std::cout << "uciok" << std::endl;
 		} else if (command == "icu") {
-			return; // exit uci mode
+			return 0; // exit uci mode
 		} else if (command == "isready") {
 			std::cout << "readyok" << std::endl;
 		} else if (command.substr(0, 9) == "setoption") {
@@ -172,7 +172,7 @@ void run_uci() {
 		} else if (command == "quit") {
 			stop_search = true;
 			pool.wait_finished();
-			exit(0);
+			return 0;
 		} else if (command == "stop") {
 			stop_search = true;
 			pool.wait_finished();
@@ -264,6 +264,7 @@ void run_uci() {
 	}
 	stop_search = true;
 	pool.wait_finished();
+	return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -481,5 +482,5 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 	std::cout << "PZChessBot " << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
-	run_uci();
+	return run_uci();
 }
