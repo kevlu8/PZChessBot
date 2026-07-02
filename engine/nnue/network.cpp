@@ -19,7 +19,7 @@
 #include "network.hpp"
 #include "../mem.hpp"
 #include "incbin.h"
-#include <format>
+#include <iomanip>
 
 #ifndef _WIN32
 #include <fcntl.h>
@@ -57,7 +57,9 @@ static void *init_shm(int node, uint32_t sum) {
 	// no thanks, someone else can come do this if they want
 	return fallback(len);
 #else
-	std::string name = std::format("/pznet.{:08x}.{}", sum, node);
+	std::ostringstream ss;
+	ss << "/pznet." << std::setfill('0') << std::setw(8) << std::hex << sum << std::dec << '.' << node;
+	std::string name = ss.str();
 	const uint32_t target = sum | 1;
 	const size_t magic_off = len - 4;
 
