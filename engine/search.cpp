@@ -1062,8 +1062,8 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 		for (int j = 0; j < 64; j++) {
 			for (int k = 0; k < 2; k++) {
 				for (int l = 0; l < 2; l++) {
-					ti.thread_hist.history[0][i][j][k][l] /= 2;
-					ti.thread_hist.history[1][i][j][k][l] /= 2;
+					ti.thread_hist.history[0][i][j][k][l] = ti.thread_hist.history[0][i][j][k][l] * 3 / 4;
+					ti.thread_hist.history[1][i][j][k][l] = ti.thread_hist.history[1][i][j][k][l] * 3 / 4;
 				}
 			}
 		}
