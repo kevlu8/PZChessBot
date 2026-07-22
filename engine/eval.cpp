@@ -18,13 +18,6 @@
 
 #include "eval.hpp"
 
-// Accumulator w_acc, b_acc;
-Network nnue_network;
-
-__attribute__((constructor)) void init_network() {
-	nnue_network.load();
-}
-
 Value simple_eval(Position &pos) {
 	Value score = 0;
 	for (int i = 0; i < 6; i++) {
@@ -43,9 +36,9 @@ Value eval(Position &pos, AccumulatorManager &am) {
 	int nbucket = (npieces - 2) / 4;
 
 	if (pos.side == WHITE) {
-		score = nnue_eval(nnue_network, am.current().w_acc, am.current().b_acc, nbucket);
+		score = nnue_eval(*am.net, am.current().w_acc, am.current().b_acc, nbucket);
 	} else {
-		score = -nnue_eval(nnue_network, am.current().b_acc, am.current().w_acc, nbucket);
+		score = -nnue_eval(*am.net, am.current().b_acc, am.current().w_acc, nbucket);
 	}
 
 	const int mat_phase = PawnValue * arch::popcnt(pos.piece_boards[PAWN]) + KnightValue * arch::popcnt(pos.piece_boards[KNIGHT]) +
@@ -73,18 +66,18 @@ std::array<Value, 8> debug_eval(Position &pos) {
 	int winbucket = IBUCKET_LAYOUT[wkingsq];
 	int binbucket = IBUCKET_LAYOUT[bkingsq ^ 56];
 
-	AccumulatorManager *am = new AccumulatorManager(pos);
+	AccumulatorManager *am = new AccumulatorManager(pos, get_network(0));
 
 	int npieces = arch::popcnt(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
 
 	std::array<Value, 8> score = {};
 	if (pos.side == WHITE) {
 		for (int i = 0; i < 8; i++) {
-			score[i] = nnue_eval(nnue_network, am->current().w_acc, am->current().b_acc, i);
+			score[i] = nnue_eval(*am->net, am->current().w_acc, am->current().b_acc, i);
 		}
 	} else {
 		for (int i = 0; i < 8; i++) {
-			score[i] = -nnue_eval(nnue_network, am->current().b_acc, am->current().w_acc, i);
+			score[i] = -nnue_eval(*am->net, am->current().b_acc, am->current().w_acc, i);
 		}
 	}
 

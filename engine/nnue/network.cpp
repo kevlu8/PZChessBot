@@ -17,11 +17,126 @@
  */
 
 #include "network.hpp"
-
+#include "../mem.hpp"
 #include "incbin.h"
+#include <iomanip>
+
+#ifndef _WIN32
+#include <fcntl.h>
+#include <sys/file.h>
+#include <unistd.h>
+#endif
+
+#ifdef USE_NUMA
+#include <numa.h>
+#include <numaif.h>
+#endif
+
+#ifndef NUMA_NODES
+#define NUMA_NODES 1
+#endif
 
 extern "C" {
-	INCBIN(network_weights, NNUE_PATH);
+INCBIN(network_weights, NNUE_PATH);
+}
+
+static Network *networks[NUMA_NODES];
+
+static void *fallback(size_t len) {
+	Network *net = (Network *)large_alloc(len);
+	net->load();
+	return net;
+}
+
+static void *init_shm(int node, uint32_t sum) {
+	size_t len = 1 << 21;
+	while (len < sizeof(Network) + (1 << 21))
+		len <<= 1;
+
+#if defined(_WIN32)
+	// no thanks, someone else can come do this if they want
+	return fallback(len);
+#else
+	std::ostringstream ss;
+	ss << "/pznet." << std::setfill('0') << std::setw(8) << std::hex << sum << std::dec << '.' << node;
+	std::string name = ss.str();
+	const uint32_t target = sum | 1;
+	const size_t magic_off = len - 4;
+
+	int fd = shm_open(name.c_str(), O_CREAT | O_RDWR, 0666);
+	if (fd < 0)
+		return fallback(len);
+
+	for (int attempt = 0; attempt < 64; attempt++) {
+		if (flock(fd, LOCK_EX | LOCK_NB) == 0) {
+			// Winner
+			if (ftruncate(fd, len) < 0)
+				break;
+
+			void *ptr = mmap(nullptr, len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_NORESERVE, fd, 0);
+			if (ptr == MAP_FAILED)
+				break;
+
+#ifdef USE_NUMA
+			unsigned long mask = 1UL << node;
+			mbind(ptr, len, MPOL_BIND, &mask, sizeof(mask) * 8, 0);
+#endif
+
+			uint32_t *magic = (uint32_t *)((char *)ptr + magic_off);
+			if (*magic != target) {
+#if defined(__linux__)
+				madvise(ptr, len, MADV_HUGEPAGE);
+#endif
+				((Network *)ptr)->load();
+				*magic = target;
+			}
+			mprotect(ptr, len, PROT_READ);
+
+			flock(fd, LOCK_SH);
+			return ptr;
+		} else {
+			// Loser
+			if (flock(fd, LOCK_SH) != 0)
+				break;
+
+			void *ptr = mmap(nullptr, len, PROT_READ, MAP_SHARED | MAP_NORESERVE, fd, 0);
+			if (ptr == MAP_FAILED) {
+				flock(fd, LOCK_UN);
+				break;
+			}
+
+			uint32_t *magic = (uint32_t *)((char *)ptr + magic_off);
+			if (*magic == target)
+				return ptr;
+
+			// Winner died: retry
+			munmap(ptr, len);
+			flock(fd, LOCK_UN);
+		}
+	}
+
+	close(fd);
+	return fallback(len);
+#endif
+}
+
+__attribute__((constructor)) void init_networks() {
+	const uint32_t *ptr = (uint32_t *)gnetwork_weightsData;
+	uint32_t sum = 0;
+	for (size_t i = 0; i < gnetwork_weightsSize / 4; i++) {
+		sum += ptr[i];
+	}
+
+	for (int i = 0; i < NUMA_NODES; i++) {
+		Network *net = (Network *)init_shm(i, sum);
+		networks[i] = net;
+	}
+}
+
+Network *get_network(int numa_node) {
+	if (numa_node < 0 || numa_node >= NUMA_NODES)
+		numa_node = 0;
+	return networks[numa_node];
 }
 
 void Network::load() {
