@@ -24,8 +24,10 @@ namespace pzstd {
 	template <typename T, size_t MaxSize = PZSTD_DEFAULT_SIZE>
 	struct vector {
 		// It is necessary to write this class using static allocation only
-		T data[MaxSize];
-		uint16_t sz = 0;
+		union { T data[MaxSize]; };
+		uint16_t sz;
+
+		vector() : sz(0) {}
 
 		void push_back(T value) noexcept {
 			data[sz++] = value;
