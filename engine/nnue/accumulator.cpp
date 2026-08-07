@@ -75,11 +75,6 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 	Accumulator &w_acc = accs[index].w_acc;
 	Accumulator &b_acc = accs[index].b_acc;
 
-	for (int i = 0; i < L1_SIZE; i++) {
-		w_acc.val[i] = f_w_acc.val[i];
-		b_acc.val[i] = f_b_acc.val[i];
-	}
-
 	for (int i = 0; i < 64; i++) {
 		Piece piece = pos.mailbox[i];
 		bool side = piece >> 3; // 1 = black, 0 = white
@@ -94,7 +89,7 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 				// Add to accumulator
 				int index = calculate_index((Square)i, pt, side, 0, winbucket);
 				for (int k = 0; k < L1_SIZE; k++) {
-					w_acc.val[k] += nnue_network.accumulator_weights[index][k];
+					f_w_acc.val[k] += nnue_network.accumulator_weights[index][k];
 				}
 			}
 
@@ -102,7 +97,7 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 				// Remove from accumulator
 				int index = calculate_index((Square)i, prev_w_pt, prev_w_side, 0, winbucket);
 				for (int k = 0; k < L1_SIZE; k++) {
-					w_acc.val[k] -= nnue_network.accumulator_weights[index][k];
+					f_w_acc.val[k] -= nnue_network.accumulator_weights[index][k];
 				}
 			}
 		}
@@ -116,7 +111,7 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 				// Add to accumulator
 				int index = calculate_index((Square)i, pt, side, 1, binbucket);
 				for (int k = 0; k < L1_SIZE; k++) {
-					b_acc.val[k] += nnue_network.accumulator_weights[index][k];
+					f_b_acc.val[k] += nnue_network.accumulator_weights[index][k];
 				}
 			}
 
@@ -124,18 +119,19 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 				// Remove from accumulator
 				int index = calculate_index((Square)i, prev_b_pt, prev_b_side, 1, binbucket);
 				for (int k = 0; k < L1_SIZE; k++) {
-					b_acc.val[k] -= nnue_network.accumulator_weights[index][k];
+					f_b_acc.val[k] -= nnue_network.accumulator_weights[index][k];
 				}
 			}
 		}
 	}
 
-	// Update finny tables
+	// Update accumulators
 	for (int i = 0; i < L1_SIZE; i++) {
-		f_w_acc.val[i] = w_acc.val[i];
-		f_b_acc.val[i] = b_acc.val[i];
+		w_acc.val[i] = f_w_acc.val[i];
+		b_acc.val[i] = f_b_acc.val[i];
 	}
 
+	// such a small loop that it's not worth incrementally doing
 	for (int i = 0; i < 64; i++) {
 		finny.mailboxes[winbucket][WHITE][i] = pos.mailbox[i];
 		finny.mailboxes[binbucket][BLACK][i] = pos.mailbox[i];
