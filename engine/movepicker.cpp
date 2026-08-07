@@ -112,7 +112,7 @@ Move MovePicker::next() {
 	}
 
 	if (stage == MP_STAGE_MOVES) {
-		if (end == 0) {
+		if (end == 0 || qskip) {
 			stage = MP_STAGE_BADNOISY;
 			end = 0;
 			return next();
