@@ -18,25 +18,35 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+
 #define PZSTD_DEFAULT_SIZE 256
 
 namespace pzstd {
 	template <typename T, size_t MaxSize = PZSTD_DEFAULT_SIZE>
 	struct vector {
 		// It is necessary to write this class using static allocation only
-		T data[MaxSize];
-		uint16_t sz = 0;
+		union { T data[MaxSize]; };
+		uint16_t sz;
 
-		void push_back(T value) noexcept {
-			data[sz++] = value;
+		vector() : sz(0) {}
+
+		void push_back(const T &value) {
+			new (&data[sz++]) T(value);
 		}
-		void pop_back() noexcept {
-			sz--;
+		void push_back(T &&value) {
+			new (&data[sz++]) T(value);
+		}
+		void pop_back() {
+			~T(&data[--sz]);
 		}
 		void clear() {
-			sz = 0;
+			while (sz > 0) {
+				~T(&data[--sz]);
+			}
 		}
-		uint16_t count(T value) const {
+		uint16_t count(const T &value) const {
 			uint16_t cnt = 0;
 			for (uint16_t i = 0; i < sz; i++) {
 				if (data[i] == value) {
