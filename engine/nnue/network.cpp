@@ -41,7 +41,7 @@ void Network::load() {
 
 	for (int i = 0; i < NBUCKETS; i++) {
 		for (int j = 0; j < L3_SIZE; j++) {
-			for (int k = 0; k < L2_SIZE; k++) {
+			for (int k = 0; k < L2_SIZE * 2; k++) {
 				memcpy(&l2_weights[i][k][j], ptr, 4);
 				ptr += 4;
 			}
@@ -55,6 +55,9 @@ void Network::load() {
 	ptr += sizeof(output_weights);
 
 	memcpy(&output_biases, ptr, sizeof(output_biases));
+	ptr += sizeof(output_biases);
+
+	std::cout << ptr - (char *)gnetwork_weightsData << " bytes loaded for NNUE network" << std::endl;
 }
 
 int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nbucket) {
@@ -126,15 +129,12 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		// val is activated with CReLU and val2 with SCReLU
 		ivec i_val = simd::load_ivec((ivec *)&l2i[i]);
 		fvec val = simd::cvt_i32_f32(i_val);
-		fvec val2 = simd::cvt_i32_f32(i_val);
 
 		fvec bias = simd::load_fvec(&net.l1_biases[nbucket][i]);
-		fvec bias2 = simd::load_fvec(&net.l1_biases[nbucket][i + L2_SIZE]);
 
 		val = simd::fma_f32(val, div, bias);
-		val2 = simd::fma_f32(val2, div, bias2);
 
-		val2 = simd::mul_f32(val2, val2); // note that order is changed for dual activation (CSReLU)
+		fvec val2 = simd::mul_f32(val, val); // note that order is changed for dual activation (CSReLU)
 
 		val = simd::clamp_f32(val, f_zero, f_clip);
 		val2 = simd::clamp_f32(val2, f_zero, f_clip);
