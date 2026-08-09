@@ -41,7 +41,7 @@ void Network::load() {
 
 	for (int i = 0; i < NBUCKETS; i++) {
 		for (int j = 0; j < L3_SIZE; j++) {
-			for (int k = 0; k < L2_SIZE; k++) {
+			for (int k = 0; k < L2_SIZE * 2; k++) {
 				memcpy(&l2_weights[i][k][j], ptr, 4);
 				ptr += 4;
 			}
@@ -55,6 +55,7 @@ void Network::load() {
 	ptr += sizeof(output_weights);
 
 	memcpy(&output_biases, ptr, sizeof(output_biases));
+	ptr += sizeof(output_biases);
 }
 
 int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nbucket) {
@@ -79,7 +80,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 
 	alignas(64) uint8_t l1[L1_SIZE];
 	alignas(64) int32_t l2i[L2_SIZE];
-	alignas(64) float l2[L2_SIZE];
+	alignas(64) float l2[L2_SIZE * 2];
 	alignas(64) float l3[L3_SIZE];
 
 	// Pairwise mul
@@ -122,6 +123,8 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 
 	// Convert l2 into a proper float array
 	for (int i = 0; i < L2_SIZE; i += FLOATS_PER_VEC) {
+		// using the raw values, do dual activation
+		// val is activated with CReLU and val2 with CSReLU
 		ivec i_val = simd::load_ivec((ivec *)&l2i[i]);
 		fvec val = simd::cvt_i32_f32(i_val);
 
@@ -129,11 +132,13 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 
 		val = simd::fma_f32(val, div, bias);
 
-		val = simd::clamp_f32(val, f_zero, f_clip);
+		fvec val2 = simd::mul_f32(val, val); // note that order is changed for dual activation (CSReLU)
 
-		val = simd::mul_f32(val, val);
+		val = simd::clamp_f32(val, f_zero, f_clip);
+		val2 = simd::clamp_f32(val2, f_zero, f_clip);
 
 		simd::store_f32(&l2[i], val);
+		simd::store_f32(&l2[i + L2_SIZE], val2);
 	}
 
 	for (int i = 0; i < L3_SIZE; i += FLOATS_PER_VEC * L2_UNROLL) {
@@ -141,7 +146,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		for (int j = 0; j < L2_UNROLL; j++)
 			sums[j] = simd::load_fvec(&net.l2_biases[nbucket][i + j * FLOATS_PER_VEC]);
 
-		for (int j = 0; j < L2_SIZE; j++) {
+		for (int j = 0; j < L2_SIZE * 2; j++) {
 			fvec val = simd::broadcast_f32(l2[j]);
 
 			for (int k = 0; k < L2_UNROLL; k++) {
