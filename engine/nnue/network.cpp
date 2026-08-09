@@ -79,7 +79,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 
 	alignas(64) uint8_t l1[L1_SIZE];
 	alignas(64) int32_t l2i[L2_SIZE];
-	alignas(64) float l2[L2_SIZE];
+	alignas(64) float l2[L2_SIZE * 2];
 	alignas(64) float l3[L3_SIZE];
 
 	// Pairwise mul
@@ -122,18 +122,25 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 
 	// Convert l2 into a proper float array
 	for (int i = 0; i < L2_SIZE; i += FLOATS_PER_VEC) {
+		// using the raw values, do dual activation
+		// val is activated with CReLU and val2 with SCReLU
 		ivec i_val = simd::load_ivec((ivec *)&l2i[i]);
 		fvec val = simd::cvt_i32_f32(i_val);
+		fvec val2 = simd::cvt_i32_f32(i_val);
 
 		fvec bias = simd::load_fvec(&net.l1_biases[nbucket][i]);
+		fvec bias2 = simd::load_fvec(&net.l1_biases[nbucket][i + L2_SIZE]);
 
 		val = simd::fma_f32(val, div, bias);
+		val2 = simd::fma_f32(val2, div, bias2);
+
+		val2 = simd::mul_f32(val2, val2); // note that order is changed for dual activation (CSReLU)
 
 		val = simd::clamp_f32(val, f_zero, f_clip);
-
-		val = simd::mul_f32(val, val);
+		val2 = simd::clamp_f32(val2, f_zero, f_clip);
 
 		simd::store_f32(&l2[i], val);
+		simd::store_f32(&l2[i + L2_SIZE], val2);
 	}
 
 	for (int i = 0; i < L3_SIZE; i += FLOATS_PER_VEC * L2_UNROLL) {
@@ -141,7 +148,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		for (int j = 0; j < L2_UNROLL; j++)
 			sums[j] = simd::load_fvec(&net.l2_biases[nbucket][i + j * FLOATS_PER_VEC]);
 
-		for (int j = 0; j < L2_SIZE; j++) {
+		for (int j = 0; j < L2_SIZE * 2; j++) {
 			fvec val = simd::broadcast_f32(l2[j]);
 
 			for (int k = 0; k < L2_UNROLL; k++) {
