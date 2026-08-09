@@ -56,8 +56,6 @@ void Network::load() {
 
 	memcpy(&output_biases, ptr, sizeof(output_biases));
 	ptr += sizeof(output_biases);
-
-	std::cout << ptr - (char *)gnetwork_weightsData << " bytes loaded for NNUE network" << std::endl;
 }
 
 int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nbucket) {
@@ -126,7 +124,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 	// Convert l2 into a proper float array
 	for (int i = 0; i < L2_SIZE; i += FLOATS_PER_VEC) {
 		// using the raw values, do dual activation
-		// val is activated with CReLU and val2 with SCReLU
+		// val is activated with CReLU and val2 with CSReLU
 		ivec i_val = simd::load_ivec((ivec *)&l2i[i]);
 		fvec val = simd::cvt_i32_f32(i_val);
 
