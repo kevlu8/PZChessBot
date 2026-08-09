@@ -50,7 +50,7 @@ struct alignas(32) Network {
 	int16_t accumulator_biases[L1_SIZE];
 
 	int8_t l1_weights[NBUCKETS][L2_SIZE][L1_SIZE];
-	float l1_biases[NBUCKETS][L2_SIZE];
+	float l1_biases[NBUCKETS][L2_SIZE * 2];
 
 	float l2_weights[NBUCKETS][L2_SIZE * 2][L3_SIZE];
 	float l2_biases[NBUCKETS][L3_SIZE];
