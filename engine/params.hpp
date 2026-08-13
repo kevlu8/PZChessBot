@@ -89,7 +89,7 @@ TUNE(lmr_base, -70, -1024, 1024, 160);
 TUNE(lmr_capt, 69, 0, 128, 16);
 TUNE(lmr_pv, 1344, 512, 2048, 128);
 TUNE(lmr_cutnode, 2480, 0, 3072, 256);
-TUNE(lmr_cutnode_nott, -795, -1024, 1024, 256);
+TUNE(lmr_cutnode_nott, 1024, 0, 2048, 128);
 TUNE(lmr_cutoffcnt, 709, 0, 2048, 128);
 TUNE(lmr_ttpv, 830, 0, 2048, 128);
 TUNE(lmr_killer, 1149, 0, 2048, 128);
