@@ -932,6 +932,8 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 
 			if (!capt && !promo)
 				r -= hist * lmr_hist() / 128;
+			else if (capt)
+				r -= hist * lmr_capt_hist() / 128;
 
 			int searched_depth = std::clamp(newdepth - r / 1024, 1, newdepth + 1);
 
