@@ -738,6 +738,16 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 		depth--;
 	}
 
+	// Hindsight extension
+	if (!pv && !in_check && !excluded && (ss - 1)->reduction >= 3 && is_valid_score((ss - 1)->eval)
+		&& cur_eval < -(ss - 1)->eval) {
+		/**
+		 * Our parent node was reduced by a lot, but the eval (from our POV) actually decreased.
+		 * This suggests the parent move may have been better than expected, so we can extend the search slightly.
+		 */
+		depth++;
+	}
+
 	Move best_move = NullMove;
 
 	int alpha_raise = 0;
@@ -949,7 +959,10 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 
 			int searched_depth = std::clamp(newdepth - r / 1024, 1, newdepth + 1);
 
+			(ss - 1)->reduction = newdepth - searched_depth;
 			score = -negamax<false>(pos_after, ti, ss + 1, searched_depth, -alpha - 1, -alpha, -side, true, ply + 1);
+			(ss - 1)->reduction = 0;
+
 			if (score > alpha) {
 				// LMR search failed, re-search full depth
 				bool do_deeper = score > beta + dodeeper_margin();
