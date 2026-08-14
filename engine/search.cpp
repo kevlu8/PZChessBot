@@ -457,8 +457,25 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 		return alpha;
 	}
 
+	bool in_check = pos.checkers[pos.side];
+
 	// Threefold or 50 move rule
 	if (!root && (rp.threefold(ply, pos.zobrist_without_ep()) || pos.halfmove >= 100 || pos.insufficient_material())) {
+		if (pos.halfmove >= 100 && in_check) {
+			// special case: if we are in checkmate on the 50-move rule, it's actually a loss
+			// must do an extra check for mate
+			pzstd::vector<Move> moves;
+			pos.legal_moves(moves);
+			bool mate = true;
+			for (Move &move : moves) {
+				if (pos.is_legal(move)) {
+					mate = false;
+					break;
+				}
+			}
+			if (mate) return -VALUE_MATE + ply;
+		}
+
 		return 0;
 	}
 
@@ -529,8 +546,6 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 			}
 		}
 	}
-
-	bool in_check = pos.checkers[pos.side];
 
 	// Evaluate and correct evaluation
 	Value cur_eval = 0;
