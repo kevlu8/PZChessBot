@@ -94,6 +94,7 @@ TUNE(lmr_cutoffcnt, 709, 0, 2048, 128);
 TUNE(lmr_ttpv, 830, 0, 2048, 128);
 TUNE(lmr_killer, 1149, 0, 2048, 128);
 TUNE(lmr_hist, 11, 1, 40, 4);
+TUNE(lmr_capt_hist, 8, 1, 30, 3);
 TUNE(lmr_ttcapt, 865, 0, 2048, 128);
 TUNE(lmr_ttpv_alpha, 362, -1024, 1024, 256);
 TUNE(lmr_corr, 219, 0, 1024, 128);
