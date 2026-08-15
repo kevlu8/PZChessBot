@@ -566,6 +566,7 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 	}
 
 	ss->eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
+	ss->pos = &pos;
 
 	/**
 	 * Improving flag
@@ -1034,6 +1035,16 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 		}
 
 		i++;
+	}
+
+	// Prior countermove bonus
+	if (!root && flag == UPPER_BOUND && (ss - 1)->captured == NO_PIECETYPE && (ss - 1)->move != NullMove) {
+		/**
+		 * If the previous move was quiet and caused us to fail low, we can assume that it was a good
+		 * move and give it a history bonus.
+		 */
+		int bonus = std::clamp(pcm_depth() * depth + pcm_linear(), 0, 1200);
+		ti.thread_hist.update_quiethist(*((ss - 1)->pos), (ss - 1)->move, ply, bonus);
 	}
 
 	// Stalemate detection

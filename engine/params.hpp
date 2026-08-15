@@ -107,6 +107,8 @@ TUNE(hist_const, 154, 0, 256, 16);
 TUNE(postlmr_quad, 76, 0, 224, 16); // quantized to 32
 TUNE(postlmr_lin, 148, 64, 256, 16);
 TUNE(postlmr_const, 135, 0, 256, 16);
+TUNE(pcm_depth, 120, 0, 256, 16);
+TUNE(pcm_linear, -75, -256, 0, 16);
 TUNE(asp_window, 10, 1, 30, 4);
 TUNE(corr_ps, 166, 64, 256, 12);
 TUNE(corr_np, 171, 64, 256, 12);
