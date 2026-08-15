@@ -910,7 +910,7 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 			r -= lmr_base();
 
 			r -= lmr_pv() * pv; // Reduce less in PV nodes
-			r += lmr_cutoffcnt() * ((ss + 1)->cutoffcnt > 3);
+			r += lmr_cutoffcnt() * ((ss + 1)->cutoffcnt > 2);
 			r -= lmr_ttpv() * ttpv;
 
 			if (move == ss->killer) {
