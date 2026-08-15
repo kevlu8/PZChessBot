@@ -1044,7 +1044,7 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 		 * move and give it a history bonus.
 		 */
 		int bonus = std::clamp(pcm_depth() * depth + pcm_linear(), 0, 1200);
-		ti.thread_hist.update_quiethist(*((ss - 1)->pos), (ss - 1)->move, ply, bonus);
+		ti.thread_hist.update_mainhist(*((ss - 1)->pos), (ss - 1)->move, bonus);
 	}
 
 	// Stalemate detection
