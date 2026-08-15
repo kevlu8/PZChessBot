@@ -43,8 +43,9 @@ struct SSEntry {
 	Move killer = NullMove;
 	PieceType piece = NO_PIECETYPE, captured = NO_PIECETYPE;
 	int cutoffcnt = 0;
+	Position *pos;
 
-	SSEntry() : move(NullMove), eval(VALUE_NONE), excl(NullMove), cont_hist(nullptr), corr_hist(nullptr), cutoffcnt(0) {}
+	SSEntry() : move(NullMove), eval(VALUE_NONE), excl(NullMove), cont_hist(nullptr), corr_hist(nullptr), cutoffcnt(0), pos(nullptr) {}
 };
 
 struct History {
@@ -88,6 +89,7 @@ struct History {
 	int get_capthist(Position &pos, Move move);
 
 	void update_history(Position &pos, Move &move, int ply, SSEntry *line, Value bonus);
+	void update_quiethist(Position &pos, Move &move, int ply, Value bonus);
 	void update_conthist(Position &pos, Move move, int ply, SSEntry *line, Value bonus);
 	void update_capthist(Position &pos, Move move, Value bonus);
 };
