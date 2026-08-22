@@ -52,7 +52,7 @@ Value eval(Position &pos, AccumulatorManager &am) {
 						  BishopValue * arch::popcnt(pos.piece_boards[BISHOP]) + RookValue * arch::popcnt(pos.piece_boards[ROOK]) +
 						  QueenValue * arch::popcnt(pos.piece_boards[QUEEN]);
 
-	return score * (26500 + mat_phase) / 32768;
+	return (int64_t)score * (26500 + mat_phase) * (200 - pos.halfmove) / 200 / 32768;
 }
 
 std::array<Value, 8> debug_eval(Position &pos) {
