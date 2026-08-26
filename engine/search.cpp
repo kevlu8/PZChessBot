@@ -522,6 +522,7 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 	 *
 	 * If tablebases are available, we can look up our position to get a perfect evaluation.
 	 */
+	Value syzygy_min = -VALUE_INFINITE, syzygy_max = VALUE_INFINITE;
 	if (!root && !excluded && tbman.initialized && depth >= tbman.min_depth) {
 		auto tb_res = tbman.probe_pos(pos);
 		if (tb_res.has_value()) {
@@ -543,6 +544,15 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 			if (tb_bound == EXACT || (tb_bound == LOWER_BOUND && tb_score >= beta) || (tb_bound == UPPER_BOUND && tb_score <= alpha)) {
 				ttable.store(pos.zobrist, score_to_tt(tb_score, ply), VALUE_NONE, depth, tb_bound, ttpv, NullMove);
 				return tb_score;
+			}
+
+			if (pv && tb_bound == LOWER_BOUND) {
+				alpha = std::max(alpha, tb_score);
+				syzygy_min = tb_score;
+			}
+
+			if (pv && tb_bound == UPPER_BOUND) {
+				syzygy_max = tb_score;
 			}
 		}
 	}
@@ -1014,6 +1024,7 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 				// note that best and score are functionally equivalent here; best is just what's returned + stored to TT
 				best = (score * depth + beta) / (depth + 1); // wtf?????
 			}
+			best = std::clamp(best, syzygy_min, syzygy_max);
 			if (ss->killer != move) {
 				ss->killer = move; // Update killer move
 			}
@@ -1048,6 +1059,8 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 		else
 			return 0;
 	}
+
+	best = std::clamp(best, syzygy_min, syzygy_max);
 
 	bool best_iscapture = pos.is_capture(best_move);
 	bool best_ispromo = (best_move.type() == PROMOTION);
