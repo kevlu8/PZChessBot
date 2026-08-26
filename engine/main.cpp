@@ -41,7 +41,7 @@ int move_overhead = 0;
 uint64_t timemgmt(int64_t remtime, int64_t inc = 0) {
 	// Return time in ms that we can spend on this move
 	uint64_t x = std::max(1ll, (long long)(remtime * (tm_rem() / 100.0) + inc * (tm_inc() / 100.0)));
-	x = std::min(x, (uint64_t)remtime - move_overhead); // prevent situations with large inc but low time where we lose on time
+	x = std::min(x, remtime - move_overhead); // prevent situations with large inc but low time where we lose on time
 	return x;
 }
 
