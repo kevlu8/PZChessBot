@@ -542,7 +542,7 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 				tb_bound = UPPER_BOUND;
 
 			if (tb_bound == EXACT || (tb_bound == LOWER_BOUND && tb_score >= beta) || (tb_bound == UPPER_BOUND && tb_score <= alpha)) {
-				ttable.store(pos.zobrist, score_to_tt(tb_score, ply), VALUE_NONE, std::min(MAX_PLY, depth + 5), tb_bound, ttpv, NullMove);
+				ttable.store(pos.zobrist, score_to_tt(tb_score, ply), VALUE_NONE, depth, tb_bound, ttpv, NullMove);
 				return tb_score;
 			}
 
