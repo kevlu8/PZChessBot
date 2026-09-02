@@ -14,7 +14,15 @@ CXX	?= g++
 BASEFLAGS   := -std=c++20 -DNNUE_PATH=\"$(EVALFILE)\" -DVERSION=\"$(VERSION)\"
 OPTFLAGS    := -O3 -flto=auto
 DEBUGFLAGS  := -g -march=x86-64-v3 -fsanitize=address,undefined
-LDFLAGS		:= -Wl,-z,stack-size=8388608
+LDFLAGS		:= 
+
+ifeq ($(OS),Windows_NT)
+	LDFLAGS += -Wl,--stack,8388608
+else
+	UNAME_S := $(shell uname -s)
+
+	ifeq ($(UNAME_S),Linux)
+		LDFLAGS += -Wl,-z,stack-size=8388608
 
 # NUMA handling
 NUMA_NODES := 1
