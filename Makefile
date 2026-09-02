@@ -23,6 +23,8 @@ else
 
 	ifeq ($(UNAME_S),Linux)
 		LDFLAGS += -Wl,-z,stack-size=8388608
+	endif
+endif
 
 # NUMA handling
 NUMA_NODES := 1
