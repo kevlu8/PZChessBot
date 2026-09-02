@@ -18,9 +18,24 @@
 
 #include "threads.hpp"
 
+#ifdef __linux__
+#include <pthread.h>
+#endif
+
 #ifdef USE_NUMA
 #include <numa.h>
 #endif
+
+void raise_thread_stack_size() {
+#ifdef __linux__
+	constexpr size_t STACK_SIZE = 8 * 1024 * 1024; // 8 MB
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	pthread_attr_setstacksize(&attr, STACK_SIZE);
+	pthread_setattr_default_np(&attr);
+	pthread_attr_destroy(&attr);
+#endif
+}
 
 void Pool::resize(size_t num) {
 	if (num == num_threads)
