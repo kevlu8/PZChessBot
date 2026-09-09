@@ -22,7 +22,7 @@
 
 #define INPUT_SIZE 768
 #define NINPUTS 12
-#define L1_SIZE 1280
+#define L1_SIZE 1536
 #define L2_SIZE 16
 #define L3_SIZE 32
 #define NBUCKETS 8
