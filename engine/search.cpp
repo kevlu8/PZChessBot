@@ -1198,7 +1198,10 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 				soft *= bm_stability;
 			}
 
-			double node_adjustment = node_base() / 100.0 - (node_mul() / 100.0) * (bm_nodes / (double)tot_nodes);
+			double bm_ratio = tot_nodes ? (bm_nodes / (double)tot_nodes) : 1.0;
+			bm_ratio = std::clamp(bm_ratio, 0.0, 1.0);
+			double node_adjustment = node_base() / 100.0 - (node_mul() / 100.0) * bm_ratio;
+			node_adjustment = std::clamp(node_adjustment, 0.1, 2.0);
 			soft *= node_adjustment;
 
 			if (abs(eval) >= VALUE_WIN)
