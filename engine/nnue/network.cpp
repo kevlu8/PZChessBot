@@ -103,6 +103,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		simd::store_u16_u8(&l1[i + L1_SIZE / 2], ntm_pair);
 	}
 
+	// L1 -> L2 matmul
 	for (int i = 0; i < L2_SIZE; i += L1_UNROLL) {
 		ivec sums[L1_UNROLL];
 		for (int j = 0; j < L1_UNROLL; j++)
@@ -121,7 +122,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 			l2i[i + j] = simd::reduce_add_epi32(sums[j]);
 	}
 
-	// Convert l2 into a proper float array
+	// Convert l2 into a proper float array and activate
 	for (int i = 0; i < L2_SIZE; i += FLOATS_PER_VEC) {
 		// using the raw values, do dual activation
 		// val is activated with CReLU and val2 with CSReLU
@@ -141,6 +142,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		simd::store_f32(&l2[i + L2_SIZE], val2);
 	}
 
+	// L2 -> L3 matmul
 	for (int i = 0; i < L3_SIZE; i += FLOATS_PER_VEC * L2_UNROLL) {
 		fvec sums[L2_UNROLL];
 		for (int j = 0; j < L2_UNROLL; j++)
@@ -163,15 +165,19 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 	for (int i = 0; i < L3_UNROLL; i++)
 		sums[i] = f_zero;
 
+	// Activate L3 and do L3 -> output matmul
 	for (int i = 0; i < L3_SIZE; i += FLOATS_PER_VEC) {
 		fvec val = simd::load_fvec(&l3[i]);
 
-		val = simd::clamp_f32(val, f_zero, f_clip);
+		// Hardswish6(x) = x * clamp(x / 6 + 0.5, 0, 1);
+		fvec sixth = simd::broadcast_f32(1.0f / 6.0f);
+		fvec half = simd::broadcast_f32(0.5f);
+		val = simd::mul_f32(val, simd::clamp_f32(simd::fma_f32(val, sixth, half), f_zero, f_clip));
 
 		fvec weight = simd::load_fvec(&net.output_weights[nbucket][i]);
 
 		int idx = i / FLOATS_PER_VEC % L3_UNROLL;
-		sums[idx] = simd::fma_f32(simd::mul_f32(val, val), weight, sums[idx]);
+		sums[idx] = simd::fma_f32(val, weight, sums[idx]);
 	}
 
 	int num = L3_UNROLL;
