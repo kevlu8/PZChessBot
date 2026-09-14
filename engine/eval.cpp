@@ -48,11 +48,7 @@ Value eval(Position &pos, AccumulatorManager &am) {
 		score = -nnue_eval(nnue_network, am.current().b_acc, am.current().w_acc, nbucket);
 	}
 
-	const int mat_phase = PawnValue * arch::popcnt(pos.piece_boards[PAWN]) + KnightValue * arch::popcnt(pos.piece_boards[KNIGHT]) +
-						  BishopValue * arch::popcnt(pos.piece_boards[BISHOP]) + RookValue * arch::popcnt(pos.piece_boards[ROOK]) +
-						  QueenValue * arch::popcnt(pos.piece_boards[QUEEN]);
-
-	return (int64_t)score * (26500 + mat_phase) * (200 - pos.halfmove) / 200 / 32768;
+	return score;
 }
 
 std::array<Value, 8> debug_eval(Position &pos) {
