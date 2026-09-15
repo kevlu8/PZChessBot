@@ -30,6 +30,18 @@
 #define QA 255
 #define QB 64
 
+constexpr int NTARGETS[] = { 3, 5, 4, 4, 5, 0 }; // number of targets for each piece
+
+// Target index [src piece][victim piece]
+constexpr int TARGETS[6][6] = {
+	{  0,  1, -1,  2, -1, -1 },
+	{  0,  1,  2,  3,  4, -1 },
+	{  0,  1,  2,  3, -1, -1 },
+	{  0,  1,  2,  3, -1, -1 },
+	{  0,  1,  2,  3,  4, -1 },
+	{ -1, -1, -1, -1, -1, -1 },
+};
+
 constexpr int IBUCKET_LAYOUT[] = {
 	0, 2, 4, 6, 7, 5, 3, 1,
 	8, 10, 12, 14, 15, 13, 11, 9,
@@ -62,6 +74,8 @@ struct alignas(32) Network {
 };
 
 int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nbucket);
+
+int calculate_threat_index(Square sq, PieceType pt, bool side);
 
 int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket);
 

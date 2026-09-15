@@ -61,6 +61,26 @@ void AccumulatorManager::full_refresh(Position &pos, int index) {
 		}
 	}
 
+	// Update threats
+	for (uint16_t i = 0; i < 64; i++) {
+		Piece piece = pos.mailbox[i];
+		bool side = piece >> 3; // 1 = black, 0 = white
+		PieceType pt = PieceType(piece & 7);
+
+		if (piece != NO_PIECE) {
+			// Find the pieces that this piece threatens and loop through them
+			Bitboard attacks = calc_attacks(p, i, pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
+			attacks &= (pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]); // Only consider squares that have pieces on them
+			while (attacks) {
+				Square target_sq = (Square)arch::tzcnt(attacks);
+				Piece target_piece = pos.mailbox[target_sq];
+				bool target_side = target_piece >> 3;
+				PieceType target_pt = PieceType(target_piece & 7);
+
+			}
+		}
+	}
+
 	accs[index].correct = true;
 }
 

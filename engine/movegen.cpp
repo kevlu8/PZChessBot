@@ -755,6 +755,26 @@ Bitboard pawn_attacks(Square sq, bool color) {
 		return ((square_bits(Square(sq - 7)) & 0xfefefefefefefefe) | (square_bits(Square(sq - 9)) & 0x7f7f7f7f7f7f7f7f));
 }
 
+Bitboard calc_attacks(Piece p, Square sq, Bitboard occ) {
+	PieceType pt = PieceType(p & 7);
+	switch (pt) {
+	case PAWN:
+		return pawn_attacks(sq, p >> 3);
+	case KNIGHT:
+		return knight_attacks(sq);
+	case BISHOP:
+		return bishop_attacks(sq, occ);
+	case ROOK:
+		return rook_attacks(sq, occ);
+	case QUEEN:
+		return queen_attacks(sq, occ);
+	case KING:
+		return king_attacks(sq);
+	default:
+		return 0;
+	}
+}
+
 void Position::update_control() {
 	memset(side_control, 0, sizeof(side_control));
 	memset(pinned, 0, sizeof(pinned));

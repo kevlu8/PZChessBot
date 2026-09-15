@@ -38,14 +38,14 @@ Value eval(Position &pos, AccumulatorManager &am) {
 	int npieces = arch::popcnt(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
 	int32_t score = 0;
 
-	am.apply_lazy(pos);
+	am.full_refresh(pos, 0);
 
 	int nbucket = (npieces - 2) / 4;
 
 	if (pos.side == WHITE) {
-		score = nnue_eval(nnue_network, am.current().w_acc, am.current().b_acc, nbucket);
+		score = nnue_eval(nnue_network, am.accs[0].w_acc, am.accs[0].b_acc, nbucket);
 	} else {
-		score = -nnue_eval(nnue_network, am.current().b_acc, am.current().w_acc, nbucket);
+		score = -nnue_eval(nnue_network, am.accs[0].b_acc, am.accs[0].w_acc, nbucket);
 	}
 
 	const int mat_phase = PawnValue * arch::popcnt(pos.piece_boards[PAWN]) + KnightValue * arch::popcnt(pos.piece_boards[KNIGHT]) +
