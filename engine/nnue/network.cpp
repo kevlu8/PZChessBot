@@ -166,12 +166,12 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		sums[i] = f_zero;
 
 	// Activate L3 and do L3 -> output matmul
+	const fvec sixth = simd::broadcast_f32(1.0f / 6.0f);
+	const fvec half = simd::broadcast_f32(0.5f);
 	for (int i = 0; i < L3_SIZE; i += FLOATS_PER_VEC) {
 		fvec val = simd::load_fvec(&l3[i]);
 
 		// Hardswish6(x) = x * clamp(x / 6 + 0.5, 0, 1);
-		fvec sixth = simd::broadcast_f32(1.0f / 6.0f);
-		fvec half = simd::broadcast_f32(0.5f);
 		val = simd::mul_f32(val, simd::clamp_f32(simd::fma_f32(val, sixth, half), f_zero, f_clip));
 
 		fvec weight = simd::load_fvec(&net.output_weights[nbucket][i]);
