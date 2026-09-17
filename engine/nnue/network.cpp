@@ -182,7 +182,7 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		fvec weight = simd::load_fvec(&net.output_weights[nbucket][L3_SIZE + i]);
 
 		int idx = (L3_SIZE + i) / FLOATS_PER_VEC % L3_UNROLL;
-		sums[idx] = simd::fma_f32(simd::mul_f32(val, val), weight, sums[idx]);
+		sums[idx] = simd::fma_f32(val, weight, sums[idx]);
 	}
 
 	int num = L3_UNROLL;
