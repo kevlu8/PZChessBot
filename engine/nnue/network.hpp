@@ -55,7 +55,7 @@ struct alignas(32) Network {
 	float l2_weights[NBUCKETS][L2_SIZE * 2][L3_SIZE];
 	float l2_biases[NBUCKETS][L3_SIZE];
 
-	float output_weights[NBUCKETS][L3_SIZE];
+	float output_weights[NBUCKETS][L3_SIZE + L2_SIZE * 2];
 	float output_biases[NBUCKETS];
 
 	void load();
