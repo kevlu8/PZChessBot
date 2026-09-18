@@ -25,11 +25,19 @@ void compute_threat_updates(Position &before, Position &after, Bitboard changed,
 	Bitboard before_occ = before.piece_boards[OCC(WHITE)] | before.piece_boards[OCC(BLACK)];
 	Bitboard after_occ = after.piece_boards[OCC(WHITE)] | after.piece_boards[OCC(BLACK)];
 
+	auto attackers_to = [](Position &pos, Square sq, Bitboard occ) {
+		return (rook_attacks(sq, occ) & (pos.piece_boards[ROOK] | pos.piece_boards[QUEEN]))
+		     | (bishop_attacks(sq, occ) & (pos.piece_boards[BISHOP] | pos.piece_boards[QUEEN]))
+		     | (knight_attacks(sq) & pos.piece_boards[KNIGHT])
+		     | (pawn_attacks(sq, BLACK) & pos.piece_boards[PAWN] & pos.piece_boards[OCC(WHITE)])
+		     | (pawn_attacks(sq, WHITE) & pos.piece_boards[PAWN] & pos.piece_boards[OCC(BLACK)]);
+	};
+
 	// Handle squares that changed occ by the move
 	Bitboard affected = changed, squares = changed;
 	while (squares) {
 		Square sq = (Square)arch::tzcnt(squares);
-		affected |= queen_attacks(sq, before_occ) | queen_attacks(sq, after_occ) | knight_attacks(sq); // all squares that could have changed
+		affected |= attackers_to(before, sq, before_occ) | attackers_to(after, sq, after_occ);
 
 		squares = arch::blsr(squares);
 	}
