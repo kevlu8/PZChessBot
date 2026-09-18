@@ -20,6 +20,7 @@
 
 #include "../includes.hpp"
 #include "network.hpp"
+#include "threats.hpp"
 #include "../bitboard.hpp"
 
 struct AccumulatorManager {

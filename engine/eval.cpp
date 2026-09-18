@@ -18,10 +18,9 @@
 
 #include "eval.hpp"
 
-// Accumulator w_acc, b_acc;
 Network nnue_network;
 
-__attribute__((constructor)) void init_network() {
+__attribute__((constructor(102))) void init_network() {
 	nnue_network.load();
 }
 

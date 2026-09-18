@@ -69,7 +69,7 @@ void AccumulatorManager::full_refresh(Position &pos, int index) {
 
 		if (piece != NO_PIECE) {
 			// Find the pieces that this piece threatens and loop through them
-			Bitboard attacks = calc_attacks(p, i, pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
+			Bitboard attacks = calc_attacks(piece, (Square)i, pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
 			attacks &= (pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]); // Only consider squares that have pieces on them
 			while (attacks) {
 				Square target_sq = (Square)arch::tzcnt(attacks);
@@ -77,6 +77,16 @@ void AccumulatorManager::full_refresh(Position &pos, int index) {
 				bool target_side = target_piece >> 3;
 				PieceType target_pt = PieceType(target_piece & 7);
 
+				int w_t_index = threat_index(0, wkingsq, piece, target_piece, (Square)i, target_sq);
+				int b_t_index = threat_index(1, bkingsq, piece, target_piece, (Square)i, target_sq);
+				// std::cout << "White: " << piece_letter[piece] << " at " << (int)i << " threatens " << piece_letter[target_piece] << " at " << (int)target_sq << " with index " << w_t_index << std::endl;
+				// std::cout << "Black: " << piece_letter[piece] << " at " << (int)i << " threatens " << piece_letter[target_piece] << " at " << (int)target_sq << " with index " << b_t_index << std::endl;
+
+				if (w_t_index >= 0 && b_t_index >= 0) {
+					accs[index].update_threat_add(w_t_index, b_t_index);
+				}
+
+				attacks = arch::blsr(attacks);
 			}
 		}
 	}

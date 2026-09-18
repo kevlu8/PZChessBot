@@ -67,7 +67,7 @@ uint64_t perft(Position &pos, int depth) {
  */
 uint16_t reduction[250][MAX_PLY+8];
 
-__attribute__((constructor)) void init_lmr() {
+__attribute__((constructor(104))) void init_lmr() {
 	for (int i = 1; i < 250; i++) {
 		for (int d = 1; d <= MAX_PLY; d++) {
 			reduction[i][d] = (lmr_a() / 100.0 + log(i) * log(d) / (lmr_b() / 100.0)) * 1024;
@@ -84,7 +84,7 @@ __attribute__((constructor)) void init_lmr() {
  */
 Value MVV_LVA[6][6];
 
-__attribute__((constructor)) void init_mvvlva() {
+__attribute__((constructor(105))) void init_mvvlva() {
 	for (int i = 0; i < 6; i++) {
 		for (int j = 0; j < 6; j++) {
 			if (i == KING)

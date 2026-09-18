@@ -22,25 +22,14 @@
 
 #define INPUT_SIZE 768
 #define NINPUTS 16
-#define L1_SIZE 1280
+#define NTHREATS 60144
+#define L1_SIZE 512
 #define L2_SIZE 16
 #define L3_SIZE 32
 #define NBUCKETS 8
 #define SCALE 400
 #define QA 255
 #define QB 64
-
-constexpr int NTARGETS[] = { 3, 5, 4, 4, 5, 0 }; // number of targets for each piece
-
-// Target index [src piece][victim piece]
-constexpr int TARGETS[6][6] = {
-	{  0,  1, -1,  2, -1, -1 },
-	{  0,  1,  2,  3,  4, -1 },
-	{  0,  1,  2,  3, -1, -1 },
-	{  0,  1,  2,  3, -1, -1 },
-	{  0,  1,  2,  3,  4, -1 },
-	{ -1, -1, -1, -1, -1, -1 },
-};
 
 constexpr int IBUCKET_LAYOUT[] = {
 	0, 2, 4, 6, 7, 5, 3, 1,
@@ -59,6 +48,7 @@ struct Accumulator {
 
 struct alignas(32) Network {
 	int16_t accumulator_weights[INPUT_SIZE * NINPUTS][L1_SIZE];
+	int8_t threat_weights[NTHREATS][L1_SIZE];
 	int16_t accumulator_biases[L1_SIZE];
 
 	int8_t l1_weights[NBUCKETS][L2_SIZE][L1_SIZE];

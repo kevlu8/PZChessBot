@@ -213,7 +213,7 @@ void gen_bishop_moves(int sq, Bitboard piece) {
 }
 
 // This function is called before main()
-__attribute__((constructor)) void init_movetables() {
+__attribute__((constructor(103))) void init_movetables() {
 	// Ban illegal sliding piece moves by masking every square by default
 	memset(rook_blockers, 0xff, sizeof(rook_blockers));
 	memset(bishop_blockers, 0xff, sizeof(bishop_blockers));

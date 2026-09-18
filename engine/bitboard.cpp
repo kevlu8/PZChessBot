@@ -27,7 +27,7 @@ uint64_t zobrist_castling[16];
 uint64_t zobrist_ep[9];
 uint64_t zobrist_side;
 
-__attribute__((constructor)) void init_zobrist() {
+__attribute__((constructor(101))) void init_zobrist() {
 	std::mt19937_64 rng(0xdeadbeef);
 	std::uniform_int_distribution<uint64_t> dist;
 
