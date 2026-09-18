@@ -750,9 +750,9 @@ Bitboard king_attacks(Square sq) {
 
 Bitboard pawn_attacks(Square sq, bool color) {
 	if (color == WHITE)
-		return ((square_bits(Square(sq + 7)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq + 9)) & 0xfefefefefefefefe));
+		return (((square_bits(sq) << 7) & 0x7f7f7f7f7f7f7f7f) | ((square_bits(sq) << 9) & 0xfefefefefefefefe));
 	else
-		return ((square_bits(Square(sq - 7)) & 0xfefefefefefefefe) | (square_bits(Square(sq - 9)) & 0x7f7f7f7f7f7f7f7f));
+		return (((square_bits(sq) >> 7) & 0xfefefefefefefefe) | ((square_bits(sq) >> 9) & 0x7f7f7f7f7f7f7f7f));
 }
 
 Bitboard calc_attacks(Piece p, Square sq, Bitboard occ) {

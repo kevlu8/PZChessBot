@@ -18,6 +18,56 @@
 
 #include "accumulator.hpp"
 
+void compute_threat_updates(Position &before, Position &after, Bitboard changed, AccumulatorManager::ThreatUpdate &tu) {
+	Square wkingsq = (Square)arch::tzcnt(before.piece_boards[KING] & before.piece_boards[OCC(WHITE)]);
+	Square bkingsq = (Square)arch::tzcnt(before.piece_boards[KING] & before.piece_boards[OCC(BLACK)]);
+
+	Bitboard before_occ = before.piece_boards[OCC(WHITE)] | before.piece_boards[OCC(BLACK)];
+	Bitboard after_occ = after.piece_boards[OCC(WHITE)] | after.piece_boards[OCC(BLACK)];
+
+	// Handle squares that changed occ by the move
+	Bitboard affected = changed, squares = changed;
+	while (squares) {
+		Square sq = (Square)arch::tzcnt(squares);
+		affected |= queen_attacks(sq, before_occ) | queen_attacks(sq, after_occ) | knight_attacks(sq); // all squares that could have changed
+
+		squares = arch::blsr(squares);
+	}
+	affected &= before_occ | after_occ; // only care about squares that have pieces
+
+	while (affected) {
+		Square src = (Square)arch::tzcnt(affected);
+
+		Piece old_piece = before.mailbox[src];
+		Piece new_piece = after.mailbox[src];
+
+		Bitboard old_attacks = calc_attacks(old_piece, src, before_occ) & before_occ;
+		Bitboard new_attacks = calc_attacks(new_piece, src, after_occ) & after_occ;
+
+		// if the piece didn't move then we only care about the attacks that changed, otherwise recompute all the attacks
+		Bitboard removed = old_piece != new_piece ? old_attacks : old_attacks & (~new_attacks | changed);
+		Bitboard added = old_piece != new_piece ? new_attacks : new_attacks & (~old_attacks | changed);
+		while (removed) {
+			Square dst = (Square)arch::tzcnt(removed);
+			removed = arch::blsr(removed);
+			int w_t_index = threat_index(WHITE, wkingsq, old_piece, before.mailbox[dst], src, dst);
+			int b_t_index = threat_index(BLACK, bkingsq, old_piece, before.mailbox[dst], src, dst);
+			if (w_t_index >= 0) tu.remove_white(w_t_index);
+			if (b_t_index >= 0) tu.remove_black(b_t_index);
+		}
+		while (added) {
+			Square dst = (Square)arch::tzcnt(added);
+			added = arch::blsr(added);
+			int w_t_index = threat_index(WHITE, wkingsq, new_piece, after.mailbox[dst], src, dst);
+			int b_t_index = threat_index(BLACK, bkingsq, new_piece, after.mailbox[dst], src, dst);
+			if (w_t_index >= 0) tu.add_white(w_t_index);
+			if (b_t_index >= 0) tu.add_black(b_t_index);
+		}
+
+		affected = arch::blsr(affected);
+	}
+}
+
 void AccumulatorManager::AccumulatorPair::update_add(Square sq, PieceType pt, bool side, int wbucket, int bbucket) {
 	uint16_t w_index = calculate_index(sq, pt, side, 0, wbucket);
 	uint16_t b_index = calculate_index(sq, pt, side, 1, bbucket);
@@ -219,12 +269,12 @@ void AccumulatorManager::apply_lazy(Position &pos) {
 
 	if (!good_found) {
 		// :(
-		refresh_finny(pos, idx);
+		full_refresh(pos, idx); // was refresh_finny() for non-threat inputs but idk how to do finny + threats
 		return;
 	}
 
 	for (int i = index + 1; i <= idx; i++) {
-		auto &u = updates[i];
+		auto &u = psqtupdates[i];
 		if (u.deltas == 2) {
 			// -+
 			for (int k = 0; k < L1_SIZE; k++) {
@@ -244,14 +294,31 @@ void AccumulatorManager::apply_lazy(Position &pos) {
 				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - nnue_network.accumulator_weights[u.b_deltas[0]][k] - nnue_network.accumulator_weights[u.b_deltas[1]][k] + nnue_network.accumulator_weights[u.b_deltas[2]][k] + nnue_network.accumulator_weights[u.b_deltas[3]][k];
 			}
 		}
+
+		auto &tu = threatupdates[i];
+		for (int j = 0; j < tu.widxa; j++) {
+			accs[i].update_white_threat_add(tu.w_adds[j]);
+		}
+		for (int j = 0; j < tu.widxr; j++) {
+			accs[i].update_white_threat_sub(tu.w_removes[j]);
+		}
+		for (int j = 0; j < tu.bidxa; j++) {
+			accs[i].update_black_threat_add(tu.b_adds[j]);
+		}
+		for (int j = 0; j < tu.bidxr; j++) {
+			accs[i].update_black_threat_sub(tu.b_removes[j]);
+		}
+
 		accs[i].correct = true;
 	}
 }
 
 void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after) {
 	idx++;
-	AccumulatorPair &acc = accs[idx], &prev_acc = accs[idx - 1];
+	AccumulatorPair &acc = accs[idx];
 	acc.correct = false;
+	auto &tu = threatupdates[idx];
+	tu.clear();
 
 	if (move.type() == CASTLING || (pos.mailbox[move.src()] & 7) == KING) {
 		// The king may have stepped into a new bucket, let's check to make sure
@@ -267,7 +334,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 		int prev_bucket = IBUCKET_LAYOUT[move.src() ^ (pos.side ? 56 : 0)];
 		int new_bucket = IBUCKET_LAYOUT[dest ^ (pos.side ? 56 : 0)];
 		if (prev_bucket != new_bucket) {
-			refresh_finny(pos_after, idx);
+			full_refresh(pos_after, idx); // same thing here, was refresh_finny
 			return;
 		}
 	}
@@ -282,6 +349,16 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 	bool capture = pos.is_capture(move);
 	bool ep = move.type() == EN_PASSANT;
 	bool castle = move.type() == CASTLING;
+
+	Bitboard changed = square_bits(move.src()) | square_bits(move.dst());
+	if (ep) {
+		changed |= square_bits(Square((move.src() & 0b111000) | (move.dst() & 0b000111)));
+	} else if (castle) {
+		int rank = pos.side == WHITE ? 0 : 56;
+		changed |= square_bits(Square(rank + (move.src() < move.dst() ? SQ_G1 : SQ_C1)));
+		changed |= square_bits(Square(rank + (move.src() < move.dst() ? SQ_F1 : SQ_D1)));
+	}
+	compute_threat_updates(pos, pos_after, changed, tu);
 
 	if (castle) {
 		Square king_dest, rook_dest;
@@ -301,7 +378,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 		int bindex3 = calculate_index(king_dest, KING, pos.side, 1, binbucket);
 		int windex4 = calculate_index(rook_dest, ROOK, pos.side, 0, winbucket);
 		int bindex4 = calculate_index(rook_dest, ROOK, pos.side, 1, binbucket);
-		updates[idx] = {windex1, bindex1, windex2, bindex2, windex3, bindex3, windex4, bindex4};
+		psqtupdates[idx] = {windex1, bindex1, windex2, bindex2, windex3, bindex3, windex4, bindex4};
 		return;
 	}
 
@@ -314,7 +391,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 		int bindex2 = calculate_index(taken_pawn, PAWN, !pos.side, 1, binbucket);
 		int windex3 = calculate_index(move.dst(), PAWN, pos.side, 0, winbucket);
 		int bindex3 = calculate_index(move.dst(), PAWN, pos.side, 1, binbucket);
-		updates[idx] = {windex1, bindex1, windex2, bindex2, windex3, bindex3};
+		psqtupdates[idx] = {windex1, bindex1, windex2, bindex2, windex3, bindex3};
 		return;
 	}
 
@@ -325,7 +402,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 			int bindex1 = calculate_index(move.src(), PAWN, pos.side, 1, binbucket);
 			int windex2 = calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), pos.side, 0, winbucket);
 			int bindex2 = calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), pos.side, 1, binbucket);
-			updates[idx] = {windex1, bindex1, windex2, bindex2};
+			psqtupdates[idx] = {windex1, bindex1, windex2, bindex2};
 		} else {
 			// 3 updates: rm pawn, rm captured piece, add promo piece
 			int windex1 = calculate_index(move.src(), PAWN, pos.side, 0, winbucket);
@@ -335,7 +412,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 			int bindex2 = calculate_index(move.dst(), captured_pt, !pos.side, 1, binbucket);
 			int windex3 = calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), pos.side, 0, winbucket);
 			int bindex3 = calculate_index(move.dst(), PieceType(move.promotion() + KNIGHT), pos.side, 1, binbucket);
-			updates[idx] = {windex1, bindex1, windex2, bindex2, windex3, bindex3};
+			psqtupdates[idx] = {windex1, bindex1, windex2, bindex2, windex3, bindex3};
 		}
 		return;
 	}
@@ -348,7 +425,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 		int bindex2 = calculate_index(move.dst(), PieceType(pos.mailbox[move.dst()] & 7), !pos.side, 1, binbucket);
 		int windex3 = calculate_index(move.dst(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 0, winbucket);
 		int bindex3 = calculate_index(move.dst(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 1, binbucket);
-		updates[idx] = {windex1, bindex1, windex2, bindex2, windex3, bindex3};
+		psqtupdates[idx] = {windex1, bindex1, windex2, bindex2, windex3, bindex3};
 		return;
 	}
 
@@ -357,5 +434,5 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 	int bindex1 = calculate_index(move.src(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 1, binbucket);
 	int windex2 = calculate_index(move.dst(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 0, winbucket);
 	int bindex2 = calculate_index(move.dst(), PieceType(pos.mailbox[move.src()] & 7), pos.side, 1, binbucket);
-	updates[idx] = {windex1, bindex1, windex2, bindex2};
+	psqtupdates[idx] = {windex1, bindex1, windex2, bindex2};
 }
