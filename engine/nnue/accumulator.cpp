@@ -36,6 +36,30 @@ void AccumulatorManager::AccumulatorPair::update_sub(Square sq, PieceType pt, bo
 	}
 }
 
+void AccumulatorManager::AccumulatorPair::update_white_threat_add(int index) {
+	for (int i = 0; i < L1_SIZE; i++) {
+		w_acc.val[i] += nnue_network.threat_weights[index][i];
+	}
+}
+
+void AccumulatorManager::AccumulatorPair::update_black_threat_add(int index) {
+	for (int i = 0; i < L1_SIZE; i++) {
+		b_acc.val[i] += nnue_network.threat_weights[index][i];
+	}
+}
+
+void AccumulatorManager::AccumulatorPair::update_white_threat_sub(int index) {
+	for (int i = 0; i < L1_SIZE; i++) {
+		w_acc.val[i] -= nnue_network.threat_weights[index][i];
+	}
+}
+
+void AccumulatorManager::AccumulatorPair::update_black_threat_sub(int index) {
+	for (int i = 0; i < L1_SIZE; i++) {
+		b_acc.val[i] -= nnue_network.threat_weights[index][i];
+	}
+}
+
 void AccumulatorManager::full_refresh(Position &pos, int index) {
 	// Init the first accumulator so we have a basepoint
 	for (int i = 0; i < L1_SIZE; i++) {
@@ -82,9 +106,10 @@ void AccumulatorManager::full_refresh(Position &pos, int index) {
 				// std::cout << "White: " << piece_letter[piece] << " at " << (int)i << " threatens " << piece_letter[target_piece] << " at " << (int)target_sq << " with index " << w_t_index << std::endl;
 				// std::cout << "Black: " << piece_letter[piece] << " at " << (int)i << " threatens " << piece_letter[target_piece] << " at " << (int)target_sq << " with index " << b_t_index << std::endl;
 
-				if (w_t_index >= 0 && b_t_index >= 0) {
-					accs[index].update_threat_add(w_t_index, b_t_index);
-				}
+				if (w_t_index >= 0)
+					accs[index].update_white_threat_add(w_t_index);
+				if (b_t_index >= 0)
+					accs[index].update_black_threat_add(b_t_index);
 
 				attacks = arch::blsr(attacks);
 			}

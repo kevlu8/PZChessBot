@@ -31,6 +31,10 @@ struct AccumulatorManager {
 
 		void update_add(Square sq, PieceType pt, bool side, int wbucket, int bbucket);
 		void update_sub(Square sq, PieceType pt, bool side, int wbucket, int bbucket);
+		void update_white_threat_add(int index);
+		void update_black_threat_add(int index);
+		void update_white_threat_sub(int index);
+		void update_black_threat_sub(int index);
 	};
 
 	struct Update {
