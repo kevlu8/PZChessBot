@@ -24,7 +24,7 @@
 #define NINPUTS 16
 #define NTHREATS 60144
 #define L1_SIZE 512
-#define L2_SIZE 16
+#define L2_SIZE 32
 #define L3_SIZE 32
 #define NBUCKETS 8
 #define SCALE 400
