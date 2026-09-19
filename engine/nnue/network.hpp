@@ -22,7 +22,8 @@
 
 #define INPUT_SIZE 768
 #define NINPUTS 16
-#define L1_SIZE 1280
+#define NTHREATS 60144
+#define L1_SIZE 512
 #define L2_SIZE 16
 #define L3_SIZE 32
 #define NBUCKETS 8
@@ -47,6 +48,7 @@ struct Accumulator {
 
 struct alignas(32) Network {
 	int16_t accumulator_weights[INPUT_SIZE * NINPUTS][L1_SIZE];
+	int8_t threat_weights[NTHREATS][L1_SIZE];
 	int16_t accumulator_biases[L1_SIZE];
 
 	int8_t l1_weights[NBUCKETS][L2_SIZE][L1_SIZE];

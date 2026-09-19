@@ -35,3 +35,5 @@ Bitboard queen_attacks(Square sq, Bitboard occ);
 Bitboard knight_attacks(Square sq);
 Bitboard king_attacks(Square sq);
 Bitboard pawn_attacks(Square sq, bool color);
+
+Bitboard calc_attacks(Piece p, Square sq, Bitboard occ);

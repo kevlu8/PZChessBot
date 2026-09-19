@@ -213,7 +213,7 @@ void gen_bishop_moves(int sq, Bitboard piece) {
 }
 
 // This function is called before main()
-__attribute__((constructor)) void init_movetables() {
+__attribute__((constructor(103))) void init_movetables() {
 	// Ban illegal sliding piece moves by masking every square by default
 	memset(rook_blockers, 0xff, sizeof(rook_blockers));
 	memset(bishop_blockers, 0xff, sizeof(bishop_blockers));
@@ -750,9 +750,29 @@ Bitboard king_attacks(Square sq) {
 
 Bitboard pawn_attacks(Square sq, bool color) {
 	if (color == WHITE)
-		return ((square_bits(Square(sq + 7)) & 0x7f7f7f7f7f7f7f7f) | (square_bits(Square(sq + 9)) & 0xfefefefefefefefe));
+		return (((square_bits(sq) << 7) & 0x7f7f7f7f7f7f7f7f) | ((square_bits(sq) << 9) & 0xfefefefefefefefe));
 	else
-		return ((square_bits(Square(sq - 7)) & 0xfefefefefefefefe) | (square_bits(Square(sq - 9)) & 0x7f7f7f7f7f7f7f7f));
+		return (((square_bits(sq) >> 7) & 0xfefefefefefefefe) | ((square_bits(sq) >> 9) & 0x7f7f7f7f7f7f7f7f));
+}
+
+Bitboard calc_attacks(Piece p, Square sq, Bitboard occ) {
+	PieceType pt = PieceType(p & 7);
+	switch (pt) {
+	case PAWN:
+		return pawn_attacks(sq, p >> 3);
+	case KNIGHT:
+		return knight_attacks(sq);
+	case BISHOP:
+		return bishop_attacks(sq, occ);
+	case ROOK:
+		return rook_attacks(sq, occ);
+	case QUEEN:
+		return queen_attacks(sq, occ);
+	case KING:
+		return king_attacks(sq);
+	default:
+		return 0;
+	}
 }
 
 void Position::update_control() {

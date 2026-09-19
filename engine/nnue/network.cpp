@@ -30,6 +30,9 @@ void Network::load() {
 	memcpy(accumulator_weights, ptr, sizeof(accumulator_weights));
 	ptr += sizeof(accumulator_weights);
 
+	memcpy(threat_weights, ptr, sizeof(threat_weights));
+	ptr += sizeof(threat_weights);
+
 	memcpy(accumulator_biases, ptr, sizeof(accumulator_biases));
 	ptr += sizeof(accumulator_biases);
 

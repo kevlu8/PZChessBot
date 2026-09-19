@@ -20,7 +20,10 @@
 
 #include "../includes.hpp"
 #include "network.hpp"
+#include "threats.hpp"
 #include "../bitboard.hpp"
+
+#define MAX_THREATS 64
 
 struct AccumulatorManager {
 	struct AccumulatorPair {
@@ -30,16 +33,43 @@ struct AccumulatorManager {
 
 		void update_add(Square sq, PieceType pt, bool side, int wbucket, int bbucket);
 		void update_sub(Square sq, PieceType pt, bool side, int wbucket, int bbucket);
+		void update_white_threat_add(int index);
+		void update_black_threat_add(int index);
+		void update_white_threat_sub(int index);
+		void update_black_threat_sub(int index);
 	};
 
-	struct Update {
+	struct PSQTUpdate {
 		int w_deltas[4], b_deltas[4];
 		int deltas = 0;
 
-		Update() : deltas(0) {}
-		Update(int w1, int b1, int w2, int b2) { w_deltas[0] = w1; b_deltas[0] = b1; w_deltas[1] = w2; b_deltas[1] = b2; deltas = 2; }
-		Update(int w1, int b1, int w2, int b2, int w3, int b3) { w_deltas[0] = w1; b_deltas[0] = b1; w_deltas[1] = w2; b_deltas[1] = b2; w_deltas[2] = w3; b_deltas[2] = b3; deltas = 3; }
-		Update(int w1, int b1, int w2, int b2, int w3, int b3, int w4, int b4) { w_deltas[0] = w1; b_deltas[0] = b1; w_deltas[1] = w2; b_deltas[1] = b2; w_deltas[2] = w3; b_deltas[2] = b3; w_deltas[3] = w4; b_deltas[3] = b4; deltas = 4; }
+		PSQTUpdate() : deltas(0) {}
+		PSQTUpdate(int w1, int b1, int w2, int b2) { w_deltas[0] = w1; b_deltas[0] = b1; w_deltas[1] = w2; b_deltas[1] = b2; deltas = 2; }
+		PSQTUpdate(int w1, int b1, int w2, int b2, int w3, int b3) { w_deltas[0] = w1; b_deltas[0] = b1; w_deltas[1] = w2; b_deltas[1] = b2; w_deltas[2] = w3; b_deltas[2] = b3; deltas = 3; }
+		PSQTUpdate(int w1, int b1, int w2, int b2, int w3, int b3, int w4, int b4) { w_deltas[0] = w1; b_deltas[0] = b1; w_deltas[1] = w2; b_deltas[1] = b2; w_deltas[2] = w3; b_deltas[2] = b3; w_deltas[3] = w4; b_deltas[3] = b4; deltas = 4; }
+	};
+
+	struct ThreatUpdate {
+		int w_adds[MAX_THREATS], w_removes[MAX_THREATS], b_adds[MAX_THREATS], b_removes[MAX_THREATS];
+		int widxa = 0, widxr = 0, bidxa = 0, bidxr = 0;
+
+		ThreatUpdate() : widxa(0), widxr(0), bidxa(0), bidxr(0) {}
+		void clear() {
+			widxa = widxr = bidxa = bidxr = 0;
+		}
+
+		void add_white(int index) {
+			w_adds[widxa++] = index;
+		}
+		void add_black(int index) {
+			b_adds[bidxa++] = index;
+		}
+		void remove_white(int index) {
+			w_removes[widxr++] = index;
+		}
+		void remove_black(int index) {
+			b_removes[bidxr++] = index;
+		}
 	};
 
 	struct Cache {
@@ -60,7 +90,8 @@ struct AccumulatorManager {
 
 	AccumulatorPair accs[MAX_PLY + 5];
 	int idx = 0;
-	Update updates[MAX_PLY + 5]; // Stores the changed indices for each move - updates[i] stores the changes from accs[i-1] to accs[i]
+	PSQTUpdate psqtupdates[MAX_PLY + 5]; // Stores the changed indices for each move - updates[i] stores the changes from accs[i-1] to accs[i]
+	ThreatUpdate threatupdates[MAX_PLY + 5]; // Stores the changed threat indices for each move - updates[i] stores the changes from accs[i-1] to accs[i]
 	Cache finny;
 
 	AccumulatorManager(const AccumulatorManager &) = delete;
@@ -89,8 +120,8 @@ struct AccumulatorManager {
 	void apply_lazy(Position &pos);
 
 	/**
-	 * Updates the accumulator stack based on the move. `pos_after` is only used if the king crosses
-	 * a boundary, in which case we do a full refresh. Otherwise, we just do an incremental update.
+	 * Records piece and threat changes between pos and pos_after. Refreshes if the
+	 * king changes buckets or the threat changes exceed the fixed buffer capacity.
 	 */
 	void make_move(Position &pos, Move move, Position &pos_after);
 
