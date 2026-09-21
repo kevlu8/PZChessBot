@@ -354,10 +354,11 @@ Value quiesce(Position &pos, ThreadInfo &ti, SSEntry *ss, Value alpha, Value bet
 
 		Position pos_after = pos;
 		pos_after.make_move(move);
+		arch::prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)]);
+
 		rp.push_hash(pos_after.zobrist_without_ep());
 		ti.am.make_move(pos, move, pos_after);
 
-		arch::prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)]);
 		Value score = -quiesce(pos_after, ti, ss + 1, -beta, -alpha, -side, ply + 1, pv);
 
 		ti.am.pop_move();
@@ -694,10 +695,11 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 
 			Position pos_after = pos;
 			pos_after.make_move(pc_move);
+			arch::prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)]);
+
 			rp.push_hash(pos_after.zobrist_without_ep());
 			ti.am.make_move(pos, pc_move, pos_after);
 
-			arch::prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)]);
 			Value score = -quiesce(pos_after, ti, ss + 1, -pc_beta, -pc_beta + 1, -side, ply + 1);
 
 			if (score >= pc_beta)
@@ -888,10 +890,10 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 
 		Position pos_after = pos;
 		pos_after.make_move(move);
+		arch::prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)]);
+
 		rp.push_hash(pos_after.zobrist_without_ep());
 		ti.am.make_move(pos, move, pos_after);
-
-		arch::prefetch(&ttable.TT[pos_after.zobrist & (ttable.TT_SIZE - 1)]);
 
 		int newdepth = depth - 1 + extension;
 
