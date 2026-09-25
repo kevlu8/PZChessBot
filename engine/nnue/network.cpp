@@ -73,7 +73,7 @@ static void *init_shm(int node, uint32_t sum) {
 			if (ftruncate(fd, len) < 0)
 				break;
 
-			void *ptr = mmap(nullptr, len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_NORESERVE, fd, 0);
+			void *ptr = mmap_aligned(0x200000, len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_NORESERVE, fd, 0);
 			if (ptr == MAP_FAILED)
 				break;
 
@@ -99,7 +99,7 @@ static void *init_shm(int node, uint32_t sum) {
 			if (flock(fd, LOCK_SH) != 0)
 				break;
 
-			void *ptr = mmap(nullptr, len, PROT_READ, MAP_SHARED | MAP_NORESERVE, fd, 0);
+			void *ptr = mmap_aligned(0x200000, len, PROT_READ, MAP_SHARED | MAP_NORESERVE, fd, 0);
 			if (ptr == MAP_FAILED) {
 				flock(fd, LOCK_UN);
 				break;

@@ -17,6 +17,7 @@
  */
 
 #include <cerrno>
+#include <cstdint>
 #include <cstring>
 #include <exception>
 #include <string>
@@ -63,4 +64,16 @@ static void large_free(void *ptr, size_t size) {
 #else
 #error Unsupported OS/kernel
 #endif
+}
+
+// This function is NOT thread safe
+static void *mmap_aligned(size_t align, size_t len, int prot, int flags, int fd, off_t offset) {
+	void *raw = mmap(nullptr, len + align, prot, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (raw == MAP_FAILED)
+		return raw;
+
+	void *ptr = (void *)(((uintptr_t)raw + align - 1) / align * align);
+	munmap(raw, len + align);
+
+	return mmap(ptr, len, prot, flags | MAP_FIXED, fd, offset);
 }
