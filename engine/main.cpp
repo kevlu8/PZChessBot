@@ -35,7 +35,7 @@
 
 // Options
 size_t TT_SIZE = DEFAULT_TT_SIZE;
-bool quiet = false, dfrc_uci = false;
+bool quiet = false, dfrc_uci = false, testing_mode = false;
 int move_overhead = 0;
 
 int64_t timemgmt(int64_t remtime, int64_t inc = 0) {
@@ -66,6 +66,7 @@ int run_uci() {
 			std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
 			std::cout << "option name SyzygyProbeDepth type spin default 1 min 1 max 100" << std::endl;
 			std::cout << "option name SyzygyProbeLimit type spin default 7 min 1 max 7" << std::endl;
+			std::cout << "option name Testing type check default false" << std::endl;
 			print_uci();
 			std::cout << "uciok" << std::endl;
 		} else if (command == "icu") {
@@ -136,6 +137,8 @@ int run_uci() {
 		 	} else if (optionname == "SyzygyProbeLimit") {
 				int piece_limit = std::stoi(optionvalue);
 				tbman.max_pieces = piece_limit;
+			} else if (optionname == "Testing") {
+				testing_mode = optionvalue == "true";
 			} else {
 				handle_set(optionname, optionvalue);
 			}

@@ -49,7 +49,10 @@ static void *fallback(size_t len) {
 }
 
 static void *init_shm(int node, uint32_t sum) {
+	extern bool testing_mode;
 	size_t len = (sizeof(Network) + 0x1fffff) / 0x200000 * 0x200000;
+	if (!testing_mode)
+		return fallback(len);
 
 #if defined(_WIN32)
 	// no thanks, someone else can come do this if they want
@@ -59,7 +62,7 @@ static void *init_shm(int node, uint32_t sum) {
 	ss << "/pznet." << std::setfill('0') << std::setw(8) << std::hex << sum << std::dec;
 #ifdef USE_NUMA
 	ss << '.' << node;
-#endif
+#endif // USE_NUMA
 	std::string name = ss.str();
 	const uint32_t target = sum | 1;
 	const size_t magic_off = len - 4;
@@ -81,13 +84,13 @@ static void *init_shm(int node, uint32_t sum) {
 #ifdef USE_NUMA
 			unsigned long mask = 1UL << node;
 			mbind(ptr, len, MPOL_BIND, &mask, sizeof(mask) * 8, 0);
-#endif
+#endif // USE_NUMA
 
 			uint32_t *magic = (uint32_t *)((char *)ptr + magic_off);
 			if (*magic != target) {
 #if defined(__linux__)
 				madvise(ptr, len, MADV_HUGEPAGE);
-#endif
+#endif // defined(__linux__)
 				((Network *)ptr)->load();
 				*magic = target;
 			}
@@ -118,7 +121,7 @@ static void *init_shm(int node, uint32_t sum) {
 
 	close(fd);
 	return fallback(len);
-#endif
+#endif // else
 }
 
 __attribute__((constructor)) void init_networks() {

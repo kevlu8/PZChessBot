@@ -18,6 +18,13 @@
 
 #include "threads.hpp"
 
+#include <atomic>
+
+#ifndef _WIN32
+#include <fcntl.h>
+#include <sys/mman.h>
+#endif
+
 #ifdef __linux__
 #include <pthread.h>
 #endif
@@ -34,6 +41,26 @@ void raise_thread_stack_size() {
 	pthread_attr_setstacksize(&attr, STACK_SIZE);
 	pthread_setattr_default_np(&attr);
 	pthread_attr_destroy(&attr);
+#endif
+}
+
+uint32_t get_node_ticket() {
+#if defined(_WIN32)
+	// no thanks, someone else can come do this if they want
+	return 0;
+#else
+	int fd = shm_open("pzsync", O_CREAT | O_RDWR, 0666);
+	if (fd < 0)
+		return 0;
+
+	if (ftruncate(fd, 4) < 0)
+		return 0;
+
+	void *ptr = mmap(NULL, 4, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_NORESERVE, fd, 0);
+	if (ptr == MAP_FAILED)
+		return 0;
+
+	return reinterpret_cast<std::atomic<uint32_t> *>(ptr)->fetch_add(1, std::memory_order_relaxed);
 #endif
 }
 
@@ -67,10 +94,11 @@ void Pool::resize(size_t num) {
 }
 
 void Pool::thread_loop(size_t i) {
+	extern bool testing_mode;
 	int node = 0;
 #ifdef USE_NUMA
-	if (num_threads >= numa_num_configured_nodes()) {
-		node = i % numa_num_configured_nodes();
+	if (testing_mode) {
+		node = get_node_ticket() % numa_num_configured_nodes();
 		numa_run_on_node(node);
 		sched_yield();
 	}
