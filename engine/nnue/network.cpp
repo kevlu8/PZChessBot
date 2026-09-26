@@ -74,7 +74,7 @@ int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nb
 	return nbucket * INPUT_SIZE + side * 64 * 6 + pt * 64 + sq;
 }
 
-int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket) {
+int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, const Accumulator &stm_threats, const Accumulator &ntm_threats, uint8_t nbucket) {
 	const ivec zero = simd::setzero_ivec();
 	const ivec clip = simd::broadcast_i16(QA);
 	const fvec f_zero = simd::setzero_fvec();
@@ -92,6 +92,12 @@ int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator 
 		ivec stm_val2 = simd::load_ivec((ivec *)&stm.val[i + L1_SIZE / 2]);
 		ivec ntm_val1 = simd::load_ivec((ivec *)&ntm.val[i]);
 		ivec ntm_val2 = simd::load_ivec((ivec *)&ntm.val[i + L1_SIZE / 2]);
+
+		// Combine PSQT and threats before clipping
+		stm_val1 = simd::add_i16(stm_val1, simd::load_ivec((ivec *)&stm_threats.val[i]));
+		stm_val2 = simd::add_i16(stm_val2, simd::load_ivec((ivec *)&stm_threats.val[i + L1_SIZE / 2]));
+		ntm_val1 = simd::add_i16(ntm_val1, simd::load_ivec((ivec *)&ntm_threats.val[i]));
+		ntm_val2 = simd::add_i16(ntm_val2, simd::load_ivec((ivec *)&ntm_threats.val[i + L1_SIZE / 2]));
 
 		stm_val1 = simd::clamp_i16(stm_val1, zero, clip);
 		stm_val2 = simd::clamp_i16(stm_val2, zero, clip);

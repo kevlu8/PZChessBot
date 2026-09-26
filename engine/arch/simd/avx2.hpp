@@ -47,6 +47,10 @@ namespace simd {
 		return _mm256_loadu_ps(p);
 	}
 
+	ivec add_i16(ivec a, ivec b) {
+		return _mm256_add_epi16(a, b);
+	}
+
 	ivec clamp_i16(ivec x, ivec lo, ivec hi) {
 		x = _mm256_max_epi16(x, lo);
 		x = _mm256_min_epi16(x, hi);

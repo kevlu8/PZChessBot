@@ -65,6 +65,6 @@ struct alignas(32) Network {
 
 int calculate_index(Square sq, PieceType pt, bool side, bool perspective, int nbucket);
 
-int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, uint8_t nbucket);
+int32_t nnue_eval(const Network &net, const Accumulator &stm, const Accumulator &ntm, const Accumulator &stm_threats, const Accumulator &ntm_threats, uint8_t nbucket);
 
 extern Network nnue_network;

@@ -47,6 +47,10 @@ namespace simd {
 		return vld1q_f32(p);
 	}
 
+	ivec add_i16(ivec a, ivec b) {
+		return vaddq_s16(a, b);
+	}
+
 	ivec clamp_i16(ivec x, ivec lo, ivec hi) {
 		x = vmaxq_s16(x, lo);
 		x = vminq_s16(x, hi);
