@@ -27,7 +27,7 @@
 #include <thread>
 #include <vector>
 
-extern bool testing_mode;
+extern bool multiInstance;
 
 class Pool {
 private:
@@ -46,7 +46,7 @@ private:
 
 public:
 	Pool() : num_threads(1), stop(false) {
-		init_networks(testing_mode);
+		init_networks(multiInstance);
 		tis = (ThreadInfo *)large_alloc(num_threads * sizeof(ThreadInfo));
 		start_barrier = std::make_unique<std::barrier<>>(2);
 		ready_barrier = std::make_unique<std::barrier<>>(2);
@@ -56,7 +56,7 @@ public:
 	}
 
 	Pool(size_t num_threads) : num_threads(num_threads), stop(false) {
-		init_networks(testing_mode);
+		init_networks(multiInstance);
 		tis = (ThreadInfo *)large_alloc(num_threads * sizeof(ThreadInfo));
 		start_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
 		ready_barrier = std::make_unique<std::barrier<>>(num_threads + 1);

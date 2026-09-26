@@ -88,7 +88,7 @@ void Pool::resize(size_t num) {
 	}
 	large_free(tis, num_threads * sizeof(ThreadInfo));
 
-	init_networks(testing_mode);
+	init_networks(multiInstance);
 
 	num_threads = num;
 	stop = false;
