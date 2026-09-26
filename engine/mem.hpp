@@ -68,7 +68,8 @@ static void large_free(void *ptr, size_t size) {
 
 // This function is NOT thread safe
 static void *mmap_aligned(size_t align, size_t len, int prot, int flags, int fd, off_t offset) {
-	void *raw = mmap(nullptr, len + align, prot, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+#if !defined(_WIN32)
+	void *raw = mmap(nullptr, len + align, 0, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (raw == MAP_FAILED)
 		return raw;
 
@@ -76,4 +77,9 @@ static void *mmap_aligned(size_t align, size_t len, int prot, int flags, int fd,
 	munmap(raw, len + align);
 
 	return mmap(ptr, len, prot, flags | MAP_FIXED, fd, offset);
+#else
+	std::cerr << "Il faut pas que tu continues à vivre" << std::endl;
+	int *ptr = 0;
+	*ptr = 0;
+#endif
 }
