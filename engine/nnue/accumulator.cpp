@@ -94,30 +94,6 @@ void AccumulatorManager::AccumulatorPair::update_sub(Square sq, PieceType pt, bo
 	}
 }
 
-void AccumulatorManager::AccumulatorPair::update_white_threat_add(int index) {
-	for (int i = 0; i < L1_SIZE; i++) {
-		w_acc.val[i] += nnue_network.threat_weights[index][i];
-	}
-}
-
-void AccumulatorManager::AccumulatorPair::update_black_threat_add(int index) {
-	for (int i = 0; i < L1_SIZE; i++) {
-		b_acc.val[i] += nnue_network.threat_weights[index][i];
-	}
-}
-
-void AccumulatorManager::AccumulatorPair::update_white_threat_sub(int index) {
-	for (int i = 0; i < L1_SIZE; i++) {
-		w_acc.val[i] -= nnue_network.threat_weights[index][i];
-	}
-}
-
-void AccumulatorManager::AccumulatorPair::update_black_threat_sub(int index) {
-	for (int i = 0; i < L1_SIZE; i++) {
-		b_acc.val[i] -= nnue_network.threat_weights[index][i];
-	}
-}
-
 void AccumulatorManager::full_refresh(Position &pos, int index) {
 	// Init the first accumulator so we have a basepoint
 	for (int i = 0; i < L1_SIZE; i++) {
@@ -143,214 +119,154 @@ void AccumulatorManager::full_refresh(Position &pos, int index) {
 		}
 	}
 
-	// Update threats
-	for (uint16_t i = 0; i < 64; i++) {
-		Piece piece = pos.mailbox[i];
-		bool side = piece >> 3; // 1 = black, 0 = white
-		PieceType pt = PieceType(piece & 7);
-
-		if (piece != NO_PIECE) {
-			// Find the pieces that this piece threatens and loop through them
-			Bitboard attacks = calc_attacks(piece, (Square)i, pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
-			attacks &= (pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]); // Only consider squares that have pieces on them
-			while (attacks) {
-				Square target_sq = (Square)arch::tzcnt(attacks);
-				Piece target_piece = pos.mailbox[target_sq];
-				bool target_side = target_piece >> 3;
-				PieceType target_pt = PieceType(target_piece & 7);
-
-				int w_t_index = threat_index(0, wkingsq, piece, target_piece, (Square)i, target_sq);
-				int b_t_index = threat_index(1, bkingsq, piece, target_piece, (Square)i, target_sq);
-				// std::cout << "White: " << piece_letter[piece] << " at " << (int)i << " threatens " << piece_letter[target_piece] << " at " << (int)target_sq << " with index " << w_t_index << std::endl;
-				// std::cout << "Black: " << piece_letter[piece] << " at " << (int)i << " threatens " << piece_letter[target_piece] << " at " << (int)target_sq << " with index " << b_t_index << std::endl;
-
-				if (w_t_index >= 0)
-					accs[index].update_white_threat_add(w_t_index);
-				if (b_t_index >= 0)
-					accs[index].update_black_threat_add(b_t_index);
-
-				attacks = arch::blsr(attacks);
-			}
-		}
-	}
-
-	accs[index].correct = true;
+	refresh_threats(pos, index, WHITE);
+	refresh_threats(pos, index, BLACK);
+	accs[index].correct[WHITE] = accs[index].correct[BLACK] = true;
 }
 
-void AccumulatorManager::refresh_finny(Position &pos, int index) {
-	int winbucket = IBUCKET_LAYOUT[arch::tzcnt(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)])];
-	int binbucket = IBUCKET_LAYOUT[arch::tzcnt(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]) ^ 56];
-	accs[index].winbucket = winbucket;
-	accs[index].binbucket = binbucket;
+void AccumulatorManager::refresh_threats(Position &pos, int index, bool perspective) {
+	Accumulator &acc = perspective == WHITE ? accs[index].w_threats : accs[index].b_threats;
+	std::fill(acc.val, acc.val + L1_SIZE, 0);
 
-	Accumulator &f_w_acc = finny.accs[winbucket].w_acc;
-	Accumulator &f_b_acc = finny.accs[binbucket].b_acc;
-	Accumulator &w_acc = accs[index].w_acc;
-	Accumulator &b_acc = accs[index].b_acc;
+	Square kingsq = (Square)arch::tzcnt(pos.piece_boards[KING] & pos.piece_boards[OCC(perspective)]);
+	Bitboard occ = pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)];
+	for (int i = 0; i < 64; i++) {
+		Piece piece = pos.mailbox[i];
+		if (piece == NO_PIECE) continue;
+
+		Bitboard attacks = calc_attacks(piece, (Square)i, occ) & occ;
+		while (attacks) {
+			Square dst = (Square)arch::tzcnt(attacks);
+			int t_index = threat_index(perspective, kingsq, piece, pos.mailbox[dst], (Square)i, dst);
+			if (t_index >= 0) {
+				for (int k = 0; k < L1_SIZE; k++) {
+					acc.val[k] += nnue_network.threat_weights[t_index][k];
+				}
+			}
+			attacks = arch::blsr(attacks);
+		}
+	}
+	accs[index].threats_correct[perspective] = true;
+}
+
+void AccumulatorManager::refresh_finny(Position &pos, int index, bool perspective) {
+	int bucket = perspective == WHITE ? accs[index].winbucket : accs[index].binbucket;
+	Accumulator &cached = perspective == WHITE ? finny.accs[bucket].w_acc : finny.accs[bucket].b_acc;
+	Accumulator &acc = perspective == WHITE ? accs[index].w_acc : accs[index].b_acc;
 
 	for (int i = 0; i < 64; i++) {
 		Piece piece = pos.mailbox[i];
-		bool side = piece >> 3; // 1 = black, 0 = white
-		PieceType pt = PieceType(piece & 7);
-		
-		Piece prev_w_piece = finny.mailboxes[winbucket][WHITE][i];
-		bool prev_w_side = prev_w_piece >> 3;
-		PieceType prev_w_pt = PieceType(prev_w_piece & 7);
+		Piece prev_piece = finny.mailboxes[bucket][perspective][i];
+		if (piece == prev_piece) continue;
 
-		if (piece != prev_w_piece) {
-			if (piece != NO_PIECE) {
-				// Add to accumulator
-				int index = calculate_index((Square)i, pt, side, 0, winbucket);
-				for (int k = 0; k < L1_SIZE; k++) {
-					f_w_acc.val[k] += nnue_network.accumulator_weights[index][k];
-				}
-			}
-
-			if (prev_w_piece != NO_PIECE) {
-				// Remove from accumulator
-				int index = calculate_index((Square)i, prev_w_pt, prev_w_side, 0, winbucket);
-				for (int k = 0; k < L1_SIZE; k++) {
-					f_w_acc.val[k] -= nnue_network.accumulator_weights[index][k];
-				}
+		if (piece != NO_PIECE) {
+			int p_index = calculate_index((Square)i, PieceType(piece & 7), piece >> 3, perspective, bucket);
+			for (int k = 0; k < L1_SIZE; k++) {
+				cached.val[k] += nnue_network.accumulator_weights[p_index][k];
 			}
 		}
-
-		Piece prev_b_piece = finny.mailboxes[binbucket][BLACK][i];
-		bool prev_b_side = prev_b_piece >> 3;
-		PieceType prev_b_pt = PieceType(prev_b_piece & 7);
-
-		if (piece != prev_b_piece) {
-			if (piece != NO_PIECE) {
-				// Add to accumulator
-				int index = calculate_index((Square)i, pt, side, 1, binbucket);
-				for (int k = 0; k < L1_SIZE; k++) {
-					f_b_acc.val[k] += nnue_network.accumulator_weights[index][k];
-				}
-			}
-
-			if (prev_b_piece != NO_PIECE) {
-				// Remove from accumulator
-				int index = calculate_index((Square)i, prev_b_pt, prev_b_side, 1, binbucket);
-				for (int k = 0; k < L1_SIZE; k++) {
-					f_b_acc.val[k] -= nnue_network.accumulator_weights[index][k];
-				}
+		if (prev_piece != NO_PIECE) {
+			int p_index = calculate_index((Square)i, PieceType(prev_piece & 7), prev_piece >> 3, perspective, bucket);
+			for (int k = 0; k < L1_SIZE; k++) {
+				cached.val[k] -= nnue_network.accumulator_weights[p_index][k];
 			}
 		}
+		finny.mailboxes[bucket][perspective][i] = piece;
 	}
-
-	// Update accumulators
-	for (int i = 0; i < L1_SIZE; i++) {
-		w_acc.val[i] = f_w_acc.val[i];
-		b_acc.val[i] = f_b_acc.val[i];
-	}
-
-	// such a small loop that it's not worth incrementally doing
-	for (int i = 0; i < 64; i++) {
-		finny.mailboxes[winbucket][WHITE][i] = pos.mailbox[i];
-		finny.mailboxes[binbucket][BLACK][i] = pos.mailbox[i];
-	}
-
-	accs[index].correct = true;
+	acc = cached;
+	accs[index].correct[perspective] = true;
 }
 
 void AccumulatorManager::apply_lazy(Position &pos) {
-	if (current().correct) return; // No updates needed
-	int index = idx, last_same_bucket = idx;
-	bool good_found = false;
-	while (true) {
-		index--;
-
-		if (accs[index].winbucket != current().winbucket || accs[index].binbucket != current().binbucket) {
-			// A bucket change occurred meaning we can't do any incremental updates past this point
-			break;
-		}
-
-		last_same_bucket = index;
-
-		if (accs[index].correct) {
-			// Found a basepoint we can do incremental off of
-			// Note that it is implied that the buckets are the same and have not changed
-			good_found = true;
-			break;
-		}
-	}
-
-	if (!good_found) {
-		// :(
-		full_refresh(pos, idx); // was refresh_finny() for non-threat inputs but idk how to do finny + threats
-		return;
-	}
-
-	for (int i = index + 1; i <= idx; i++) {
-		auto &u = psqtupdates[i];
-		if (u.deltas == 2) {
-			// -+
-			for (int k = 0; k < L1_SIZE; k++) {
-				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - nnue_network.accumulator_weights[u.w_deltas[0]][k] + nnue_network.accumulator_weights[u.w_deltas[1]][k];
-				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - nnue_network.accumulator_weights[u.b_deltas[0]][k] + nnue_network.accumulator_weights[u.b_deltas[1]][k];
+	for (int perspective = WHITE; perspective <= BLACK; perspective++) {
+		if (!current().correct[perspective]) {
+			int index = idx;
+			while (index > 0 && !accs[index].correct[perspective]) {
+				int bucket = perspective == WHITE ? accs[index].winbucket : accs[index].binbucket;
+				int prev_bucket = perspective == WHITE ? accs[index-1].winbucket : accs[index-1].binbucket;
+				if (bucket != prev_bucket) break;
+				index--;
 			}
-		} else if (u.deltas == 3) {
-			// --+
-			for (int k = 0; k < L1_SIZE; k++) {
-				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - nnue_network.accumulator_weights[u.w_deltas[0]][k] - nnue_network.accumulator_weights[u.w_deltas[1]][k] + nnue_network.accumulator_weights[u.w_deltas[2]][k];
-				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - nnue_network.accumulator_weights[u.b_deltas[0]][k] - nnue_network.accumulator_weights[u.b_deltas[1]][k] + nnue_network.accumulator_weights[u.b_deltas[2]][k];
-			}
-		} else if (u.deltas == 4) {
-			// --++
-			for (int k = 0; k < L1_SIZE; k++) {
-				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - nnue_network.accumulator_weights[u.w_deltas[0]][k] - nnue_network.accumulator_weights[u.w_deltas[1]][k] + nnue_network.accumulator_weights[u.w_deltas[2]][k] + nnue_network.accumulator_weights[u.w_deltas[3]][k];
-				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - nnue_network.accumulator_weights[u.b_deltas[0]][k] - nnue_network.accumulator_weights[u.b_deltas[1]][k] + nnue_network.accumulator_weights[u.b_deltas[2]][k] + nnue_network.accumulator_weights[u.b_deltas[3]][k];
+
+			if (!accs[index].correct[perspective]) {
+				refresh_finny(pos, idx, perspective);
+			} else {
+				for (int i = index + 1; i <= idx; i++) {
+					auto &u = psqtupdates[i];
+					int *deltas = perspective == WHITE ? u.w_deltas : u.b_deltas;
+					Accumulator &acc = perspective == WHITE ? accs[i].w_acc : accs[i].b_acc;
+					Accumulator &prev = perspective == WHITE ? accs[i-1].w_acc : accs[i-1].b_acc;
+					if (u.deltas == 2) {
+						// -+
+						for (int k = 0; k < L1_SIZE; k++) {
+							acc.val[k] = prev.val[k] - nnue_network.accumulator_weights[deltas[0]][k] + nnue_network.accumulator_weights[deltas[1]][k];
+						}
+					} else if (u.deltas == 3) {
+						// --+
+						for (int k = 0; k < L1_SIZE; k++) {
+							acc.val[k] = prev.val[k] - nnue_network.accumulator_weights[deltas[0]][k] - nnue_network.accumulator_weights[deltas[1]][k] + nnue_network.accumulator_weights[deltas[2]][k];
+						}
+					} else if (u.deltas == 4) {
+						// --++
+						for (int k = 0; k < L1_SIZE; k++) {
+							acc.val[k] = prev.val[k] - nnue_network.accumulator_weights[deltas[0]][k] - nnue_network.accumulator_weights[deltas[1]][k] + nnue_network.accumulator_weights[deltas[2]][k] + nnue_network.accumulator_weights[deltas[3]][k];
+						}
+					}
+					accs[i].correct[perspective] = true;
+				}
 			}
 		}
 
-		auto &tu = threatupdates[i];
-		for (int j = 0; j < tu.widxa; j++) {
-			accs[i].update_white_threat_add(tu.w_adds[j]);
-		}
-		for (int j = 0; j < tu.widxr; j++) {
-			accs[i].update_white_threat_sub(tu.w_removes[j]);
-		}
-		for (int j = 0; j < tu.bidxa; j++) {
-			accs[i].update_black_threat_add(tu.b_adds[j]);
-		}
-		for (int j = 0; j < tu.bidxr; j++) {
-			accs[i].update_black_threat_sub(tu.b_removes[j]);
-		}
+		if (!current().threats_correct[perspective]) {
+			int index = idx;
+			while (index > 0 && !accs[index].threats_correct[perspective]) {
+				int bucket = perspective == WHITE ? accs[index].winbucket : accs[index].binbucket;
+				int prev_bucket = perspective == WHITE ? accs[index-1].winbucket : accs[index-1].binbucket;
+				// Threat indices only change when the king crosses the horizontal mirror
+				if ((bucket ^ prev_bucket) & 1) break;
+				index--;
+			}
 
-		accs[i].correct = true;
+			if (!accs[index].threats_correct[perspective]) {
+				refresh_threats(pos, idx, perspective);
+			} else {
+				for (int i = index + 1; i <= idx; i++) {
+					auto &tu = threatupdates[i];
+					Accumulator &acc = perspective == WHITE ? accs[i].w_threats : accs[i].b_threats;
+					acc = perspective == WHITE ? accs[i-1].w_threats : accs[i-1].b_threats;
+					int *adds = perspective == WHITE ? tu.w_adds : tu.b_adds;
+					int *removes = perspective == WHITE ? tu.w_removes : tu.b_removes;
+					int nadds = perspective == WHITE ? tu.widxa : tu.bidxa;
+					int nremoves = perspective == WHITE ? tu.widxr : tu.bidxr;
+					for (int j = 0; j < nadds; j++) {
+						for (int k = 0; k < L1_SIZE; k++) {
+							acc.val[k] += nnue_network.threat_weights[adds[j]][k];
+						}
+					}
+					for (int j = 0; j < nremoves; j++) {
+						for (int k = 0; k < L1_SIZE; k++) {
+							acc.val[k] -= nnue_network.threat_weights[removes[j]][k];
+						}
+					}
+					accs[i].threats_correct[perspective] = true;
+				}
+			}
+		}
 	}
 }
 
 void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after) {
 	idx++;
 	AccumulatorPair &acc = accs[idx];
-	acc.correct = false;
+	acc.correct[WHITE] = acc.correct[BLACK] = false;
+	acc.threats_correct[WHITE] = acc.threats_correct[BLACK] = false;
 	auto &tu = threatupdates[idx];
 	tu.clear();
 
-	if (move.type() == CASTLING || (pos.mailbox[move.src()] & 7) == KING) {
-		// The king may have stepped into a new bucket, let's check to make sure
-		int dest = move.dst();
-		if (move.type() == CASTLING) {
-			if (pos.side == WHITE) {
-				dest = move.src() < move.dst() ? SQ_G1 : SQ_C1;
-			} else {
-				dest = move.src() < move.dst() ? SQ_G8 : SQ_C8;
-			}
-		}
-
-		int prev_bucket = IBUCKET_LAYOUT[move.src() ^ (pos.side ? 56 : 0)];
-		int new_bucket = IBUCKET_LAYOUT[dest ^ (pos.side ? 56 : 0)];
-		if (prev_bucket != new_bucket) {
-			full_refresh(pos_after, idx); // same thing here, was refresh_finny
-			return;
-		}
-	}
-
 	int winbucket = IBUCKET_LAYOUT[arch::tzcnt(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)])];
 	int binbucket = IBUCKET_LAYOUT[arch::tzcnt(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]) ^ 56];
-	acc.winbucket = winbucket;
-	acc.binbucket = binbucket;
+	acc.winbucket = IBUCKET_LAYOUT[arch::tzcnt(pos_after.piece_boards[KING] & pos_after.piece_boards[OCC(WHITE)])];
+	acc.binbucket = IBUCKET_LAYOUT[arch::tzcnt(pos_after.piece_boards[KING] & pos_after.piece_boards[OCC(BLACK)]) ^ 56];
 
 	// 5 cases: quiet, promo, capture, en passant, castling
 	bool promo = move.type() == PROMOTION;

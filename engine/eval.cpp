@@ -42,9 +42,9 @@ Value eval(Position &pos, AccumulatorManager &am) {
 	int nbucket = (npieces - 2) / 4;
 
 	if (pos.side == WHITE) {
-		score = nnue_eval(nnue_network, am.current().w_acc, am.current().b_acc, nbucket);
+		score = nnue_eval(nnue_network, am.current().w_acc, am.current().b_acc, am.current().w_threats, am.current().b_threats, nbucket);
 	} else {
-		score = -nnue_eval(nnue_network, am.current().b_acc, am.current().w_acc, nbucket);
+		score = -nnue_eval(nnue_network, am.current().b_acc, am.current().w_acc, am.current().b_threats, am.current().w_threats, nbucket);
 	}
 
 	return score;
@@ -75,11 +75,11 @@ std::array<Value, 8> debug_eval(Position &pos) {
 	std::array<Value, 8> score = {};
 	if (pos.side == WHITE) {
 		for (int i = 0; i < 8; i++) {
-			score[i] = nnue_eval(nnue_network, am->current().w_acc, am->current().b_acc, i);
+			score[i] = nnue_eval(nnue_network, am->current().w_acc, am->current().b_acc, am->current().w_threats, am->current().b_threats, i);
 		}
 	} else {
 		for (int i = 0; i < 8; i++) {
-			score[i] = -nnue_eval(nnue_network, am->current().b_acc, am->current().w_acc, i);
+			score[i] = -nnue_eval(nnue_network, am->current().b_acc, am->current().w_acc, am->current().b_threats, am->current().w_threats, i);
 		}
 	}
 
