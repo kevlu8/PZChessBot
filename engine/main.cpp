@@ -20,12 +20,9 @@
 
 #include <random>
 #include <sstream>
-#include <thread>
 
 #include "bitboard.hpp"
 #include "eval.hpp"
-#include "history.hpp"
-#include "movegen.hpp"
 #include "search.hpp"
 #include "threads.hpp"
 #include "ttable.hpp"
@@ -35,7 +32,7 @@
 
 // Options
 size_t TT_SIZE = DEFAULT_TT_SIZE;
-bool quiet = false, dfrc_uci = false;
+bool quiet = false, dfrc_uci = false, multiInstance = false;
 int move_overhead = 0;
 
 int64_t timemgmt(int64_t remtime, int64_t inc = 0) {
@@ -45,7 +42,7 @@ int64_t timemgmt(int64_t remtime, int64_t inc = 0) {
 	return x;
 }
 
-void run_uci() {
+int run_uci() {
 	Pool pool;
 	std::string command;
 	Position pos = Position();
@@ -66,10 +63,11 @@ void run_uci() {
 			std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
 			std::cout << "option name SyzygyProbeDepth type spin default 1 min 1 max 100" << std::endl;
 			std::cout << "option name SyzygyProbeLimit type spin default 7 min 1 max 7" << std::endl;
+			std::cout << "option name MultiInstance type check default false" << std::endl;
 			print_uci();
 			std::cout << "uciok" << std::endl;
 		} else if (command == "icu") {
-			return; // exit uci mode
+			return 0; // exit uci mode
 		} else if (command == "isready") {
 			std::cout << "readyok" << std::endl;
 		} else if (command.substr(0, 9) == "setoption") {
@@ -79,11 +77,12 @@ void run_uci() {
 			while (ss >> token) {
 				if (token == "name") {
 					ss >> optionname;
+					std::transform(optionname.begin(), optionname.end(), optionname.begin(), [](unsigned char c){ return std::tolower(c); });
 				} else if (token == "value") {
 					ss >> optionvalue;
 				}
 			}
-			if (optionname == "Hash") {
+			if (optionname == "hash") {
 				long long optionint = std::stoll(optionvalue);
 				if (optionint < 1 || optionint > MAX_TT) {
 					std::cerr << "Invalid hash size: " << optionint << std::endl;
@@ -93,9 +92,9 @@ void run_uci() {
 				while (TT_SIZE > optionint) TT_SIZE /= 2;
 				TT_SIZE *= 1024 * 1024 / sizeof(TTable::TTBucket);
 				ttable.resize(TT_SIZE);
-			} else if (optionname == "Quiet") {
+			} else if (optionname == "quiet") {
 				quiet = optionvalue == "true";
-			} else if (optionname == "Threads") {
+			} else if (optionname == "threads") {
 				size_t num_threads = std::stoi(optionvalue);
 				if (num_threads < 1 || num_threads > MAX_THREADS) {
 					std::cerr << "Invalid number of threads: " << num_threads << std::endl;
@@ -103,7 +102,7 @@ void run_uci() {
 				}
 				pool.resize(num_threads);
 				std::cout << "info string Using " << num_threads << " threads" << std::endl;
-			} else if (optionname == "Move") {
+			} else if (optionname == "move") {
 				int overhead = std::stoi(optionvalue);
 				if (overhead < 0 || overhead > 10000) {
 					std::cerr << "Invalid move overhead: " << overhead << std::endl;
@@ -116,11 +115,11 @@ void run_uci() {
 			} else if (optionname == "datagen") {
 				do_datagen = optionvalue == "true";
 				std::cout << "info string datagen " << (do_datagen ? "enabled" : "disabled") << std::endl;
-			} else if (optionname == "UCI_Chess960") {
+			} else if (optionname == "uci_chess960") {
 				dfrc_uci = (optionvalue == "true");
-			} else if (optionname == "UCI_ShowWDL") {
+			} else if (optionname == "uci_showwdl") {
 				show_wdl = (optionvalue == "true");
-			} else if (optionname == "SyzygyPath") {
+			} else if (optionname == "syzygypath") {
 				if (optionvalue == "<empty>" || optionvalue == "") {
 					tbman.destroy();
 					std::cout << "info string Syzygy path cleared" << std::endl;
@@ -130,12 +129,15 @@ void run_uci() {
 						std::cout << "info string Syzygy successfully loaded" << std::endl;
 					}
 				}
-			} else if (optionname == "SyzygyProbeDepth") {
+			} else if (optionname == "syzygyprobedepth") {
 				int probe_depth = std::stoi(optionvalue);
 				tbman.min_depth = probe_depth;
-		 	} else if (optionname == "SyzygyProbeLimit") {
+			} else if (optionname == "syzygyprobelimit") {
 				int piece_limit = std::stoi(optionvalue);
 				tbman.max_pieces = piece_limit;
+			} else if (optionname == "multiinstance") {
+				multiInstance = optionvalue == "true";
+				pool.resize(pool.size());
 			} else {
 				handle_set(optionname, optionvalue);
 			}
@@ -174,7 +176,7 @@ void run_uci() {
 		} else if (command == "quit") {
 			stop_search = true;
 			pool.wait_finished();
-			exit(0);
+			return 0;
 		} else if (command == "stop") {
 			stop_search = true;
 			pool.wait_finished();
@@ -266,6 +268,7 @@ void run_uci() {
 	}
 	stop_search = true;
 	pool.wait_finished();
+	return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -483,5 +486,5 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 	std::cout << "PZChessBot " << VERSION << " developed by kevlu8 and wdotmathree" << std::endl;
-	run_uci();
+	return run_uci();
 }

@@ -24,8 +24,6 @@
 #include "boardstate.hpp"
 #include "nnue/accumulator.hpp"
 
-extern Network nnue_network;
-
 Value simple_eval(Position &);
 
 Value eval(Position &pos, AccumulatorManager &am);

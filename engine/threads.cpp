@@ -18,6 +18,14 @@
 
 #include "threads.hpp"
 
+#include <atomic>
+
+#ifndef _WIN32
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
+
 #ifdef __linux__
 #include <pthread.h>
 #endif
@@ -37,10 +45,36 @@ void raise_thread_stack_size() {
 #endif
 }
 
-void Pool::resize(size_t num) {
-	if (num == num_threads)
-		return;
+static int64_t node_ticket = -1;
+uint32_t get_node_ticket() {
+#if defined(_WIN32)
+	// no thanks, someone else can come do this if they want
+	return 0;
+#else
+	if (node_ticket != -1)
+		return node_ticket;
 
+	int fd = shm_open("/pzsync", O_CREAT | O_RDWR, 0666);
+	if (fd < 0)
+		return 0;
+
+	if (ftruncate(fd, 4) < 0) {
+		close(fd);
+		return 0;
+	}
+
+	void *ptr = mmap(NULL, 4, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_NORESERVE, fd, 0);
+	close(fd);
+	if (ptr == MAP_FAILED)
+		return 0;
+
+	node_ticket = reinterpret_cast<std::atomic<uint32_t> *>(ptr)->fetch_add(1, std::memory_order_relaxed);
+	munmap(ptr, 4);
+	return node_ticket;
+#endif
+}
+
+void Pool::resize(size_t num) {
 	std::unique_lock lock(mtx);
 
 	stop = true;
@@ -53,6 +87,8 @@ void Pool::resize(size_t num) {
 		tis[i].~ThreadInfo();
 	}
 	large_free(tis, num_threads * sizeof(ThreadInfo));
+
+	init_networks(multiInstance);
 
 	num_threads = num;
 	stop = false;
@@ -67,12 +103,15 @@ void Pool::resize(size_t num) {
 }
 
 void Pool::thread_loop(size_t i) {
+	int node = 0;
 #ifdef USE_NUMA
-	int node = i % numa_num_configured_nodes();
-	numa_run_on_node(node);
-	sched_yield();
+	if (testing_mode) {
+		node = get_node_ticket() % numa_num_configured_nodes();
+		numa_run_on_node(node);
+		sched_yield();
+	}
 #endif
-	new (&tis[i]) ThreadInfo(); // construct in thread loop for better NUMA locality
+	new (&tis[i]) ThreadInfo(get_network(node)); // construct in thread loop for better NUMA locality
 	init_barrier->arrive_and_wait();
 	while (true) {
 		start_barrier->arrive_and_wait();

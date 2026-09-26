@@ -102,7 +102,7 @@ struct alignas(4096) ThreadInfo {
 	AccumulatorManager am;
 	bool nmp_disable = false;
 
-	ThreadInfo() : am(pos) {
+	ThreadInfo(Network *net) : am(pos, net) {
 		ss = (new SSEntry[MAX_PLY + 16]) + 8;
 	}
 

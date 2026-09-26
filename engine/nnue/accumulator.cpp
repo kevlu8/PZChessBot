@@ -76,53 +76,53 @@ void compute_threat_updates(Position &before, Position &after, Bitboard changed,
 	}
 }
 
-void AccumulatorManager::AccumulatorPair::update_add(Square sq, PieceType pt, bool side, int wbucket, int bbucket) {
+void AccumulatorManager::AccumulatorPair::update_add(const Network &net, Square sq, PieceType pt, bool side, int wbucket, int bbucket) {
 	uint16_t w_index = calculate_index(sq, pt, side, 0, wbucket);
 	uint16_t b_index = calculate_index(sq, pt, side, 1, bbucket);
 	for (int i = 0; i < L1_SIZE; i++) {
-		w_acc.val[i] += nnue_network.accumulator_weights[w_index][i];
-		b_acc.val[i] += nnue_network.accumulator_weights[b_index][i];
+		w_acc.val[i] += net.accumulator_weights[w_index][i];
+		b_acc.val[i] += net.accumulator_weights[b_index][i];
 	}
 }
 
-void AccumulatorManager::AccumulatorPair::update_sub(Square sq, PieceType pt, bool side, int wbucket, int bbucket) {
+void AccumulatorManager::AccumulatorPair::update_sub(const Network &net, Square sq, PieceType pt, bool side, int wbucket, int bbucket) {
 	uint16_t w_index = calculate_index(sq, pt, side, 0, wbucket);
 	uint16_t b_index = calculate_index(sq, pt, side, 1, bbucket);
 	for (int i = 0; i < L1_SIZE; i++) {
-		w_acc.val[i] -= nnue_network.accumulator_weights[w_index][i];
-		b_acc.val[i] -= nnue_network.accumulator_weights[b_index][i];
+		w_acc.val[i] -= net.accumulator_weights[w_index][i];
+		b_acc.val[i] -= net.accumulator_weights[b_index][i];
 	}
 }
 
-void AccumulatorManager::AccumulatorPair::update_white_threat_add(int index) {
+void AccumulatorManager::AccumulatorPair::update_white_threat_add(const Network &net, int index) {
 	for (int i = 0; i < L1_SIZE; i++) {
-		w_acc.val[i] += nnue_network.threat_weights[index][i];
+		w_acc.val[i] += net.threat_weights[index][i];
 	}
 }
 
-void AccumulatorManager::AccumulatorPair::update_black_threat_add(int index) {
+void AccumulatorManager::AccumulatorPair::update_black_threat_add(const Network &net, int index) {
 	for (int i = 0; i < L1_SIZE; i++) {
-		b_acc.val[i] += nnue_network.threat_weights[index][i];
+		b_acc.val[i] += net.threat_weights[index][i];
 	}
 }
 
-void AccumulatorManager::AccumulatorPair::update_white_threat_sub(int index) {
+void AccumulatorManager::AccumulatorPair::update_white_threat_sub(const Network &net, int index) {
 	for (int i = 0; i < L1_SIZE; i++) {
-		w_acc.val[i] -= nnue_network.threat_weights[index][i];
+		w_acc.val[i] -= net.threat_weights[index][i];
 	}
 }
 
-void AccumulatorManager::AccumulatorPair::update_black_threat_sub(int index) {
+void AccumulatorManager::AccumulatorPair::update_black_threat_sub(const Network &net, int index) {
 	for (int i = 0; i < L1_SIZE; i++) {
-		b_acc.val[i] -= nnue_network.threat_weights[index][i];
+		b_acc.val[i] -= net.threat_weights[index][i];
 	}
 }
 
 void AccumulatorManager::full_refresh(Position &pos, int index) {
 	// Init the first accumulator so we have a basepoint
 	for (int i = 0; i < L1_SIZE; i++) {
-		accs[index].w_acc.val[i] = nnue_network.accumulator_biases[i];
-		accs[index].b_acc.val[i] = nnue_network.accumulator_biases[i];
+		accs[index].w_acc.val[i] = net->accumulator_biases[i];
+		accs[index].b_acc.val[i] = net->accumulator_biases[i];
 	}
 
 	Square wkingsq = (Square)arch::tzcnt(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)]);
@@ -139,7 +139,7 @@ void AccumulatorManager::full_refresh(Position &pos, int index) {
 
 		if (piece != NO_PIECE) {
 			// Add to accumulator
-			accs[index].update_add((Square)i, pt, side, winbucket, binbucket);
+			accs[index].update_add(*net, (Square)i, pt, side, winbucket, binbucket);
 		}
 	}
 
@@ -165,9 +165,9 @@ void AccumulatorManager::full_refresh(Position &pos, int index) {
 				// std::cout << "Black: " << piece_letter[piece] << " at " << (int)i << " threatens " << piece_letter[target_piece] << " at " << (int)target_sq << " with index " << b_t_index << std::endl;
 
 				if (w_t_index >= 0)
-					accs[index].update_white_threat_add(w_t_index);
+					accs[index].update_white_threat_add(*net, w_t_index);
 				if (b_t_index >= 0)
-					accs[index].update_black_threat_add(b_t_index);
+					accs[index].update_black_threat_add(*net, b_t_index);
 
 				attacks = arch::blsr(attacks);
 			}
@@ -202,7 +202,7 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 				// Add to accumulator
 				int index = calculate_index((Square)i, pt, side, 0, winbucket);
 				for (int k = 0; k < L1_SIZE; k++) {
-					f_w_acc.val[k] += nnue_network.accumulator_weights[index][k];
+					f_w_acc.val[k] += net->accumulator_weights[index][k];
 				}
 			}
 
@@ -210,7 +210,7 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 				// Remove from accumulator
 				int index = calculate_index((Square)i, prev_w_pt, prev_w_side, 0, winbucket);
 				for (int k = 0; k < L1_SIZE; k++) {
-					f_w_acc.val[k] -= nnue_network.accumulator_weights[index][k];
+					f_w_acc.val[k] -= net->accumulator_weights[index][k];
 				}
 			}
 		}
@@ -224,7 +224,7 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 				// Add to accumulator
 				int index = calculate_index((Square)i, pt, side, 1, binbucket);
 				for (int k = 0; k < L1_SIZE; k++) {
-					f_b_acc.val[k] += nnue_network.accumulator_weights[index][k];
+					f_b_acc.val[k] += net->accumulator_weights[index][k];
 				}
 			}
 
@@ -232,7 +232,7 @@ void AccumulatorManager::refresh_finny(Position &pos, int index) {
 				// Remove from accumulator
 				int index = calculate_index((Square)i, prev_b_pt, prev_b_side, 1, binbucket);
 				for (int k = 0; k < L1_SIZE; k++) {
-					f_b_acc.val[k] -= nnue_network.accumulator_weights[index][k];
+					f_b_acc.val[k] -= net->accumulator_weights[index][k];
 				}
 			}
 		}
@@ -281,40 +281,41 @@ void AccumulatorManager::apply_lazy(Position &pos) {
 		return;
 	}
 
+	const int16_t (*__restrict weights)[L1_SIZE] = net->accumulator_weights;
 	for (int i = index + 1; i <= idx; i++) {
 		auto &u = psqtupdates[i];
 		if (u.deltas == 2) {
 			// -+
 			for (int k = 0; k < L1_SIZE; k++) {
-				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - nnue_network.accumulator_weights[u.w_deltas[0]][k] + nnue_network.accumulator_weights[u.w_deltas[1]][k];
-				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - nnue_network.accumulator_weights[u.b_deltas[0]][k] + nnue_network.accumulator_weights[u.b_deltas[1]][k];
+				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - weights[u.w_deltas[0]][k] + weights[u.w_deltas[1]][k];
+				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - weights[u.b_deltas[0]][k] + weights[u.b_deltas[1]][k];
 			}
 		} else if (u.deltas == 3) {
 			// --+
 			for (int k = 0; k < L1_SIZE; k++) {
-				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - nnue_network.accumulator_weights[u.w_deltas[0]][k] - nnue_network.accumulator_weights[u.w_deltas[1]][k] + nnue_network.accumulator_weights[u.w_deltas[2]][k];
-				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - nnue_network.accumulator_weights[u.b_deltas[0]][k] - nnue_network.accumulator_weights[u.b_deltas[1]][k] + nnue_network.accumulator_weights[u.b_deltas[2]][k];
+				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - weights[u.w_deltas[0]][k] - weights[u.w_deltas[1]][k] + weights[u.w_deltas[2]][k];
+				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - weights[u.b_deltas[0]][k] - weights[u.b_deltas[1]][k] + weights[u.b_deltas[2]][k];
 			}
 		} else if (u.deltas == 4) {
 			// --++
 			for (int k = 0; k < L1_SIZE; k++) {
-				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - nnue_network.accumulator_weights[u.w_deltas[0]][k] - nnue_network.accumulator_weights[u.w_deltas[1]][k] + nnue_network.accumulator_weights[u.w_deltas[2]][k] + nnue_network.accumulator_weights[u.w_deltas[3]][k];
-				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - nnue_network.accumulator_weights[u.b_deltas[0]][k] - nnue_network.accumulator_weights[u.b_deltas[1]][k] + nnue_network.accumulator_weights[u.b_deltas[2]][k] + nnue_network.accumulator_weights[u.b_deltas[3]][k];
+				accs[i].w_acc.val[k] = accs[i-1].w_acc.val[k] - weights[u.w_deltas[0]][k] - weights[u.w_deltas[1]][k] + weights[u.w_deltas[2]][k] + weights[u.w_deltas[3]][k];
+				accs[i].b_acc.val[k] = accs[i-1].b_acc.val[k] - weights[u.b_deltas[0]][k] - weights[u.b_deltas[1]][k] + weights[u.b_deltas[2]][k] + weights[u.b_deltas[3]][k];
 			}
 		}
 
 		auto &tu = threatupdates[i];
 		for (int j = 0; j < tu.widxa; j++) {
-			accs[i].update_white_threat_add(tu.w_adds[j]);
+			accs[i].update_white_threat_add(*net, tu.w_adds[j]);
 		}
 		for (int j = 0; j < tu.widxr; j++) {
-			accs[i].update_white_threat_sub(tu.w_removes[j]);
+			accs[i].update_white_threat_sub(*net, tu.w_removes[j]);
 		}
 		for (int j = 0; j < tu.bidxa; j++) {
-			accs[i].update_black_threat_add(tu.b_adds[j]);
+			accs[i].update_black_threat_add(*net, tu.b_adds[j]);
 		}
 		for (int j = 0; j < tu.bidxr; j++) {
-			accs[i].update_black_threat_sub(tu.b_removes[j]);
+			accs[i].update_black_threat_sub(*net, tu.b_removes[j]);
 		}
 
 		accs[i].correct = true;
