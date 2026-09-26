@@ -28,15 +28,13 @@
 struct AccumulatorManager {
 	struct AccumulatorPair {
 		int winbucket, binbucket;
-		Accumulator w_acc, b_acc;
-		bool correct = false;
+		Accumulator w_acc, b_acc; // Biases and PSQT weights
+		Accumulator w_threats, b_threats;
+		bool correct[2] = {};
+		bool threats_correct[2] = {};
 
 		void update_add(Square sq, PieceType pt, bool side, int wbucket, int bbucket);
 		void update_sub(Square sq, PieceType pt, bool side, int wbucket, int bbucket);
-		void update_white_threat_add(int index);
-		void update_black_threat_add(int index);
-		void update_white_threat_sub(int index);
-		void update_black_threat_sub(int index);
 	};
 
 	struct PSQTUpdate {
@@ -52,28 +50,50 @@ struct AccumulatorManager {
 	struct ThreatUpdate {
 		int w_adds[MAX_THREATS], w_removes[MAX_THREATS], b_adds[MAX_THREATS], b_removes[MAX_THREATS];
 		int widxa = 0, widxr = 0, bidxa = 0, bidxr = 0;
+		bool overflow = false;
 
 		ThreatUpdate() : widxa(0), widxr(0), bidxa(0), bidxr(0) {}
 		void clear() {
 			widxa = widxr = bidxa = bidxr = 0;
+			overflow = false;
 		}
 
 		void add_white(int index) {
+			if (widxa == MAX_THREATS) {
+				overflow = true;
+				return;
+			}
 			w_adds[widxa++] = index;
 		}
 		void add_black(int index) {
+			if (bidxa == MAX_THREATS) {
+				overflow = true;
+				return;
+			}
 			b_adds[bidxa++] = index;
 		}
 		void remove_white(int index) {
+			if (widxr == MAX_THREATS) {
+				overflow = true;
+				return;
+			}
 			w_removes[widxr++] = index;
 		}
 		void remove_black(int index) {
+			if (bidxr == MAX_THREATS) {
+				overflow = true;
+				return;
+			}
 			b_removes[bidxr++] = index;
 		}
 	};
 
 	struct Cache {
-		AccumulatorPair accs[NINPUTS * 2];
+		struct Entry {
+			Accumulator w_acc, b_acc;
+		};
+
+		Entry accs[NINPUTS * 2];
 		Piece mailboxes[NINPUTS * 2][2][64];
 
 		Cache() {
@@ -110,9 +130,14 @@ struct AccumulatorManager {
 	void full_refresh(Position &pos, int index);
 
 	/**
-	 * Recomputes the accumulator at index i using finny tables
+	 * Recomputes the PSQT accumulator for one perspective using finny tables
 	 */
-	void refresh_finny(Position &pos, int index);
+	void refresh_finny(Position &pos, int index, bool perspective);
+
+	/**
+	 * Recomputes the threat accumulator for one perspective.
+	 */
+	void refresh_threats(Position &pos, int index, bool perspective);
 
 	/**
 	 * Updates the accumulator stack
@@ -120,8 +145,7 @@ struct AccumulatorManager {
 	void apply_lazy(Position &pos);
 
 	/**
-	 * Records piece and threat changes between pos and pos_after. Refreshes if the
-	 * king changes buckets or the threat changes exceed the fixed buffer capacity.
+	 * Records piece and threat changes between pos and pos_after for lazy updates.
 	 */
 	void make_move(Position &pos, Move move, Position &pos_after);
 
@@ -130,7 +154,8 @@ struct AccumulatorManager {
 	 * prevent popping past the beginning.
 	 */
 	void pop_move() {
-		accs[idx].correct = false;
+		accs[idx].correct[WHITE] = accs[idx].correct[BLACK] = false;
+		accs[idx].threats_correct[WHITE] = accs[idx].threats_correct[BLACK] = false;
 		idx--;
 	}
 };

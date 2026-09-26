@@ -112,3 +112,11 @@ pgo: $(EXE)
 	rm $(OBJS) $(EXE)
 	@echo "Recompiling with PGO optimizations..."
 	$(MAKE) pgo-compile
+
+.PHONY: test-accumulator
+test-accumulator: build/test-accumulator
+	./build/test-accumulator
+
+build/test-accumulator: tests/accumulator.cpp $(SRCS) $(HDRS) Makefile
+	mkdir -p build
+	$(CXX) $(BASEFLAGS) $(DEBUGFLAGS) -O1 -o build/test-accumulator tests/accumulator.cpp $(filter-out engine/main.cpp,$(SRCS)) $(LDFLAGS)
