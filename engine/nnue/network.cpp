@@ -49,16 +49,17 @@ static void *fallback(size_t len) {
 }
 
 static void *init_shm(int node, uint32_t sum) {
-	size_t len = 1 << 21;
-	while (len < sizeof(Network) + (1 << 21))
-		len <<= 1;
+	size_t len = (sizeof(Network) + 0x1fffff) / 0x200000 * 0x200000;
 
 #if defined(_WIN32)
 	// no thanks, someone else can come do this if they want
 	return fallback(len);
 #else
 	std::ostringstream ss;
-	ss << "/pznet." << std::setfill('0') << std::setw(8) << std::hex << sum << std::dec << '.' << node;
+	ss << "/pznet." << std::setfill('0') << std::setw(8) << std::hex << sum << std::dec;
+#ifdef USE_NUMA
+	ss << '.' << node;
+#endif
 	std::string name = ss.str();
 	const uint32_t target = sum | 1;
 	const size_t magic_off = len - 4;
