@@ -45,30 +45,36 @@ void raise_thread_stack_size() {
 #endif
 }
 
+static int64_t node_ticket = -1;
 uint32_t get_node_ticket() {
 #if defined(_WIN32)
 	// no thanks, someone else can come do this if they want
 	return 0;
 #else
-	int fd = shm_open("pzsync", O_CREAT | O_RDWR, 0666);
+	if (node_ticket != -1)
+		return node_ticket;
+
+	int fd = shm_open("/pzsync", O_CREAT | O_RDWR, 0666);
 	if (fd < 0)
 		return 0;
 
-	if (ftruncate(fd, 4) < 0)
+	if (ftruncate(fd, 4) < 0) {
+		close(fd);
 		return 0;
+	}
 
 	void *ptr = mmap(NULL, 4, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_NORESERVE, fd, 0);
+	close(fd);
 	if (ptr == MAP_FAILED)
 		return 0;
 
-	return reinterpret_cast<std::atomic<uint32_t> *>(ptr)->fetch_add(1, std::memory_order_relaxed);
+	node_ticket = reinterpret_cast<std::atomic<uint32_t> *>(ptr)->fetch_add(1, std::memory_order_relaxed);
+	munmap(ptr, 4);
+	return node_ticket;
 #endif
 }
 
 void Pool::resize(size_t num) {
-	if (num == num_threads)
-		return;
-
 	std::unique_lock lock(mtx);
 
 	stop = true;
@@ -81,6 +87,8 @@ void Pool::resize(size_t num) {
 		tis[i].~ThreadInfo();
 	}
 	large_free(tis, num_threads * sizeof(ThreadInfo));
+
+	init_networks(testing_mode);
 
 	num_threads = num;
 	stop = false;
@@ -95,7 +103,6 @@ void Pool::resize(size_t num) {
 }
 
 void Pool::thread_loop(size_t i) {
-	extern bool testing_mode;
 	int node = 0;
 #ifdef USE_NUMA
 	if (testing_mode) {

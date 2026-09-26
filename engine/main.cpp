@@ -139,6 +139,7 @@ int run_uci() {
 				tbman.max_pieces = piece_limit;
 			} else if (optionname == "Testing") {
 				testing_mode = optionvalue == "true";
+				pool.resize(pool.size());
 			} else {
 				handle_set(optionname, optionvalue);
 			}
