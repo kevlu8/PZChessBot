@@ -940,6 +940,8 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 			if (ttpv && is_valid_score(tteval) && tteval <= alpha)
 				r += lmr_ttpv_alpha();
 
+			r += lmr_alpharaise() * alpha_raise;
+
 			r -= corr_val * lmr_corr() / 128;
 
 			if (!capt && !promo)
