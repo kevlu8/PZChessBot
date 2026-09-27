@@ -85,6 +85,7 @@ TUNE(fp_hist, 29, 10, 64, 5);
 TUNE(history_margin, 3275, 1000, 4000, 256);
 TUNE(see_quad, 14, 0, 40, 4);
 TUNE(see_lin, 59, 20, 80, 6);
+TUNE(see_hist, 64, 32, 128, 6);
 TUNE(lmr_base, -70, -1024, 1024, 160);
 TUNE(lmr_capt, 69, 0, 128, 16);
 TUNE(lmr_pv, 1344, 512, 2048, 128);
