@@ -653,7 +653,7 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 	}
 
 	// Razoring
-	if (!pv && !in_check && depth <= 8 && tt_corr_eval + razor_margin() * depth < alpha && !excluded && abs(alpha) < 2000) {
+	if (!excluded && !pv && !in_check && depth <= 8 && tt_corr_eval + razor_margin() * depth < alpha && (!tentry || ttcapt) && abs(alpha) < 2000) {
 		/**
 		 * If we are losing by a lot, check w/ qsearch to see if we could possibly improve.
 		 * If not, we can prune the search.
