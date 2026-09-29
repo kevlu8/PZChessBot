@@ -19,8 +19,6 @@ You are welcome to use LLMs to assist you in writing code, but please ensure tha
 
 Instructions are available in the README. In the nicest way possible, if you are struggling to build the project, please don't submit a pull request.
 
-Note that we currently do not support CPUs without AVX2 support. This also includes Apple silicon and ARM CPUs. However, we have plans to add support soon.
-
 ## Making Contributions
 
 Please ensure all contributions (if they change behavior of the program) are tested via SPRT. This is to ensure that PZChessBot does not regress in strength. If possible, include SPRT results in your pull request description.
