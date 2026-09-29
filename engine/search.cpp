@@ -875,7 +875,7 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 				 *
 				 * Skip searching moves with bad SEE scores
 				 */
-				const int see_threshold = capt ? -see_quad() * depth * depth : -see_lin() * depth;
+				const int see_threshold = capt ? -see_quad() * depth * depth : -see_lin() * depth - hist / see_hist();
 				bool see = pos.see(move, see_threshold);
 				if (!see)
 					continue;
