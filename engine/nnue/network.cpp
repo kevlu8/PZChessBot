@@ -17,11 +17,169 @@
  */
 
 #include "network.hpp"
-
+#include "../mem.hpp"
 #include "incbin.h"
+#include <iomanip>
+
+#ifndef _WIN32
+#include <fcntl.h>
+#include <sys/file.h>
+#include <unistd.h>
+#endif
+
+#ifdef USE_NUMA
+#include <numa.h>
+#include <numaif.h>
+#endif
+
+#ifndef NUMA_NODES
+#define NUMA_NODES 1
+#endif
 
 extern "C" {
-	INCBIN(network_weights, NNUE_PATH);
+INCBIN(network_weights, NNUE_PATH);
+}
+
+static Network *networks[NUMA_NODES];
+static int shm_fds[NUMA_NODES];
+static bool networks_init = false;
+
+static const size_t net_len = (sizeof(Network) + 4 + 0x1fffff) / 0x200000 * 0x200000;
+
+// node < 0 means none
+static void *fallback(size_t len, int node) {
+	Network *net = (Network *)large_alloc(len);
+#ifdef USE_NUMA
+	if (node >= 0) {
+		unsigned long mask = 1UL << node;
+		mbind(net, len, MPOL_BIND, &mask, sizeof(mask) * 8, 0);
+	}
+#endif // USE_NUMA
+	net->load();
+	return net;
+}
+
+static void *init_shm(int node, uint32_t sum, int &fd_out) {
+	size_t len = net_len;
+	fd_out = -1;
+
+#if defined(_WIN32)
+	// no thanks, someone else can come do this if they want
+	return fallback(len, node);
+#else
+	std::ostringstream ss;
+	ss << "/pznet." << std::setfill('0') << std::setw(8) << std::hex << sum << std::dec;
+#ifdef USE_NUMA
+	ss << '.' << node;
+#endif // USE_NUMA
+	std::string name = ss.str();
+	const uint32_t target = sum | 1;
+	const size_t magic_off = len - 4;
+
+	int fd = shm_open(name.c_str(), O_CREAT | O_RDWR, 0666);
+	if (fd < 0)
+		return fallback(len, node);
+	if (ftruncate(fd, len) < 0) {
+		close(fd);
+		return fallback(len, node);
+	}
+
+	for (int attempt = 0; attempt < 64; attempt++) {
+		if (flock(fd, LOCK_EX | LOCK_NB) == 0) {
+			// Winner
+			void *ptr = mmap_aligned(0x200000, len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_NORESERVE, fd, 0);
+			if (ptr == MAP_FAILED)
+				break;
+
+#ifdef USE_NUMA
+			unsigned long mask = 1UL << node;
+			mbind(ptr, len, MPOL_BIND, &mask, sizeof(mask) * 8, 0);
+#endif // USE_NUMA
+
+			uint32_t *magic = (uint32_t *)((char *)ptr + magic_off);
+			if (*magic != target) {
+#if defined(__linux__)
+				madvise(ptr, len, MADV_HUGEPAGE);
+#endif // defined(__linux__)
+				((Network *)ptr)->load();
+				*magic = target;
+			}
+			mprotect(ptr, len, PROT_READ);
+
+			flock(fd, LOCK_SH);
+			fd_out = fd;
+			return ptr;
+		} else {
+			// Loser
+			if (flock(fd, LOCK_SH) != 0)
+				break;
+
+			void *ptr = mmap_aligned(0x200000, len, PROT_READ, MAP_SHARED | MAP_NORESERVE, fd, 0);
+			if (ptr == MAP_FAILED) {
+				flock(fd, LOCK_UN);
+				break;
+			}
+
+			uint32_t *magic = (uint32_t *)((char *)ptr + magic_off);
+			if (*magic == target) {
+				fd_out = fd;
+				return ptr;
+			}
+
+			// Winner died: retry
+			munmap(ptr, len);
+			flock(fd, LOCK_UN);
+		}
+	}
+
+	close(fd);
+	return fallback(len, node);
+#endif // else
+}
+
+static void release_networks() {
+	for (int i = 0; i < NUMA_NODES; i++) {
+		if (networks[i] == nullptr)
+			continue;
+		if (i == 0 || networks[i] != networks[0])
+			large_free(networks[i], net_len);
+#ifndef _WIN32
+		if (shm_fds[i] >= 0)
+			close(shm_fds[i]);
+#endif
+		networks[i] = nullptr;
+		shm_fds[i] = -1;
+	}
+}
+
+void init_networks(bool testing) {
+	release_networks();
+
+	if (!testing) {
+		Network *net = (Network *)fallback(net_len, -1);
+		for (int i = 0; i < NUMA_NODES; i++) {
+			networks[i] = net;
+			shm_fds[i] = -1;
+		}
+	} else {
+		const uint32_t *ptr = (uint32_t *)gnetwork_weightsData;
+		uint32_t sum = 0;
+		for (size_t i = 0; i < gnetwork_weightsSize / 4; i++) {
+			sum += ptr[i];
+		}
+
+		for (int i = 0; i < NUMA_NODES; i++) {
+			networks[i] = (Network *)init_shm(i, sum, shm_fds[i]);
+		}
+	}
+
+	networks_init = true;
+}
+
+Network *get_network(int numa_node) {
+	if (numa_node < 0 || numa_node >= NUMA_NODES)
+		numa_node = 0;
+	return networks[numa_node];
 }
 
 void Network::load() {

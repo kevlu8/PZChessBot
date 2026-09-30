@@ -27,6 +27,8 @@
 #include <thread>
 #include <vector>
 
+extern bool multiInstance;
+
 class Pool {
 private:
 	size_t num_threads;
@@ -44,6 +46,7 @@ private:
 
 public:
 	Pool() : num_threads(1), stop(false) {
+		init_networks(multiInstance);
 		tis = (ThreadInfo *)large_alloc(num_threads * sizeof(ThreadInfo));
 		start_barrier = std::make_unique<std::barrier<>>(2);
 		ready_barrier = std::make_unique<std::barrier<>>(2);
@@ -53,6 +56,7 @@ public:
 	}
 
 	Pool(size_t num_threads) : num_threads(num_threads), stop(false) {
+		init_networks(multiInstance);
 		tis = (ThreadInfo *)large_alloc(num_threads * sizeof(ThreadInfo));
 		start_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
 		ready_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
@@ -64,6 +68,10 @@ public:
 	}
 
 	void resize(size_t num);
+
+	size_t size() const {
+		return num_threads;
+	}
 
 	void search(Position &pos, RepetitionHandler &rp, int64_t time, int depth, int64_t maxnodes, bool quiet);
 
