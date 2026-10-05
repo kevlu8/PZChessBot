@@ -36,6 +36,7 @@ int History::get_conthist(Position &pos, Move move, int ply, SSEntry *line) {
 
 int History::get_history(Position &pos, Move move, int ply, SSEntry *line) {
 	int score = history[pos.side][move.src()][move.dst()][pos.control(move.src(), !pos.side)][pos.control(move.dst(), !pos.side)];
+	score += history_factorizer[pos.side][move.src()][move.dst()];
 	score += pawnhist[pos.side][pos.pawn_hash() % PAWNHIST_SZ][pos.mailbox[move.src()] & 7][move.dst()];
 	score += get_conthist(pos, move, ply, line);
 	return score;
@@ -55,6 +56,7 @@ void History::update_history(Position &pos, Move &move, int ply, SSEntry *line, 
 	};
 
 	update_entry(history[pos.side][move.src()][move.dst()][pos.control(move.src(), !pos.side)][pos.control(move.dst(), !pos.side)]);
+	update_entry(history_factorizer[pos.side][move.src()][move.dst()]);
 	update_entry(pawnhist[pos.side][pos.pawn_hash() % PAWNHIST_SZ][pos.mailbox[move.src()] & 7][move.dst()]);
 
 	update_conthist(pos, move, ply, line, bonus);

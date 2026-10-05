@@ -55,6 +55,7 @@ struct History {
 	 * We also store the threat information for each square, helping us identify moves better.
 	 */
 	Value history[2][64][64][2][2]; // [side][src][dst][src_threatened][dst_threatened]
+	Value history_factorizer[2][64][64];
 
 	/**
 	 * Continuation history is a history heuristic that tracks the effectiveness of quiet moves
