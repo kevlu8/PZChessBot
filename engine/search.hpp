@@ -72,9 +72,7 @@ struct alignas(64) NodeCounter {
 	std::atomic<uint64_t> val = 0;
 
 	void operator++(int) {
-		// Each counter has one search-thread writer; observers only load it.
-		// A load/store increment avoids a locked read-modify-write instruction.
-		val.store(val.load(std::memory_order_relaxed) + 1, std::memory_order_relaxed);
+		val.fetch_add(1, std::memory_order_relaxed);
 	}
 
 	void operator=(uint64_t new_val) {

@@ -50,7 +50,6 @@ struct AccumulatorManager {
 	struct ThreatUpdate {
 		int w_adds[MAX_THREATS], w_removes[MAX_THREATS], b_adds[MAX_THREATS], b_removes[MAX_THREATS];
 		int widxa = 0, widxr = 0, bidxa = 0, bidxr = 0;
-		// Search positions stay alive until the corresponding pop_move().
 		const Position *before = nullptr, *after = nullptr;
 		Bitboard changed = 0;
 		bool computed = false;
@@ -131,8 +130,7 @@ struct AccumulatorManager {
 	void apply_lazy(Position &pos);
 
 	/**
-	 * Records piece changes and defers threat discovery until evaluation needs it.
-	 * Both positions must stay alive and retain their pieces until pop_move().
+	 * Records piece and threat changes between pos and pos_after for lazy updates.
 	 */
 	void make_move(Position &pos, Move move, Position &pos_after);
 

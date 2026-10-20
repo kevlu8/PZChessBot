@@ -58,8 +58,6 @@ __attribute__((constructor(107))) void init_offsets() {
 		Piece p = (Piece)pid;
 		int total = 0;
 		for (int sq = 0; sq < 64; sq++) {
-			// Fold the source-square offset into the attack lookup. The
-			// largest piece block fits in int16_t, halving the table size.
 			for (int dst = 0; dst < 64; dst++)
 				PIECE_THREAT_INDEX[pid][sq][dst] += total;
 			if (PieceType(p & 7) == PAWN && (sq < SQ_A2 || sq > SQ_H7))

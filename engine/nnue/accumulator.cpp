@@ -33,9 +33,7 @@ void compute_threat_updates(const Position &before, const Position &after, Bitbo
 		     | (pawn_attacks(sq, WHITE) & pos.piece_boards[PAWN] & pos.piece_boards[OCC(BLACK)]);
 	};
 
-	// Using only common blockers finds a superset of the old and new
-	// attackers with one lookup per slider type. Moved/promoted attackers
-	// are already included in changed; all others keep their piece type.
+	// Handle squares that changed occ by the move
 	Bitboard common_occ = before_occ & after_occ;
 	Bitboard affected = changed, squares = changed;
 	while (squares) {
@@ -52,7 +50,7 @@ void compute_threat_updates(const Position &before, const Position &after, Bitbo
 		Piece old_piece = before.mailbox[src];
 		Piece new_piece = after.mailbox[src];
 
-		// King attacks and attacks on kings have no threat-network features.
+		// we don't count king attacks
 		Bitboard old_attacks = (old_piece & 7) == KING ? 0 : calc_attacks(old_piece, src, before_occ) & before_occ & ~before.piece_boards[KING];
 		Bitboard new_attacks = (new_piece & 7) == KING ? 0 : calc_attacks(new_piece, src, after_occ) & after_occ & ~after.piece_boards[KING];
 
@@ -246,8 +244,8 @@ void AccumulatorManager::apply_lazy(Position &pos) {
 					int *removes = perspective == WHITE ? tu.w_removes : tu.b_removes;
 					int nadds = perspective == WHITE ? tu.widxa : tu.bidxa;
 					int nremoves = perspective == WHITE ? tu.widxr : tu.bidxr;
-					// Keep a tile in registers across all changed threats, loading and
-					// storing each accumulator lane only once.
+					
+					// some simd magic
 					constexpr int TILE = 4;
 					for (int k = 0; k < L1_SIZE; k += TILE * SHORTS_PER_VEC) {
 						ivec sums[TILE];

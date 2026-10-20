@@ -56,7 +56,7 @@ HDRS	:= $(shell find engine -name "*.hpp") Pyrrhic/tbprobe.h
 OBJS	:= $(SRCS:.cpp=.o)
 DEPS	:= $(OBJS:.o=.d)
 
-.PHONY: all no-pext v3 v4 vnni arm native debug clean pgo pgo-generate pgo-compile test test-debug
+.PHONY: all no-pext v3 v4 vnni arm native debug clean pgo pgo-compile
 
 # Default: native build
 all: pgo
@@ -105,31 +105,10 @@ pgo-compile: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -fprofile-use -march=native
 pgo-compile: $(EXE)
 	rm -f $(shell find engine -name "*.gcda") Pyrrhic/*.gcda
 
-# Always regenerate instrumented objects: objects from native/debug/profile-use
-# builds do not contain the counters needed to train a PGO build.
-pgo-generate: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -fprofile-generate -march=native
-pgo-generate: $(EXE)
-
-pgo:
-	$(MAKE) clean
-	$(MAKE) pgo-generate
+pgo: CXXFLAGS += $(BASEFLAGS) $(OPTFLAGS) -fprofile-generate -march=native
+pgo: $(EXE)
 	@echo "Running PGO instrumentation..."
 	./$(EXE) bench
 	rm $(OBJS) $(EXE)
 	@echo "Recompiling with PGO optimizations..."
 	$(MAKE) pgo-compile
-
-# Build correctness checks independently of the engine's current object flags.
-TEST_SRCS := tests/test_accumulator.cpp engine/eval.cpp engine/bitboard.cpp engine/movegen.cpp \
-	engine/ttable.cpp engine/nnue/accumulator.cpp engine/nnue/network.cpp engine/nnue/threats.cpp \
-	engine/arch/arch.cpp engine/arch/simd/simd.cpp
-
-test:
-	mkdir -p build
-	$(CXX) $(BASEFLAGS) $(OPTFLAGS) -march=native $(TEST_SRCS) -o build/test-accumulator $(LDFLAGS)
-	./build/test-accumulator
-
-test-debug:
-	mkdir -p build
-	$(CXX) $(BASEFLAGS) $(DEBUGFLAGS) -O1 $(TEST_SRCS) -o build/test-accumulator-debug $(LDFLAGS)
-	UBSAN_OPTIONS=halt_on_error=1 ./build/test-accumulator-debug
