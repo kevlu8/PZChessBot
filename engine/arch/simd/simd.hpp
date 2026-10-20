@@ -76,6 +76,9 @@ namespace simd {
 	fvec load_fvec(const float *p);
 
 	ivec add_i16(ivec a, ivec b);
+	ivec sub_i16(ivec a, ivec b);
+	ivec load_i8_i16(const int8_t *p);
+	void store_ivec(ivec *p, ivec v);
 
 	ivec clamp_i16(ivec x, ivec lo, ivec hi);
 	fvec clamp_f32(fvec x, fvec lo, fvec hi);

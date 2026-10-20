@@ -18,9 +18,18 @@
 
 #include "eval.hpp"
 
+// Align the large weight table so Linux can back it with transparent huge
+// pages. This reduces TLB pressure from random threat features.
+#ifdef __linux__
+alignas(2 * 1024 * 1024) Network nnue_network;
+#else
 Network nnue_network;
+#endif
 
 __attribute__((constructor(102))) void init_network() {
+#ifdef __linux__
+	madvise(&nnue_network, sizeof(nnue_network), MADV_HUGEPAGE);
+#endif
 	nnue_network.load();
 }
 

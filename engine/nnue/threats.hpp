@@ -33,17 +33,14 @@ constexpr int TARGETS[6][6] = {
 	{ -1, -1, -1, -1, -1, -1 },
 };
 
-// [P][src][dst] = ID of the threat by piece P on square src to square dst. don't index it invalidly or we will FIND YOU
-extern int PIECE_THREAT_INDEX[14][64][64];
+// [P][src][dst] = source-square offset + attack ID within piece P's block.
+extern int16_t PIECE_THREAT_INDEX[14][64][64];
 
 // [P] = total number of attack squares of piece P over all squares (sum of i=0..63 of popcount(calc_attacks(P, i, 0)))
 extern int PIECE_OFFSET[14];
 
 // [P] = running offset into the global threat array (60144). accumulated sum of PIECE_OFFSET[0..P-1] * TARGETS[p in 0..P-1] * 2
 extern int TOTAL_OFFSET[14];
-
-// [P][sq] = count of attack squares of piece P over all squares 0..sq-1
-extern int OFFSETS[14][64];
 
 // [attacker][victim][forwards] = global threat index for the given args
 extern int ATTACK_INDEX[14][14][2];

@@ -51,6 +51,18 @@ namespace simd {
 		return vaddq_s16(a, b);
 	}
 
+	ivec sub_i16(ivec a, ivec b) {
+		return vsubq_s16(a, b);
+	}
+
+	ivec load_i8_i16(const int8_t *p) {
+		return vmovl_s8(vld1_s8(p));
+	}
+
+	void store_ivec(ivec *p, ivec v) {
+		vst1q_s16((int16_t *)p, v);
+	}
+
 	ivec clamp_i16(ivec x, ivec lo, ivec hi) {
 		x = vmaxq_s16(x, lo);
 		x = vminq_s16(x, hi);

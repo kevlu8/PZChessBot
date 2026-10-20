@@ -51,6 +51,18 @@ namespace simd {
 		return _mm512_add_epi16(a, b);
 	}
 
+	ivec sub_i16(ivec a, ivec b) {
+		return _mm512_sub_epi16(a, b);
+	}
+
+	ivec load_i8_i16(const int8_t *p) {
+		return _mm512_cvtepi8_epi16(_mm256_loadu_si256((const __m256i *)p));
+	}
+
+	void store_ivec(ivec *p, ivec v) {
+		_mm512_storeu_si512(p, v);
+	}
+
 	ivec clamp_i16(ivec x, ivec lo, ivec hi) {
 		x = _mm512_max_epi16(x, lo);
 		x = _mm512_min_epi16(x, hi);

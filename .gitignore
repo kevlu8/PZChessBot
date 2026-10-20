@@ -59,6 +59,8 @@ test/test
 *.nnue
 *.png
 *.py
+!bench.py
+__pycache__/
 *.epd
 cutechess
 *.log

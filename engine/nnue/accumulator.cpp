@@ -18,14 +18,14 @@
 
 #include "accumulator.hpp"
 
-void compute_threat_updates(Position &before, Position &after, Bitboard changed, AccumulatorManager::ThreatUpdate &tu) {
+void compute_threat_updates(const Position &before, const Position &after, Bitboard changed, AccumulatorManager::ThreatUpdate &tu) {
 	Square wkingsq = (Square)arch::tzcnt(before.piece_boards[KING] & before.piece_boards[OCC(WHITE)]);
 	Square bkingsq = (Square)arch::tzcnt(before.piece_boards[KING] & before.piece_boards[OCC(BLACK)]);
 
 	Bitboard before_occ = before.piece_boards[OCC(WHITE)] | before.piece_boards[OCC(BLACK)];
 	Bitboard after_occ = after.piece_boards[OCC(WHITE)] | after.piece_boards[OCC(BLACK)];
 
-	auto attackers_to = [](Position &pos, Square sq, Bitboard occ) {
+	auto attackers_to = [](const Position &pos, Square sq, Bitboard occ) {
 		return (rook_attacks(sq, occ) & (pos.piece_boards[ROOK] | pos.piece_boards[QUEEN]))
 		     | (bishop_attacks(sq, occ) & (pos.piece_boards[BISHOP] | pos.piece_boards[QUEEN]))
 		     | (knight_attacks(sq) & pos.piece_boards[KNIGHT])
@@ -33,11 +33,14 @@ void compute_threat_updates(Position &before, Position &after, Bitboard changed,
 		     | (pawn_attacks(sq, WHITE) & pos.piece_boards[PAWN] & pos.piece_boards[OCC(BLACK)]);
 	};
 
-	// Handle squares that changed occ by the move
+	// Using only common blockers finds a superset of the old and new
+	// attackers with one lookup per slider type. Moved/promoted attackers
+	// are already included in changed; all others keep their piece type.
+	Bitboard common_occ = before_occ & after_occ;
 	Bitboard affected = changed, squares = changed;
 	while (squares) {
 		Square sq = (Square)arch::tzcnt(squares);
-		affected |= attackers_to(before, sq, before_occ) | attackers_to(after, sq, after_occ);
+		affected |= attackers_to(before, sq, common_occ);
 
 		squares = arch::blsr(squares);
 	}
@@ -49,8 +52,9 @@ void compute_threat_updates(Position &before, Position &after, Bitboard changed,
 		Piece old_piece = before.mailbox[src];
 		Piece new_piece = after.mailbox[src];
 
-		Bitboard old_attacks = calc_attacks(old_piece, src, before_occ) & before_occ;
-		Bitboard new_attacks = calc_attacks(new_piece, src, after_occ) & after_occ;
+		// King attacks and attacks on kings have no threat-network features.
+		Bitboard old_attacks = (old_piece & 7) == KING ? 0 : calc_attacks(old_piece, src, before_occ) & before_occ & ~before.piece_boards[KING];
+		Bitboard new_attacks = (new_piece & 7) == KING ? 0 : calc_attacks(new_piece, src, after_occ) & after_occ & ~after.piece_boards[KING];
 
 		// if the piece didn't move then we only care about the attacks that changed, otherwise recompute all the attacks
 		Bitboard removed = old_piece != new_piece ? old_attacks : old_attacks & (~new_attacks | changed);
@@ -232,21 +236,35 @@ void AccumulatorManager::apply_lazy(Position &pos) {
 			} else {
 				for (int i = index + 1; i <= idx; i++) {
 					auto &tu = threatupdates[i];
+					if (!tu.computed) {
+						compute_threat_updates(*tu.before, *tu.after, tu.changed, tu);
+						tu.computed = true;
+					}
 					Accumulator &acc = perspective == WHITE ? accs[i].w_threats : accs[i].b_threats;
-					acc = perspective == WHITE ? accs[i-1].w_threats : accs[i-1].b_threats;
+					const Accumulator &prev = perspective == WHITE ? accs[i-1].w_threats : accs[i-1].b_threats;
 					int *adds = perspective == WHITE ? tu.w_adds : tu.b_adds;
 					int *removes = perspective == WHITE ? tu.w_removes : tu.b_removes;
 					int nadds = perspective == WHITE ? tu.widxa : tu.bidxa;
 					int nremoves = perspective == WHITE ? tu.widxr : tu.bidxr;
-					for (int j = 0; j < nadds; j++) {
-						for (int k = 0; k < L1_SIZE; k++) {
-							acc.val[k] += nnue_network.threat_weights[adds[j]][k];
+					// Keep a tile in registers across all changed threats, loading and
+					// storing each accumulator lane only once.
+					constexpr int TILE = 4;
+					for (int k = 0; k < L1_SIZE; k += TILE * SHORTS_PER_VEC) {
+						ivec sums[TILE];
+						for (int v = 0; v < TILE; v++)
+							sums[v] = simd::load_ivec((const ivec *)&prev.val[k + v * SHORTS_PER_VEC]);
+						for (int j = 0; j < nadds; j++) {
+							const int8_t *weights = nnue_network.threat_weights[adds[j]] + k;
+							for (int v = 0; v < TILE; v++)
+								sums[v] = simd::add_i16(sums[v], simd::load_i8_i16(weights + v * SHORTS_PER_VEC));
 						}
-					}
-					for (int j = 0; j < nremoves; j++) {
-						for (int k = 0; k < L1_SIZE; k++) {
-							acc.val[k] -= nnue_network.threat_weights[removes[j]][k];
+						for (int j = 0; j < nremoves; j++) {
+							const int8_t *weights = nnue_network.threat_weights[removes[j]] + k;
+							for (int v = 0; v < TILE; v++)
+								sums[v] = simd::sub_i16(sums[v], simd::load_i8_i16(weights + v * SHORTS_PER_VEC));
 						}
+						for (int v = 0; v < TILE; v++)
+							simd::store_ivec((ivec *)&acc.val[k + v * SHORTS_PER_VEC], sums[v]);
 					}
 					accs[i].threats_correct[perspective] = true;
 				}
@@ -262,9 +280,12 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 	acc.threats_correct[WHITE] = acc.threats_correct[BLACK] = false;
 	auto &tu = threatupdates[idx];
 	tu.clear();
+	tu.before = &pos;
+	tu.after = &pos_after;
+	tu.computed = false;
 
-	int winbucket = IBUCKET_LAYOUT[arch::tzcnt(pos.piece_boards[KING] & pos.piece_boards[OCC(WHITE)])];
-	int binbucket = IBUCKET_LAYOUT[arch::tzcnt(pos.piece_boards[KING] & pos.piece_boards[OCC(BLACK)]) ^ 56];
+	int winbucket = accs[idx - 1].winbucket;
+	int binbucket = accs[idx - 1].binbucket;
 	acc.winbucket = IBUCKET_LAYOUT[arch::tzcnt(pos_after.piece_boards[KING] & pos_after.piece_boards[OCC(WHITE)])];
 	acc.binbucket = IBUCKET_LAYOUT[arch::tzcnt(pos_after.piece_boards[KING] & pos_after.piece_boards[OCC(BLACK)]) ^ 56];
 
@@ -282,7 +303,7 @@ void AccumulatorManager::make_move(Position &pos, Move move, Position &pos_after
 		changed |= square_bits(Square(rank + (move.src() < move.dst() ? SQ_G1 : SQ_C1)));
 		changed |= square_bits(Square(rank + (move.src() < move.dst() ? SQ_F1 : SQ_D1)));
 	}
-	compute_threat_updates(pos, pos_after, changed, tu);
+	tu.changed = changed;
 
 	if (castle) {
 		Square king_dest, rook_dest;
