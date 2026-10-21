@@ -959,9 +959,9 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 
 			int searched_depth = std::clamp(newdepth - r / 1024, 1, newdepth + 1);
 
-			(ss - 1)->reduction = newdepth - searched_depth;
+			ss->reduction = newdepth - searched_depth;
 			score = -negamax<false>(pos_after, ti, ss + 1, searched_depth, -alpha - 1, -alpha, -side, true, ply + 1);
-			(ss - 1)->reduction = 0;
+			ss->reduction = 0;
 
 			if (score > alpha) {
 				// LMR search failed, re-search full depth
