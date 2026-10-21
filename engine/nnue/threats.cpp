@@ -18,7 +18,7 @@
 
 #include "threats.hpp"
 
-int PIECE_THREAT_INDEX[14][64][64];
+int16_t PIECE_THREAT_INDEX[14][64][64];
 
 __attribute__((constructor(106))) void init_piece_threat_index() {
 	for (int p = 0; p < 14; p++) {
@@ -48,7 +48,6 @@ __attribute__((constructor(106))) void init_piece_threat_index() {
 
 int PIECE_OFFSET[14];
 int TOTAL_OFFSET[14];
-int OFFSETS[14][64];
 
 __attribute__((constructor(107))) void init_offsets() {
 	int g_offset = 0;
@@ -59,7 +58,8 @@ __attribute__((constructor(107))) void init_offsets() {
 		Piece p = (Piece)pid;
 		int total = 0;
 		for (int sq = 0; sq < 64; sq++) {
-			OFFSETS[pid][sq] = total;
+			for (int dst = 0; dst < 64; dst++)
+				PIECE_THREAT_INDEX[pid][sq][dst] += total;
 			if (PieceType(p & 7) == PAWN && (sq < SQ_A2 || sq > SQ_H7))
 				continue; // pawns can't attack from the first or last rank
 			int count = arch::popcnt(calc_attacks(p, (Square)sq, 0));
@@ -128,10 +128,7 @@ int threat_index(bool perspective, Square kingsq, Piece attacker, Piece victim, 
 	int index = ATTACK_INDEX[attacker][victim][forward]; // global index of the threat block
 	if (index == -1) return -1;
 
-	int offset = OFFSETS[attacker][src]; // second block index within the block
-	int piece_index = PIECE_THREAT_INDEX[attacker][src][dst]; // final index
-
-	int res = index + offset + piece_index;
+	int res = index + PIECE_THREAT_INDEX[attacker][src][dst];
 
 	if (res >= NTHREATS) {
 		throw std::runtime_error("trop de menaces");

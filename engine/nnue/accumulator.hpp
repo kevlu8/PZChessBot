@@ -50,6 +50,9 @@ struct AccumulatorManager {
 	struct ThreatUpdate {
 		int w_adds[MAX_THREATS], w_removes[MAX_THREATS], b_adds[MAX_THREATS], b_removes[MAX_THREATS];
 		int widxa = 0, widxr = 0, bidxa = 0, bidxr = 0;
+		const Position *before = nullptr, *after = nullptr;
+		Bitboard changed = 0;
+		bool computed = false;
 
 		ThreatUpdate() : widxa(0), widxr(0), bidxa(0), bidxr(0) {}
 		void clear() {
