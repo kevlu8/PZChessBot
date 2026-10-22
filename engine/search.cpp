@@ -70,7 +70,7 @@ uint16_t reduction[250][MAX_PLY+8];
 __attribute__((constructor(104))) void init_lmr() {
 	for (int i = 1; i < 250; i++) {
 		for (int d = 1; d <= MAX_PLY; d++) {
-			reduction[i][d] = (lmr_a() / 100.0 + log(i) * log(d) / (lmr_b() / 100.0)) * 1024;
+			// reduction[i][d] = (lmr_a() / 100.0 + log(i) * log(d) / (lmr_b() / 100.0)) * 1024;
 		}
 	}
 }
@@ -835,7 +835,8 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 
 		int hist = capt ? ti.thread_hist.get_capthist(pos, move) : ti.thread_hist.get_history(pos, move, ply, ss);
 		if (best > -VALUE_WIN) {
-			int lmrdepth = std::clamp(depth - 1 - reduction[i][depth] / 1024, 1, MAX_PLY);
+			int r = (lmr_a() / 100.0 + log(i) * log(depth) / (lmr_b() / 100.0)) * 1024;
+			int lmrdepth = std::clamp(depth - 1 - r / 1024, 1, MAX_PLY);
 			if (i >= (3 + depth * depth) / (2 - improving)) {
 				/**
 				 * Late Move Pruning
@@ -913,7 +914,8 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 		if (depth >= 2 && i >= 1 + 2 * root) {
 			// Case 1: Late moves in nodes
 
-			int r = reduction[i][depth];
+			// int r = reduction[i][depth];
+			int r = (lmr_a() / 100.0 + log(i) * log(depth) / (lmr_b() / 100.0)) * 1024;
 
 			if (capt)
 				r = r * lmr_capt() / 128;
