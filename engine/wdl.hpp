@@ -20,8 +20,8 @@
 
 #include "includes.hpp"
 
-constexpr double as[] = {-30.98361896, 78.24679219, -88.99642086, 138.22393411};
-constexpr double bs[] = {2.60484417, 11.76498263, -15.13585141, 26.19189708};
+constexpr double as[] = {-173.35876024, 373.29144291, -314.77900132, 485.52678822};
+constexpr double bs[] = {-48.88546819, 150.93381396, -89.28164313, 78.84766716};
 
 std::tuple<int, int, int> score_to_wdl(Position &pos, Value score) {
 	if (score >= VALUE_WIN)

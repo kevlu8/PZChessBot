@@ -197,7 +197,7 @@ std::string score_to_uci(Value score) {
 		return "cp " + std::to_string(score);
 	} else {
 		if (!do_datagen)
-			return "cp " + std::to_string(int(score / NNUE_PAWN_VALUE));
+			return "cp " + std::to_string(int(score / NormalizeToPawnValue));
 		else
 			return "cp " + std::to_string(score);
 	}

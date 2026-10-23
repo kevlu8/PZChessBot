@@ -42,7 +42,7 @@
 #define VERSION "v7.1"
 #endif
 
-#define NNUE_PAWN_VALUE 3.30
+const double NormalizeToPawnValue = 3.71;
 
 typedef uint64_t Bitboard;
 
