@@ -26,7 +26,7 @@
 uint64_t mx_nodes = 1e18; // Maximum nodes to search
 bool stop_search = true;
 std::chrono::steady_clock::time_point start;
-uint64_t mxtime = 1e18; // Maximum time to search in milliseconds
+int64_t mxtime = 1e18; // Maximum time to search in milliseconds
 bool minimal = false, show_wdl = false, do_softnodes = false, do_datagen = false;
 std::stringstream last_line;
 
@@ -255,8 +255,24 @@ Value quiesce(Position &pos, ThreadInfo &ti, SSEntry *ss, Value alpha, Value bet
 
 	RepetitionHandler &rp = ti.rp;
 
+	bool in_check = pos.checkers[pos.side];
+
 	// Threefold or 50 move rule
 	if (rp.threefold(ply, pos.zobrist_without_ep()) || pos.halfmove >= 100 || pos.insufficient_material()) {
+		if (pos.halfmove >= 100 && in_check) {
+			// checkmate on 50move rule
+			pzstd::vector<Move> moves;
+			pos.legal_moves(moves);
+			bool mate = true;
+			for (Move &move : moves) {
+				if (pos.is_legal(move)) {
+					mate = false;
+					break;
+				}
+			}
+			if (mate) return -VALUE_MATE + ply;
+		}
+
 		return 0;
 	}
 
@@ -280,8 +296,6 @@ Value quiesce(Position &pos, ThreadInfo &ti, SSEntry *ss, Value alpha, Value bet
 				return tteval;
 		}
 	}
-
-	bool in_check = pos.checkers[pos.side];
 
 	// Do evaluation and corrections
 	Value stand_pat = -VALUE_INFINITE;
