@@ -1074,6 +1074,8 @@ bool Position::is_pseudolegal(Move move) const {
 				return mailbox[move.dst()] == NO_PIECE;
 		} else [[likely]] {
 			if (side == WHITE) {
+				if (move.dst() >= 0b111000)
+					return false;
 				if (move.dst() - move.src() == 8)
 					return mailbox[move.dst()] == NO_PIECE;
 				if ((move.src() & 7) != FILE_A && move.dst() - move.src() == 7)
@@ -1083,6 +1085,8 @@ bool Position::is_pseudolegal(Move move) const {
 				if (move.dst() - move.src() == 16)
 					return move.src() <= SQ_H2 && mailbox[move.dst()] == NO_PIECE && mailbox[move.src() + 8] == NO_PIECE;
 			} else {
+				if (move.dst() < 0b001000)
+					return false;
 				if (move.src() - move.dst() == 8)
 					return mailbox[move.dst()] == NO_PIECE;
 				if ((move.src() & 7) != FILE_A && move.src() - move.dst() == 9)
@@ -1097,7 +1101,7 @@ bool Position::is_pseudolegal(Move move) const {
 		break;
 	case KING:
 		if (move.type() == CASTLING) [[unlikely]] {
-			int rights_idx = ((move.dst() & 0b001100) ^ 0b000100) >> 2;
+			int rights_idx = (move.dst() < move.src()) + (move.src() >= 0b111000) * 2;
 			if ((castling & (1 << rights_idx)) == 0)
 				return false;
 
