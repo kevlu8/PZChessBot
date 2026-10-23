@@ -30,4 +30,6 @@ Value simple_eval(Position &);
 
 Value eval(Position &pos, AccumulatorManager &am);
 
+Value adjust_eval_50mr(Position &pos, Value eval);
+
 std::array<Value, 8> debug_eval(Position &pos);

@@ -289,6 +289,7 @@ Value quiesce(Position &pos, ThreadInfo &ti, SSEntry *ss, Value alpha, Value bet
 	if (!in_check) {
 		stand_pat = tentry && is_valid_score(tentry->s_eval) ? tentry->s_eval : eval(pos, ti.am) * side;
 		raw_eval = stand_pat;
+		stand_pat = adjust_eval_50mr(pos, stand_pat);
 		ti.thread_corrhist.apply_correction(pos, ss, ply, stand_pat);
 		if (tentry && is_valid_score(tteval) && abs(tteval) < VALUE_WIN && tentry->bound() != (tteval > stand_pat ? UPPER_BOUND : LOWER_BOUND))
 			stand_pat = tteval;
@@ -566,6 +567,7 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 	if (!in_check) {
 		cur_eval = tentry && is_valid_score(tentry->s_eval) ? tentry->s_eval : eval(pos, ti.am) * side;
 		raw_eval = cur_eval;
+		cur_eval = adjust_eval_50mr(pos, cur_eval);
 		if (!excluded)
 			ti.thread_corrhist.apply_correction(pos, ss, ply, cur_eval);
 		corr_val = abs(cur_eval - raw_eval);
@@ -1096,6 +1098,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 	depth = std::min(depth, MAX_PLY - 1);
 
 	Value static_eval = eval(pos, ti.am) * (pos.side ? -1 : 1);
+	static_eval = adjust_eval_50mr(pos, static_eval);
 	int consec_move = 0;
 
 	Move best_move = NullMove;
