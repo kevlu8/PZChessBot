@@ -193,7 +193,7 @@ void run_uci() {
 		} else if (command.substr(0, 2) == "go") {
 			pool.wait_finished();
 			// `go wtime ... btime ... winc ... binc ...`
-			// only care about wtime and btime
+			// or `go searchmoves ... wtime .. etc`
 			std::stringstream ss(command);
 			std::string token;
 			int wtime = 0, btime = 0, winc = 0, binc = 0;
@@ -202,8 +202,16 @@ void run_uci() {
 			bool inf = false;
 			int movetime = -1;
 			int perft_depth = -1;
+			searchmoves.clear();
 			ss >> token;
-			while (ss >> token) {
+			bool skip = false;
+			while (true) {
+				if (!skip) {
+					if (!(ss >> token)) {
+						break;
+					}
+				}
+				skip = false;
 				if (token == "wtime") {
 					ss >> wtime;
 				} else if (token == "btime") {
@@ -222,6 +230,16 @@ void run_uci() {
 					ss >> movetime;
 				} else if (token == "perft") {
 					ss >> perft_depth;
+				} else if (token == "searchmoves") {
+					std::string move;
+					while (ss >> move) {
+						if (move == "wtime" || move == "btime" || move == "winc" || move == "binc" || move == "depth" || move == "infinite" || move == "nodes" || move == "movetime") {
+							token = move;
+							break;
+						}
+						searchmoves.insert(Move::from_string(move, &pos).data);
+					}
+					skip = true;
 				}
 			}
 			if (perft_depth != -1) {
