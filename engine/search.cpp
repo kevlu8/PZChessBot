@@ -417,6 +417,11 @@ Value quiesce(Position &pos, ThreadInfo &ti, SSEntry *ss, Value alpha, Value bet
 		return -VALUE_MATE + ply;
 	}
 
+	if (!pv && abs(best) < VALUE_WIN && abs(beta) < VALUE_WIN && best >= beta) {
+		// Fail firm in qsearch (avoiding overflow too)
+		best = best + (beta - best) / 2;
+	}
+
 	Move tt_move = best_move != NullMove ? best_move : (tentry ? tentry->best_move : NullMove);
 	ttable.store(pos.zobrist, score_to_tt(best, ply), raw_eval, 0, ttf, pv, tt_move);
 
