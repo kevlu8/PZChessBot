@@ -574,8 +574,23 @@ void Position::legal_moves(pzstd::vector<Move> &moves) const {
 void pawn_captures(const Position &pos, pzstd::vector<Move> &moves) {
 	if (pos.side == WHITE) {
 		Bitboard pieces = pos.piece_boards[PAWN] & pos.piece_boards[OCC(WHITE)];
-		// Promotion
 		Bitboard dsts = ((pieces & Rank7Bits) << 8) & ~(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
+		// En passant
+		if (pos.ep_square != SQ_NONE) {
+			dsts = ((pieces & ~FileABits & Rank5Bits) << 7) & square_bits(pos.ep_square);
+			while (dsts) {
+				int sq = arch::tzcnt(dsts);
+				moves.push_back(Move::make<EN_PASSANT>(sq - 7, sq));
+				dsts = arch::blsr(dsts);
+			}
+			dsts = ((pieces & ~FileHBits & Rank5Bits) << 9) & square_bits(pos.ep_square);
+			while (dsts) {
+				int sq = arch::tzcnt(dsts);
+				moves.push_back(Move::make<EN_PASSANT>(sq - 9, sq));
+				dsts = arch::blsr(dsts);
+			}
+		}
+		// Promotion
 		while (dsts) {
 			int sq = arch::tzcnt(dsts);
 			moves.push_back(Move::make<PROMOTION>(sq - 8, sq, QUEEN));
@@ -610,8 +625,23 @@ void pawn_captures(const Position &pos, pzstd::vector<Move> &moves) {
 		}
 	} else {
 		Bitboard pieces = pos.piece_boards[PAWN] & pos.piece_boards[OCC(BLACK)];
-		// Promotion
 		Bitboard dsts = ((pieces & Rank2Bits) >> 8) & ~(pos.piece_boards[OCC(BLACK)] | pos.piece_boards[OCC(WHITE)]);
+		// En passant
+		if (pos.ep_square != SQ_NONE) {
+			dsts = ((pieces & ~FileHBits & Rank4Bits) >> 7) & square_bits(pos.ep_square);
+			while (dsts) {
+				int sq = arch::tzcnt(dsts);
+				moves.push_back(Move::make<EN_PASSANT>(sq + 7, sq));
+				dsts = arch::blsr(dsts);
+			}
+			dsts = ((pieces & ~FileABits & Rank4Bits) >> 9) & square_bits(pos.ep_square);
+			while (dsts) {
+				int sq = arch::tzcnt(dsts);
+				moves.push_back(Move::make<EN_PASSANT>(sq + 9, sq));
+				dsts = arch::blsr(dsts);
+			}
+		}
+		// Promotion
 		while (dsts) {
 			int sq = arch::tzcnt(dsts);
 			moves.push_back(Move::make<PROMOTION>(sq + 8, sq, QUEEN));

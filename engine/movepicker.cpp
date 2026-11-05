@@ -54,14 +54,14 @@ Move MovePicker::next() {
 		return NullMove;
 
 	if (stage == MP_STAGE_TT) {
-		stage = MP_STAGE_GEN;
+		stage = MP_STAGE_GEN_NOISY;
 		if (ttMove != NullMove && pos.is_pseudolegal(ttMove))
 			return ttMove;
 	}
 
-	if (stage == MP_STAGE_GEN) {
+	if (stage == MP_STAGE_GEN_NOISY) {
 		stage = MP_STAGE_GOODNOISY;
-		pos.legal_moves(moves);
+		pos.captures(moves);
 
 		for (Move move : moves) {
 			if (move == ttMove)
@@ -79,10 +79,6 @@ Move MovePicker::next() {
 					score += MVV[move.promotion() + KNIGHT] - PawnValue;
 				
 				noisy_scores.push_back({move, score});
-			} else {
-				if (qskip) continue;
-				score = main_hist->get_history(pos, move, ply, ss);
-				quiet_scores.push_back({move, score});
 			}
 		}
 
@@ -91,15 +87,15 @@ Move MovePicker::next() {
 
 	if (stage == MP_STAGE_GOODNOISY) {
 		if (end == 0) {
-			stage = MP_STAGE_MOVES;
-			end = quiet_scores.size();
+			stage = MP_STAGE_GEN_QUIET;
+			end = 0;
 			return next();
 		}
 		while (true) {
 			auto [move, score] = pick_next(noisy_scores, end);
 			if (move == NullMove) {
-				stage = MP_STAGE_MOVES;
-				end = quiet_scores.size();
+				stage = MP_STAGE_GEN_QUIET;
+				end = 0;
 				break;
 			}
 			bool see = pos.see(move, -score / badnoisy_div());
@@ -109,6 +105,29 @@ Move MovePicker::next() {
 				bad_noisy.push_back(move);
 			}
 		}
+	}
+
+	if (stage == MP_STAGE_GEN_QUIET) {
+		if (qskip) {
+			stage = MP_STAGE_MOVES;
+			end = 0;
+			return next();
+		}
+		moves.sz = 0; // shorthand for clear
+		stage = MP_STAGE_MOVES;
+		pos.legal_moves(moves);
+
+		for (Move move : moves) {
+			if (move == ttMove)
+				continue;
+
+			if (pos.is_capture(move)) continue;
+
+			int score = main_hist->get_history(pos, move, ply, ss);
+			quiet_scores.push_back({move, score});
+		}
+
+		end = quiet_scores.size();
 	}
 
 	if (stage == MP_STAGE_MOVES) {
