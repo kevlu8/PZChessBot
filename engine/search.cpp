@@ -623,8 +623,8 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 	}
 
 	// Null-move pruning
-	int npieces = arch::popcnt(pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)]);
-	int npawns_and_kings = arch::popcnt(pos.piece_boards[PAWN] | pos.piece_boards[KING]);
+	int npieces = arch::popcnt(pos.piece_boards[OCC(pos.side)]);
+	int npawns_and_kings = arch::popcnt((pos.piece_boards[PAWN] | pos.piece_boards[KING]) & pos.piece_boards[OCC(pos.side)]);
 	if (cutnode && !in_check && !ti.nmp_disable && npieces != npawns_and_kings && cur_eval >= beta && cur_eval >= beta + nmp_margin() - nmp_depth() * depth && depth >= 2 && !excluded) { // Avoid NMP in pawn endgames
 		/**
 		 * This works off the *null-move observation*.
