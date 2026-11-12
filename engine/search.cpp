@@ -610,15 +610,15 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 	if (!in_check && (ss - 2)->eval != VALUE_NONE && cur_eval > (ss - 2)->eval)
 		improving = true;
 
-	if (!root && !in_check && !excluded && depth >= 3 && (ss - 1)->reduction >= 2 && is_valid_score((ss - 1)->eval)
-		&& is_valid_score(opp_worsening_rate) && opp_worsening_rate <= hindsight_rate())
+	if (!root && !in_check && !excluded && depth >= 2 && (ss - 1)->reduction >= 2 && is_valid_score((ss - 1)->eval)
+		&& is_valid_score(opp_worsening_rate) && opp_worsening_rate >= hindsight_red_rate())
 		/**
-		 * Hindsight extensions
+		 * Hindsight reductions
 		 * 
-		 * If we reduced a lot but realize that the opponent's position has gotten better, we can
-		 * extend the search because the position is more complex than expected.
+		 * If we reduced a lot and observe that the opponent's position has gotten worse, we can
+		 * reduce the search as a somewhat supplement to LMR.
 		 */
-		depth++;
+		depth--;
 
 	// Reverse futility pruning
 	if (!in_check && !ttpv && depth <= 8 && !excluded) {
