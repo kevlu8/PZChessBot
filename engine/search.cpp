@@ -606,8 +606,19 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 	 * We can use this information to modify some of our pruning techniques.
 	 */
 	bool improving = false;
+	Value opp_worsening_rate = (ply >= 1 && !in_check && is_valid_score((ss - 1)->eval) ? (ss - 1)->eval + cur_eval : VALUE_NONE);
 	if (!in_check && (ss - 2)->eval != VALUE_NONE && cur_eval > (ss - 2)->eval)
 		improving = true;
+
+	if (!root && !in_check && !excluded && depth >= 3 && (ss - 1)->reduction >= 2 && is_valid_score((ss - 1)->eval)
+		&& is_valid_score(opp_worsening_rate) && opp_worsening_rate <= hindsight_rate())
+		/**
+		 * Hindsight extensions
+		 * 
+		 * If we reduced a lot but realize that the opponent's position has gotten better, we can
+		 * extend the search because the position is more complex than expected.
+		 */
+		depth++;
 
 	// Reverse futility pruning
 	if (!in_check && !ttpv && depth <= 8 && !excluded) {
@@ -973,7 +984,10 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 
 			int searched_depth = std::clamp(newdepth - r / 1024, 1, newdepth + 1);
 
+			ss->reduction = newdepth - searched_depth;
 			score = -negamax<false>(pos_after, ti, ss + 1, searched_depth, -alpha - 1, -alpha, -side, true, ply + 1);
+			ss->reduction = 0;
+
 			if (score > alpha) {
 				// LMR search failed, re-search full depth
 				bool do_deeper = score > beta + dodeeper_margin();
