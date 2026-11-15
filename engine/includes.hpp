@@ -39,7 +39,7 @@
 #include "pzstl/vector.hpp"
 
 #ifndef VERSION
-#define VERSION "v7.1"
+#define VERSION "v8.0"
 #endif
 
 const double NormalizeToPawnValue = 3.71;

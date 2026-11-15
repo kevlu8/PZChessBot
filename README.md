@@ -47,6 +47,7 @@ make -j
 | v20260313-dev    |   ~3660    |     -      |        -        |       -       |
 | v7.0             |    3701    |    3573    |      3607       |       -       |
 | v7.1             |    3712    |    3585    |      3618       |      3505     |
+| v8.0             |   ~3740    |   ~3615    |     ~3630       |       -       |
 
 ## Logistics & Features
 
@@ -87,7 +88,7 @@ PZChessBot is a basic negamax engine.
 ### Evaluation
 
 - NNUE-type evaluation with horizontal mirroring
-- Runs a (768x16hm+60144->768)x2pw->(16x2->32->1)x8 model
+- Runs a (768x16hm+60144->1024)x2pw->(16x2->32->1)x8 model
 - Trained from zero-knowledge using self-play games
 
 ### Special Thanks
