@@ -84,7 +84,7 @@ void Pool::thread_loop(size_t i) {
 			std::shared_lock lock(mtx);
 			ready_barrier->arrive_and_wait();
 
-			iterativedeepening(pos, tis[i], depth);
+			iterativedeepening(pos, tis[i], depth, tis);
 		}
 	}
 }
