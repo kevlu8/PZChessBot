@@ -879,7 +879,7 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 		}
 
 		int hist = capt ? ti.thread_hist.get_capthist(pos, move) : ti.thread_hist.get_history(pos, move, ply, ss);
-		if (best > -VALUE_WIN) {
+		if (!root && best > -VALUE_WIN) {
 			int lmrdepth = std::clamp(depth - 1 - reduction[i][depth] / 1024, 1, MAX_PLY);
 			if (i >= (3 + depth * depth) / (2 - improving)) {
 				/**
@@ -888,7 +888,8 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 				 * Moves that are ordered far near the back probably aren't very good, so we can
 				 * directly skip them.
 				 */
-				break;
+				mp.skip_quiets();
+				continue;
 			}
 
 			Value futility = cur_eval + fp_const() + fp_depth() * lmrdepth + hist / fp_hist();
@@ -910,8 +911,10 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 				 * Skip moves with very bad history scores
 				 * Depth condition is necessary to avoid overflow
 				 */
-				if (hist < -history_margin() * depth)
-					break;
+				if (hist < -history_margin() * depth) {
+					mp.skip_quiets();
+					continue;
+				}
 			}
 
 			{
