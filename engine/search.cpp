@@ -1194,6 +1194,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth, ThreadInfo *ti
 
 		ti.eval = eval = result;
 		Move mv = ti.pvtable[0][0];
+		ti.maxdepth = d;
 
 		// copy pv
 		for (int ply = 0; ply < ti.pvlen[0]; ply++) {
@@ -1264,8 +1265,6 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth, ThreadInfo *ti
 				break;
 			}
 		}
-
-		ti.maxdepth = d;
 	}
 
 	if (ti.is_main)
@@ -1282,7 +1281,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth, ThreadInfo *ti
 				min_score = std::min(min_score, (int)tis[t].eval);
 			}
 
-			std::unordered_map<uint16_t, int> move_scores;
+			std::unordered_map<uint16_t, int64_t> move_scores;
 			move_scores.reserve(64);
 			for (int t = 0; t < num_threads; t++) {
 				if (tis[t].last_finished_pv[0] == NullMove)
@@ -1291,7 +1290,7 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth, ThreadInfo *ti
 				move_scores[tis[t].last_finished_pv[0].data] += score;
 			}
 
-			int best_score = -1;
+			int64_t best_score = -1;
 			for (auto &[move, score] : move_scores) {
 				if (score > best_score) {
 					best_score = score;
