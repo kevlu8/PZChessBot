@@ -29,6 +29,8 @@
 #include "ttable.hpp"
 
 #include <algorithm>
+#include <barrier>
+#include <unordered_map>
 
 #define NMP_R_VALUE 7
 
@@ -88,7 +90,7 @@ struct alignas(4096) ThreadInfo {
 
 void prepare_search(int64_t time, int64_t maxnodes, bool quiet, uint16_t num_threads);
 
-void iterativedeepening(Position &pos, ThreadInfo &ti, int depth, ThreadInfo *tis);
+void iterativedeepening(Position &pos, ThreadInfo &ti, int depth, ThreadInfo *tis, std::barrier<> &finish_barrier);
 
 uint64_t perft(Position &pos, int depth);
 

@@ -1129,7 +1129,7 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 	return best;
 }
 
-void iterativedeepening(Position &pos, ThreadInfo &ti, int depth, ThreadInfo *tis) {
+void iterativedeepening(Position &pos, ThreadInfo &ti, int depth, ThreadInfo *tis, std::barrier<> &finish_barrier) {
 	for (int i = 0; i < 64; i++) {
 		for (int j = 0; j < 64; j++) {
 			for (int k = 0; k < 2; k++) {
@@ -1268,8 +1268,12 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth, ThreadInfo *ti
 		ti.maxdepth = d;
 	}
 
-	if (ti.is_main) {
+	if (ti.is_main)
 		stop_search = true;
+
+	finish_barrier.arrive_and_wait();
+
+	if (ti.is_main) {
 		if (num_threads > 1) {
 			// do thread voting here to get the real best move
 			// (score - min_score + offset) * depth
@@ -1278,12 +1282,33 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth, ThreadInfo *ti
 				min_score = std::min(min_score, (int)tis[t].eval);
 			}
 
-			int best_thread = 0, best_score = 0;
+			std::unordered_map<uint16_t, int> move_scores;
+			move_scores.reserve(64);
 			for (int t = 0; t < num_threads; t++) {
+				if (tis[t].last_finished_pv[0] == NullMove)
+					continue;
 				int score = tis[t].thread_score(min_score);
+				move_scores[tis[t].last_finished_pv[0].data] += score;
+			}
+
+			int best_score = -1;
+			for (auto &[move, score] : move_scores) {
 				if (score > best_score) {
 					best_score = score;
-					best_thread = t;
+					best_move = Move(move);
+				}
+			}
+
+			int best_thread = 0;
+			best_score = -1;
+			// pick thread w/ best move and highest score
+			for (int t = 0; t < num_threads; t++) {
+				if (tis[t].last_finished_pv[0] == best_move) {
+					int score = tis[t].thread_score(min_score);
+					if (score > best_score) {
+						best_score = score;
+						best_thread = t;
+					}
 				}
 			}
 
@@ -1316,8 +1341,6 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth, ThreadInfo *ti
 			}
 
 			std::cout << last_line.str() << std::endl;
-
-			best_move = best_ti.last_finished_pv[0];
 		} else if (minimal)
 			std::cout << last_line.str() << std::endl;
 		std::cout << "bestmove " << best_move.to_string() << std::endl;
