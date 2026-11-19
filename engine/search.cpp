@@ -440,7 +440,8 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 		ti.seldepth = std::max(ti.seldepth, ply);
 	}
 
-	nodes[ti.id]++;
+	if (depth > 0)
+		nodes[ti.id]++; // don't double count qsearch nodes
 
 	if (stop_search)
 		return 0;

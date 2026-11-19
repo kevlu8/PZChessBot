@@ -42,6 +42,10 @@
 #define VERSION "v8.0"
 #endif
 
+#if __INTELLISENSE__
+#pragma diag_suppress 1094
+#endif
+
 const double NormalizeToPawnValue = 3.71;
 
 typedef uint64_t Bitboard;
