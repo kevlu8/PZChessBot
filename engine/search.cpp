@@ -987,6 +987,10 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 
 			r -= corr_val * lmr_corr() / 128;
 
+			if (pos.checkers[pos.side]) {
+				r -= lmr_check();
+			}
+
 			if (!capt && !promo)
 				r -= hist * lmr_hist() / 128;
 			else if (capt)
