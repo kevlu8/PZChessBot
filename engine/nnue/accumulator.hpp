@@ -23,7 +23,7 @@
 #include "threats.hpp"
 #include "../bitboard.hpp"
 
-#define MAX_THREATS 64
+constexpr int MAX_THREATS = 64 + 48;
 
 struct AccumulatorManager {
 	struct AccumulatorPair {

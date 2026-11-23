@@ -47,3 +47,6 @@ extern int ATTACK_INDEX[14][14][2];
 
 // Returns the global threat index for the given arguments. Returns -1 if there is no threat
 int threat_index(bool perspective, Square kingsq, Piece attacker, Piece victim, Square src, Square dst);
+
+// Returns the combined threat index for an adjacent king-ring target, or -1 for a non-adjacent square.
+int kingring_index(bool perspective, Square own_king, bool king_side, Square kingsq, PieceType attacker, Square dst);

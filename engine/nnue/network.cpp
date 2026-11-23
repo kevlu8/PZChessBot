@@ -25,7 +25,15 @@ extern "C" {
 }
 
 void Network::load() {
-	char *ptr = (char *)gnetwork_weightsData;
+	constexpr size_t payload_size = sizeof(accumulator_weights) + sizeof(threat_weights)
+		+ sizeof(accumulator_biases) + sizeof(l1_weights) + sizeof(l1_biases)
+		+ sizeof(l2_weights) + sizeof(l2_biases) + sizeof(output_weights) + sizeof(output_biases);
+	// Network exports can include padding to the next 64-byte boundary.
+	constexpr size_t padded_size = (payload_size + 63) / 64 * 64;
+	if (gnetwork_weightsSize != payload_size && gnetwork_weightsSize != padded_size)
+		throw std::runtime_error("Unexpected NNUE file size for king-ring network");
+
+	const unsigned char *ptr = gnetwork_weightsData;
 
 	memcpy(accumulator_weights, ptr, sizeof(accumulator_weights));
 	ptr += sizeof(accumulator_weights);

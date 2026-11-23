@@ -136,3 +136,26 @@ int threat_index(bool perspective, Square kingsq, Piece attacker, Piece victim, 
 
 	return res;
 }
+
+int kingring_index(bool perspective, Square own_king, bool king_side, Square kingsq, PieceType attacker, Square dst) {
+	if (kingsq >= SQ_NONE || dst >= SQ_NONE || !(king_attacks(kingsq) & square_bits(dst)))
+		return -1;
+
+	int mask = (perspective == BLACK ? 56 : 0) ^ ((own_king & 7) >= FILE_E ? 7 : 0);
+	int king = kingsq ^ mask;
+	int target = dst ^ mask;
+	int direction;
+	switch (target - king) {
+		case -9: direction = 0; break; // SW
+		case -8: direction = 1; break; // S
+		case -7: direction = 2; break; // SE
+		case -1: direction = 3; break; // W
+		case  1: direction = 4; break; // E
+		case  7: direction = 5; break; // NW
+		case  8: direction = 6; break; // N
+		case  9: direction = 7; break; // NE
+		default: return -1;
+	}
+
+	return NTHREATS + (((king_side ^ perspective) * 64 + king) * 8 + direction) * 6 + (attacker - PAWN);
+}

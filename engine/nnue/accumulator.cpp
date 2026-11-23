@@ -18,6 +18,66 @@
 
 #include "accumulator.hpp"
 
+struct KingRing {
+	Square king;
+	Bitboard attacks[6] = {};
+};
+
+std::array<KingRing, 2> compute_kingrings(const Position &pos) {
+	std::array<KingRing, 2> rings;
+	Bitboard occ = pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)];
+	for (int side = WHITE; side <= BLACK; side++) {
+		KingRing &ring = rings[side];
+		ring.king = (Square)arch::tzcnt(pos.piece_boards[KING] & pos.piece_boards[OCC(side)]);
+
+		Bitboard targets = king_attacks(ring.king) & ~occ & pos.side_control[!side]; // targeted squares in king ring
+		if (!targets) continue;
+
+		Bitboard attackers = pos.piece_boards[OPPOCC(side)];
+		while (attackers) {
+			Square src = (Square)arch::tzcnt(attackers);
+			Piece piece = pos.mailbox[src];
+			ring.attacks[piece & 7] |= calc_attacks(piece, src, occ) & targets;
+			attackers = arch::blsr(attackers);
+		}
+	}
+	return rings;
+}
+
+// runs emit() on the indices of all kingrings
+void for_kingrings(const std::array<KingRing, 2> &rings, bool perspective, auto emit) {
+	for (int side = WHITE; side <= BLACK; side++) {
+		const KingRing &ring = rings[side];
+		for (int pt = PAWN; pt <= KING; pt++) {
+			Bitboard targets = ring.attacks[pt];
+			while (targets) {
+				Square dst = (Square)arch::tzcnt(targets);
+				emit(kingring_index(perspective, rings[perspective].king, side, ring.king, PieceType(pt), dst));
+				targets = arch::blsr(targets);
+			}
+		}
+	}
+}
+
+void compute_kingring_updates(const Position &before, const Position &after, AccumulatorManager::ThreatUpdate &tu) {
+	auto removed = compute_kingrings(before);
+	auto added = compute_kingrings(after);
+
+	for (int side = WHITE; side <= BLACK; side++) {
+		if (removed[side].king != added[side].king) continue;
+		for (int pt = PAWN; pt <= KING; pt++) {
+			Bitboard common = removed[side].attacks[pt] & added[side].attacks[pt];
+			removed[side].attacks[pt] ^= common;
+			added[side].attacks[pt] ^= common;
+		}
+	}
+
+	for_kingrings(removed, WHITE, [&](int index) { tu.remove_white(index); });
+	for_kingrings(removed, BLACK, [&](int index) { tu.remove_black(index); });
+	for_kingrings(added, WHITE, [&](int index) { tu.add_white(index); });
+	for_kingrings(added, BLACK, [&](int index) { tu.add_black(index); });
+}
+
 void compute_threat_updates(const Position &before, const Position &after, Bitboard changed, AccumulatorManager::ThreatUpdate &tu) {
 	Square wkingsq = (Square)arch::tzcnt(before.piece_boards[KING] & before.piece_boards[OCC(WHITE)]);
 	Square bkingsq = (Square)arch::tzcnt(before.piece_boards[KING] & before.piece_boards[OCC(BLACK)]);
@@ -76,6 +136,8 @@ void compute_threat_updates(const Position &before, const Position &after, Bitbo
 
 		affected = arch::blsr(affected);
 	}
+
+	compute_kingring_updates(before, after, tu);
 }
 
 void AccumulatorManager::AccumulatorPair::update_add(Square sq, PieceType pt, bool side, int wbucket, int bbucket) {
@@ -129,6 +191,10 @@ void AccumulatorManager::full_refresh(Position &pos, int index) {
 void AccumulatorManager::refresh_threats(Position &pos, int index, bool perspective) {
 	Accumulator &acc = perspective == WHITE ? accs[index].w_threats : accs[index].b_threats;
 	std::fill(acc.val, acc.val + L1_SIZE, 0);
+	auto add_threat = [&](int index) {
+		for (int k = 0; k < L1_SIZE; k++)
+			acc.val[k] += nnue_network.threat_weights[index][k];
+	};
 
 	Square kingsq = (Square)arch::tzcnt(pos.piece_boards[KING] & pos.piece_boards[OCC(perspective)]);
 	Bitboard occ = pos.piece_boards[OCC(WHITE)] | pos.piece_boards[OCC(BLACK)];
@@ -140,14 +206,12 @@ void AccumulatorManager::refresh_threats(Position &pos, int index, bool perspect
 		while (attacks) {
 			Square dst = (Square)arch::tzcnt(attacks);
 			int t_index = threat_index(perspective, kingsq, piece, pos.mailbox[dst], (Square)i, dst);
-			if (t_index >= 0) {
-				for (int k = 0; k < L1_SIZE; k++) {
-					acc.val[k] += nnue_network.threat_weights[t_index][k];
-				}
-			}
+			if (t_index >= 0) add_threat(t_index);
 			attacks = arch::blsr(attacks);
 		}
 	}
+	for_kingrings(compute_kingrings(pos), perspective, add_threat);
+
 	accs[index].threats_correct[perspective] = true;
 }
 
