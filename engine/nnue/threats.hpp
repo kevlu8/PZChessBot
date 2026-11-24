@@ -21,11 +21,11 @@
 #include "../bitboard.hpp"
 #include "../movegen.hpp"
 
-constexpr int NTARGETS[] = { 3, 5, 4, 4, 5, 0 }; // number of targets for each piece
+constexpr int NTARGETS[] = { 2, 5, 4, 4, 5, 0 }; // number of targets for each piece
 
 // Target index [src piece][victim piece]
 constexpr int TARGETS[6][6] = {
-	{  0,  1, -1,  2, -1, -1 },
+	{ -1,  0, -1,  1, -1, -1 },
 	{  0,  1,  2,  3,  4, -1 },
 	{  0,  1,  2,  3, -1, -1 },
 	{  0,  1,  2,  3, -1, -1 },
