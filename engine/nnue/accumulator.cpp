@@ -18,6 +18,37 @@
 
 #include "accumulator.hpp"
 
+// pp bits for files
+constexpr Bitboard PAWN_PAIR_FILES[] = {
+	FileABits | FileBBits,
+	FileABits | FileBBits | FileCBits,
+	FileBBits | FileCBits | FileDBits,
+	FileCBits | FileDBits | FileEBits,
+	FileDBits | FileEBits | FileFBits,
+	FileEBits | FileFBits | FileGBits,
+	FileFBits | FileGBits | FileHBits,
+	FileGBits | FileHBits
+};
+
+int pp_index(bool perspective, Square kingsq, Piece first, Piece second, Square src, Square dst) {
+	if (perspective) {
+		first = (Piece)(first ^ 8);
+		second = (Piece)(second ^ 8);
+		src = (Square)(src ^ 56);
+		dst = (Square)(dst ^ 56);
+	}
+
+	if ((kingsq & 7) >= FILE_E) {
+		src = (Square)(src ^ 7);
+		dst = (Square)(dst ^ 7);
+	}
+
+	int a = 48 * (first >> 3) + src - SQ_A2;
+	int b = 48 * (second >> 3) + dst - SQ_A2;
+	int m = std::max(a, b);
+	return m * (m - 1) / 2 + std::min(a, b);
+}
+
 void compute_threat_updates(const Position &before, const Position &after, Bitboard changed, AccumulatorManager::ThreatUpdate &tu) {
 	Square wkingsq = (Square)arch::tzcnt(before.piece_boards[KING] & before.piece_boards[OCC(WHITE)]);
 	Square bkingsq = (Square)arch::tzcnt(before.piece_boards[KING] & before.piece_boards[OCC(BLACK)]);
@@ -75,6 +106,45 @@ void compute_threat_updates(const Position &before, const Position &after, Bitbo
 		}
 
 		affected = arch::blsr(affected);
+	}
+
+	Bitboard old_p = before.piece_boards[PAWN] & ~(Rank1Bits | Rank8Bits);
+	Bitboard new_p = after.piece_boards[PAWN] & ~(Rank1Bits | Rank8Bits);
+
+	// capts can change color of "pawn" on same square
+	Bitboard changed_p = ((old_p & before.piece_boards[OCC(WHITE)]) ^ (new_p & after.piece_boards[OCC(WHITE)]))
+						  | ((old_p & before.piece_boards[OCC(BLACK)]) ^ (new_p & after.piece_boards[OCC(BLACK)]));
+	while (changed_p) {
+		Square src = (Square)arch::tzcnt(changed_p);
+		changed_p = arch::blsr(changed_p);
+		Bitboard src_bit = square_bits(src);
+		Bitboard files = PAWN_PAIR_FILES[src & 7];
+
+		if (old_p & src_bit) {
+			old_p ^= src_bit;
+			Bitboard removed = old_p & files;
+			while (removed) {
+				Square dst = (Square)arch::tzcnt(removed);
+				removed = arch::blsr(removed);
+				int w_p_index = pp_index(WHITE, wkingsq, before.mailbox[src], before.mailbox[dst], src, dst);
+				int b_p_index = pp_index(BLACK, bkingsq, before.mailbox[src], before.mailbox[dst], src, dst);
+				tu.remove_white(w_p_index);
+				tu.remove_black(b_p_index);
+			}
+		}
+
+		if (new_p & src_bit) {
+			new_p ^= src_bit;
+			Bitboard added = new_p & files;
+			while (added) {
+				Square dst = (Square)arch::tzcnt(added);
+				added = arch::blsr(added);
+				int w_p_index = pp_index(WHITE, wkingsq, after.mailbox[src], after.mailbox[dst], src, dst);
+				int b_p_index = pp_index(BLACK, bkingsq, after.mailbox[src], after.mailbox[dst], src, dst);
+				tu.add_white(w_p_index);
+				tu.add_black(b_p_index);
+			}
+		}
 	}
 }
 
@@ -146,6 +216,21 @@ void AccumulatorManager::refresh_threats(Position &pos, int index, bool perspect
 				}
 			}
 			attacks = arch::blsr(attacks);
+		}
+	}
+
+	Bitboard pawns = pos.piece_boards[PAWN] & ~(Rank1Bits | Rank8Bits);
+	while (pawns) {
+		Square src = (Square)arch::tzcnt(pawns);
+		pawns = arch::blsr(pawns);
+		Bitboard pairs = pawns & PAWN_PAIR_FILES[src & 7];
+		while (pairs) {
+			Square dst = (Square)arch::tzcnt(pairs);
+			pairs = arch::blsr(pairs);
+			int idx = pp_index(perspective, kingsq, pos.mailbox[src], pos.mailbox[dst], src, dst);
+			for (int k = 0; k < L1_SIZE; k++) {
+				acc.val[k] += nnue_network.threat_weights[idx][k];
+			}
 		}
 	}
 	accs[index].threats_correct[perspective] = true;
@@ -224,7 +309,7 @@ void AccumulatorManager::apply_lazy(Position &pos) {
 			while (index > 0 && !accs[index].threats_correct[perspective]) {
 				int bucket = perspective == WHITE ? accs[index].winbucket : accs[index].binbucket;
 				int prev_bucket = perspective == WHITE ? accs[index-1].winbucket : accs[index-1].binbucket;
-				// Threat indices only change when the king crosses the horizontal mirror
+				// threat indices only change when the king crosses the horizontal mirror
 				if ((bucket ^ prev_bucket) & 1) break;
 				index--;
 			}

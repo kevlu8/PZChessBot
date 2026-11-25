@@ -23,7 +23,7 @@
 #include "threats.hpp"
 #include "../bitboard.hpp"
 
-#define MAX_THREATS 64
+#define MAX_THREATS 93
 
 struct AccumulatorManager {
 	struct AccumulatorPair {

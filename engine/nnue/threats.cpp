@@ -88,11 +88,10 @@ __attribute__((constructor(108))) void init_attack_index() {
 			if (victim == 6 || victim == 7) continue; // undefined pieces
 
 			Piece vic = (Piece)victim;
-			bool opposite = (attacker >> 3) != (victim >> 3);
 			int target = TARGETS[atk & 7][vic & 7];
 
-			// for pieces, same piecetypes are semiexcluded. for pawns, opposite colors are semiexcluded
-			bool semi_excl = (atk & 7) == (vic & 7) && (opposite || (atk & 7) != PAWN);
+			// semi excl for only one "triangle"
+			bool semi_excl = (atk & 7) == (vic & 7);
 			bool excl = target == -1;
 
 			int p_offset = PIECE_OFFSET[attacker]; // total attacks of piece attacker
@@ -134,5 +133,5 @@ int threat_index(bool perspective, Square kingsq, Piece attacker, Piece victim, 
 		throw std::runtime_error("trop de menaces");
 	}
 
-	return res;
+	return NPP + res;
 }
