@@ -831,11 +831,11 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 			if (singular_score < singular_beta) {
 				extension++;
 
-				int dext_margin = dext_base() + dext_capt() * capt + dext_pv() * pv;
+				int dext_margin = dext_base() + dext_capt() * capt + dext_pv() * pv + dext_ttpv() * ttpv;
 				if (singular_score <= singular_beta - dext_margin)
 					extension++;
 
-				int text_margin = text_base() + text_capt() * capt;
+				int text_margin = text_base() + text_capt() * capt + text_ttpv() * ttpv;
 				if (!pv && singular_score <= singular_beta - text_margin)
 					extension++;
 			} else if (singular_score >= beta)

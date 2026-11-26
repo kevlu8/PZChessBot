@@ -79,8 +79,10 @@ TUNE(se_base, 69, 1, 160, 16); // quantized to 32
 TUNE(dext_base, 22, 10, 50, 5);
 TUNE(dext_capt, 7, 0, 100, 5);
 TUNE(dext_pv, 40, 0, 100, 5);
+TUNE(dext_ttpv, 20, 0, 100, 10);
 TUNE(text_base, 122, 50, 200, 10);
 TUNE(text_capt, 37, 0, 200, 10);
+TUNE(text_ttpv, 60, 0, 200, 10);
 TUNE(fp_const, 368, 100, 500, 30);
 TUNE(fp_depth, 93, 20, 200, 10);
 TUNE(fp_hist, 27, 10, 64, 5);
