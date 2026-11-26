@@ -1000,7 +1000,7 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 
 			if (score > alpha) {
 				// LMR search failed, re-search full depth
-				bool do_deeper = score > beta + dodeeper_margin();
+				bool do_deeper = score > best + dodeeper_margin();
 				bool do_shallower = !do_deeper && newdepth > 1 && score < best + newdepth + doshallower_margin();
 				newdepth += do_deeper;
 				newdepth -= do_shallower;
