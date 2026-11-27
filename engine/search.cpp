@@ -1129,7 +1129,7 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 	return best;
 }
 
-void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
+void iterativedeepening(Position &pos, ThreadInfo &ti, int depth, ThreadInfo *tis, std::barrier<> &finish_barrier) {
 	for (int i = 0; i < 64; i++) {
 		for (int j = 0; j < 64; j++) {
 			for (int k = 0; k < 2; k++) {
@@ -1191,8 +1191,16 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 		}
 		if (stop_search)
 			break;
-		eval = result;
+
+		ti.eval = eval = result;
 		Move mv = ti.pvtable[0][0];
+		ti.maxdepth = d;
+
+		// copy pv
+		for (int ply = 0; ply < ti.pvlen[0]; ply++) {
+			ti.last_finished_pv[ply] = ti.pvtable[0][ply];
+		}
+		ti.last_finished_pv[ti.pvlen[0]] = NullMove;
 
 		if (mv == best_move) {
 			consec_move++;
@@ -1238,10 +1246,6 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 				std::cout << last_line.str() << std::endl;
 
 			// only do time management on main thread
-			bool best_iscapt = pos.is_capture(best_move);
-			bool best_ispromo = (best_move.type() == PROMOTION);
-			bool in_check = pos.checkers[pos.side];
-
 			double soft = tm_soft() / 100.0;
 			if (d >= 6) {
 				double bm_stability = bm_base() / 100.0 - bm_mul() / 100.0 * consec_move;
@@ -1261,15 +1265,82 @@ void iterativedeepening(Position &pos, ThreadInfo &ti, int depth) {
 				break;
 			}
 		}
-
-		ti.maxdepth = d;
 	}
 
-	ti.eval = eval;
+	if (ti.is_main)
+		stop_search = true;
+
+	finish_barrier.arrive_and_wait();
 
 	if (ti.is_main) {
-		stop_search = true;
-		if (minimal)
+		if (num_threads > 1) {
+			// do thread voting here to get the real best move
+			// (score - min_score + offset) * depth
+			int min_score = VALUE_INFINITE;
+			for (int t = 0; t < num_threads; t++) {
+				min_score = std::min(min_score, (int)tis[t].eval);
+			}
+
+			std::unordered_map<uint16_t, int64_t> move_scores;
+			move_scores.reserve(64);
+			for (int t = 0; t < num_threads; t++) {
+				if (tis[t].last_finished_pv[0] == NullMove)
+					continue;
+				int score = tis[t].thread_score(min_score);
+				move_scores[tis[t].last_finished_pv[0].data] += score;
+			}
+
+			int64_t best_score = -1;
+			for (auto &[move, score] : move_scores) {
+				if (score > best_score) {
+					best_score = score;
+					best_move = Move(move);
+				}
+			}
+
+			int best_thread = 0;
+			best_score = -1;
+			// pick thread w/ best move and highest score
+			for (int t = 0; t < num_threads; t++) {
+				if (tis[t].last_finished_pv[0] == best_move) {
+					int score = tis[t].thread_score(min_score);
+					if (score > best_score) {
+						best_score = score;
+						best_thread = t;
+					}
+				}
+			}
+
+			uint64_t tot_nodes = 0;
+			for (int t = 0; t < num_threads; t++) {
+				tot_nodes += nodes[t].get();
+			}
+
+			// update the info line to reflect the best thread
+			ThreadInfo &best_ti = tis[best_thread];
+			last_line.str("");
+			last_line << "info depth " << best_ti.maxdepth << " seldepth " << best_ti.seldepth << " score " << score_to_uci(best_ti.eval);
+
+			if (show_wdl) {
+				auto [w, dr, l] = score_to_wdl(pos, best_ti.eval);
+				last_line << " wdl " << w << ' ' << dr << ' ' << l;
+			}
+
+			auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+
+			last_line << " time " << elapsed << " nodes " << tot_nodes << " nps " << (elapsed ? (tot_nodes * 1000 / elapsed) : tot_nodes);
+
+			if (elapsed >= 500)
+				last_line << " hashfull " << (int)(get_ttable_sz() * 1000);
+
+			last_line << " tbhits " << tbhits.load(std::memory_order_relaxed) << " pv";
+
+			for (int ply = 0; best_ti.last_finished_pv[ply] != NullMove; ply++) {
+				last_line << " " << best_ti.last_finished_pv[ply].to_string();
+			}
+
+			std::cout << last_line.str() << std::endl;
+		} else if (minimal)
 			std::cout << last_line.str() << std::endl;
 		std::cout << "bestmove " << best_move.to_string() << std::endl;
 	}

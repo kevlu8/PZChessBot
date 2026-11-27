@@ -34,7 +34,7 @@ private:
 	Position pos;
 	ThreadInfo *tis;
 
-	std::unique_ptr<std::barrier<>> start_barrier, ready_barrier, init_barrier;
+	std::unique_ptr<std::barrier<>> start_barrier, ready_barrier, init_barrier, finish_barrier;
 	std::shared_mutex mtx;
 	bool stop;
 
@@ -48,6 +48,7 @@ public:
 		start_barrier = std::make_unique<std::barrier<>>(2);
 		ready_barrier = std::make_unique<std::barrier<>>(2);
 		init_barrier = std::make_unique<std::barrier<>>(2);
+		finish_barrier = std::make_unique<std::barrier<>>(1);
 		threads.emplace_back(&Pool::thread_loop, this, 0);
 		init_barrier->arrive_and_wait();
 	}
@@ -57,6 +58,7 @@ public:
 		start_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
 		ready_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
 		init_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
+		finish_barrier = std::make_unique<std::barrier<>>(num_threads);
 		for (size_t i = 0; i < num_threads; ++i) {
 			threads.emplace_back(&Pool::thread_loop, this, i);
 		}

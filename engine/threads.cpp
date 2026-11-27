@@ -60,6 +60,7 @@ void Pool::resize(size_t num) {
 	start_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
 	ready_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
 	init_barrier = std::make_unique<std::barrier<>>(num_threads + 1);
+	finish_barrier = std::make_unique<std::barrier<>>(num_threads);
 	for (size_t i = 0; i < num_threads; ++i) {
 		threads.emplace_back(&Pool::thread_loop, this, i);
 	}
@@ -84,7 +85,7 @@ void Pool::thread_loop(size_t i) {
 			std::shared_lock lock(mtx);
 			ready_barrier->arrive_and_wait();
 
-			iterativedeepening(pos, tis[i], depth);
+			iterativedeepening(pos, tis[i], depth, tis, *finish_barrier);
 		}
 	}
 }
@@ -99,6 +100,9 @@ void Pool::search(Position &pos, RepetitionHandler &rp, int64_t time, int depth,
 		ti.rp = rp;
 		ti.am.full_refresh(pos, 0);
 		ti.seldepth = 0;
+		ti.maxdepth = 0;
+		ti.eval = 0;
+		ti.last_finished_pv[0] = NullMove;
 		nodes[t] = 0;
 		ti.id = t;
 		ti.is_main = (t == 0);

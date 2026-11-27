@@ -29,6 +29,8 @@
 #include "ttable.hpp"
 
 #include <algorithm>
+#include <barrier>
+#include <unordered_map>
 
 #define NMP_R_VALUE 7
 
@@ -68,6 +70,7 @@ struct alignas(4096) ThreadInfo {
 	alignas(64) History thread_hist;
 	alignas(64) Corrhist thread_corrhist;
 	Move pvtable[MAX_PLY + 5][MAX_PLY + 5];
+	Move last_finished_pv[MAX_PLY + 5];
 	int pvlen[MAX_PLY + 5] = {};
 	AccumulatorManager am;
 	bool nmp_disable = false;
@@ -79,11 +82,15 @@ struct alignas(4096) ThreadInfo {
 	~ThreadInfo() {
 		delete[] (ss - 8);
 	}
+
+	const int thread_score(const int min_score) const {
+		return (eval - min_score + 10) * maxdepth;
+	}
 };
 
 void prepare_search(int64_t time, int64_t maxnodes, bool quiet, uint16_t num_threads);
 
-void iterativedeepening(Position &pos, ThreadInfo &ti, int depth);
+void iterativedeepening(Position &pos, ThreadInfo &ti, int depth, ThreadInfo *tis, std::barrier<> &finish_barrier);
 
 uint64_t perft(Position &pos, int depth);
 
