@@ -524,16 +524,6 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 		tteval = tt_to_score(tentry->eval, ply);
 	if (!pv && tentry && is_valid_score(tteval) && tentry->depth >= depth && !excluded && (tteval <= alpha || cutnode)
 		&& ((tentry->bound() == EXACT) || (tentry->bound() == LOWER_BOUND && tteval >= beta) || (tentry->bound() == UPPER_BOUND && tteval <= alpha))) {
-		if (tentry->best_move != NullMove && tteval >= beta && !pos.is_capture(tentry->best_move)) {
-			/**
-			 * TT Cutoff history adjustment
-			 * 
-			 * If we have a valid TT cutoff with a quiet move, we can update the history table to
-			 * reflect that this move is good.
-			 */
-			int bonus = std::min(1024, tt_hist_mul() * depth + tt_hist_const());
-			ti.thread_hist.update_mainhist(pos, tentry->best_move, bonus);
-		}
 		// cut off
 		return tteval;
 	}
