@@ -522,15 +522,10 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 	bool ttcapt = false;
 	if (tentry && is_valid_score(tentry->eval))
 		tteval = tt_to_score(tentry->eval, ply);
-	if (!pv && tentry && is_valid_score(tteval) && tentry->depth >= depth && !excluded && (tteval <= alpha || cutnode)) {
-		// Check for cutoffs
-		if (tentry->bound() == EXACT) {
-			return tteval;
-		} else if (tentry->bound() == LOWER_BOUND && tteval >= beta) {
-			return tteval;
-		} else if (tentry->bound() == UPPER_BOUND && tteval <= alpha) {
-			return tteval;
-		}
+	if (!pv && tentry && is_valid_score(tteval) && tentry->depth >= depth && !excluded && (tteval <= alpha || cutnode)
+		&& ((tentry->bound() == EXACT) || (tentry->bound() == LOWER_BOUND && tteval >= beta) || (tentry->bound() == UPPER_BOUND && tteval <= alpha))) {
+		// cut off
+		return tteval;
 	}
 
 	if (tentry) {
