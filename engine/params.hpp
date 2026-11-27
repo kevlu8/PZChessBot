@@ -64,6 +64,10 @@ void handle_set(std::string optionname, std::string optionvalue);
 // Tunables go below
 TUNE(qs_see, -16, -100, 100, 10);
 TUNE(qsfp_margin, 297, 100, 500, 25);
+TUNE(eval_change_mul, 10, 0, 25, 3);
+TUNE(eval_change_base, 0, -100, 100, 10);
+TUNE(eval_change_min, -64, -256, 0, 16);
+TUNE(eval_change_max, 256, 0, 512, 32);
 TUNE(hindsight_ext_rate, -10, -100, 100, 10);
 TUNE(hindsight_red_rate, 100, 0, 200, 20);
 TUNE(rfp_threshold, 62, 20, 110, 10);

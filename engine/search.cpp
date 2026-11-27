@@ -593,6 +593,20 @@ Value negamax(Position &pos, ThreadInfo &ti, SSEntry *ss, int depth, Value alpha
 	}
 
 	ss->eval = in_check ? VALUE_NONE : cur_eval; // If in check, we don't have a valid eval yet
+	ss->pos = &pos;
+
+	/**
+	 * Eval-based move ordering
+	 * 
+	 * If the last move was a quiet move, we can use the change in evaluation to update the history table.
+	 * Basically, a large eval change (e.g. assuming a fixed white POV, +100 parent -> +150 child) should mean
+	 * that the move was good, and so we should increase its history score.
+	 */
+	if (!excluded && !root && !in_check && (ss - 1)->move != NullMove && !(ss - 1)->pos->is_capture((ss - 1)->move) && is_valid_score((ss - 1)->eval)) {
+		int gain = -(ss - 1)->eval - cur_eval;
+		int bonus = std::clamp(gain * eval_change_mul() + eval_change_base(), eval_change_min(), eval_change_max());
+		ti.thread_hist.update_mainhist(*(ss - 1)->pos, (ss - 1)->move, bonus);
+	}
 
 	/**
 	 * Improving flag

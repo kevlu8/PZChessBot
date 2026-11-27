@@ -43,6 +43,7 @@ struct SSEntry {
 	Move killer = NullMove;
 	PieceType piece = NO_PIECETYPE, captured = NO_PIECETYPE;
 	int cutoffcnt = 0, reduction = 0;
+	Position *pos = nullptr;
 
 	SSEntry() : move(NullMove), eval(VALUE_NONE), excl(NullMove), cont_hist(nullptr), corr_hist(nullptr), cutoffcnt(0) {}
 };
